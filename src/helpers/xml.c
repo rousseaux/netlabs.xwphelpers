@@ -3100,14 +3100,95 @@ APIRET xmlCreateDocument(const char *pcszRootElementName,   // in: root element 
 }
 
 /*
+ *@@ ESCAPES:
+ *
+ *@@added V0.9.21 (2002-08-21) [umoeller]
+ */
+
+typedef struct _ESCAPES
+{
+    XSTRING strQuot1,       // "
+            strQuot2,       // &quot;
+            strAmp1,        // &
+            strAmp2,        // &amp;
+            strLT1,         // <
+            strLT2,         // &lt;
+            strGT1,         // >
+            strGT2;         // &gt;
+
+    XSTRING strTemp;        // temp buffer
+
+} ESCAPES, *PESCAPES;
+
+/*
+ *@@ DoEscapes:
+ *
+ *@@added V0.9.21 (2002-08-21) [umoeller]
+ */
+
+VOID DoEscapes(PESCAPES pEscapes,
+               BOOL fQuotesToo)
+{
+    ULONG   ulOfs;
+    size_t  ShiftTable[256];
+    BOOL    fRepeat;
+
+    if (fQuotesToo)
+    {
+        ulOfs = 0;
+        fRepeat = FALSE;
+        while (xstrFindReplace(&pEscapes->strTemp,
+                               &ulOfs,
+                               &pEscapes->strQuot1,
+                               &pEscapes->strQuot2,
+                               ShiftTable,
+                               &fRepeat))
+            ;
+    }
+
+    ulOfs = 0;
+    fRepeat = FALSE;
+    while (xstrFindReplace(&pEscapes->strTemp,
+                           &ulOfs,
+                           &pEscapes->strLT1,
+                           &pEscapes->strLT2,
+                           ShiftTable,
+                           &fRepeat))
+        ;
+
+    ulOfs = 0;
+    fRepeat = FALSE;
+    while (xstrFindReplace(&pEscapes->strTemp,
+                           &ulOfs,
+                           &pEscapes->strGT1,
+                           &pEscapes->strGT2,
+                           ShiftTable,
+                           &fRepeat))
+        ;
+
+    // replace ampersands last
+    ulOfs = 0;
+    fRepeat = FALSE;
+    while (xstrFindReplace(&pEscapes->strTemp,
+                           &ulOfs,
+                           &pEscapes->strAmp1,
+                           &pEscapes->strAmp2,
+                           ShiftTable,
+                           &fRepeat))
+        ;
+}
+
+/*
  *@@ WriteNodes:
  *      internal helper for writing out the nodes.
  *      This recurses.
  *
  *@@added V0.9.12 (2001-05-21) [umoeller]
+ *@@changed V0.9.21 (2002-08-21) [umoeller]: changed prototype, fixed unescaped characters in attributes and content
  */
 
 static VOID WriteNodes(PXSTRING pxstr,
+                       PESCAPES pEscapes,
                        PDOMNODE pDomNode)       // in: node whose children are to be written (initially DOCUMENT)
 {
     PLISTNODE pListNode;
@@ -3142,7 +3223,17 @@ static VOID WriteNodes(PXSTRING pxstr,
                     xstrcat(pxstr, "\n    ", 0);
                     xstrcats(pxstr, &pAttribNode->NodeBase.strNodeName);
                     xstrcat(pxstr, "=\"", 0);
-                    xstrcats(pxstr, pAttribNode->pstrNodeValue);
+
+                    // copy attribute value to temp buffer first
+                    // so we can escape quotes and ampersands
+                    // V0.9.21 (2002-08-21) [umoeller]
+                    xstrcpys(&pEscapes->strTemp, pAttribNode->pstrNodeValue);
+
+                    DoEscapes(pEscapes,
+                              TRUE);        // quotes too
+
+                    // alright, use that
+                    xstrcats(pxstr, &pEscapes->strTemp);
                     xstrcatc(pxstr, '\"');
                 }
 
@@ -3153,7 +3244,7 @@ static VOID WriteNodes(PXSTRING pxstr,
                     xstrcatc(pxstr, '>');
 
                     // recurse into this child element
-                    WriteNodes(pxstr, pChildNode);
+                    WriteNodes(pxstr, pEscapes, pChildNode);
 
                     if (!fMixedContent)
                         xstrcatc(pxstr, '\n');
@@ -3175,7 +3266,13 @@ static VOID WriteNodes(PXSTRING pxstr,
             case DOMNODE_TEXT:
             case DOMNODE_COMMENT:
                 // that's simple
-                xstrcats(pxstr, pChildNode->pstrNodeValue);
+                xstrcpys(&pEscapes->strTemp,
+                         pChildNode->pstrNodeValue);
+
+                DoEscapes(pEscapes,         // V0.9.21 (2002-08-21) [umoeller]
+                          FALSE);           // quotes not
+
+                xstrcats(pxstr, &pEscapes->strTemp);
             break;
 
             case DOMNODE_DOCUMENT_TYPE:
@@ -3287,6 +3384,8 @@ APIRET xmlWriteDocument(PDOMDOCUMENTNODE pDocument,     // in: document node
         arc = ERROR_INVALID_PARAMETER;
     else
     {
+        ESCAPES esc;
+
         // <?xml version="1.0" encoding="ISO-8859-1"?>
         xstrcpy(pxstr, "<?xml version=\"1.0\" encoding=\"", 0);
         xstrcat(pxstr, pcszEncoding, 0);
@@ -3300,8 +3399,30 @@ APIRET xmlWriteDocument(PDOMDOCUMENTNODE pDocument,     // in: document node
             xstrcatc(pxstr, '\n');
         }
 
+        xstrInitCopy(&esc.strQuot1, "\"", 0);
+        xstrInitCopy(&esc.strQuot2, "&quot;", 0);
+        xstrInitCopy(&esc.strAmp1, "&", 0);
+        xstrInitCopy(&esc.strAmp2, "&amp;", 0);
+        xstrInitCopy(&esc.strLT1, "<", 0);
+        xstrInitCopy(&esc.strLT2, "&lt;", 0);
+        xstrInitCopy(&esc.strGT1, ">", 0);
+        xstrInitCopy(&esc.strGT2, "&gt;", 0);
+
+        xstrInit(&esc.strTemp, 0);       // temp buffer
+
         // write out children
-        WriteNodes(pxstr, (PDOMNODE)pDocument);
+        WriteNodes(pxstr, &esc, (PDOMNODE)pDocument);
+
+        xstrClear(&esc.strQuot1);
+        xstrClear(&esc.strQuot2);
+        xstrClear(&esc.strAmp1);
+        xstrClear(&esc.strAmp2);
+        xstrClear(&esc.strLT1);
+        xstrClear(&esc.strLT2);
+        xstrClear(&esc.strGT1);
+        xstrClear(&esc.strGT2);
+
+        xstrClear(&esc.strTemp);       // temp buffer
 
         xstrcatc(pxstr, '\n');
     }

@@ -66,6 +66,9 @@
  *      such as the corresponding OS/2 codepage
  *      number and a descriptive string.
  *
+ *      For a way too extensive list of codepage
+ *      names, see "http://www.iana.org/assignments/character-sets".
+ *
  *@@added V [umoeller]
  */
 
@@ -75,61 +78,67 @@ struct
     PXWPENCODINGMAP     pMap;               // ptr to map from include\encodings\*.h
     unsigned long       cEntries;           // entries in map (array item count)
     unsigned short      usCodepageOS2;      // corresponding OS/2 codepage or 0 if none
+                                            // V0.9.21 (2002-08-21) [umoeller]
+    unsigned short      usLatin;            // ISO 8859-X correspondance or 0
     ENCBYTECOUNT        bc;
     const char          *pcszDescription;   // description
 } G_aEncodings[] =
     {
         #define ENCODINGENTRY(id)   enc_ ## id, G_ ## id, ARRAYITEMCOUNT(G_ ## id)
 
-        ENCODINGENTRY(cp437), 437, SINGLE, "DOS Latin US",
-        ENCODINGENTRY(cp737), 737, SINGLE, "DOS Greek",
-        ENCODINGENTRY(cp775), 775, SINGLE, "DOS BaltRim",
-        ENCODINGENTRY(cp850), 850, SINGLE, "DOS Latin 1",
-        ENCODINGENTRY(cp852), 852, SINGLE, "DOS Latin 2",               // default in Hungary,
-                                                                // Romania, Poland
-        ENCODINGENTRY(cp855), 855, SINGLE, "DOS Cyrillic",
-        ENCODINGENTRY(cp857), 857, SINGLE, "DOS Latin 5 (Turkish)",
-        ENCODINGENTRY(cp860), 860, SINGLE, "DOS Portuguese",
-        ENCODINGENTRY(cp861), 861, SINGLE, "DOS Icelandic",
-        ENCODINGENTRY(cp862), 862, SINGLE, "DOS Hebrew",
-        ENCODINGENTRY(cp863), 863, SINGLE, "DOS Canadian French",
-        ENCODINGENTRY(cp864), 864, SINGLE, "DOS Arabic",                // default in Egypt
-        ENCODINGENTRY(cp865), 865, SINGLE, "DOS Nordic",
-        ENCODINGENTRY(cp866), 866, SINGLE, "DOS Cyrillic Russian",      // default in Russia
-        ENCODINGENTRY(cp869), 869, SINGLE, "DOS Greek2",
-        ENCODINGENTRY(cp874), 874, SINGLE, "DOS Thai (TIS-620)",        // default in Thailand
+        ENCODINGENTRY(cp437),      437,  0, SINGLE, "DOS Latin US",
+        ENCODINGENTRY(cp737),      737,  0, SINGLE, "DOS Greek",
+        ENCODINGENTRY(cp775),      775,  0, SINGLE, "DOS BaltRim",
+        ENCODINGENTRY(cp850),      850,  0, SINGLE, "DOS Latin 1",
+        ENCODINGENTRY(cp852),      852,  0, SINGLE, "DOS Latin 2",               // default in Hungary,
+                                                                                 // Romania, Poland
+        ENCODINGENTRY(cp855),      855,  0, SINGLE, "DOS Cyrillic",
+        ENCODINGENTRY(cp857),      857,  0, SINGLE, "DOS Latin 5 (Turkish)",
+        ENCODINGENTRY(cp860),      860,  0, SINGLE, "DOS Portuguese",
+        ENCODINGENTRY(cp861),      861,  0, SINGLE, "DOS Icelandic",
+        ENCODINGENTRY(cp862),      862,  0, SINGLE, "DOS Hebrew",
+        ENCODINGENTRY(cp863),      863,  0, SINGLE, "DOS Canadian French",
+        ENCODINGENTRY(cp864),      864,  0, SINGLE, "DOS Arabic",                // default in Egypt
+        ENCODINGENTRY(cp865),      865,  0, SINGLE, "DOS Nordic",
+        ENCODINGENTRY(cp866),      866,  0, SINGLE, "DOS Cyrillic Russian",      // default in Russia
+        ENCODINGENTRY(cp869),      869,  0, SINGLE, "DOS Greek2",
+        ENCODINGENTRY(cp874),      874,  0, SINGLE, "DOS Thai (TIS-620)",        // default in Thailand
 
-        ENCODINGENTRY(cp932), 932 /* or 943?*/ , DOUBLE, "Japanese Windows",
-        ENCODINGENTRY(cp936), 936 /* or 946?*/ , DOUBLE, "Chinese",
-        ENCODINGENTRY(cp949), 951 /* or 949?*/ , DOUBLE, "Korean",
-        ENCODINGENTRY(cp950), 947 /* or 950?*/ , DOUBLE, "Taiwan Big-5",           // default in China?
+        ENCODINGENTRY(cp932),      932 /* or 943?*/ ,
+                                         0, DOUBLE, "Japanese Windows",
+        ENCODINGENTRY(cp936),      936 /* or 946?*/ ,
+                                         0, DOUBLE, "Chinese",
+        ENCODINGENTRY(cp949),      951 /* or 949?*/ ,
+                                         0, DOUBLE, "Korean",
+        ENCODINGENTRY(cp950),      947 /* or 950?*/ ,
+                                         0, DOUBLE, "Taiwan Big-5",           // default in China?
 
-        ENCODINGENTRY(cp1004), 1004, SINGLE, "Windows Extended",
-        ENCODINGENTRY(cp1250), 1250, SINGLE, "Windows Latin 2",
-        ENCODINGENTRY(cp1251), 1251, SINGLE, "Windows Cyrillic",
-        ENCODINGENTRY(cp1252), 1252, SINGLE, "Windows Latin 1",
-        ENCODINGENTRY(cp1253), 1253, SINGLE, "Windows Greek",
-        ENCODINGENTRY(cp1254), 1254, SINGLE, "Windows Turkish",
-        ENCODINGENTRY(cp1255), 1255, SINGLE, "Windows Hebrew",
-        ENCODINGENTRY(cp1256), 1256, SINGLE, "Windows Arabic",
-        ENCODINGENTRY(cp1257), 1257, SINGLE, "Windows Latin-4",
-        ENCODINGENTRY(cp1258), 1258, UNKNOWN, "unknown",
-        ENCODINGENTRY(iso8859_1), 819, SINGLE, "ISO/IEC 8859-1:1998 (Latin-1)",
-        ENCODINGENTRY(iso8859_2), 912, SINGLE, "ISO 8859-2:1999 (Latin-2)",
-        ENCODINGENTRY(iso8859_3), 913, SINGLE, "ISO/IEC 8859-3:1999 (Latin-3)",
-        ENCODINGENTRY(iso8859_4), 914, SINGLE, "ISO/IEC 8859-4:1998 (Latin-4)",
-        ENCODINGENTRY(iso8859_5), 915, SINGLE, "ISO 8859-5:1999 (Cyrillic)",
-        ENCODINGENTRY(iso8859_6), 1089, SINGLE, "ISO 8859-6:1999 (Arabic)",
-        ENCODINGENTRY(iso8859_7), 813, SINGLE, "ISO 8859-7:1987 (Greek)",   // default in Greece
-        ENCODINGENTRY(iso8859_8), 916, SINGLE, "ISO/IEC 8859-8:1999 (Hebrew)",
-        ENCODINGENTRY(iso8859_9), 920, SINGLE, "ISO/IEC 8859-9:1999 (Latin-5)",
-        ENCODINGENTRY(iso8859_10), 0, SINGLE, "ISO/IEC 8859-10:1998",
-        ENCODINGENTRY(iso8859_13), 0, SINGLE, "ISO/IEC 8859-13:1998",
-        ENCODINGENTRY(iso8859_14), 0, SINGLE, "ISO/IEC 8859-14:1998",
-        ENCODINGENTRY(iso8859_15), 923, SINGLE, "ISO/IEC 8859-15:1999",
+        ENCODINGENTRY(cp1004),    1004,  0, SINGLE, "Windows Extended",
+        ENCODINGENTRY(cp1250),    1250,  0, SINGLE, "Windows Latin 2",
+        ENCODINGENTRY(cp1251),    1251,  0, SINGLE, "Windows Cyrillic",
+        ENCODINGENTRY(cp1252),    1252,  0, SINGLE, "Windows Latin 1",
+        ENCODINGENTRY(cp1253),    1253,  0, SINGLE, "Windows Greek",
+        ENCODINGENTRY(cp1254),    1254,  0, SINGLE, "Windows Turkish",
+        ENCODINGENTRY(cp1255),    1255,  0, SINGLE, "Windows Hebrew",
+        ENCODINGENTRY(cp1256),    1256,  0, SINGLE, "Windows Arabic",
+        ENCODINGENTRY(cp1257),    1257,  0, SINGLE, "Windows Latin-4",
+        ENCODINGENTRY(cp1258),    1258,  0, UNKNOWN, "unknown",
+        ENCODINGENTRY(iso8859_1),  819,  1, SINGLE, "ISO/IEC 8859-1:1998 (Latin-1)",
+        ENCODINGENTRY(iso8859_2),  912,  2, SINGLE, "ISO 8859-2:1999 (Latin-2)",
+        ENCODINGENTRY(iso8859_3),  913,  3, SINGLE, "ISO/IEC 8859-3:1999 (Latin-3)",
+        ENCODINGENTRY(iso8859_4),  914,  4, SINGLE, "ISO/IEC 8859-4:1998 (Latin-4)",
+        ENCODINGENTRY(iso8859_5),  915,  5, SINGLE, "ISO 8859-5:1999 (Cyrillic)",
+        ENCODINGENTRY(iso8859_6), 1089,  6, SINGLE, "ISO 8859-6:1999 (Arabic)",
+        ENCODINGENTRY(iso8859_7),  813,  7, SINGLE, "ISO 8859-7:1987 (Greek)",   // default in Greece
+        ENCODINGENTRY(iso8859_8),  916,  8, SINGLE, "ISO/IEC 8859-8:1999 (Hebrew)",
+        ENCODINGENTRY(iso8859_9),  920,  9, SINGLE, "ISO/IEC 8859-9:1999 (Latin-5)",
+        ENCODINGENTRY(iso8859_10),   0, 10, SINGLE, "ISO/IEC 8859-10:1998",
+        ENCODINGENTRY(iso8859_13),   0, 13, SINGLE, "ISO/IEC 8859-13:1998",
+        ENCODINGENTRY(iso8859_14),   0, 14, SINGLE, "ISO/IEC 8859-14:1998",
+        ENCODINGENTRY(iso8859_15), 923, 15, SINGLE, "ISO/IEC 8859-15:1999",
 
-        UNSUPPORTED, NULL, 0, 1200, MULTI_UNICODE, "Unicode UCS-2",
-        UNSUPPORTED, NULL, 0, 1208, MULTI_UNICODE, "Unicode UTF-8"
+        UNSUPPORTED, NULL, 0,     1200,  0, MULTI_UNICODE, "Unicode UCS-2",
+        UNSUPPORTED, NULL, 0,     1208,  0, MULTI_UNICODE, "Unicode UTF-8"
     };
 
 /*

@@ -1,4 +1,3 @@
-
 /*
  *@@sourcefile debug.c:
  *      this file contains debugging functions for the
@@ -43,6 +42,8 @@
  *      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *      GNU General Public License for more details.
  */
+
+//#define DEBUG_SYMDUMP // enable to dump sym file to log V0.9.21 (2002-08-21) [paperino]
 
 #define OS2EMX_PLAIN_CHAR
     // this is needed for "os2emx.h"; if this is defined,
@@ -1535,27 +1536,48 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
                     SymOffset, SymPtrOffset;
 
     // open .SYM file
+#ifdef DEBUG_SYMDUMP    // V0.9.21 (2002-08-21) [paperino]
+    fprintf(LogFile,"Dump of '%s' for object %d\n",SymFileName,Object);
+#endif
     SymFile = fopen(SymFileName, "rb");
     if (SymFile == 0)
         return (2);
 
     // read in first map definition
     fread(&MapDef, sizeof(MAPDEF), 1, SymFile);
+#ifdef DEBUG_SYMDUMP
+    Buffer[0] = MapDef.achModName[0];
+    fread(&Buffer[1], 1, MapDef.cbModName-1, SymFile);
+    Buffer[MapDef.cbModName] = 0x00;
+    fprintf(LogFile,"Module name '%s'\n",Buffer);
+#endif
 
     SegOffset = SEGDEFOFFSET(MapDef);
+#ifdef DEBUG_SYMDUMP
+    fprintf(LogFile,"SegOffset %0x\n",SegOffset);
+#endif
 
     // go thru all segments
     for (SegNum = 0;
          SegNum < MapDef.cSegs;
          SegNum++)
     {
-        // printf("Scanning segment #%d Offset %4.4hX\n",SegNum+1,SegOffset);
+#ifdef DEBUG_SYMDUMP
+        fprintf(LogFile,"Scanning segment #%d Offset %08X\n",SegNum,SegOffset);
+#endif
         if (fseek(SymFile, SegOffset, SEEK_SET))
             // seek error
             return (3);
 
         // read in segment definition
         fread(&SegDef, sizeof(SEGDEF), 1, SymFile);
+        Buffer[0] = SegDef.achSegName[0];
+        fread(&Buffer[1], 1, SegDef.cbSegName-1, SymFile);
+        Buffer[SegDef.cbSegName] = 0x00;
+#ifdef DEBUG_SYMDUMP
+        fprintf(LogFile,"Segment name '%s', number %d, flags %02x\n",Buffer,SegNum,SegDef.bFlags);
+#endif
+
         if (SegNum == Object)
         {
             // stack object found:
@@ -1563,17 +1585,12 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
             LastVal = 0;
 
             // go thru all symbols in this object
+#ifdef DEBUG_SYMDUMP
+            fprintf(LogFile,"Scanning #%d symbols\n",SegDef.cSymbols);
+#endif
             for (SymNum = 0; SymNum < SegDef.cSymbols; SymNum++)
             {
-
-                // read in symbol offset USHORT
-                SymPtrOffset = SYMDEFOFFSET(SegOffset, SegDef, SymNum);
-                fseek(SymFile, SymPtrOffset, SEEK_SET);
-                fread(&SymOffset, sizeof(unsigned short int), 1, SymFile);
-
-                // go to symbol definition
-                fseek(SymFile, SymOffset + SegOffset, SEEK_SET);
-
+                // fixed syms > 64 K V0.9.21 (2002-08-21) [paperino]
                 if (SegDef.bFlags & 0x01)
                 {
                     // 32-bit symbol:
@@ -1593,8 +1610,11 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
 
                     LastVal = SymDef32.wSymVal;
                     Buffer[0] = SymDef32.achSymName[0];
-                    fread(&Buffer[1], 1, SymDef32.cbSymName, SymFile);
+                    fread(&Buffer[1], 1, SymDef32.cbSymName-1, SymFile);
                     Buffer[SymDef32.cbSymName] = 0x00;
+#ifdef DEBUG_SYMDUMP
+                    fprintf(LogFile,"32 Bit Symbol Address %08p <%s> \n",SymDef32.wSymVal,Buffer);
+#endif
 
                     if (SymDef32.wSymVal > TrapOffset)
                     {
@@ -1607,7 +1627,6 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
                         fprintf(LogFile, "\n");
                         break;
                     }
-                    /*printf("32 Bit Symbol <%s> Address %p\n",Buffer,SymDef32.wSymVal); */
                 }
                 else
                 {
@@ -1622,7 +1641,7 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
                     }
                     LastVal = SymDef16.wSymVal;
                     Buffer[0] = SymDef16.achSymName[0];
-                    fread(&Buffer[1], 1, SymDef16.cbSymName, SymFile);
+                    fread(&Buffer[1], 1, SymDef16.cbSymName-1, SymFile);
                     Buffer[SymDef16.cbSymName] = 0x00;
                     if (SymDef16.wSymVal > TrapOffset)
                     {
@@ -1633,7 +1652,9 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
                                 LastVal - TrapOffset);
                         break;
                     }
-                    /*printf("16 Bit Symbol <%s> Address %p\n",Buffer,SymDef16.wSymVal); */
+#ifdef DEBUG_SYMDUMP
+                    fprintf(LogFile,"16 Bit Symbol <%s> Address %p\n",Buffer,SymDef16.wSymVal);
+#endif
                 }               // endif
             }
             break;

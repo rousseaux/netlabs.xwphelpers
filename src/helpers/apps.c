@@ -800,6 +800,7 @@ ULONG appIsWindowsApp(ULONG ulProgCategory)
  *      --  ERROR_FILE_NOT_FOUND
  *
  *@@added V0.9.20 (2002-07-03) [umoeller]
+ *@@changed V0.9.21 (2002-08-21) [umoeller]: now allowing for UNC
  */
 
 static APIRET CheckAndQualifyExecutable(PPROGDETAILS pDetails,          // in/out: program details
@@ -810,8 +811,13 @@ static APIRET CheckAndQualifyExecutable(PPROGDETAILS pDetails,          // in/ou
     ULONG ulAttr;
     // check if the executable is fully qualified; if so,
     // check if the executable file exists
-    if (    (pDetails->pszExecutable[1] == ':')
-         && (strchr(pDetails->pszExecutable, '\\'))
+    if (    // allow UNC V0.9.21 (2002-08-21) [umoeller]
+            (    (pDetails->pszExecutable[0] == '\\')
+              && (pDetails->pszExecutable[1] == '\\')
+            )
+         || (    (pDetails->pszExecutable[1] == ':')
+              && (strchr(pDetails->pszExecutable, '\\'))
+            )
        )
     {
         arc = doshQueryPathAttr(pDetails->pszExecutable,
@@ -1179,11 +1185,17 @@ APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem
     PSZ             pszWinOS2Env = 0;
 
     PROGDETAILS     Details;
+    ULONG           ulIsWinApp;
+
+    // parameter checking extended V0.9.21 (2002-08-21) [umoeller]
+    if (    (!pcProgDetails)
+         || (!pcProgDetails->pszExecutable)
+         || (!pcProgDetails->pszExecutable[0])
+         || (!ppDetails)
+       )
+        return ERROR_INVALID_PARAMETER;
 
     *ppDetails = NULL;
-
-    if (!pcProgDetails && !ppDetails)
-        return ERROR_INVALID_PARAMETER;
 
     /*
      * part 1:
@@ -1198,156 +1210,146 @@ APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem
     Details.Length = sizeof(PROGDETAILS);
     Details.progt.fbVisible = SHE_VISIBLE;
 
-    // all this only makes sense if this contains something...
-    // besides, this crashed on string comparisons V0.9.9 (2001-01-27) [umoeller]
-    if (    (!Details.pszExecutable)
-         || (!Details.pszExecutable[0])
+    // memset(&Details.swpInitial, 0, sizeof(SWP));
+    // this wasn't a good idea... WPProgram stores stuff
+    // in here, such as the "minimize on startup" -> SWP_MINIMIZE
+
+    // duplicate parameters...
+    // we need this for string manipulations below...
+    if (    (Details.pszParameters)
+         && (Details.pszParameters[0])    // V0.9.18
        )
-        arc = ERROR_INVALID_PARAMETER;
-    else
+        xstrcpy(&strParamsPatched,
+                Details.pszParameters,
+                0);
+
+    #ifdef DEBUG_PROGRAMSTART
+        _PmpfF((" old progc: 0x%lX", pcProgDetails->progt.progc));
+        _Pmpf(("  pszTitle: %s", STRINGORNULL(Details.pszTitle)));
+        _Pmpf(("  pszExecutable: %s", STRINGORNULL(Details.pszExecutable)));
+        _Pmpf(("  pszParameters: %s", STRINGORNULL(Details.pszParameters)));
+        _Pmpf(("  pszIcon: %s", STRINGORNULL(Details.pszIcon)));
+    #endif
+
+    // program type fixups
+    switch (Details.progt.progc)        // that's a ULONG
     {
-        ULONG           ulIsWinApp;
-
-        // memset(&Details.swpInitial, 0, sizeof(SWP));
-        // this wasn't a good idea... WPProgram stores stuff
-        // in here, such as the "minimize on startup" -> SWP_MINIMIZE
-
-        // duplicate parameters...
-        // we need this for string manipulations below...
-        if (    (Details.pszParameters)
-             && (Details.pszParameters[0])    // V0.9.18
-           )
-            xstrcpy(&strParamsPatched,
-                    Details.pszParameters,
-                    0);
-
-        #ifdef DEBUG_PROGRAMSTART
-            _PmpfF((" old progc: 0x%lX", pcProgDetails->progt.progc));
-            _Pmpf(("  pszTitle: %s", STRINGORNULL(Details.pszTitle)));
-            _Pmpf(("  pszExecutable: %s", STRINGORNULL(Details.pszExecutable)));
-            _Pmpf(("  pszParameters: %s", STRINGORNULL(Details.pszParameters)));
-            _Pmpf(("  pszIcon: %s", STRINGORNULL(Details.pszIcon)));
-        #endif
-
-        // program type fixups
-        switch (Details.progt.progc)        // that's a ULONG
+        case ((ULONG)-1):       // we get that sometimes...
+        case PROG_DEFAULT:
         {
-            case ((ULONG)-1):       // we get that sometimes...
-            case PROG_DEFAULT:
-            {
-                // V0.9.12 (2001-05-26) [umoeller]
-                ULONG ulDosAppType;
-                appQueryAppType(Details.pszExecutable,
-                                &ulDosAppType,
-                                &Details.progt.progc);
-            }
-            break;
+            // V0.9.12 (2001-05-26) [umoeller]
+            ULONG ulDosAppType;
+            appQueryAppType(Details.pszExecutable,
+                            &ulDosAppType,
+                            &Details.progt.progc);
         }
+        break;
+    }
 
-        // set session type from option flags
+    // set session type from option flags
+    if (ulFlags & APP_RUN_FULLSCREEN)
+    {
+        if (Details.progt.progc == PROG_WINDOWABLEVIO)
+            Details.progt.progc = PROG_FULLSCREEN;
+        else if (Details.progt.progc == PROG_WINDOWEDVDM)
+            Details.progt.progc = PROG_VDM;
+    }
+
+    if (ulIsWinApp = appIsWindowsApp(Details.progt.progc))
+    {
         if (ulFlags & APP_RUN_FULLSCREEN)
+            Details.progt.progc = (ulFlags & APP_RUN_ENHANCED)
+                                            ? PROG_31_ENH
+                                            : PROG_31_STD;
+        else
         {
-            if (Details.progt.progc == PROG_WINDOWABLEVIO)
-                Details.progt.progc = PROG_FULLSCREEN;
-            else if (Details.progt.progc == PROG_WINDOWEDVDM)
-                Details.progt.progc = PROG_VDM;
+            if (ulFlags & APP_RUN_STANDARD)
+                Details.progt.progc = (ulFlags & APP_RUN_SEPARATE)
+                                            ? PROG_31_STDSEAMLESSVDM
+                                            : PROG_31_STDSEAMLESSCOMMON;
+            else if (ulFlags & APP_RUN_ENHANCED)
+                Details.progt.progc = (ulFlags & APP_RUN_SEPARATE)
+                                            ? PROG_31_ENHSEAMLESSVDM
+                                            : PROG_31_ENHSEAMLESSCOMMON;
         }
 
-        if (ulIsWinApp = appIsWindowsApp(Details.progt.progc))
-        {
-            if (ulFlags & APP_RUN_FULLSCREEN)
-                Details.progt.progc = (ulFlags & APP_RUN_ENHANCED)
-                                                ? PROG_31_ENH
-                                                : PROG_31_STD;
-            else
-            {
-                if (ulFlags & APP_RUN_STANDARD)
-                    Details.progt.progc = (ulFlags & APP_RUN_SEPARATE)
-                                                ? PROG_31_STDSEAMLESSVDM
-                                                : PROG_31_STDSEAMLESSCOMMON;
-                else if (ulFlags & APP_RUN_ENHANCED)
-                    Details.progt.progc = (ulFlags & APP_RUN_SEPARATE)
-                                                ? PROG_31_ENHSEAMLESSVDM
-                                                : PROG_31_ENHSEAMLESSCOMMON;
-            }
+        // re-run V0.9.16 (2001-10-19) [umoeller]
+        ulIsWinApp = appIsWindowsApp(Details.progt.progc);
+    }
 
-            // re-run V0.9.16 (2001-10-19) [umoeller]
-            ulIsWinApp = appIsWindowsApp(Details.progt.progc);
-        }
+    /*
+     * command lines fixups:
+     *
+     */
 
+    if (!strcmp(Details.pszExecutable, "*"))
+    {
         /*
-         * command lines fixups:
+         * "*" for command sessions:
          *
          */
 
-        if (!strcmp(Details.pszExecutable, "*"))
+        if (ulIsWinApp)
         {
-            /*
-             * "*" for command sessions:
-             *
-             */
+            // cheat: WinStartApp doesn't support NULL
+            // for Win-OS2 sessions, so manually start winos2.com
+            Details.pszExecutable = "WINOS2.COM";
+            // this is a DOS app, so fix this to DOS fullscreen
+            Details.progt.progc = PROG_VDM;
 
-            if (ulIsWinApp)
+            if (ulIsWinApp == 2)
             {
-                // cheat: WinStartApp doesn't support NULL
-                // for Win-OS2 sessions, so manually start winos2.com
-                Details.pszExecutable = "WINOS2.COM";
-                // this is a DOS app, so fix this to DOS fullscreen
-                Details.progt.progc = PROG_VDM;
+                // enhanced Win-OS/2 session:
+                PSZ psz = NULL;
+                if (strParamsPatched.ulLength)
+                    // "/3 " + existing params
+                    psz = strdup(strParamsPatched.psz);
 
-                if (ulIsWinApp == 2)
+                xstrcpy(&strParamsPatched, "/3 ", 0);
+
+                if (psz)
                 {
-                    // enhanced Win-OS/2 session:
-                    PSZ psz = NULL;
-                    if (strParamsPatched.ulLength)
-                        // "/3 " + existing params
-                        psz = strdup(strParamsPatched.psz);
-
-                    xstrcpy(&strParamsPatched, "/3 ", 0);
-
-                    if (psz)
-                    {
-                        xstrcat(&strParamsPatched, psz, 0);
-                        free(psz);
-                    }
+                    xstrcat(&strParamsPatched, psz, 0);
+                    free(psz);
                 }
             }
-            else
-                // for all other executable types
-                // (including OS/2 and DOS sessions),
-                // set pszExecutable to NULL; this will
-                // have WinStartApp start a cmd shell
-                Details.pszExecutable = NULL;
+        }
+        else
+            // for all other executable types
+            // (including OS/2 and DOS sessions),
+            // set pszExecutable to NULL; this will
+            // have WinStartApp start a cmd shell
+            Details.pszExecutable = NULL;
 
-        } // end if (strcmp(pProgDetails->pszExecutable, "*") == 0)
+    } // end if (strcmp(pProgDetails->pszExecutable, "*") == 0)
 
-        // else
+    // else
 
-        // no, this else breaks the WINOS2.COM hack above... we
-        // need to look for that on the PATH as well
-        // V0.9.20 (2002-07-03) [umoeller]
-        if (Details.pszExecutable)
+    // no, this else breaks the WINOS2.COM hack above... we
+    // need to look for that on the PATH as well
+    // V0.9.20 (2002-07-03) [umoeller]
+    if (Details.pszExecutable)
+    {
+        // check the executable and look for it on the
+        // PATH if necessary
+        if (!(arc = CheckAndQualifyExecutable(&Details,
+                                              &strExecutablePatched)))
         {
-            // check the executable and look for it on the
-            // PATH if necessary
-            if (!(arc = CheckAndQualifyExecutable(&Details,
-                                                  &strExecutablePatched)))
-            {
-                PSZ pszExtension;
+            PSZ pszExtension;
 
-                // make sure startup dir is really a directory
-                // V0.9.20 (2002-07-03) [umoeller]: moved this down
-                if (Details.pszStartupDir)
-                {
-                    ULONG ulAttr;
-                    // it is valid to specify a startup dir of "C:"
-                    if (    (strlen(Details.pszStartupDir) > 2)
-                         && (!(arc = doshQueryPathAttr(Details.pszStartupDir,
-                                                       &ulAttr)))
-                         && (!(ulAttr & FILE_DIRECTORY))
-                       )
-                        arc = ERROR_PATH_NOT_FOUND;
-                }
+            // make sure startup dir is really a directory
+            // V0.9.20 (2002-07-03) [umoeller]: moved this down
+            if (Details.pszStartupDir)
+            {
+                ULONG ulAttr;
+                // it is valid to specify a startup dir of "C:"
+                if (    (strlen(Details.pszStartupDir) > 2)
+                     && (!(arc = doshQueryPathAttr(Details.pszStartupDir,
+                                                   &ulAttr)))
+                     && (!(ulAttr & FILE_DIRECTORY))
+                   )
+                    arc = ERROR_PATH_NOT_FOUND;
+            }
 
 // V0.9.21: this define is never set. I have thus completely
 // disabled the batch hacks that we used to provide, that is
@@ -1360,135 +1362,134 @@ APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem
 // reports "c:\path" not found or something. What a bitch.
 #ifdef ENABLEBATCHHACKS
 
-                // we frequently get here for BAT and CMD files
-                // with progtype == PROG_DEFAULT, so include
-                // that in the check, or all BAT files will fail
-                // V0.9.20 (2002-07-03) [umoeller]
+            // we frequently get here for BAT and CMD files
+            // with progtype == PROG_DEFAULT, so include
+            // that in the check, or all BAT files will fail
+            // V0.9.20 (2002-07-03) [umoeller]
 
-                switch (Details.progt.progc)
+            switch (Details.progt.progc)
+            {
+                /*
+                 *  .CMD files fixups
+                 *
+                 */
+
+                case PROG_DEFAULT:          // V0.9.20 (2002-07-03) [umoeller]
+                case PROG_FULLSCREEN:       // OS/2 fullscreen
+                case PROG_WINDOWABLEVIO:    // OS/2 window
                 {
-                    /*
-                     *  .CMD files fixups
-                     *
-                     */
-
-                    case PROG_DEFAULT:          // V0.9.20 (2002-07-03) [umoeller]
-                    case PROG_FULLSCREEN:       // OS/2 fullscreen
-                    case PROG_WINDOWABLEVIO:    // OS/2 window
+                    if (    (pszExtension = doshGetExtension(Details.pszExecutable))
+                         && (!stricmp(pszExtension, "CMD"))
+                       )
                     {
-                        if (    (pszExtension = doshGetExtension(Details.pszExecutable))
-                             && (!stricmp(pszExtension, "CMD"))
-                           )
-                        {
-                            arc = CallBatchCorrectly(&Details,
-                                                     &strExecutablePatched,
-                                                     &strParamsPatched,
-                                                     "OS2_SHELL",
-                                                     "CMD.EXE");
-                        }
+                        arc = CallBatchCorrectly(&Details,
+                                                 &strExecutablePatched,
+                                                 &strParamsPatched,
+                                                 "OS2_SHELL",
+                                                 "CMD.EXE");
                     }
-                    break;
+                }
+                break;
+            }
+
+            switch (Details.progt.progc)
+            {
+                case PROG_DEFAULT:          // V0.9.20 (2002-07-03) [umoeller]
+                case PROG_VDM:              // DOS fullscreen
+                case PROG_WINDOWEDVDM:      // DOS window
+                {
+                    if (    (pszExtension = doshGetExtension(Details.pszExecutable))
+                         && (!stricmp(pszExtension, "BAT"))
+                       )
+                    {
+                        arc = CallBatchCorrectly(&Details,
+                                                 &strExecutablePatched,
+                                                 &strParamsPatched,
+                                                 // there is no environment variable
+                                                 // for the DOS shell
+                                                 NULL,
+                                                 "COMMAND.COM");
+                    }
+                }
+                break;
+            } // end switch (Details.progt.progc)
+#endif // ENABLEBATCHHACKS
+        }
+    }
+
+    if (!arc)
+    {
+        if (    (ulIsWinApp)
+             && (    (!(Details.pszEnvironment))
+                  || (!(*Details.pszEnvironment))
+                )
+           )
+        {
+            // this is a windoze app, and caller didn't bother
+            // to give us an environment:
+            // we MUST set one then, or we'll get the strangest
+            // errors, up to system hangs. V0.9.12 (2001-05-26) [umoeller]
+
+            DOSENVIRONMENT Env = {0};
+
+            // get standard WIN-OS/2 environment
+            PSZ pszTemp;
+            if (!(arc = appQueryDefaultWin31Environment(&pszTemp)))
+            {
+                if (!(arc = appParseEnvironment(pszTemp,
+                                                &Env)))
+                {
+                    // now override KBD_CTRL_BYPASS=CTRL_ESC
+                    if (    (!(arc = appSetEnvironmentVar(&Env,
+                                                          "KBD_CTRL_BYPASS=CTRL_ESC",
+                                                          FALSE)))        // add last
+                         && (!(arc = appConvertEnvironment(&Env,
+                                                           &pszWinOS2Env,   // freed at bottom
+                                                           NULL)))
+                       )
+                        Details.pszEnvironment = pszWinOS2Env;
+
+                    appFreeEnvironment(&Env);
                 }
 
-                switch (Details.progt.progc)
-                {
-                    case PROG_DEFAULT:          // V0.9.20 (2002-07-03) [umoeller]
-                    case PROG_VDM:              // DOS fullscreen
-                    case PROG_WINDOWEDVDM:      // DOS window
-                    {
-                        if (    (pszExtension = doshGetExtension(Details.pszExecutable))
-                             && (!stricmp(pszExtension, "BAT"))
-                           )
-                        {
-                            arc = CallBatchCorrectly(&Details,
-                                                     &strExecutablePatched,
-                                                     &strParamsPatched,
-                                                     // there is no environment variable
-                                                     // for the DOS shell
-                                                     NULL,
-                                                     "COMMAND.COM");
-                        }
-                    }
-                    break;
-                } // end switch (Details.progt.progc)
-#endif // ENABLEBATCHHACKS
+                free(pszTemp);
             }
         }
 
         if (!arc)
         {
-            if (    (ulIsWinApp)
-                 && (    (!(Details.pszEnvironment))
-                      || (!(*Details.pszEnvironment))
-                    )
-               )
+            // if no title is given, use the executable
+            if (!Details.pszTitle)
+                Details.pszTitle = Details.pszExecutable;
+
+            // make sure params have a leading space
+            // V0.9.18 (2002-03-27) [umoeller]
+            if (strParamsPatched.ulLength)
             {
-                // this is a windoze app, and caller didn't bother
-                // to give us an environment:
-                // we MUST set one then, or we'll get the strangest
-                // errors, up to system hangs. V0.9.12 (2001-05-26) [umoeller]
-
-                DOSENVIRONMENT Env = {0};
-
-                // get standard WIN-OS/2 environment
-                PSZ pszTemp;
-                if (!(arc = appQueryDefaultWin31Environment(&pszTemp)))
+                if (strParamsPatched.psz[0] != ' ')
                 {
-                    if (!(arc = appParseEnvironment(pszTemp,
-                                                    &Env)))
-                    {
-                        // now override KBD_CTRL_BYPASS=CTRL_ESC
-                        if (    (!(arc = appSetEnvironmentVar(&Env,
-                                                              "KBD_CTRL_BYPASS=CTRL_ESC",
-                                                              FALSE)))        // add last
-                             && (!(arc = appConvertEnvironment(&Env,
-                                                               &pszWinOS2Env,   // freed at bottom
-                                                               NULL)))
-                           )
-                            Details.pszEnvironment = pszWinOS2Env;
-
-                        appFreeEnvironment(&Env);
-                    }
-
-                    free(pszTemp);
+                    XSTRING str2;
+                    xstrInit(&str2, 0);
+                    xstrcpy(&str2, " ", 1);
+                    xstrcats(&str2, &strParamsPatched);
+                    xstrcpys(&strParamsPatched, &str2);
+                    xstrClear(&str2);
+                            // we really need xstrInsert or something
                 }
+                Details.pszParameters = strParamsPatched.psz;
             }
-
-            if (!arc)
-            {
-                // if no title is given, use the executable
-                if (!Details.pszTitle)
-                    Details.pszTitle = Details.pszExecutable;
-
-                // make sure params have a leading space
-                // V0.9.18 (2002-03-27) [umoeller]
-                if (strParamsPatched.ulLength)
-                {
-                    if (strParamsPatched.psz[0] != ' ')
-                    {
-                        XSTRING str2;
-                        xstrInit(&str2, 0);
-                        xstrcpy(&str2, " ", 1);
-                        xstrcats(&str2, &strParamsPatched);
-                        xstrcpys(&strParamsPatched, &str2);
-                        xstrClear(&str2);
-                                // we really need xstrInsert or something
-                    }
-                    Details.pszParameters = strParamsPatched.psz;
-                }
-                else
-                    // never pass null pointers
-                    Details.pszParameters = "";
-
+            else
                 // never pass null pointers
-                if (!Details.pszIcon)
-                    Details.pszIcon = "";
+                Details.pszParameters = "";
 
-                // never pass null pointers
-                if (!Details.pszStartupDir)
-                    Details.pszStartupDir = "";
+            // never pass null pointers
+            if (!Details.pszIcon)
+                Details.pszIcon = "";
 
-            }
+            // never pass null pointers
+            if (!Details.pszStartupDir)
+                Details.pszStartupDir = "";
+
         }
     }
 
@@ -2073,7 +2074,7 @@ APIRET appQuickStartApp(const char *pcszFile,
     HAPP           happReturn = NULLHANDLE;
     CHAR           szDir[CCHMAXPATH] = "";
     PCSZ           p;
-    HWND           hwndObject;
+    HWND           hwndObject = NULLHANDLE;
 
     pd.Length = sizeof(pd);
     pd.progt.progc = ulProgType;
@@ -2091,7 +2092,11 @@ APIRET appQuickStartApp(const char *pcszFile,
         pd.pszStartupDir = szDir;
     }
 
-    if (    (hwndObject = winhCreateObjectWindow(WC_STATIC, NULL))
+    if (pulExitCode)
+        if (!(hwndObject = winhCreateObjectWindow(WC_STATIC, NULL)))
+            arc = ERROR_NOT_ENOUGH_MEMORY;
+
+    if (    (!arc)
          && (!(arc = appStartApp(hwndObject,
                                  &pd,
                                  0,
@@ -2104,9 +2109,10 @@ APIRET appQuickStartApp(const char *pcszFile,
             appWaitForApp(hwndObject,
                           *phapp,
                           pulExitCode);
-
-        WinDestroyWindow(hwndObject);       // was missing V0.9.20 (2002-08-10) [umoeller]
     }
+
+    if (hwndObject)
+        WinDestroyWindow(hwndObject);       // was missing V0.9.20 (2002-08-10) [umoeller]
 
     return arc;
 }
@@ -2120,17 +2126,23 @@ APIRET appQuickStartApp(const char *pcszFile,
  *      that URL.
  *
  *@@added V0.9.20 (2002-08-10) [umoeller]
+ *@@changed V0.9.21 (2002-08-21) [umoeller]: changed prototype to return browser
  */
 
 APIRET appOpenURL(PCSZ pcszURL,           // in: URL to open
-                  PSZ pszAppStarted,      // out: application that was started
+                  PSZ pszAppStarted,      // out: application that was started (req.)
                   ULONG cbAppStarted)     // in: size of that buffer
 {
-    APIRET      arc = NO_ERROR;
+    APIRET      arc = ERROR_NO_DATA;
 
-    CHAR        szBrowser[CCHMAXPATH],
-                szStartupDir[CCHMAXPATH];
+    CHAR        szStartupDir[CCHMAXPATH];
     XSTRING     strParameters;
+
+    if (    (!pcszURL)
+         || (!pszAppStarted)
+         || (!cbAppStarted)
+       )
+        return ERROR_INVALID_PARAMETER;
 
     xstrInit(&strParameters, 0);
 
@@ -2138,8 +2150,8 @@ APIRET appOpenURL(PCSZ pcszURL,           // in: URL to open
                               "WPURLDEFAULTSETTINGS",
                               "DefaultBrowserExe",
                               "NETSCAPE.EXE",
-                              szBrowser,
-                              sizeof(szBrowser)))
+                              pszAppStarted,
+                              cbAppStarted))
     {
         PSZ     pszDefParams;
         HAPP    happ;
@@ -2163,18 +2175,12 @@ APIRET appOpenURL(PCSZ pcszURL,           // in: URL to open
                               szStartupDir,
                               sizeof(szStartupDir));
 
-
-        arc = appQuickStartApp(szBrowser,
+        arc = appQuickStartApp(pszAppStarted,
                                PROG_DEFAULT,
                                strParameters.psz,
                                szStartupDir,
                                &happ,
                                NULL);     // don't wait
-
-        if (pszAppStarted)
-            strhncpy0(pszAppStarted,
-                      szBrowser,
-                      cbAppStarted);
     }
 
     xstrClear(&strParameters);
