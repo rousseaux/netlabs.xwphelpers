@@ -672,9 +672,7 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
          */
 
         if (G_pfnExcHook)
-        {
-            (*G_pfnExcHook)(file, ptib);
-        }
+            G_pfnExcHook(file, ptib, ulOldPriority);  // V0.9.16 (2001-12-02) [pr]
 
         // *** registers
 

@@ -365,16 +365,20 @@ extern "C" {
     {
         HFILE       hf;
         ULONG       hmtx;       // a HMTX really
+        ULONG       flOpenMode; // as given to doshOpen
         ULONG       cbInitial,  // intial file size on open (can be 0 if new)
                     cbCurrent;  // current file size (raised with each write)
     } XFILE, *PXFILE;
 
-    #define XOPEN_READ_EXISTING             1
-    #define XOPEN_READWRITE_APPEND          2
-    #define XOPEN_READWRITE_NEW             3
+    #define XOPEN_READ_EXISTING           0x0001
+    #define XOPEN_READWRITE_APPEND        0x0002
+    #define XOPEN_READWRITE_NEW           0x0003
+    #define XOPEN_ACCESS_MASK             0xffff
+
+    #define XOPEN_BINARY              0x10000000
 
     APIRET doshOpen(PCSZ pcszFilename,
-                    ULONG ulOpenMode,
+                    ULONG flOpenMode,
                     PULONG pcbFile,
                     PXFILE *ppFile);
 

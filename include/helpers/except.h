@@ -101,7 +101,7 @@ extern "C" {
     typedef FNEXCOPENFILE *PFNEXCOPENFILE;
 
     // "exception" hook
-    typedef VOID APIENTRY FNEXCHOOK(FILE*, PTIB);
+    typedef VOID APIENTRY FNEXCHOOK(FILE*, PTIB, ULONG);  // V0.9.16 (2001-12-02) [pr]
     typedef FNEXCHOOK *PFNEXCHOOK;
 
     // "error" hook

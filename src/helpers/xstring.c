@@ -84,7 +84,7 @@
  */
 
 /*
- *      Copyright (C) 1999-2000 Ulrich M”ller.
+ *      Copyright (C) 1999-2001 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -219,9 +219,7 @@ void xstrInitSet(PXSTRING pxstr,
                  PSZ pszNew)
 {
     if (!pszNew)
-    {
         memset(pxstr, 0, sizeof(XSTRING));
-    }
     else
     {
         pxstr->psz = pszNew;
@@ -791,12 +789,11 @@ ULONG xstrcats(PXSTRING pxstr,
  +          //  positions:       0123456789012345678901
  +          //                             1         2
  +
- +          xstrInitCopy(&xstrReplacement, "stupid");
- +
  +          xstrrpl(&xstr,
  +                  10,     // position of "test"
  +                  4,      // length of "test"
- +                  &xstrReplacement);
+ +                  "stupid",
+ +                  6);     // strlen("stupid")
  *
  *      This would yield "This is a stupid string."
  *
@@ -877,16 +874,10 @@ ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
             if (cReplaceWithLen)
             {
                 // we have a replacement:
-                // insert it next
-
-                /* memcpy(pszNew + ulFirstReplOfs,
-                       pstrReplaceWith->psz,
-                       cReplaceWithLen + 1);        // include null terminator
-                */
-                // no, we no longer can be sure that pcszReplaceWith is
-                // null terminated, so terminate explicitly
+                // insert it next...
+                // we no longer can be sure that pcszReplaceWith
+                // is null terminated, so terminate explicitly
                 // V0.9.11 (2001-04-22) [umoeller]
-
                 memcpy(pszNew + ulFirstReplOfs,
                        pcszReplaceWith,
                        cReplaceWithLen);

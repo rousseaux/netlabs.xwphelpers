@@ -1676,6 +1676,14 @@ APIRET doshReadAt(HFILE hf,        // in: OS/2 file handle
  +      |  XOPEN_READWRITE_NEW    | r/w  | replaces  | creates   |
  +      +-------------------------+------+-----------+-----------+
  *
+ *      In addition, you can specify the XOPEN_BINARY flag:
+ *
+ *      --  If XOPEN_BINARY is set, no conversion is performed
+ *          on read and write.
+ *
+ *      --  If XOPEN_BINARY is _not_ set, all \n chars are
+ *          converted to \r\n on write.
+ *
  *      *ppFile receives a new XFILE structure describing
  *      the open file, if NO_ERROR is returned.
  *
@@ -1683,7 +1691,7 @@ APIRET doshReadAt(HFILE hf,        // in: OS/2 file handle
  */
 
 APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
-                ULONG ulOpenMode,       // in: XOPEN_* mode
+                ULONG flOpenMode,       // in: XOPEN_* mode
                 PULONG pcbFile,         // in: new file size (if new file is created)
                                         // out: file size
                 PXFILE *ppFile)
@@ -1695,13 +1703,14 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
                           | OPEN_FLAGS_NO_LOCALITY
                           | OPEN_FLAGS_NOINHERIT;
 
-    switch (ulOpenMode)
+    switch (flOpenMode & XOPEN_ACCESS_MASK)
     {
         case XOPEN_READ_EXISTING:
             fsOpenFlags =   OPEN_ACTION_FAIL_IF_NEW
                           | OPEN_ACTION_OPEN_IF_EXISTS;
             fsOpenMode |=   OPEN_SHARE_DENYWRITE
                           | OPEN_ACCESS_READONLY;
+            // _Pmpf((__FUNCTION__ ": opening XOPEN_READ_EXISTING"));
         break;
 
         case XOPEN_READWRITE_APPEND:
@@ -1709,6 +1718,7 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
                           | OPEN_ACTION_OPEN_IF_EXISTS;
             fsOpenMode |=   OPEN_SHARE_DENYREADWRITE
                           | OPEN_ACCESS_READWRITE;
+            // _Pmpf((__FUNCTION__ ": opening XOPEN_READWRITE_APPEND"));
         break;
 
         case XOPEN_READWRITE_NEW:
@@ -1716,10 +1726,14 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
                           | OPEN_ACTION_REPLACE_IF_EXISTS;
             fsOpenMode |=   OPEN_SHARE_DENYREADWRITE
                           | OPEN_ACCESS_READWRITE;
+            // _Pmpf((__FUNCTION__ ": opening XOPEN_READWRITE_NEW"));
         break;
+
+        default:
+            arc = ERROR_INVALID_PARAMETER;
     }
 
-    if (pcszFilename && fsOpenFlags && pcbFile && ppFile)
+    if ((!arc) && pcszFilename && fsOpenFlags && pcbFile && ppFile)
     {
         PXFILE pFile;
         if (pFile = NEW(XFILE))
@@ -1727,6 +1741,9 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
             ULONG ulAction;
 
             ZERO(pFile);
+
+            // copy open flags
+            pFile->flOpenMode = flOpenMode;
 
             if (!(arc = DosOpen((PSZ)pcszFilename,
                                 &pFile->hf,
@@ -1740,7 +1757,7 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
                 // alright, got the file:
 
                 if (    (ulAction == FILE_EXISTED)
-                     && (ulOpenMode == XOPEN_READWRITE_APPEND)
+                     && ((flOpenMode & XOPEN_ACCESS_MASK) == XOPEN_READWRITE_APPEND)
                    )
                     // get its size and set ptr to end for append
                     arc = DosSetFilePtr(pFile->hf,
@@ -1813,14 +1830,19 @@ APIRET doshUnlockFile(PXFILE pFile)
  *      If (cb == 0), this runs strlen on pcsz
  *      to find out the length.
  *
+ *      If the file is not in binary mode, all
+ *      \n chars are converted to \r\n before
+ *      writing.
+ *
  *@@added V0.9.16 (2001-10-19) [umoeller]
+ *@@changed V0.9.16 (2001-12-02) [umoeller]: added XOPEN_BINARY \r\n support
  */
 
 APIRET doshWrite(PXFILE pFile,
                  PCSZ pcsz,
                  ULONG cb)
 {
-    APIRET arc;
+    APIRET arc = NO_ERROR;
     if (!pcsz)
         arc = ERROR_INVALID_PARAMETER;
     else
@@ -1831,17 +1853,70 @@ APIRET doshWrite(PXFILE pFile,
         if (!cb)
             arc = ERROR_INVALID_PARAMETER;
         else
-            if (!(arc = doshLockFile(pFile)))   // this checks for pFile
-            {
-                ULONG cbWritten;
-                if (!(arc = DosWrite(pFile->hf,
-                                     (PSZ)pcsz,
-                                     cb,
-                                     &cbWritten)))
-                    pFile->cbCurrent += cbWritten;
+        {
+            PSZ pszNew = NULL;
 
-                doshUnlockFile(pFile);
+            if (!(pFile->flOpenMode & XOPEN_BINARY))
+            {
+                // convert all \n to \r\n:
+                // V0.9.16 (2001-12-02) [umoeller]
+
+                // count all \n first
+                ULONG cNewLines = 0;
+                PCSZ pSource = pcsz;
+                ULONG ul;
+                for (ul = 0;
+                     ul < cb;
+                     ul++)
+                {
+                    if (*pSource++ == '\n')
+                        cNewLines++;
+                }
+
+                if (cNewLines)
+                {
+                    // we have '\n' chars:
+                    // then we need just as many \r chars inserted
+                    ULONG cbNew = cb + cNewLines;
+                    if (!(pszNew = (PSZ)malloc(cbNew)))
+                        arc = ERROR_NOT_ENOUGH_MEMORY;
+                    else
+                    {
+                        PSZ pTarget = pszNew;
+                        pSource = pcsz;
+                        for (ul = 0;
+                             ul < cb;
+                             ul++)
+                        {
+                            CHAR c = *pSource++;
+                            if (c == '\n')
+                                *pTarget++ = '\r';
+                            *pTarget++ = c;
+                        }
+
+                        cb = cbNew;
+                    }
+                }
             }
+
+            if (!arc)
+                if (!(arc = doshLockFile(pFile)))   // this checks for pFile
+                {
+                    ULONG cbWritten;
+                    if (!(arc = DosWrite(pFile->hf,
+                                         (pszNew)
+                                                ? pszNew
+                                                : (PSZ)pcsz,
+                                         cb,
+                                         &cbWritten)))
+                        pFile->cbCurrent += cbWritten;
+
+                    doshUnlockFile(pFile);
+                }
+
+            if (pszNew)
+                free(pszNew);
+        }
     }
 
     return (arc);
@@ -1853,8 +1928,7 @@ APIRET doshWrite(PXFILE pFile,
  *      leading timestamp before the line.
  *
  *      The internal string buffer is limited to 2000
- *      characters. \n is NOT translated to \r\n before
- *      writing.
+ *      characters. Length checking is _not_ performed.
  */
 
 APIRET doshWriteLogEntry(PXFILE pFile,
@@ -1882,7 +1956,9 @@ APIRET doshWriteLogEntry(PXFILE pFile,
             ulLength = vsprintf(szTemp, pcszFormat, arg_ptr);
             va_end(arg_ptr);
 
-            szTemp[ulLength++] = '\r';
+            if (pFile->flOpenMode & XOPEN_BINARY)
+                // if we're in binary mode, we need to add \r too
+                szTemp[ulLength++] = '\r';
             szTemp[ulLength++] = '\n';
 
             arc = doshWrite(pFile,

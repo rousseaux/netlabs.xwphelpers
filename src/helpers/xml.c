@@ -275,6 +275,12 @@ const char* xmlDescribeError(int code)
             return ("Element declaration outside doctype");
         case ERROR_DOM_ATTLIST_DECL_OUTSIDE_DOCTYPE:
             return ("Attlist declaration outside doctype");
+
+        case ERROR_DOM_INCOMPLETE_ENCODING_MAP:
+            return ("Incomplete encoding map specified");
+
+        case ERROR_DOM_INVALID_EXTERNAL_HANDLER:
+            return ("Invalid 'external' handler specified");
     }
 
     return NULL;
@@ -1549,17 +1555,19 @@ void EXPATENTRY StartElementHandler(void *pUserData,      // in: our PXMLDOM rea
                                                                 papcszAttribs[i],      // attr name
                                                                 papcszAttribs[i + 1],  // attr value
                                                                 &pAttrib)))
+                    {
                         // shall we validate?
                         if (pDom->pDocTypeNode)
                             ValidateAttributeType(pDom,
                                                   pAttrib,
                                                   &pAttribDeclBase);
+                    }
                     else
                     {
                         xmlSetError(pDom,
                                     pDom->arcDOM,
                                     papcszAttribs[i],
-                                    TRUE);      // validation
+                                    FALSE);      // validation
                         break;
                     }
                 }

@@ -1581,7 +1581,10 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
                     if (SymDef32.wSymVal > TrapOffset)
                     {
                         // symbol found
-                        fprintf(LogFile, "between %s + 0x%lX ", Buffer, TrapOffset - LastVal);
+                        fprintf(LogFile,
+                                "between %s + 0x%lX ",
+                                Buffer,
+                                TrapOffset - LastVal);
                         /* fprintf(LogFile, "(ppLineDef: 0x%lX) ",
                                     LINEDEFOFFSET(SegDef)
                                     ); */
@@ -1596,8 +1599,11 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
                     if (SymDef32.wSymVal > TrapOffset)
                     {
                         // symbol found, as above
-                        fprintf(LogFile, "                                         "
-                                         "and %s - 0x%lX ", Buffer, LastVal - TrapOffset);
+                        fprintf(LogFile,
+                                "                                     "
+                                "and %s - 0x%lX ",
+                                Buffer,
+                                LastVal - TrapOffset);
                         fprintf(LogFile, "\n");
                         break;
                     }
@@ -1609,9 +1615,10 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
                     fread(&SymDef16, sizeof(SYMDEF16), 1, SymFile);
                     if (SymDef16.wSymVal > TrapOffset)
                     {
-                        fprintf(LogFile, "between %s + %lX\n",
-                                         Buffer,
-                                         TrapOffset - LastVal);
+                        fprintf(LogFile,
+                                "between %s + %lX\n",
+                                Buffer,
+                                TrapOffset - LastVal);
                     }
                     LastVal = SymDef16.wSymVal;
                     Buffer[0] = SymDef16.achSymName[0];
@@ -1619,10 +1626,11 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
                     Buffer[SymDef16.cbSymName] = 0x00;
                     if (SymDef16.wSymVal > TrapOffset)
                     {
-                        fprintf(LogFile, "                                         "
-                                         "and %s - %lX\n",
-                                         Buffer,
-                                         LastVal - TrapOffset);
+                        fprintf(LogFile,
+                                "                                     "
+                                "and %s - %lX\n",
+                                Buffer,
+                                LastVal - TrapOffset);
                         break;
                     }
                     /*printf("16 Bit Symbol <%s> Address %p\n",Buffer,SymDef16.wSymVal); */

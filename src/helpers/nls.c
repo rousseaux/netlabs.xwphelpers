@@ -324,6 +324,7 @@ VOID nlsFileTime(PSZ pszBuf,           // out: string returned
  *      for more detailed parameter descriptions.
  *
  *@@added V0.9.0 (99-11-07) [umoeller]
+ *@@changed V0.9.16 (2001-12-05) [pr]: fixed AM/PM hour bug
  */
 
 VOID nlsDateTime(PSZ pszDate,          // out: date string returned (can be NULL)
@@ -340,38 +341,38 @@ VOID nlsDateTime(PSZ pszDate,          // out: date string returned (can be NULL
         {
             case 0:  // mm.dd.yyyy  (English)
                 sprintf(pszDate, "%02d%c%02d%c%04d",
-                    pDateTime->month,
-                        cDateSep,
-                    pDateTime->day,
-                        cDateSep,
-                    pDateTime->year);
+                        pDateTime->month,
+                            cDateSep,
+                        pDateTime->day,
+                            cDateSep,
+                        pDateTime->year);
             break;
 
             case 1:  // dd.mm.yyyy  (e.g. German)
                 sprintf(pszDate, "%02d%c%02d%c%04d",
-                    pDateTime->day,
-                        cDateSep,
-                    pDateTime->month,
-                        cDateSep,
-                    pDateTime->year);
+                        pDateTime->day,
+                            cDateSep,
+                        pDateTime->month,
+                            cDateSep,
+                        pDateTime->year);
             break;
 
             case 2: // yyyy.mm.dd  (Japanese)
                 sprintf(pszDate, "%04d%c%02d%c%02d",
-                    pDateTime->year,
-                        cDateSep,
-                    pDateTime->month,
-                        cDateSep,
-                    pDateTime->day);
+                        pDateTime->year,
+                            cDateSep,
+                        pDateTime->month,
+                            cDateSep,
+                        pDateTime->day);
             break;
 
             default: // yyyy.dd.mm
                 sprintf(pszDate, "%04d%c%02d%c%02d",
-                    pDateTime->year,
-                        cDateSep,
-                    pDateTime->day,
-                        cDateSep,
-                    pDateTime->month);
+                        pDateTime->year,
+                            cDateSep,
+                        pDateTime->day,
+                            cDateSep,
+                        pDateTime->month);
             break;
         }
     }
@@ -383,53 +384,48 @@ VOID nlsDateTime(PSZ pszDate,          // out: date string returned (can be NULL
             // for 12-hour clock, we need additional INI data
             CHAR szAMPM[10] = "err";
 
-            if (pDateTime->hours > 12)
+            if (pDateTime->hours >= 12)  // V0.9.16 (2001-12-05) [pr] if (pDateTime->hours > 12)
             {
-                // > 12h: PM.
-
-                // Note: 12:xx noon is 12 AM, not PM (even though
-                // AM stands for "ante meridiam", but English is just
-                // not logical), so that's handled below.
-
+                // >= 12h: PM.
                 PrfQueryProfileString(HINI_USER,
-                    "PM_National",
-                    "s2359",        // key
-                    "PM",           // default
-                    szAMPM, sizeof(szAMPM)-1);
+                                      "PM_National",
+                                      "s2359",        // key
+                                      "PM",           // default
+                                      szAMPM, sizeof(szAMPM)-1);
                 sprintf(pszTime, "%02d%c%02d%c%02d %s",
-                    // leave 12 == 12 (not 0)
-                    pDateTime->hours % 12,
-                        cTimeSep,
-                    pDateTime->minutes,
-                        cTimeSep,
-                    pDateTime->seconds,
-                    szAMPM);
+                        // leave 12 == 12 (not 0)
+                        pDateTime->hours % 12,
+                            cTimeSep,
+                        pDateTime->minutes,
+                            cTimeSep,
+                        pDateTime->seconds,
+                        szAMPM);
             }
             else
             {
-                // <= 12h: AM
+                // < 12h: AM
                 PrfQueryProfileString(HINI_USER,
                                       "PM_National",
                                       "s1159",        // key
                                       "AM",           // default
                                       szAMPM, sizeof(szAMPM)-1);
                 sprintf(pszTime, "%02d%c%02d%c%02d %s",
-                    pDateTime->hours,
-                        cTimeSep,
-                    pDateTime->minutes,
-                        cTimeSep,
-                    pDateTime->seconds,
-                    szAMPM);
+                        pDateTime->hours,
+                            cTimeSep,
+                        pDateTime->minutes,
+                            cTimeSep,
+                        pDateTime->seconds,
+                        szAMPM);
             }
         }
         else
             // 24-hour clock
             sprintf(pszTime, "%02d%c%02d%c%02d",
-                pDateTime->hours,
-                    cTimeSep,
-                pDateTime->minutes,
-                    cTimeSep,
-                pDateTime->seconds);
+                    pDateTime->hours,
+                        cTimeSep,
+                    pDateTime->minutes,
+                        cTimeSep,
+                    pDateTime->seconds);
     }
 }
 
