@@ -348,13 +348,21 @@ extern "C" {
                                   PPOINTL pptlLowerLeft,
                                   ULONG ulIconSize); */
 
-    BOOL gpihDrawPointer(HPS hps,
-                         LONG x,
-                         LONG y,
-                         HPOINTER hptr,
-                         PSIZEL pszlIcon,
-                         PRECTL prclClip,
-                         ULONG fl);
+    BOOL XWPENTRY gpihDrawPointer(HPS hps,
+                                  LONG x,
+                                  LONG y,
+                                  HPOINTER hptr,
+                                  PSIZEL pszlIcon,
+                                  PRECTL prclClip,
+                                  ULONG fl);
+    typedef BOOL XWPENTRY GPIHDRAWPOINTER(HPS hps,
+                                          LONG x,
+                                          LONG y,
+                                          HPOINTER hptr,
+                                          PSIZEL pszlIcon,
+                                          PRECTL prclClip,
+                                          ULONG fl);
+    typedef GPIHDRAWPOINTER *PGPIHDRAWPOINTER;
 
     /* ******************************************************************
      *

@@ -2506,14 +2506,16 @@ BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap sel
  *@@ gpihDrawPointer:
  *      replacement for WinDrawPointer that can do clipping.
  *
- *      To do clipping with WinDrawPointer, one has to
- *      alter the clip rectangle for the current HPS,
- *      which involves creating regions and is thus quite
- *      some overhead.
+ *      Normally, to do clipping with WinDrawPointer, one
+ *      would have to alter the clip rectangle for the current
+ *      HPS, which requires creating regions and is thus quite
+ *      expensive.
  *
- *      Instead, this function  allows for specifying a clip
- *      rectangle directly. Besides, since it uses GpiWCBitBlt,
- *      it should probably work with all types of device contexts.
+ *      Instead, this function allows for specifying a clip
+ *      rectangle directly. It blits the icon bitmaps directly
+ *      without calling WinDrawPointer.
+ *      Besides, since it uses GpiWCBitBlt, it should probably
+ *      work with all types of device contexts.
  *
  *      This also replaces gpihIcon2Bitmap, which wasn't quite
  *      working in the first place and couldn't to clipping
@@ -2521,12 +2523,14 @@ BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap sel
  *
  *      If you don't need clipping and are drawing to the
  *      screen only, this function has no advantage over
- *      WinDrawPointer because it's presumably slower.
+ *      WinDrawPointer because it's presumably a bit slower.
  *
  *      Flags presently supported in fl:
  *
  *      --  DP_MINI (not DP_MINIICON, as stated in PMREF):
  *          use mini-icon.
+ *
+ *      --  DP_HALFTONED (V0.9.20)
  *
  *      Preconditions:
  *
@@ -2539,6 +2543,8 @@ BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap sel
  *          call.
  *
  *@@added V0.9.19 (2002-06-18) [umoeller]
+ *@@changed V0.9.20 (2002-07-31) [umoeller]: optimized, saved one GpiQueryBitmapInfoHeader
+ *@@changed V0.9.20 (2002-08-04) [umoeller]: added DP_HALFTONED
  */
 
 BOOL gpihDrawPointer(HPS hps,           // in: target presentation space
@@ -2558,7 +2564,8 @@ BOOL gpihDrawPointer(HPS hps,           // in: target presentation space
     {
         POINTL  aptl[4];
         HBITMAP hbmThis;
-        BITMAPINFOHEADER2 bmi;
+        BITMAPINFOHEADER2 bmiAndXor,
+                          bmiColor;
 
         // A HPOINTER really consists of two bitmaps,
         // one monochrome bitmap that has twice the icon
@@ -2644,6 +2651,9 @@ BOOL gpihDrawPointer(HPS hps,           // in: target presentation space
             GpiSetColor(hps, RGBCOL_WHITE);
             GpiSetBackColor(hps, RGBCOL_BLACK);
 
+            if (fl & DP_HALFTONED) // V0.9.20 (2002-08-04) [umoeller]
+                GpiSetPattern(hps, PATSYM_HALFTONE);
+
             /*
              * 1)   work on the AND image
              *      (upper part of the monochrome image)
@@ -2655,22 +2665,22 @@ BOOL gpihDrawPointer(HPS hps,           // in: target presentation space
                  || (hbmThis = pi.hbmPointer)
                )
             {
-                bmi.cbFix = sizeof(bmi);
-                GpiQueryBitmapInfoHeader(hbmThis, &bmi);
+                bmiAndXor.cbFix = sizeof(bmiAndXor);
+                GpiQueryBitmapInfoHeader(hbmThis, &bmiAndXor);
 
                 // use only half the bitmap height
-                cySrc = bmi.cy / 2;
+                cySrc = bmiAndXor.cy / 2;
 
                 // aptl[2]: source bottom-left
                 aptl[2].x =   0
-                            + lClipLeft   * bmi.cx / cxIcon;
+                            + lClipLeft   * bmiAndXor.cx / cxIcon;
                 aptl[2].y =   cySrc
                             + lClipBottom * cySrc / cyIcon;
 
                 // aptl[3]: source top-right (exclusive!)
-                aptl[3].x =   bmi.cx
-                            - lClipRight  * bmi.cx / cxIcon;
-                aptl[3].y =   bmi.cy
+                aptl[3].x =   bmiAndXor.cx
+                            - lClipRight  * bmiAndXor.cx / cxIcon;
+                aptl[3].y =   bmiAndXor.cy
                             - lClipTop    * cySrc / cyIcon;
 
                 GpiWCBitBlt(hps,        // target
@@ -2692,20 +2702,20 @@ BOOL gpihDrawPointer(HPS hps,           // in: target presentation space
                  || (hbmThis = pi.hbmColor)
                )
             {
-                bmi.cbFix = sizeof(bmi);
-                GpiQueryBitmapInfoHeader(hbmThis, &bmi);
+                bmiColor.cbFix = sizeof(bmiColor);
+                GpiQueryBitmapInfoHeader(hbmThis, &bmiColor);
 
                 // aptl[2]: source bottom-left
                 aptl[2].x =   0
-                            + lClipLeft   * bmi.cx / cxIcon;
+                            + lClipLeft   * bmiColor.cx / cxIcon;
                 aptl[2].y =   0
-                            + lClipBottom * bmi.cy / cyIcon;
+                            + lClipBottom * bmiColor.cy / cyIcon;
 
                 // aptl[3]: source top-right (exclusive!)
-                aptl[3].x =   bmi.cx
-                            - lClipRight  * bmi.cx / cxIcon;
-                aptl[3].y =   bmi.cy
-                            - lClipTop    * bmi.cy / cyIcon;
+                aptl[3].x =   bmiColor.cx
+                            - lClipRight  * bmiColor.cx / cxIcon;
+                aptl[3].y =   bmiColor.cy
+                            - lClipTop    * bmiColor.cy / cyIcon;
 
                 GpiWCBitBlt(hps,        // target
                             hbmThis,    // src bmp
@@ -2726,21 +2736,23 @@ BOOL gpihDrawPointer(HPS hps,           // in: target presentation space
                  || (hbmThis = pi.hbmPointer)
                )
             {
-                bmi.cbFix = sizeof(bmi);
-                GpiQueryBitmapInfoHeader(hbmThis, &bmi);
+                /*  we queried this one above V0.9.20 (2002-07-31) [umoeller]
+                bmiAndXor.cbFix = sizeof(bmiAndXor);
+                GpiQueryBitmapInfoHeader(hbmThis, &bmiAndXor);
+                */
 
                 // use only half the bitmap height
-                cySrc = bmi.cy / 2;
+                cySrc = bmiAndXor.cy / 2;
 
                 // aptl[2]: source bottom-left
                 aptl[2].x =   0
-                            + lClipLeft   * bmi.cx / cxIcon;
+                            + lClipLeft   * bmiAndXor.cx / cxIcon;
                 aptl[2].y =   0
                             + lClipBottom * cySrc / cyIcon;
 
                 // aptl[3]: source top-right (exclusive!)
-                aptl[3].x =   bmi.cx
-                            - lClipRight  * bmi.cx / cxIcon;
+                aptl[3].x =   bmiAndXor.cx
+                            - lClipRight  * bmiAndXor.cx / cxIcon;
                 aptl[3].y =   cySrc
                             - lClipTop    * cySrc / cyIcon;
 

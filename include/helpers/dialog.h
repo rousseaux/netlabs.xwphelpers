@@ -402,6 +402,10 @@ extern "C" {
             WS_VISIBLE | WS_TABSTOP | 0, \
             id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
 
+    #define CONTROLDEF_CONTAINER_EXTSEL(id, cx, cy) { WC_CONTAINER, NULL, \
+            WS_VISIBLE | WS_TABSTOP | CCS_EXTENDSEL, \
+            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
+
     // the following require INCL_WINSTDSLIDER
 
     #define CONTROLDEF_SLIDER(id, cx, cy, pctldata) { WC_SLIDER, NULL, \

@@ -135,6 +135,7 @@
  *@@added V0.9.13 (2001-06-21) [umoeller]
  *@@changed V0.9.16 (2001-10-24) [umoeller]: fixed wrong hatch color and paint offset
  *@@changed V0.9.16 (2001-10-28) [umoeller]: added bitmap support, fixed bad clip rectangle
+ *@@changed V0.9.20 (2002-08-04) [umoeller]: fixed button offset, depressed color
  */
 
 VOID ctlPaintXButton(HPS hps,               // in: presentation space (RGB mode)
@@ -146,8 +147,10 @@ VOID ctlPaintXButton(HPS hps,               // in: presentation space (RGB mode)
             cy,
             ulOfs = 0;
     LONG    lLeft,
-            lRight;
+            lRight,
+            lColorMiddle = pxbd->lMiddle;
     RECTL   rclWin;
+
     memcpy(&rclWin, &pxbd->rcl, sizeof(RECTL));
 
     if (0 == (fl & XBF_FLAT))
@@ -164,6 +167,11 @@ VOID ctlPaintXButton(HPS hps,               // in: presentation space (RGB mode)
         ulOfs += 1;
         if (ulBorder == 0)
             ulBorder = 1;
+
+        // make the depressed color darker
+        // V0.9.20 (2002-07-31) [umoeller]
+        gpihManipulateRGB(&lColorMiddle,
+                          .95);
     }
     else
     {
@@ -195,7 +203,7 @@ VOID ctlPaintXButton(HPS hps,               // in: presentation space (RGB mode)
     if (fl & XBF_BACKGROUND)
         WinFillRect(hps,
                     &rclWin,        // exclusive
-                    pxbd->lMiddle);
+                    lColorMiddle);
 
     // get icon
     if (pxbd->hptr)
@@ -253,8 +261,8 @@ VOID ctlPaintXButton(HPS hps,               // in: presentation space (RGB mode)
         else
             WinDrawPointer(hps,
                            // center this in remaining rectl
-                           ptl.x + ulOfs,
-                           ptl.y - ulOfs,
+                           ptl.x, //  + ulOfs,
+                           ptl.y, //  - ulOfs,
                            pxbd->hptr,
                            DP_MINI);
     }

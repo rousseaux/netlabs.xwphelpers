@@ -2887,7 +2887,7 @@ BOOL winhStorePresParam(PPRESPARAMS *pppp,      // in: data pointer (modified)
 }
 
 /*
- *@@ winhQueryPresColor:
+ *@@ winhQueryPresColor2:
  *      returns the specified color. This is queried in the
  *      following order:
  *
@@ -2965,34 +2965,62 @@ BOOL winhStorePresParam(PPRESPARAMS *pppp,      // in: data pointer (modified)
  *@@changed V0.9.0 [umoeller]: removed INI key query, using SYSCLR_* instead; function prototype changed
  *@@changed V0.9.0 [umoeller]: added fInherit parameter
  *@@changed V0.9.7 (2000-12-02) [umoeller]: added lSysColor == -1 support
+ *@@changed V0.9.20 (2002-08-04) [umoeller]: added ulPPIndex, renamed func
  */
 
-LONG winhQueryPresColor(HWND    hwnd,       // in: window to query
-                        ULONG   ulPP,       // in: PP_* index
-                        BOOL    fInherit,   // in: search parent windows too?
-                        LONG    lSysColor)  // in: SYSCLR_* index or -1
+LONG winhQueryPresColor2(HWND hwnd,          // in: window to query
+                         ULONG ulppRGB,      // in: PP_* index for RGB color
+                         ULONG ulppIndex,    // in: PP_* index for color _index_ (can be null)
+                         BOOL fInherit,      // in: search parent windows too?
+                         LONG lSysColor)     // in: SYSCLR_* index or -1
 {
     ULONG   ul,
-            attrFound,
-            abValue[32];
+            attrFound;
+    LONG    lColorFound;
 
-    if (ulPP != (ULONG)-1)
+    if (ulppRGB != (ULONG)-1)
+    {
+        ULONG fl = 0;
+        if (!fInherit)
+            fl = QPF_NOINHERIT;
+        if (ulppIndex)
+            fl |= QPF_ID2COLORINDEX;            // convert indexed color 2 to RGB V0.9.20 (2002-08-04) [umoeller]
+
         if ((ul = WinQueryPresParam(hwnd,
-                                    ulPP,
-                                    0,
+                                    ulppRGB,
+                                    ulppIndex,
                                     &attrFound,
-                                    (ULONG)sizeof(abValue),
-                                    (PVOID)&abValue,
-                                    (fInherit)
-                                         ? 0
-                                         : QPF_NOINHERIT)))
-            return (abValue[0]);
+                                    sizeof(lColorFound),
+                                    &lColorFound,
+                                    fl)))
+            return lColorFound;
+    }
 
     // not found: get system color
     if (lSysColor != -1)
-        return (WinQuerySysColor(HWND_DESKTOP, lSysColor, 0));
+        return WinQuerySysColor(HWND_DESKTOP, lSysColor, 0);
 
     return -1;
+}
+
+/*
+ *@@ winhQueryPresColor:
+ *      compatibility function because this one was
+ *      exported.
+ *
+ *@@added V0.9.20 (2002-08-04) [umoeller]
+ */
+
+LONG XWPENTRY winhQueryPresColor(HWND hwnd,
+                                 ULONG ulPP,
+                                 BOOL fInherit,
+                                 LONG lSysColor)
+{
+    return winhQueryPresColor2(hwnd,
+                               ulPP,
+                               0,
+                               fInherit,
+                               lSysColor);
 }
 
 /*
@@ -3338,15 +3366,19 @@ VOID winhFree(PVOID p)
 
 VOID winhSleep(ULONG ulSleep)    // in: sleep time in milliseconds
 {
-    HWND hwnd;
+    HWND    hwnd;
+
     if (hwnd = winhCreateObjectWindow(WC_STATIC, NULL))
     {
-        QMSG qmsg;
-        HAB hab = WinQueryAnchorBlock(hwnd);
-        if (WinStartTimer(hab,
-                          hwnd,
-                          1,
-                          ulSleep))
+        QMSG    qmsg;
+        HAB     hab;
+
+        if (    (hab = WinQueryAnchorBlock(hwnd))
+             && (WinStartTimer(hab,
+                               hwnd,
+                               1,
+                               ulSleep))
+           )
         {
             while (WinGetMsg(hab, &qmsg, NULLHANDLE, 0, 0))
             {

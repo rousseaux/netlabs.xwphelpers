@@ -115,7 +115,7 @@ APIRET wphQueryActiveHandles(HINI hiniSystem,
         return NO_ERROR;
     }
 
-    return (ERROR_WPH_NO_ACTIVEHANDLES_DATA);
+    return ERROR_WPH_NO_ACTIVEHANDLES_DATA;
 }
 
 /*
