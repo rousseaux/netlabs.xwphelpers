@@ -75,7 +75,7 @@ Here we go:
         LONG    fl      (for LONG's containing OR'ed flags)
         SHORT   fs      (for SHORT's containing OR'ed flags)
 
-        string/ BSString str (C++ string class instance)
+        string/BSString str (C++ string class instance)
 
         For arrays, prefix "a" (e.g. USHORT ausThings[3]).
         For pointers, prefix "p" (e.g. USHORT *pausThings[3]).
