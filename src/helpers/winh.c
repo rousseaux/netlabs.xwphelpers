@@ -119,6 +119,24 @@
     }
 
     /*
+     *@@ winhSendDlgItemMsg:
+     *      wrapper for WinSendDlgItemMsg.
+     *
+     *      If WINH_STANDARDWRAPPERS is #defined before
+     *      including win.h, all WinSendMsg calls are
+     *      redefined to use this wrapper instead. This
+     *      reduces the amount of external fixups required
+     *      for loading the module.
+     *
+     *@@added V0.9.13 (2001-06-27) [umoeller]
+     */
+
+    MRESULT winhSendDlgItemMsg(HWND hwnd, ULONG id, ULONG msg, MPARAM mp1, MPARAM mp2)
+    {
+        return ((WinSendDlgItemMsg)(hwnd, id, msg, mp1, mp2));
+    }
+
+    /*
      *@@ winhPostMsg:
      *      wrapper for WinPostMsg.
      *
@@ -239,48 +257,6 @@ VOID winhOffsetRect(PRECTL prcl,
  *   Generics
  *
  ********************************************************************/
-
-/*
- *@@ winhSetDlgItemChecked:
- *      checks a check box.
- *
- *      This has been turned into a real function
- *      because this is used hundreds of times in
- *      XWP, and each WinSendDlgItemMsg in each
- *      macro produced a fixup relocation record.
- *
- *@@added V0.9.12 (2001-05-18) [umoeller]
- */
-
-BOOL winhSetDlgItemChecked(HWND hwnd,       // in: dialog
-                           SHORT id,        // in: dialog item ID
-                           SHORT bCheck)    // in: 0, 1, or (for tri-state) 2
-{
-    return ((BOOL)WinSendDlgItemMsg(hwnd,
-                                    id,
-                                    BM_SETCHECK,
-                                    MPFROMSHORT(bCheck),
-                                    MPNULL));
-}
-
-/*
- *@@ winhIsDlgItemChecked:
- *      returns the current check state of the
- *      specified check box, which can be 0, 1,
- *      or (for tri-state checkboxes) 2.
- *
- *@@added V0.9.12 (2001-05-18) [umoeller]
- */
-
-SHORT winhIsDlgItemChecked(HWND hwnd,       // in: dialog
-                           SHORT id)        // in: dialog item ID
-{
-    return (SHORT1FROMMR(WinSendDlgItemMsg(hwnd,
-                                           id,
-                                           BM_QUERYCHECK,
-                                           MPNULL,
-                                           MPNULL)));
-}
 
 /*
  *@@ winhEnableDlgItem:

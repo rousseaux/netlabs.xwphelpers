@@ -395,8 +395,9 @@ APIRET semRequestRead(HRW hrw,              // in: rw-sem created by semCreateRW
                 (pMutex->cReaders)++;
 
                 // check if this thread has a reader entry already
-                if (pReader = (PREADERTREENODE)treeFindEQID(&pMutex->ReaderThreadsTree,
-                                                            tidMyself)) // ID to look for
+                if (pReader = (PREADERTREENODE)treeFind(pMutex->ReaderThreadsTree,
+                                                        tidMyself,  // ID to look for
+                                                        treeCompareKeys))
                 {
                     // yes:
                     // this is either
@@ -417,13 +418,13 @@ APIRET semRequestRead(HRW hrw,              // in: rw-sem created by semCreateRW
                     {
                         // store the thread ID as the tree ID to
                         // sort by (so we can find by TID)
-                        pReader->Tree.id = tidMyself;
+                        pReader->Tree.ulKey = tidMyself;
                         // set requests count to 1
                         pReader->cRequests = 1;
 
-                        treeInsertID(&pMutex->ReaderThreadsTree,
-                                     (TREE*)pReader,
-                                     FALSE);
+                        treeInsert(&pMutex->ReaderThreadsTree,
+                                   (TREE*)pReader,
+                                   treeCompareKeys);
                         (pMutex->cReaderThreads)++;
                     }
                 }
@@ -465,8 +466,9 @@ APIRET semReleaseRead(HRW hrw)      // in: rw-sem created by semCreateRWMutex
             PREADERTREENODE pReader;
 
             // find the READERTREENODE for our TID
-            if (    (pReader = (PREADERTREENODE)treeFindEQID(&pMutex->ReaderThreadsTree,
-                                                             tidMyself)) // ID to look for
+            if (    (pReader = (PREADERTREENODE)treeFind(pMutex->ReaderThreadsTree,
+                                                         tidMyself,  // ID to look for
+                                                         treeCompareKeys))
                  && (pReader->cRequests)
                )
             {
@@ -534,8 +536,9 @@ APIRET semQueryRead(HRW hrw)        // in: rw-sem created by semCreateRWMutex
             PREADERTREENODE pReader;
 
             // find the READERTREENODE for our TID
-            if (    (!(pReader = (PREADERTREENODE)treeFindEQID(&pMutex->ReaderThreadsTree,
-                                                               tidMyself)))          // ID to look for
+            if (    (!(pReader = (PREADERTREENODE)treeFind(pMutex->ReaderThreadsTree,
+                                                           tidMyself,          // ID to look for
+                                                           treeCompareKeys)))
                  || (pReader->cRequests == 0)
                )
                 arc = ERROR_NOT_OWNER;
@@ -602,8 +605,9 @@ APIRET semRequestWrite(HRW hrw,             // in: rw-sem created by semCreateRW
             {
                 // check if current TID holds read request also
                 PREADERTREENODE pReader
-                    = (PREADERTREENODE)treeFindEQID(&pMutex->ReaderThreadsTree,
-                                                    tidMyself);
+                    = (PREADERTREENODE)treeFind(pMutex->ReaderThreadsTree,
+                                                tidMyself,
+                                                treeCompareKeys);
                             // != NULL if this TID has a reader already
 
                 // let the writer in if one of the three is true:

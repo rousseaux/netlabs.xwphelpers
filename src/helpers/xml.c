@@ -275,7 +275,7 @@ VOID xmlSetError(PXMLDOM pDom,
  ********************************************************************/
 
 /*
- *@@ CompareNodeBaseNodes:
+ *@@ CompareXStrings:
  *      tree comparison func for NodeBases.
  *      This works for all trees which contain structures
  *      whose first item is a _NODEBASE because NODEBASE's first
@@ -292,27 +292,11 @@ VOID xmlSetError(PXMLDOM pDom,
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
 
-int TREEENTRY CompareNodeBaseNodes(TREE *t1,
-                                  TREE *t2)
+int TREEENTRY CompareXStrings(ULONG ul1,
+                              ULONG ul2)
 {
-    PNODEBASE   p1 = (PNODEBASE)t1,
-                p2 = (PNODEBASE)t2;
-    return (strhcmp(p1->strNodeName.psz, p2->strNodeName.psz));
-}
-
-/*
- *@@ CompareNodeBaseNodes:
- *      tree comparison func for element declarations.
- *      Used to find nodes in _DOMDOCTYPENODE.ElementDeclsTree.
- *
- *@@added V0.9.9 (2001-02-16) [umoeller]
- */
-
-int TREEENTRY CompareNodeBaseData(TREE *t1,
-                                 void *pData)
-{
-    PNODEBASE     p1 = (PNODEBASE)t1;
-    return (strhcmp(p1->strNodeName.psz, (const char*)pData));
+    return (strhcmp(((PXSTRING)ul1)->psz,
+                    ((PXSTRING)ul1)->psz));
 }
 
 /*
@@ -342,12 +326,15 @@ APIRET xmlCreateNodeBase(NODEBASETYPE ulNodeType,     // in: node type
         memset(pNewNode, 0, cb);
         pNewNode->ulNodeType = ulNodeType;
 
+        pNewNode->Tree.ulKey = (ULONG)&pNewNode->strNodeName;
+
         xstrInit(&pNewNode->strNodeName, 0);
         if (pcszNodeName)
+        {
             xstrcpy(&pNewNode->strNodeName,
                     pcszNodeName,
-                    ulNodeNameLength);  // if 0, xstrcpy will do strlen()
-
+                    ulNodeNameLength);
+        }
 
         *ppNew = pNewNode;
     }
@@ -513,7 +500,7 @@ VOID xmlDeleteNode(PNODEBASE pNode)
 
         lstClear(&llDeleteNodes);
 
-        xstrClear(&pNode->strNodeName);
+        xstrFree(((PXSTRING*)&pNode->Tree.ulKey));
         free(pNode);
     }
 }
@@ -586,11 +573,9 @@ APIRET xmlCreateDomNode(PDOMNODE pParentNode,        // in: parent node or NULL 
             {
                 // attribute:
                 // add to parent's attributes list
-                if (treeInsertNode(&pParentNode->AttributesMap,
-                                   &pNewNode->NodeBase.Tree,
-                                   CompareNodeBaseNodes,
-                                   FALSE)      // no duplicates
-                        == TREE_DUPLICATE)
+                if (treeInsert(&pParentNode->AttributesMap,
+                               &pNewNode->NodeBase.Tree,
+                               CompareXStrings))
                     arc = ERROR_DOM_DUPLICATE_ATTRIBUTE;
                                 // shouldn't happen, because expat takes care of this
             }
@@ -836,10 +821,10 @@ APIRET xmlCreateDocumentTypeNode(PDOMDOCUMENTNODE pDocumentNode,            // i
         // create doctype node
         PDOMDOCTYPENODE pNew = NULL;
         arc = xmlCreateDomNode((PDOMNODE)pDocumentNode,
-                            DOMNODE_DOCUMENT_TYPE,
-                            NULL,
-                            0,
-                            (PDOMNODE*)&pNew);
+                               DOMNODE_DOCUMENT_TYPE,
+                               pcszDoctypeName,
+                               0,
+                               (PDOMNODE*)&pNew);
 
         if (!arc)
         {
@@ -852,17 +837,6 @@ APIRET xmlCreateDocumentTypeNode(PDOMDOCUMENTNODE pDocumentNode,            // i
             xstrcpy(&pNew->strPublicID, pcszPubid, 0);
             xstrcpy(&pNew->strSystemID, pcszSysid, 0);
             pNew->fHasInternalSubset = fHasInternalSubset;
-
-            if (pcszDoctypeName)
-            {
-                ULONG ul = strlen(pcszDoctypeName);
-                if (ul)
-                {
-                    xstrcpy(&pDocumentNode->DomNode.NodeBase.strNodeName,
-                            pcszDoctypeName,
-                            ul);
-                }
-            }
 
             treeInit(&pNew->ElementDeclsTree);
             treeInit(&pNew->AttribDeclBasesTree);
@@ -908,11 +882,10 @@ APIRET SetupParticleAndSubs(PCMELEMENTPARTICLE pParticle,
 
         case XML_CTYPE_NAME:   // that's easy
             pParticle->NodeBase.ulNodeType = ELEMENTPARTICLE_NAME;
-            xstrInitCopy(&pParticle->NodeBase.strNodeName, pModel->name, 0);
-            treeInsertNode(ppElementNamesTree,
-                           &pParticle->NodeBase.Tree,
-                           CompareNodeBaseNodes,
-                           TRUE);       // allow duplicates here
+            xstrcpy(&pParticle->NodeBase.strNodeName, pModel->name, 0);
+            treeInsert(ppElementNamesTree,
+                       &pParticle->NodeBase.Tree,
+                       CompareXStrings);
         break;
 
         case XML_CTYPE_MIXED:
@@ -1096,22 +1069,22 @@ VOID ValidateElement(PXMLDOM pDom,
                 case ELEMENTPARTICLE_CHOICE:
                 case ELEMENTPARTICLE_SEQ:
                 {
-                    const char *pcszNewElementName
-                        = pNewElement->NodeBase.strNodeName.psz;
+                    PXSTRING pstrNewElementName
+                        = &pNewElement->NodeBase.strNodeName;
 
                     // for all these, we first need to check if
                     // the element is allowed at all
                     PCMELEMENTPARTICLE pParticle
-                        = (PCMELEMENTPARTICLE)treeFindEQData(
-                                         &pParentElementDecl->ParticleNamesTree,
-                                         (void*)pcszNewElementName,
-                                         CompareNodeBaseData);
+                        = (PCMELEMENTPARTICLE)treeFind(
+                                         pParentElementDecl->ParticleNamesTree,
+                                         (ULONG)pstrNewElementName,
+                                         CompareXStrings);
                     if (!pParticle)
                         // not found: then this element is not allowed within this
                         // parent
                         xmlSetError(pDom,
                                     ERROR_DOM_INVALID_SUBELEMENT,
-                                    pcszNewElementName,
+                                    pstrNewElementName->psz,
                                     TRUE);
                     else
                     {
@@ -1248,10 +1221,10 @@ VOID ValidateAttributeType(PXMLDOM pDom,
             {
                 // enumeration: then check if it has one of the
                 // allowed values
-                PNODEBASE pValue = (PNODEBASE)treeFindEQData(
-                                                &pAttribDecl->ValuesTree,
-                                                (void*)pAttrib->pstrNodeValue->psz,
-                                                CompareNodeBaseData);
+                PNODEBASE pValue = (PNODEBASE)treeFind(
+                                                pAttribDecl->ValuesTree,
+                                                (ULONG)pAttrib->pstrNodeValue,
+                                                CompareXStrings);
                 if (!pValue)
                     xmlSetError(pDom,
                                 ERROR_DOM_INVALID_ATTRIB_VALUE,
@@ -1296,11 +1269,11 @@ VOID ValidateAllAttributes(PXMLDOM pDom,
            )
         {
             // for all others , we need to find the attribute
-            PSZ pszAttrNameThis = pDeclThis->NodeBase.strNodeName.psz;
-            PDOMNODE pAttrNode = (PDOMNODE)treeFindEQData(
-                                            &pNewElement->AttributesMap,
-                                            (void*)pszAttrNameThis,
-                                            CompareNodeBaseData);
+            PXSTRING pstrAttrNameThis = &pDeclThis->NodeBase.strNodeName;
+            PDOMNODE pAttrNode = (PDOMNODE)treeFind(
+                                            pNewElement->AttributesMap,
+                                            (ULONG)pstrAttrNameThis,
+                                            CompareXStrings);
 
             // now switch again
             switch (pDeclThis->ulConstraint)
@@ -1310,7 +1283,7 @@ VOID ValidateAllAttributes(PXMLDOM pDom,
                         // required, but no attribute with this name exists:
                         xmlSetError(pDom,
                                     ERROR_DOM_REQUIRED_ATTRIBUTE_MISSING,
-                                    pszAttrNameThis,
+                                    pstrAttrNameThis->psz,
                                     TRUE);
                 break;
             }
@@ -1870,11 +1843,9 @@ void EXPATENTRY ElementDeclHandler(void *pUserData,      // in: our PXMLDOM real
             if (pDom->arcDOM == NO_ERROR)
             {
                 // add this to the doctype's declarations tree
-                if (treeInsertNode(&pDocType->ElementDeclsTree,
-                                   (TREE*)pNew,
-                                   CompareNodeBaseNodes,
-                                   FALSE)
-                        == TREE_DUPLICATE)
+                if (treeInsert(&pDocType->ElementDeclsTree,
+                               (TREE*)pNew,
+                               CompareXStrings))
                     // element already declared:
                     // according to the XML specs, this is a validity
                     // constraint, so we report a validation error
@@ -1905,10 +1876,9 @@ APIRET AddEnum(PCMATTRIBUTEDECL pDecl,
                                    (pNext - p),
                                    &pNew);
     if (!arc)
-        treeInsertNode(&pDecl->ValuesTree,
-                       (TREE*)pNew,
-                       CompareNodeBaseNodes,
-                       FALSE);
+        treeInsert(&pDecl->ValuesTree,
+                   (TREE*)pNew,
+                   CompareXStrings);
 
     return (arc);
 }
@@ -1977,11 +1947,15 @@ void EXPATENTRY AttlistDeclHandler(void *pUserData,      // in: our PXMLDOM real
 
             if (!pThis)
             {
-                // cache didn't match: look up attributes tree then
-                pThis = (PCMATTRIBUTEDECLBASE)treeFindEQData(
-                                    &pDocType->AttribDeclBasesTree,
-                                    (void*)pcszElementName,
-                                    CompareNodeBaseData);
+                // cache didn't match: look up attributes tree then...
+                // note: cheap trick, we need an XSTRING for treeFind
+                // but don't want malloc, so we use xstrInitSet
+                XSTRING strElementName;
+                xstrInitSet(&strElementName, (PSZ)pcszElementName);
+                pThis = (PCMATTRIBUTEDECLBASE)treeFind(
+                                    pDocType->AttribDeclBasesTree,
+                                    (ULONG)&strElementName,
+                                    CompareXStrings);
 
                 if (!pThis)
                 {
@@ -1989,18 +1963,17 @@ void EXPATENTRY AttlistDeclHandler(void *pUserData,      // in: our PXMLDOM real
                     // we need a new node then
                     pDom->arcDOM = xmlCreateNodeBase(ATTRIBUTE_DECLARATION_BASE,
                                                      sizeof(CMATTRIBUTEDECLBASE),
-                                                     pcszElementName,
-                                                     0,
+                                                     strElementName.psz,
+                                                     strElementName.ulLength,
                                                      (PNODEBASE*)&pThis);
                     if (!pDom->arcDOM)
                     {
                         // initialize the subtree
                         treeInit(&pThis->AttribDeclsTree);
 
-                        treeInsertNode(&pDocType->AttribDeclBasesTree,
-                                       (TREE*)pThis,
-                                       CompareNodeBaseNodes,
-                                       FALSE);
+                        treeInsert(&pDocType->AttribDeclBasesTree,
+                                   (TREE*)pThis,
+                                   CompareXStrings);
                     }
                 }
 
@@ -2084,11 +2057,9 @@ void EXPATENTRY AttlistDeclHandler(void *pUserData,      // in: our PXMLDOM real
                             else
                                 pNew->ulConstraint = CMAT_IMPLIED;
 
-                        if (treeInsertNode(&pThis->AttribDeclsTree,
-                                           (TREE*)pNew,
-                                           CompareNodeBaseNodes,
-                                           FALSE)
-                                == TREE_DUPLICATE)
+                        if (treeInsert(&pThis->AttribDeclsTree,
+                                       (TREE*)pNew,
+                                       CompareXStrings))
                             xmlSetError(pDom,
                                         ERROR_DOM_DUPLICATE_ATTRIBUTE_DECL,
                                         pcszAttribName,
@@ -2430,20 +2401,20 @@ APIRET xmlFreeDOM(PXMLDOM pDom)
  */
 
 PCMELEMENTDECLNODE xmlFindElementDecl(PXMLDOM pDom,
-                                      const XSTRING *pstrElementName)
+                                      const XSTRING *pcstrElementName)
 {
     PCMELEMENTDECLNODE pElementDecl = NULL;
 
     PDOMDOCTYPENODE pDocTypeNode = pDom->pDocTypeNode;
     if (    (pDocTypeNode)
-         && (pstrElementName)
-         && (pstrElementName->ulLength)
+         && (pcstrElementName)
+         && (pcstrElementName->ulLength)
        )
     {
-        pElementDecl = (PCMELEMENTDECLNODE)treeFindEQData(
-                                      &pDocTypeNode->ElementDeclsTree,
-                                      (void*)pstrElementName->psz,
-                                      CompareNodeBaseData);
+        pElementDecl = (PCMELEMENTDECLNODE)treeFind(
+                                      pDocTypeNode->ElementDeclsTree,
+                                      (ULONG)pcstrElementName,
+                                      CompareXStrings);
     }
 
     return (pElementDecl);
@@ -2464,21 +2435,19 @@ PCMELEMENTDECLNODE xmlFindElementDecl(PXMLDOM pDom,
 PCMATTRIBUTEDECLBASE xmlFindAttribDeclBase(PXMLDOM pDom,
                                            const XSTRING *pstrElementName)
 {
-    PCMATTRIBUTEDECLBASE pAttribDeclBase = NULL;
-
     PDOMDOCTYPENODE pDocTypeNode = pDom->pDocTypeNode;
     if (    (pDocTypeNode)
          && (pstrElementName)
          && (pstrElementName->ulLength)
        )
     {
-        pAttribDeclBase = (PCMATTRIBUTEDECLBASE)treeFindEQData(
-                                        &pDocTypeNode->AttribDeclBasesTree,
-                                        (void*)pstrElementName->psz,
-                                        CompareNodeBaseData);
+        return ((PCMATTRIBUTEDECLBASE)treeFind(
+                                        pDocTypeNode->AttribDeclBasesTree,
+                                        (ULONG)pstrElementName,
+                                        CompareXStrings));
     }
 
-    return (pAttribDeclBase);
+    return (NULL);
 }
 
 /*
@@ -2497,7 +2466,6 @@ PCMATTRIBUTEDECL xmlFindAttribDecl(PXMLDOM pDom,
                                             // the pointer pointed to by this
                                             // must be NULL on the first call
 {
-    PCMATTRIBUTEDECL pAttribDecl = NULL;
     if (pstrElementName && pstrAttribName)
     {
         if (!*ppAttribDeclBase)
@@ -2506,14 +2474,14 @@ PCMATTRIBUTEDECL xmlFindAttribDecl(PXMLDOM pDom,
                                                       pstrElementName);
         if (*ppAttribDeclBase)
         {
-            pAttribDecl = (PCMATTRIBUTEDECL)treeFindEQData(
-                                         &((**ppAttribDeclBase).AttribDeclsTree),
-                                         (void*)pstrAttribName->psz,
-                                         CompareNodeBaseData);
+            return ((PCMATTRIBUTEDECL)treeFind(
+                                         ((**ppAttribDeclBase).AttribDeclsTree),
+                                         (ULONG)pstrAttribName,
+                                         CompareXStrings));
         }
     }
 
-    return (pAttribDecl);
+    return (NULL);
 }
 
 /*
@@ -2670,9 +2638,14 @@ PLINKLIST xmlGetElementsByTagName(PDOMNODE pParent,
 const XSTRING* xmlGetAttribute(PDOMNODE pElement,
                                const char *pcszAttribName)
 {
-    PDOMNODE pAttrNode = (PDOMNODE)treeFindEQData(&pElement->AttributesMap,
-                                                  (void*)pcszAttribName,
-                                                  CompareNodeBaseData);
+    XSTRING str;
+    PDOMNODE pAttrNode;
+    xstrInitSet(&str, (PSZ)pcszAttribName);
+    // note, cheap trick: no malloc here, but we need
+    // an XSTRING for treeFind
+    pAttrNode = (PDOMNODE)treeFind(pElement->AttributesMap,
+                                   (ULONG)&str,
+                                   CompareXStrings);
     if (pAttrNode)
         return (pAttrNode->pstrNodeValue);
 

@@ -6,6 +6,11 @@
  *
  *      See dlghCreateDlg for details.
  *
+ *      In addition, this has dlghMessageBox (a WinMessageBox
+ *      replacement) and some helper functions for simulating
+ *      dialog behavior in regular window procs (see
+ *      dlghSetPrevFocus and others).
+ *
  *      Usage: All PM programs.
  *
  *      Function prefixes (new with V0.81):
@@ -81,6 +86,9 @@
  *      by dlghCreateDlg. This is what is really
  *      used, even though the prototype only
  *      declares DIALOGDATA.
+ *
+ *      This only exists while the dialog is being
+ *      created and is not stored with the new dialog.
  */
 
 typedef struct _DLGPRIVATE

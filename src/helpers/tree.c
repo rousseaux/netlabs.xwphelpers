@@ -3,122 +3,62 @@
  *@@sourcefile tree.c:
  *      contains helper functions for maintaining 'Red-Black' balanced
  *      binary trees.
- *      See explanations below.
- *
- *      This file is all new with V0.9.5 (2000-09-29) [umoeller].
  *
  *      Usage: All C programs; not OS/2-specific.
  *
  *      Function prefixes (new with V0.81):
  *      --  tree*    tree helper functions
  *
- *      This has been taken from the Standard Function Library (SFL)
- *      by iMatix Corporation and changed to user the "id" member for
- *      tree sorting/comparison. This implementation is released
- *      under the GPL.
- *
  *      <B>Introduction</B>
  *
- *      Binary trees are different from linked lists in that items
- *      are not simply linked sequentially, but instead put into
- *      a tree-like structure.
+ *      While linked lists have "next" and "previous" pointers (which
+ *      makes them one-dimensional), trees have a two-dimensional layout:
+ *      each tree node has one "parent" and two "children" which are
+ *      called "left" and "right". The "left" pointer will always lead
+ *      to a tree node that is "less than" its parent node, while the
+ *      "right" pointer will lead to a node that is "greater than"
+ *      its parent. What is considered "less" or "greater" for sorting
+ *      is determined by a comparison callback to be supplied by the
+ *      tree functions' caller. The "leafs" of the tree will have
+ *      null left and right pointers.
  *
- *      While lists have "next" and "previous" pointers, trees have
- *      "left" and "right" pointers which keep the tree sorted at
- *      all times.
+ *      For this, the functions here use the TREE structure. The most
+ *      important member here is the "ulKey" field which is used for
+ *      sorting (passed to the compare callbacks). Since the tree
+ *      functions do no memory allocation, the caller can easily
+ *      use an extended TREE structure with additional fields as
+ *      long as the first member is the TREE structure. See below.
  *
- *      Per definition, in our trees, if you follow the "left" pointer,
- *      you will reach an item which is "greater than" the current node.
- *      Reversely, following the "right" pointer will lead you to a
- *      node which is "less than" the current node.
- *
- *      What is considered "less" or "greater" is determined by a
- *      comparison callback to be supplied by the caller.
- *
- *      For this, the functions here use the TREE structure. You can
- *      easily see that this has the "left" and "right" members,
- *      which make up the tree.
- *
- *      In addition, each tree has a "tree root" item, from which all
- *      other tree nodes can be reached by following the "left" and
- *      "right" pointers.
- *
- *      The implementation here has the following characteristics:
- *
- *      -- We have "binary" trees. That is, there are only "left" and
- *         "right" pointers.
- *
- *      -- The tree is always "balanced". The tree gets completely
- *         reordered when items are added/removed to ensure that
- *         all paths through the tree are approximately the same
- *         length. This avoids the "worst case" scenario that some
- *         paths grow terribly long while others remain short, which
- *         can make searching very inefficient.
- *
- *      -- The tree nodes are marked as either "red" or "black", which
- *         is an algorithm to allow the implementation of 2-3-4 trees
- *         using a binary tree only. I don't fully understand how this
- *         works, but essentially, "red" nodes represent a 3 or 4 node,
- *         while "black" nodes are plain binary nodes.
- *
- *      As much as I understand about all this, red-black balanced
- *      binary trees are the most efficient tree algorithm known to
- *      mankind. As long as you are sure that trees are more efficient
- *      in your situation than a linked list in the first place (see
- *      below for comparisons), use the functions in here.
- *
- *      <B>Using binary trees</B>
- *
- *      You can use any structure as elements in a tree, provided
- *      that the first member in the structure is a TREE structure
- *      (i.e. it has the left, right, parent, id, and colour members).
- *      The tree functions don't care what follows, since they do
- *      not manage any memory themselves.
- *
- *      So the implementation here is slightly different from the
- *      linked lists in linklist.c, because the LISTNODE structs
- *      only have pointers to the data. By contrast, the TREE structs
- *      are expected to contain the data themselves. See treeInsertID()
- *      for a sample.
- *
- *      Initialize the root of the tree with treeInit(). Then
- *      add nodes to the tree with treeInsertID() and remove nodes
- *      with treeDelete().
- *
- *      You can test whether a tree is empty by comparing its
- *      root with TREE_NULL.
- *
- *      Most functions in here come in two flavors.
- *
- *      -- You can provide a comparison function and use the "Node"
- *         flavors of these functions. This is useful, for example,
- *         if you are storing strings. You can then write a short
- *         comparison function which does a strcmp() on the data
- *         of tree nodes.
- *
- *         The order of nodes in the tree is determined by calling a
- *         node comparison function provided by the caller
- *         (which you must write). This must be declared as:
- *
- +              int TREEENTRY fnMyCompareNodes(TREE *t1, TREE *t2);
- *
- *         It obviously receives two TREE pointers, which it must
- *         compare and return:
- *
- +               0: tree1 == tree2
- +              -1: tree1 < tree2
- +              +1: tree1 > tree2
- *
- *      -- The "ID" functions (e.g. treeInsertID) do not require
- *         a comparison function, but will use the "id" member of
- *         the TREE structure instead. If this flavor is used, an
- *         internal comparison function is used for comparing the
- *         "id" fields, which are assumed to be plain ULONGs.
+ *      Each tree must have a "root" item, from which all other tree
+ *      nodes can eventually be reached by following the "left" and
+ *      "right" pointers. The root node is the only node whose
+ *      parent is null.
  *
  *      <B>Trees vs. linked lists</B>
  *
  *      Compared to linked lists (as implemented by linklist.c),
- *      trees allow for much faster searching.
+ *      trees allow for much faster searching, since they are
+ *      always sorted.
+ *
+ *      Take an array of numbers, and assume you'd need to find
+ *      the array node with the specified number.
+ *
+ *      With a (sorted) linked list, this would look like:
+ *
+ +          4  -->  7  -->  16  -->  20  -->  37  -->  38  -->  43
+ *
+ *      Searching for "43" would need 6 iterations.
+ *
+ *      With a binary tree, this would instead look like:
+ *
+ +                       20
+ +                     /    \
+ +                    7      38
+ +                   / \    /  \
+ +                  4  16  37   43
+ +                 / \ / \ / \ / \
+ *
+ *      Searching for "43" would need 2 iterations only.
  *
  *      Assuming a linked list contains N items, then searching a
  *      linked list for an item will take an average of N/2 comparisons
@@ -130,34 +70,188 @@
  *      average, and insertions take less than one rotation on
  *      average.
  *
- *      Example: You need to build a list of files, and you
- *      will search the list frequently according to the file
- *      handles. This would make the handle an ideal "id" field.
- *
  *      Differences compared to linklist.c:
+ *
+ *      -- A tree is always sorted.
  *
  *      -- Trees are considerably slower when inserting and removing
  *         nodes because the tree has to be rebalanced every time
  *         a node changes. By contrast, trees are much faster finding
  *         nodes because the tree is always sorted.
  *
- *      -- If you are not using the "ID" flavors, you must supply a
- *         comparison function to allow the tree functions to sort the tree.
- *
  *      -- As opposed to a LISTNODE, the TREE structure (which
  *         represents a tree node) does not contain a data pointer,
  *         as said above. The caller must do all memory management.
+ *
+ *      <B>Background</B>
+ *
+ *      Now, a "red-black balanced binary tree" means the following:
+ *
+ *      -- We have "binary" trees. That is, there are only "left" and
+ *         "right" pointers. (Other algorithms allow tree nodes to
+ *         have more than two children, but binary trees are usually
+ *         more efficient.)
+ *
+ *      -- The tree is always "balanced". The tree gets reordered
+ *         when items are added/removed to ensure that all paths
+ *         through the tree are approximately the same length.
+ *         This avoids the "worst case" scenario that some paths
+ *         grow terribly long while others remain short ("degenerated"
+ *         trees), which can make searching very inefficient:
+ *
+ +                  4
+ +                 / \
+ +                    7
+ +                   / \
+ +                      16
+ +                     / \
+ +                        20
+ +                       / \
+ +                          37
+ +                         / \
+ +                            43
+ +                           /  \
+ *
+ *      -- Fully balanced trees can be quite expensive because on
+ *         every insertion or deletion, the tree nodes must be reordered.
+ *         By contrast, "Red-black" binary balanced trees contain
+ *         an additional bit in each node which marks the node as
+ *         either red or black. This bit is used only for efficient
+ *         rebalancing when inserting or deleting nodes.
+ *
+ *         The color of each node is instrumental in determining the
+ *         balance of the tree. During insert and delete operations,
+ *         nodes may be rotated to maintain tree balance.
+ *
+ *         I don't fully understand why this works, but if you really
+ *         care, this is explained at
+ *         "http://www.eli.sdsu.edu/courses/fall96/cs660/notes/redBlack/redBlack.html".
+ *
+ *      In other words, as opposed to regular binary trees, RB trees
+ *      are not _fully_ balanced, but they are _mostly_ balanced. With
+ *      respect to efficiency, RB trees are thus a good compromise:
+ *
+ *      -- Completely unbalanced trees are efficient when inserting,
+ *         but can have a terrible worst case when searching.
+ *
+ *      -- RB trees are still acceptably efficient when inserting
+ *         and quite efficient when searching.
+ *         A RB tree with n internal nodes has a height of at most
+ *         2lg(n+1). Both average and worst-case search time is O(lg n).
+ *
+ *      -- Fully balanced binary trees are inefficient when inserting
+ *         but most efficient when searching.
+ *
+ *      So as long as you are sure that trees are more efficient
+ *      in your situation than a linked list in the first place, use
+ *      these RB trees instead of linked lists.
+ *
+ *      <B>Using binary trees</B>
+ *
+ *      You can use any structure as elements in a tree, provided
+ *      that the first member in the structure is a TREE structure
+ *      (i.e. it has the left, right, parent, and color members).
+ *      Each TREE node has a ulKey field which is used for
+ *      comparing tree nodes and thus determines the location of
+ *      the node in the tree.
+ *
+ *      The tree functions don't care what follows in each TREE
+ *      node since they do not manage any memory themselves.
+ *      So the implementation here is slightly different from the
+ *      linked lists in linklist.c, because the LISTNODE structs
+ *      only have pointers to the data. By contrast, the TREE structs
+ *      are expected to contain the data themselves.
+ *
+ *      Initialize the root of the tree with treeInit(). Then
+ *      add nodes to the tree with treeInsert() and remove nodes
+ *      with treeDelete(). See below for a sample.
+ *
+ *      You can test whether a tree is empty by comparing its
+ *      root with LEAF.
+ *
+ *      For most tree* functions, you must specify a comparison
+ *      function which will always receive two "key" parameters
+ *      to compare. This must be declared as
+ +
+ +          int TREEENTRY fnCompare(ULONG ul1, ULONG ul2);
+ *
+ *      This will receive two TREE.ulKey members (whose meaning
+ *      is defined by your implementation) and must return
+ *
+ *      -- something < 0: ul1 < ul2
+ *      -- 0: ul1 == ul2
+ *      -- something > 1: ul1 > ul2
+ *
+ *      <B>Example</B>
+ *
+ *      A good example where trees are efficient would be the
+ *      case where you have "keyword=value" string pairs and
+ *      you frequently need to search for "keyword" to find
+ *      a "value". So "keyword" would be an ideal candidate for
+ *      the TREE.key field.
+ *
+ *      You'd then define your own tree nodes like this:
+ *
+ +          typedef struct _MYTREENODE
+ +          {
+ +              TREE        Tree;       // regular tree node, which has
+ +                                      // the ULONG "key" field; we'd
+ +                                      // use this as a const char*
+ +                                      // pointer to the keyword string
+ +              // here come the additional fields
+ +              // (whatever you need for your data)
+ +              const char  *pcszValue;
+ +
+ +          } MYTREENODE, *PMYTREENODE;
+ *
+ *      Initialize the tree root:
+ *
+ +          TREE *root;
+ +          treeInit(&root);
+ *
+ *      To add a new "keyword=value" pair, do this:
+ *
+ +          PMYTREENODE AddNode(TREE **root,
+ +                              const char *pcszKeyword,
+ +                              const char *pcszValue)
+ +          {
+ +              PMYTREENODE p = (PMYTREENODE)malloc(sizeof(MYTREENODE));
+ +              p.Tree.ulKey = (ULONG)pcszKeyword;
+ +              p.pcszValue = pcszValue;
+ +              treeInsert(root,                // tree's root
+ +                         p,                   // new tree node
+ +                         fnCompare);          // comparison func
+ +              return (p);
+ +          }
+ *
+ *      Your comparison func receives two ulKey values to compare,
+ *      which in this case would be the typecast string pointers:
+ *
+ +          int TREEENTRY fnCompare(ULONG ul1, ULONG ul2)
+ +          {
+ +              return (strcmp((const char*)ul1,
+ +                             (const char*)ul2));
+ +          }
+ *
+ *      You can then use treeFind to very quickly find a node
+ *      with a specified ulKey member.
+ *
+ *      This file was new with V0.9.5 (2000-09-29) [umoeller].
+ *      With V0.9.13, all the code has been replaced with the public
+ *      domain code found at http://epaperpress.com/sortsearch/index.html
+ *      ("A compact guide to searching and sorting") by Thomas Niemann.
+ *      The old implementation from the Standard Function Library (SFL)
+ *      turned out to be buggy for large trees (more than 100 nodes).
  *
  *@@added V0.9.5 (2000-09-29) [umoeller]
  *@@header "helpers\tree.h"
  */
 
 /*
- *      Written:    97/11/18  Jonathan Schultz <jonathan@imatix.com>
- *      Revised:    98/12/08  Jonathan Schultz <jonathan@imatix.com>
+ *      Original coding by Thomas Niemann, placed in the public domain
+ *      (see http://epaperpress.com/sortsearch/index.html).
  *
- *      Copyright (C) 1991-99 iMatix Corporation.
- *      Copyright (C) 2000 Ulrich M”ller.
+ *      This implementation Copyright (C) 2001 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -177,793 +271,646 @@
 #include "setup.h"
 #include "helpers\tree.h"
 
-//  Constants
-TREE    TREE_EMPTY = {TREE_NULL, TREE_NULL, NULL, BLACK};
+#define LEAF &sentinel           // all leafs are sentinels
+static TREE sentinel = { LEAF, LEAF, 0, BLACK};
 
-//  Internal function prototypes
-static void insert_fixup(TREE **root, TREE *tree);
-static void rotate_left(TREE **root, TREE *tree);
-static void rotate_right(TREE **root, TREE *tree);
-static void delete_fixup(TREE **root, TREE *tree);
+/*
+A binary search tree is a red-black tree if:
+
+1. Every node is either red or black.
+2. Every leaf (nil) is black.
+3. If a node is red, then both its children are black.
+4. Every simple path from a node to a descendant leaf contains the same
+   number of black nodes.
+*/
 
 /*
  *@@ treeInit:
- *      initializes an empty tree. The data on the
- *      tree will be invalid, and no memory will be
- *      freed.
+ *      initializes the root of a tree.
  *
- *      Usage:
- +          TREE *TreeRoot;
- +          treeInit(&TreeRoot);
  */
 
 void treeInit(TREE **root)
 {
-    *root = TREE_NULL;
+    *root = LEAF;
 }
 
 /*
- * fnCompareIDs:
- *
- *added V0.9.9 (2001-02-06) [umoeller]
+ *@@ treeCompareKeys:
+ *      standard comparison func if the TREE.ulKey
+ *      field really is a ULONG.
  */
 
-int TREEENTRY fnCompareIDs(unsigned long id1, unsigned long id2)
+int TREEENTRY treeCompareKeys(unsigned long  ul1, unsigned long ul2)
 {
-    if (id1 < id2)
+    if (ul1 < ul2)
         return -1;
-    if (id1 > id2)
+    if (ul1 > ul2)
         return +1;
     return (0);
 }
 
 /*
- *@@ treeInsertID:
- *      inserts a node into an existing tree.
- *
- *      Note: A tree node MUST contain a TREE structure
- *      at the beginning for the tree functions to work.
- *      So to create a tree node with usable data, do this:
- *
- +          typedef _MYTREENODE
- +          {
- +              // TREE must be at beginning
- +              TREE        Tree;
- +              // now use whatever you want
- +              CHAR        szMyExtraData[100];
- +          } MYTREENODE, *PMYTREENODE;
- *
- *      When calling the tree functions, manually cast your
- *      MYTREENODE pointers to (TREE*).
- *
- *      This function initialises the node pointers and colour
- *      in the TREE structure to correct values, so the caller
- *      does not have to worry about those.
- *
- *      However you must initialize the TREE.id member correctly
- *      so that your comparison function can compare on that
- *      to find the correct place in the tree to insert the node.
- *
- *      Usage:
- +          TREE *TreeRoot;
- +          treeInit(&TreeRoot);
- +
- +          PMYTREENODE pTreeItem = malloc(sizeof(MYTREENODE));
- +          pTreeItem->Tree.id = 1;
- +
- +          treeInsertID(&TreeRoot,
- +                       (TREE*)pTreeItem,
- +                       FALSE);
- *
- *      Returns:
- *
- *      -- TREE_OK: OK, item inserted.
- *
- *      -- TREE_DUPLICATE: if (fAllowDuplicates == FALSE), this is
- *          returned if a tree item with the specified ID already
- *          exists.
- *
- *@@changed V0.9.9 (2001-02-06) [umoeller]: removed comparison func
+ *@@ rotateLeft:
+ *      private function during rebalancing.
  */
 
-int treeInsertID(TREE **root,             // in: root of tree
-                 TREE *tree,              // in: new tree node
-                 BOOL fAllowDuplicates)   // in: whether duplicates with the same ID are allowed
+static void rotateLeft(TREE **root,
+                       TREE *x)
 {
-    TREE    *current,
-            *parent;
-    int     last_comp = 0;
+   /**************************
+    *  rotate node x to left *
+    **************************/
 
-    // find where node belongs
-    current = *root;
-    parent  = NULL;
-    while (current != TREE_NULL)
+    TREE *y = x->right;
+
+    // establish x->right link
+    x->right = y->left;
+    if (y->left != LEAF)
+        y->left->parent = x;
+
+    // establish y->parent link
+    if (y != LEAF)
+        y->parent = x->parent;
+    if (x->parent)
     {
-        parent  = current;
-        last_comp = fnCompareIDs(tree->id, current->id);
-        switch (last_comp)
-        {
-            case -1: current = current->left;  break;
-            case  1: current = current->right; break;
-            default:
-                if (fAllowDuplicates)
-                    current = current->left;
-                else
-                    return TREE_DUPLICATE;
-        }
+        if (x == x->parent->left)
+            x->parent->left = y;
+        else
+            x->parent->right = y;
     }
-
-    // set up new node
-    ((TREE*)tree)->parent = parent;
-    ((TREE*)tree)->left   = TREE_NULL;
-    ((TREE*)tree)->right  = TREE_NULL;
-    ((TREE*)tree)->colour = RED;
-
-    // insert node in tree
-    if (parent)
-        switch (last_comp)
-        {
-            case  1: parent->right = tree;  break;
-            default: parent->left  = tree;
-        }
     else
-        *root = tree;
+        *root = y;
 
-    insert_fixup(root, tree);
-    return(TREE_OK);
+    // link x and y
+    y->left = x;
+    if (x != LEAF)
+        x->parent = y;
 }
 
 /*
- *@@ treeInsertNode:
- *      similar to treeInsertID, but this uses
- *      a comparision function which compares
- *      nodes.
+ *@@ rotateRight:
+ *      private function during rebalancing.
  */
 
-int treeInsertNode(TREE **root,             // in: root of tree
-                   TREE *tree,              // in: new tree node
-                   FNTREE_COMPARE_NODES *comp,  // in: comparison function
-                   BOOL fAllowDuplicates)   // in: whether duplicates with the same ID are allowed
+static void rotateRight(TREE **root,
+                        TREE *x)
 {
-    TREE
-       *current,
-       *parent;
-    int
-        last_comp = 0;
 
-    // find where node belongs
-    current = *root;
-    parent  = NULL;
-    while (current != TREE_NULL)
+   /****************************
+    *  rotate node x to right  *
+    ****************************/
+
+    TREE *y = x->left;
+
+    // establish x->left link
+    x->left = y->right;
+    if (y->right != LEAF)
+        y->right->parent = x;
+
+    // establish y->parent link
+    if (y != LEAF)
+        y->parent = x->parent;
+    if (x->parent)
     {
-        parent  = current;
-        last_comp = comp(tree, current);
-        switch (last_comp)
-        {
-            case -1: current = current->left;  break;
-            case  1: current = current->right; break;
-            default: if (fAllowDuplicates)
-                         current = current->left;
-                     else
-                         return TREE_DUPLICATE;
-
-        }
+        if (x == x->parent->right)
+            x->parent->right = y;
+        else
+            x->parent->left = y;
     }
-
-    // set up new node
-    ((TREE*)tree)->parent = parent;
-    ((TREE*)tree)->left   = TREE_NULL;
-    ((TREE*)tree)->right  = TREE_NULL;
-    ((TREE*)tree)->colour = RED;
-
-    // insert node in tree
-    if (parent)
-        switch (last_comp)
-        {
-            case  1: parent->right = tree;  break;
-            default: parent->left  = tree;
-        }
     else
-        *root = tree;
+        *root = y;
 
-    insert_fixup(root, tree);
-    return(TREE_OK);
+    // link x and y
+    y->right = x;
+    if (x != LEAF)
+        x->parent = y;
 }
 
 /*
- * insert_fixup:
- *      maintains the Red-Black tree balance after a node has been inserted.
- *
- *      Private function.
+ *@@ insertFixup:
+ *      private function during rebalancing.
  */
 
-static void insert_fixup(TREE **root,
-                         TREE *tree)
+static void insertFixup(TREE **root,
+                        TREE *x)
 {
-    TREE *uncle;
+   /*************************************
+    *  maintain Red-Black tree balance  *
+    *  after inserting node x           *
+    *************************************/
 
-    // check red-black properties
-    while ((tree != *root)
-       &&  (tree->parent->colour == RED))
+    // check Red-Black properties
+    while (    x != *root
+            && x->parent->color == RED
+          )
     {
         // we have a violation
-        if (tree->parent == tree->parent->parent->left)
+        if (x->parent == x->parent->parent->left)
         {
-            uncle = tree->parent->parent->right;
-            if (uncle->colour == RED)
+            TREE *y = x->parent->parent->right;
+            if (y->color == RED)
             {
                 // uncle is RED
-                tree ->parent->colour = BLACK;
-                uncle->colour = BLACK;
-                tree ->parent->parent->colour = RED;
-
-                tree = tree->parent->parent;
+                x->parent->color = BLACK;
+                y->color = BLACK;
+                x->parent->parent->color = RED;
+                x = x->parent->parent;
             }
             else
             {
                 // uncle is BLACK
-                if (tree == tree->parent->right)
+                if (x == x->parent->right)
                 {
-                    // make tree a left child
-                    tree = tree->parent;
-                    rotate_left (root, tree);
+                    // make x a left child
+                    x = x->parent;
+                    rotateLeft(root,
+                               x);
                 }
 
                 // recolor and rotate
-                tree->parent->colour = BLACK;
-                tree->parent->parent->colour = RED;
-                rotate_right (root, tree->parent->parent);
+                x->parent->color = BLACK;
+                x->parent->parent->color = RED;
+                rotateRight(root,
+                            x->parent->parent);
             }
         }
         else
         {
             // mirror image of above code
-            uncle = tree->parent->parent->left;
-            if (uncle->colour == RED)
+            TREE *y = x->parent->parent->left;
+            if (y->color == RED)
             {
                 // uncle is RED
-                tree ->parent->colour = BLACK;
-                uncle->colour = BLACK;
-                tree ->parent->parent->colour = RED;
-
-                tree = tree->parent->parent;
+                x->parent->color = BLACK;
+                y->color = BLACK;
+                x->parent->parent->color = RED;
+                x = x->parent->parent;
             }
             else
             {
                 // uncle is BLACK
-                if (tree == tree->parent->left)
+                if (x == x->parent->left)
                 {
-                    tree = tree->parent;
-                    rotate_right (root, tree);
+                    x = x->parent;
+                    rotateRight(root,
+                                x);
                 }
-                tree->parent->colour = BLACK;
-                tree->parent->parent->colour = RED;
-                rotate_left (root, tree->parent->parent);
+                x->parent->color = BLACK;
+                x->parent->parent->color = RED;
+                rotateLeft(root,
+                           x->parent->parent);
             }
         }
     }
-    (*root)->colour = BLACK;
+    (*root)->color = BLACK;
 }
 
 /*
- * rotate_left:
- *      rotates tree to left.
+ *@@ treeInsert:
+ *      inserts a new tree node into the specified
+ *      tree, using the specified comparison function
+ *      for sorting.
  *
- *      Private function.
+ *      "x" specifies the new tree node which must
+ *      have been allocated by the caller. x->ulKey
+ *      must already contain the node's key (data).
+ *      This function will then set the parent,
+ *      left, right, and color members.
+ *
+ *      Returns 0 if no error. Might return
+ *      STATUS_DUPLICATE_KEY if a node with the
+ *      same ulKey already exists.
  */
 
-static void rotate_left(TREE **root,
+int treeInsert(TREE **root,                     // in: root of the tree
+               TREE *x,                         // in: new node to insert
+               FNTREE_COMPARE *pfnCompare)      // in: comparison func
+{
+    TREE    *current,
+            *parent;
+
+    unsigned long key = x->ulKey;
+
+    // find future parent
+    current = *root;
+    parent = 0;
+
+    while (current != LEAF)
+    {
+        int iResult;
+        if (0 == (iResult = pfnCompare(key, current->ulKey))) // if (compEQ(key, current->key))
+            return STATUS_DUPLICATE_KEY;
+        parent = current;
+        current = (iResult < 0)    // compLT(key, current->key)
+                    ? current->left
+                    : current->right;
+    }
+
+    // set up new node
+    /* if ((x = malloc (sizeof(*x))) == 0)
+        return STATUS_MEM_EXHAUSTED; */
+    x->parent = parent;
+    x->left = LEAF;
+    x->right = LEAF;
+    x->color = RED;
+    // x->key = key;
+    // x->rec = *rec;
+
+    // insert node in tree
+    if (parent)
+    {
+        if (pfnCompare(key, parent->ulKey) < 0) // (compLT(key, parent->key))
+            parent->left = x;
+        else
+            parent->right = x;
+    }
+    else
+        *root = x;
+
+    insertFixup(root,
+                x);
+    // lastFind = NULL;
+
+    return STATUS_OK;
+}
+
+/*
+ *@@ deleteFixup:
+ *
+ */
+
+static void deleteFixup(TREE **root,
                         TREE *tree)
 {
-    TREE *other = tree->right;
+    TREE    *s;
 
-    // establish tree->right link
-    tree->right = other->left;
-    if (other->left != TREE_NULL)
-        other->left->parent = tree;
-
-    // establish other->parent link
-    if (other != TREE_NULL)
-        other->parent = tree->parent;
-
-    if (tree->parent)
+    while (    tree != *root
+            && tree->color == BLACK
+          )
     {
         if (tree == tree->parent->left)
-            tree->parent->left  = other;
+        {
+            s = tree->parent->right;
+            if (s->color == RED)
+            {
+                s->color = BLACK;
+                tree->parent->color = RED;
+                rotateLeft(root, tree->parent);
+                s = tree->parent->right;
+            }
+            if (    (s->left->color == BLACK)
+                 && (s->right->color == BLACK)
+               )
+            {
+                s->color = RED;
+                tree = tree->parent;
+            }
+            else
+            {
+                if (s->right->color == BLACK)
+                {
+                    s->left->color = BLACK;
+                    s->color = RED;
+                    rotateRight(root, s);
+                    s = tree->parent->right;
+                }
+                s->color = tree->parent->color;
+                tree->parent->color = BLACK;
+                s->right->color = BLACK;
+                rotateLeft(root, tree->parent);
+                tree = *root;
+            }
+        }
         else
-            tree->parent->right = other;
+        {
+            s = tree->parent->left;
+            if (s->color == RED)
+            {
+                s->color = BLACK;
+                tree->parent->color = RED;
+                rotateRight(root, tree->parent);
+                s = tree->parent->left;
+            }
+            if (    (s->right->color == BLACK)
+                 && (s->left->color == BLACK)
+               )
+            {
+                s->color = RED;
+                tree = tree->parent;
+            }
+            else
+            {
+                if (s->left->color == BLACK)
+                {
+                    s->right->color = BLACK;
+                    s->color = RED;
+                    rotateLeft(root, s);
+                    s = tree->parent->left;
+                }
+                s->color = tree->parent->color;
+                tree->parent->color = BLACK;
+                s->left->color = BLACK;
+                rotateRight (root, tree->parent);
+                tree = *root;
+            }
+        }
     }
-    else
-        *root = other;
+    tree->color = BLACK;
 
-    // link tree and other
-    other->left = tree;
-    if (tree != TREE_NULL)
-        tree->parent = other;
-}
+   /*************************************
+    *  maintain Red-Black tree balance  *
+    *  after deleting node x            *
+    *************************************/
 
-/*
- * rotate_right:
- *      rotates tree to right.
- *
- *      Private function.
- */
-
-static void rotate_right(TREE **root,
-                         TREE *tree)
-{
-    TREE *other;
-
-    other = tree->left;
-
-    // establish tree->left link
-    tree->left = other->right;
-    if (other->right != TREE_NULL)
-        other->right->parent = tree;
-
-    // establish other->parent link
-    if (other != TREE_NULL)
-        other->parent = tree->parent;
-
-    if (tree->parent)
+    /* while (    x != *root
+            && x->color == BLACK
+          )
     {
-        if (tree == tree->parent->right)
-            tree->parent->right = other;
+        if (x == x->parent->left)
+        {
+            TREE *w = x->parent->right;
+            if (w->color == RED)
+            {
+                w->color = BLACK;
+                x->parent->color = RED;
+                rotateLeft(root,
+                           x->parent);
+                w = x->parent->right;
+            }
+            if (    w->left->color == BLACK
+                 && w->right->color == BLACK
+               )
+            {
+                w->color = RED;
+                x = x->parent;
+            }
+            else
+            {
+                if (w->right->color == BLACK)
+                {
+                    w->left->color = BLACK;
+                    w->color = RED;
+                    rotateRight(root,
+                                w);
+                    w = x->parent->right;
+                }
+                w->color = x->parent->color;
+                x->parent->color = BLACK;
+                w->right->color = BLACK;
+                rotateLeft(root,
+                           x->parent);
+                x = *root;
+            }
+        }
         else
-            tree->parent->left  = other;
+        {
+            TREE *w = x->parent->left;
+            if (w->color == RED)
+            {
+                w->color = BLACK;
+                x->parent->color = RED;
+                rotateRight(root,
+                            x->parent);
+                w = x->parent->left;
+            }
+            if (    w->right->color == BLACK
+                 && w->left->color == BLACK
+               )
+            {
+                w->color = RED;
+                x = x->parent;
+            }
+            else
+            {
+                if (w->left->color == BLACK)
+                {
+                    w->right->color = BLACK;
+                    w->color = RED;
+                    rotateLeft(root,
+                               w);
+                    w = x->parent->left;
+                }
+                w->color = x->parent->color;
+                x->parent->color = BLACK;
+                w->left->color = BLACK;
+                rotateRight(root,
+                            x->parent);
+                x = *root;
+            }
+        }
     }
-    else
-        *root = other;
-
-    // link tree and other
-    other->right = tree;
-    if (tree != TREE_NULL)
-        tree->parent = other;
+    x->color = BLACK; */
 }
 
 /*
  *@@ treeDelete:
- *      deletes a node from a tree. Does not deallocate any memory.
+ *      removes the specified node from the tree.
+ *      Does not free() the node though.
  *
- *      Returns:
- *
- *      -- TREE_OK: node deleted.
- *      -- TREE_INVALID_NODE: tree node not found.
+ *      Returns 0 if the node was deleted or
+ *      STATUS_INVALID_NODE if not.
  */
 
-int treeDelete(TREE **root,     // in: root of tree
-               TREE *tree)      // in: tree node to delete
+int treeDelete(TREE **root,         // in: root of the tree
+               TREE *tree)          // in: tree node to delete
 {
-    int irc = TREE_OK;
-
-    TREE
-       *youngest, *descendent;
-    TREE_COLOUR
-        colour;
+    TREE        *y,
+                *d;
+    nodeColor   color;
 
     if (    (!tree)
-         || (tree == TREE_NULL)
+         || (tree == LEAF)
        )
-        return TREE_INVALID_NODE;
+        return STATUS_INVALID_NODE;
 
-    if (    (((TREE*)tree)->left  == TREE_NULL)
-         || (((TREE*)tree)->right == TREE_NULL)
+    if (    (tree->left  == LEAF)
+         || (tree->right == LEAF)
        )
-        // descendent has a TREE_NULL node as a child
-        descendent = tree;
+        // d has a TREE_NULL node as a child
+        d = tree;
     else
-  {
+    {
         // find tree successor with a TREE_NULL node as a child
-        descendent = ((TREE*)tree)->right;
-        while (descendent->left != TREE_NULL)
-            descendent = descendent->left;
-  }
+        d = tree->right;
+        while (d->left != LEAF)
+            d = d->left;
+    }
 
-    // youngest is descendent's only child, if there is one, else TREE_NULL
-    if (descendent->left != TREE_NULL)
-        youngest = descendent->left;
+    // y is d's only child, if there is one, else TREE_NULL
+    if (d->left != LEAF)
+        y = d->left;
     else
-        youngest = descendent->right;
+        y = d->right;
 
-    // remove descendent from the parent chain
-    if (youngest != TREE_NULL)
-        youngest->parent = descendent->parent;
-    if (descendent->parent)
+    // remove d from the parent chain
+    if (y != LEAF)
+        y->parent = d->parent;
+    if (d->parent)
     {
-        if (descendent == descendent->parent->left)
-            descendent->parent->left  = youngest;
+        if (d == d->parent->left)
+            d->parent->left  = y;
         else
-            descendent->parent->right = youngest;
+            d->parent->right = y;
     }
     else
-        *root = youngest;
+        *root = y;
 
-    colour = descendent->colour;
+    color = d->color;
 
-    if (descendent != (TREE *) tree)
+    if (d != tree)
     {
-        // Conceptually what we are doing here is moving the data from
-        // descendent to tree.  In fact we do this by linking descendent
-        // into the structure in the place of tree.
-        descendent->left   = ((TREE*)tree)->left;
-        descendent->right  = ((TREE*)tree)->right;
-        descendent->parent = ((TREE*)tree)->parent;
-        descendent->colour = ((TREE*)tree)->colour;
+        // move the data from d to tree; we do this by
+        // linking d into the structure in the place of tree
+        d->left   = tree->left;
+        d->right  = tree->right;
+        d->parent = tree->parent;
+        d->color  = tree->color;
 
-        if (descendent->parent)
+        if (d->parent)
         {
-            if (tree == descendent->parent->left)
-                descendent->parent->left  = descendent;
+            if (tree == d->parent->left)
+                d->parent->left  = d;
             else
-                descendent->parent->right = descendent;
+                d->parent->right = d;
         }
         else
-            *root = descendent;
+            *root = d;
 
-        if (descendent->left != TREE_NULL)
-            descendent->left->parent = descendent;
+        if (d->left != LEAF)
+            d->left->parent = d;
 
-        if (descendent->right != TREE_NULL)
-            descendent->right->parent = descendent;
+        if (d->right != LEAF)
+            d->right->parent = d;
     }
 
-    if (    (youngest != TREE_NULL)
-        &&  (colour   == BLACK))
-        delete_fixup (root, youngest);
+    if (    (y != LEAF)
+         && (color == BLACK)
+       )
+        deleteFixup(root,
+                    y);
 
-    return (irc);
-}
+    return (STATUS_OK);
 
-/*
- *@@ delete_fixup:
- *      maintains Red-Black tree balance after deleting a node.
- *
- *      Private function.
- */
+    /* TREE    *x,
+            *y; */
+            // *z;
 
-static void delete_fixup(TREE **root,
-                         TREE *tree)
-{
-    TREE
-       *sibling;
+   /*****************************
+    *  delete node z from tree  *
+    *****************************/
 
-    while (tree != *root && tree->colour == BLACK)
-    {
-        if (tree == tree->parent->left)
+    // find node in tree
+    /* if (lastFind && compEQ(lastFind->key, key))
+        // if we just found node, use pointer
+        z = lastFind;
+    else {
+        z = *root;
+        while(z != LEAF)
         {
-            sibling = tree->parent->right;
-            if (sibling->colour == RED)
-            {
-                sibling->colour = BLACK;
-                tree->parent->colour = RED;
-                rotate_left (root, tree->parent);
-                sibling = tree->parent->right;
-            }
-            if ((sibling->left->colour == BLACK)
-            &&  (sibling->right->colour == BLACK))
-            {
-                sibling->colour = RED;
-                tree = tree->parent;
-            }
+            int iResult = pfnCompare(key, z->key);
+            if (iResult == 0)
+            // if(compEQ(key, z->key))
+                break;
             else
-            {
-                if (sibling->right->colour == BLACK)
-                {
-                    sibling->left->colour = BLACK;
-                    sibling->colour = RED;
-                    rotate_right (root, sibling);
-                    sibling = tree->parent->right;
-                }
-                sibling->colour = tree->parent->colour;
-                tree->parent->colour = BLACK;
-                sibling->right->colour = BLACK;
-                rotate_left (root, tree->parent);
-                tree = *root;
-            }
+                z = (iResult < 0) // compLT(key, z->key)
+                    ? z->left
+                    : z->right;
         }
-        else
-        {
-            sibling = tree->parent->left;
-            if (sibling->colour == RED)
-            {
-                sibling->colour = BLACK;
-                tree->parent->colour = RED;
-                rotate_right (root, tree->parent);
-                sibling = tree->parent->left;
-            }
-            if ((sibling->right->colour == BLACK)
-            &&  (sibling->left->colour == BLACK))
-            {
-                sibling->colour = RED;
-                tree = tree->parent;
-            }
-            else
-            {
-                if (sibling->left->colour == BLACK)
-                {
-                    sibling->right->colour = BLACK;
-                    sibling->colour = RED;
-                    rotate_left (root, sibling);
-                    sibling = tree->parent->left;
-                }
-                sibling->colour = tree->parent->colour;
-                tree->parent->colour = BLACK;
-                sibling->left->colour = BLACK;
-                rotate_right (root, tree->parent);
-                tree = *root;
-            }
-        }
+        if (z == LEAF)
+            return STATUS_KEY_NOT_FOUND;
     }
-    tree->colour = BLACK;
-}
 
-/*
- *@@ treeFindEQID:
- *      finds a node with ID exactly matching that provided.
- *      Returns NULL if not found.
- */
-
-void* treeFindEQID(TREE **root,
-                   unsigned long id)
-{
-    TREE    *current = *root,
-            *found = NULL;
-
-    while (current != TREE_NULL)
-        switch (fnCompareIDs(current->id, id))
-        {
-            case -1: current = current->right; break;
-            case  1: current = current->left;  break;
-            default: found = current;           //  In case of duplicates,
-                     current = current->left;  //  get the first one.
-        }
-
-    return found;
-}
-
-/*
- *@@ treeFindGEID:
- *      finds a node with ID greater than or equal to provided.
- *      To find a tree node, your comparison function must
- *      compare the tree node IDs.
- */
-
-void* treeFindGEID(TREE **root,
-                   unsigned long idFind)
-{
-    TREE    *current = *root,
-            *found;
-
-    found = NULL;
-    while (current != TREE_NULL)
-        switch (fnCompareIDs(current->id, idFind))
-        {
-            case -1: current = current->right; break;
-            default: found = current;
-                     current = current->left;
-        }
-
-    return found;
-}
-
-/*
- *@@ treeFindEQNode:
- *      finds a node with ID exactly matching that provided.
- *      To find a tree node, your comparison function must
- *      compare the tree nodes.
- */
-
-void* treeFindEQNode(TREE **root,
-                     TREE *nodeFind,
-                     FNTREE_COMPARE_NODES *comp)
-{
-    TREE    *current = *root,
-            *found;
-
-    found = NULL;
-    while (current != TREE_NULL)
-        switch (comp(current, nodeFind))
-        {
-            case -1: current = current->right; break;
-            case  1: current = current->left;  break;
-            default: found = current;           //  In case of duplicates,
-                     current = current->left;  //  get the first one.
-        }
-
-    return found;
-}
-
-/*
- *@@ treeFindGENode:
- *      finds a node with ID greater than or equal to provided.
- *      To find a tree node, your comparison function must
- *      compare the tree nodes.
- */
-
-void* treeFindGENode(TREE **root,
-                     TREE *nodeFind,
-                     FNTREE_COMPARE_NODES *comp)
-{
-    TREE    *current = *root,
-            *found;
-
-    found = NULL;
-    while (current != TREE_NULL)
-        switch (comp(current, nodeFind))
-        {
-            case -1: current = current->right; break;
-            default: found = current;
-                     current = current->left;
-        }
-
-    return found;
-}
-
-/*
- *@@ treeFindLTNode:
- *      finds a node with Node less than provided.
- *      To find a tree node, your comparison function must
- *      compare the tree nodes.
- */
-
-void* treeFindLTNode(TREE **root,
-                     TREE *nodeFind,
-                     FNTREE_COMPARE_NODES *comp)
-{
-    TREE    *current = *root,
-            *found;
-
-    found = NULL;
-    while (current != TREE_NULL)
-        switch (comp(current, nodeFind))
-        {
-            case -1: found = current;
-                     current = current->right; break;
-            default: current = current->left;
-        }
-
-    return found;
-}
-
-/*
- *@@ treeFindLENode:
- *      finds a node with Node less than or equal to provided.
- *      To find a tree node, your comparison function must
- *      compare the tree nodes.
- */
-
-void* treeFindLENode(TREE **root,
-                     TREE *nodeFind,
-                     FNTREE_COMPARE_NODES *comp)
-{
-    TREE    *current = *root,
-            *found;
-
-    found = NULL;
-    while (current != TREE_NULL)
-        switch (comp(current, nodeFind))
-        {
-            case 1 : current = current->left;  break;
-            default: found = current;
-                     current = current->right;
-        }
-
-    return found;
-}
-
-/*
- *@@ treeFindGTNode:
- *      finds a node with Node greater than provided.
- *      To find a tree node, your comparison function must
- *      compare the tree nodes.
- */
-
-void* treeFindGTNode(TREE **root,
-                     TREE *nodeFind,
-                     FNTREE_COMPARE_NODES *comp)
-{
-    TREE    *current = *root,
-            *found;
-
-    found = NULL;
-    while (current != TREE_NULL)
-        switch (comp(current, nodeFind))
-        {
-            case 1 : found = current;
-                     current = current->left; break;
-            default: current = current->right;
-        }
-
-    return found;
-}
-
-/*
- *@@ treeFindEQID:
- *      finds a node with data exactly matching that provided.
- *      To find a tree node, your comparison function must
- *      compare a tree member with external data.
- *
- *      This is useful for finding a tree item from a string ID.
- *
- *      Make sure to use treeInsertNode and compare according
- *      to a string member, and then write a second compare
- *      function for this function which compares the string
- *      member to an external string.
- */
-
-void* treeFindEQData(TREE **root,
-                     void *pData,
-                     FNTREE_COMPARE_DATA *comp)
-{
-    TREE    *current = *root,
-            *found = NULL;
-
-    while (current != TREE_NULL)
-        switch (comp(current, pData))
-        {
-            case -1: current = current->right; break;
-            case  1: current = current->left;  break;
-            default: found = current;           //  In case of duplicates,
-                     current = current->left;  //  get the first one.
-        }
-
-    return found;
-}
-
-/*
- *@@ treeTraverse:
- *      traverses the specified tree, calling a processing function
- *      for each tree node.
- *
- *      The processing function ("process") must be declared as
- *      follows:
- *
- +          void fnProcess(TREE *t,         // current tree node
- +                         void *pUser);    // user data
- *
- *      and will receive the "pUser" parameter, which you can use
- *      as a data pointer to some structure for whatever you like.
- *
- *      WARNING: This function recurses and can use up a lot of
- *      stack. For very deep trees, traverse the tree using
- *      treeFirst and treeNext instead. See treeNext for a sample.
- *
- *      "method" specifies in which order the nodes are traversed.
- *      This can be:
- *
- *      -- 1: current node first, then left node, then right node.
- *      -- 2: left node first, then right node, then current node.
- *      -- 0 or other: left node first, then current node, then right node.
- *           This is the sorted order.
- */
-
-void treeTraverse(TREE *tree,               // in: root of tree
-                  TREE_PROCESS *process,    // in: callback for each node
-                  void *pUser,              // in: user param for callback
-                  int method)               // in: traversal mode
-{
-    if (    (!tree)
-         || (tree == TREE_NULL))
-        return;
-
-    if (method == 1)
+    if (    z->left == LEAF
+         || z->right == LEAF
+       )
     {
-        process(tree, pUser);
-        treeTraverse (((TREE*)tree)->left,  process, pUser, method);
-        treeTraverse (((TREE*)tree)->right, process, pUser, method);
-    }
-    else if (method == 2)
-    {
-        treeTraverse (((TREE*)tree)->left,  process, pUser, method);
-        treeTraverse (((TREE*)tree)->right, process, pUser, method);
-        process(tree, pUser);
+        // y has a LEAF node as a child
+        y = z;
     }
     else
     {
-        treeTraverse (((TREE*)tree)->left,  process, pUser, method);
-        process(tree, pUser);
-        treeTraverse (((TREE*)tree)->right, process, pUser, method);
+        // find tree successor with a LEAF node as a child
+        y = z->right;
+        while (y->left != LEAF)
+            y = y->left;
     }
+
+    // x is y's only child
+    if (y->left != LEAF)
+        x = y->left;
+    else
+        x = y->right;
+
+    // remove y from the parent chain
+    x->parent = y->parent;
+    if (y->parent)
+        if (y == y->parent->left)
+            y->parent->left = x;
+        else
+            y->parent->right = x;
+    else
+        *root = x;
+
+    // y is about to be deleted...
+
+    if (y != z)
+    {
+        // now, the original code simply copied the data
+        // from y to z... we can't safely do that since
+        // we don't know about the real data in the
+        // caller's TREE structure
+        z->ulKey = y->ulKey;
+        // z->rec = y->rec;         // hope this works...
+                                    // the original implementation used rec
+                                    // for the node's data
+
+        if (cbStruct > sizeof(TREE))
+        {
+            memcpy(((char*)&z) + sizeof(TREE),
+                   ((char*)&y) + sizeof(TREE),
+                   cbStruct - sizeof(TREE));
+        }
+    }
+
+    if (y->color == BLACK)
+        deleteFixup(root,
+                    x);
+
+    // free(y);
+    // lastFind = NULL;
+
+    return STATUS_OK; */
+}
+
+/*
+ *@@ treeFind:
+ *      finds the tree node with the specified key.
+ */
+
+TREE* treeFind(TREE *root,                    // in: root of the tree
+               unsigned long key,             // in: key to find
+               FNTREE_COMPARE *pfnCompare)    // in: comparison func
+{
+   /*******************************
+    *  find node containing data  *
+    *******************************/
+
+    TREE *current = root;
+    while (current != LEAF)
+    {
+        int iResult;
+        if (0 == (iResult = pfnCompare(key, current->ulKey)))
+            return (current);
+        else
+        {
+            current = (iResult < 0) // compLT (key, current->key)
+                ? current->left
+                : current->right;
+        }
+    }
+
+    return 0;
 }
 
 /*
@@ -973,21 +920,20 @@ void treeTraverse(TREE *tree,               // in: root of tree
  *      See treeNext for a sample usage for traversing a tree.
  */
 
-void* treeFirst(TREE *tree)
+TREE* treeFirst(TREE *r)
 {
-    TREE
-       *current;
+    TREE    *p;
 
-    if (    (!tree)
-         || (tree == TREE_NULL)
+    if (    (!r)
+         || (r == LEAF)
        )
         return NULL;
 
-    current = tree;
-    while (current->left != TREE_NULL)
-        current = current->left;
+    p = r;
+    while (p->left != LEAF)
+        p = p->left;
 
-    return current;
+    return p;
 }
 
 /*
@@ -995,28 +941,26 @@ void* treeFirst(TREE *tree)
  *      finds and returns the last node in a (sub-)tree.
  */
 
-void* treeLast(TREE *tree)
+TREE* treeLast(TREE *r)
 {
-    TREE
-       *current;
+    TREE    *p;
 
-    if (    (!tree)
-         || (tree == TREE_NULL))
+    if (    (!r)
+         || (r == LEAF))
         return NULL;
 
-    current = tree;
-    while (current->right != TREE_NULL)
-        current = current->right;
+    p = r;
+    while (p->right != LEAF)
+        p = p->right;
 
-    return current;
+    return p;
 }
 
 /*
  *@@ treeNext:
  *      finds and returns the next node in a tree.
  *
- *      Example for traversing a whole tree if you don't
- *      want to use treeTraverse:
+ *      Example for traversing a whole tree:
  *
  +          TREE    *TreeRoot;
  +          ...
@@ -1030,33 +974,32 @@ void* treeLast(TREE *tree)
  *      This runs through the tree items in sorted order.
  */
 
-void* treeNext(TREE *tree)
+TREE* treeNext(TREE *r)
 {
-    TREE
-       *current,
-       *child;
+    TREE    *p,
+            *child;
 
-    if (    (!tree)
-         || (tree == TREE_NULL)
+    if (    (!r)
+         || (r == LEAF)
        )
         return NULL;
 
-    current = tree;
-    if (current->right != TREE_NULL)
-        return treeFirst (current->right);
+    p = r;
+    if (p->right != LEAF)
+        return treeFirst (p->right);
     else
     {
-        current = tree;
-        child   = TREE_NULL;
-        while (    (current->parent)
-                && (current->right == child)
+        p = r;
+        child   = LEAF;
+        while (    (p->parent)
+                && (p->right == child)
               )
         {
-            child = current;
-            current = current->parent;
+            child = p;
+            p = p->parent;
         }
-        if (current->right != child)
-            return current;
+        if (p->right != child)
+            return p;
         else
             return NULL;
     }
@@ -1067,31 +1010,30 @@ void* treeNext(TREE *tree)
  *      finds and returns the previous node in a tree.
  */
 
-void* treePrev(TREE *tree)
+TREE* treePrev(TREE *r)
 {
-    TREE
-       *current,
-       *child;
+    TREE    *p,
+            *child;
 
-    if (    (!tree)
-         || (tree == TREE_NULL))
+    if (    (!r)
+         || (r == LEAF))
         return NULL;
 
-    current = tree;
-    if (current->left != TREE_NULL)
-        return treeLast (current->left);
+    p = r;
+    if (p->left != LEAF)
+        return treeLast (p->left);
     else
     {
-        current = tree;
-        child   = TREE_NULL;
-        while ((current->parent)
-           &&  (current->left == child))
+        p = r;
+        child   = LEAF;
+        while ((p->parent)
+           &&  (p->left == child))
         {
-            child = current;
-            current = current->parent;
+            child = p;
+            p = p->parent;
         }
-        if (current->left != child)
-            return current;
+        if (p->left != child)
+            return p;
         else
             return NULL;
     }
@@ -1124,7 +1066,7 @@ void* treePrev(TREE *tree)
  +
  +          // add stuff to the tree
  +          TREE    *pNewNode = malloc(...);
- +          treeInsertID(&G_TreeRoot, pNewNode, FALSE)
+ +          treeInsert(&G_TreeRoot, pNewNode, fnCompare)
  +
  +          // now delete all nodes
  +          ULONG   cItems = ... // insert item count here
@@ -1185,4 +1127,23 @@ TREE** treeBuildArray(TREE* pRoot,
     return (papNodes);
 }
 
+/* void main(int argc, char **argv) {
+    int maxnum, ct;
+    recType rec;
+    keyType key;
+    statusEnum status;
 
+    maxnum = atoi(argv[1]);
+
+    printf("maxnum = %d\n", maxnum);
+    for (ct = maxnum; ct; ct--) {
+        key = rand() % 9 + 1;
+        if ((status = find(key, &rec)) == STATUS_OK) {
+            status = delete(key);
+            if (status) printf("fail: status = %d\n", status);
+        } else {
+            status = insert(key, &rec);
+            if (status) printf("fail: status = %d\n", status);
+        }
+    }
+} */
