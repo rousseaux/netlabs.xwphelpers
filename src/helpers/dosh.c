@@ -4609,16 +4609,19 @@ APIRET doshExecVIO(PCSZ pcszExecWithArgs,
  *@@changed V0.9.3 (2000-05-03) [umoeller]: added fForeground
  *@@changed V0.9.14 (2001-08-03) [umoeller]: fixed potential queue leak
  *@@changed V0.9.14 (2001-08-03) [umoeller]: fixed memory leak in wait mode; added pusReturn to prototype
+ *@@changed V1.0.2  (2003-02-04) [jsmall  ]: inserted new 3rd parameter for session type
+ *@@changed V1.0.2  (2003-02-04) [jsmall  ]: changed code so when fWait = FALSE then session is started as independent, not as a child
  */
 
-APIRET doshQuickStartSession(PCSZ pcszPath,       // in: program to start
-                             PCSZ pcszParams,     // in: parameters for program
-                             BOOL fForeground,  // in: if TRUE, session will be in foreground
-                             USHORT usPgmCtl,   // in: STARTDATA.PgmControl
-                             BOOL fWait,        // in: wait for termination?
-                             PULONG pulSID,     // out: session ID (req.)
-                             PPID ppid,         // out: process ID (req.)
-                             PUSHORT pusReturn) // out: in wait mode, session's return code (ptr can be NULL)
+APIRET doshQuickStartSession(PCSZ pcszPath,         // in: program to start
+                             PCSZ pcszParams,       // in: parameters for program
+                             USHORT usSessionType,  // in: session type
+                             BOOL fForeground,      // in: if TRUE, session will be in foreground
+                             USHORT usPgmCtl,       // in: STARTDATA.PgmControl
+                             BOOL fWait,            // in: wait for termination?
+                             PULONG pulSID,         // out: session ID (req.)
+                             PPID ppid,             // out: process ID (req.)
+                             PUSHORT pusReturn)     // out: in wait mode, session's return code (ptr can be NULL)
 {
     APIRET      arc = NO_ERROR;
     // queue stuff
@@ -4640,7 +4643,9 @@ APIRET doshQuickStartSession(PCSZ pcszPath,       // in: program to start
         CHAR        szObjBuf[CCHMAXPATH];
 
         SData.Length  = sizeof(STARTDATA);
-        SData.Related = SSF_RELATED_CHILD; //INDEPENDENT;
+//      SData.Related = SSF_RELATED_CHILD; //INDEPENDENT;
+        SData.Related = (fWait) ? SSF_RELATED_CHILD : SSF_RELATED_INDEPENDENT;
+                // V1.0.2 (2003-02-04) [jsmall]
         SData.FgBg    = (fForeground) ? SSF_FGBG_FORE : SSF_FGBG_BACK;
                 // V0.9.3 (2000-05-03) [umoeller]
         SData.TraceOpt = SSF_TRACEOPT_NONE;
@@ -4652,7 +4657,8 @@ APIRET doshQuickStartSession(PCSZ pcszPath,       // in: program to start
         SData.TermQ = (fWait) ? (PSZ)pcszQueueName : NULL;
         SData.Environment = 0;
         SData.InheritOpt = SSF_INHERTOPT_PARENT;
-        SData.SessionType = SSF_TYPE_DEFAULT;
+//      SData.SessionType = SSF_TYPE_DEFAULT;
+        SData.SessionType = usSessionType;    // V1.0.2 (2003-02-04)  [jsmall]
         SData.IconFile = 0;
         SData.PgmHandle = 0;
 

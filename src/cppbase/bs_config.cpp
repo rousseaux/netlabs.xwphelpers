@@ -84,6 +84,7 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
+#define INCL_DOSSESMGR
 #define INCL_DOSSEMAPHORES
 #define INCL_DOSERRORS
 #define INCL_WINWINDOWMGR
@@ -2291,6 +2292,7 @@ int BSExecute::Execute(BSUniCodec &codecProcess, // in: codec for process codepa
     PID         pid = 0;
     if (_arc = doshQuickStartSession("cmd.exe",
                                      (PSZ)strParams.c_str(),
+                                     SSF_TYPE_DEFAULT,            // session type
                                      FALSE,   // foreground
                                      0,       // auto-close, visible
                                      TRUE,    // wait

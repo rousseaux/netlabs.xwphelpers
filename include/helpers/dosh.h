@@ -730,6 +730,7 @@ extern "C" {
 
     APIRET doshQuickStartSession(PCSZ pcszPath,
                                  PCSZ pcszParams,
+                                 USHORT usSessionType,
                                  BOOL fForeground,
                                  USHORT usPgmCtl,
                                  BOOL fWait,

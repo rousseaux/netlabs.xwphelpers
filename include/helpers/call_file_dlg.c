@@ -20,6 +20,7 @@
  *      if the flag is TRUE.
  *
  *@@added V0.9.19 (2002-04-24) [umoeller]
+ *@@changed V1.0.2 (2003-03-07) [umoeller]: HWND_DESKTOP owner causes focus problems, fixed
  */
 
 HWND APIENTRY ImplCallFileDlg(HWND hwndOwner,       // in: owner for dialog
@@ -164,6 +165,10 @@ HWND APIENTRY ImplCallFileDlg(HWND hwndOwner,       // in: owner for dialog
 
                     // ZERO the structure
                     memset((PBYTE)pfdShared, 0, cbShared);
+
+                    // fix HWND_DESKTOP owner V1.0.2 (2003-03-07) [umoeller]
+                    if (hwndOwner == HWND_DESKTOP)
+                        hwndOwner = NULLHANDLE;
 
                     // copy owner window
                     pfdShared->hwndOwner = hwndOwner;
