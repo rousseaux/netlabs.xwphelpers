@@ -43,12 +43,15 @@ extern "C" {
 
     #define ERROR_WPH_FIRST                         41000
 
-    #define ERROR_WPH_CRASHED                       (ERROR_WPH_FIRST +   0)
+    // #define ERROR_WPH_CRASHED                       (ERROR_WPH_FIRST +   0)
+                // now using ERROR_PROTECTION_VIOLATION instead
+                // V0.9.19 (2002-07-01) [umoeller]
     #define ERROR_WPH_NO_BASECLASS_DATA             (ERROR_WPH_FIRST +   1)
     #define ERROR_WPH_NO_ACTIVEHANDLES_DATA         (ERROR_WPH_FIRST +   2)
     #define ERROR_WPH_INCOMPLETE_BASECLASS_DATA     (ERROR_WPH_FIRST +   3)
     #define ERROR_WPH_NO_HANDLES_DATA               (ERROR_WPH_FIRST +   4)
     #define ERROR_WPH_CORRUPT_HANDLES_DATA          (ERROR_WPH_FIRST +   5)
+                // cannot determine format (invalid keywords)
     #define ERROR_WPH_INVALID_PARENT_HANDLE         (ERROR_WPH_FIRST +   6)
     #define ERROR_WPH_CANNOT_FIND_HANDLE            (ERROR_WPH_FIRST +   7)
     #define ERROR_WPH_DRIV_TREEINSERT_FAILED        (ERROR_WPH_FIRST +   8)
@@ -57,8 +60,14 @@ extern "C" {
     #define ERROR_WPH_NO_MATCHING_DRIVE_BLOCK       (ERROR_WPH_FIRST +  11)
     #define ERROR_WPH_NO_MATCHING_ROOT_DIR          (ERROR_WPH_FIRST +  12)
     #define ERROR_WPH_NOT_FILESYSTEM_HANDLE         (ERROR_WPH_FIRST +  13)
+    #define ERROR_WPH_PRFQUERYPROFILESIZE_BLOCK     (ERROR_WPH_FIRST +  14)
+                // PrfQueryProfileSize failed on BLOCK (fatal)
+                // V0.9.19 (2002-07-01) [umoeller]
+    #define ERROR_WPH_PRFQUERYPROFILEDATA_BLOCK     (ERROR_WPH_FIRST +  15)
+                // PrfQueryProfileData failed on BLOCK (fatal)
+                // V0.9.19 (2002-07-01) [umoeller]
 
-    #define ERROR_WPH_LAST                          (ERROR_WPH_FIRST +  13)
+    #define ERROR_WPH_LAST                          (ERROR_WPH_FIRST +  15)
 
     /* ******************************************************************
      *
@@ -228,6 +237,8 @@ extern "C" {
                                   HOBJECT hObject,
                                   PSZ pszFilename,
                                   ULONG cbFilename);
+
+    PCSZ wphDescribeError(APIRET arc);
 
 #endif
 

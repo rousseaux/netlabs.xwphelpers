@@ -514,7 +514,7 @@ APIRET wphLoadHandles(HINI hiniUser,      // in: HINI_USER or other INI handle
                                              szBlockThis,
                                              &cbBlockThis))
                     {
-                        arc = ERROR_WPH_CORRUPT_HANDLES_DATA;
+                        arc = ERROR_WPH_PRFQUERYPROFILESIZE_BLOCK;
                         break;
                     }
                     else
@@ -535,7 +535,7 @@ APIRET wphLoadHandles(HINI hiniUser,      // in: HINI_USER or other INI handle
                                                  pbData + cbTotalOld,
                                                  &cbBlockThis))
                         {
-                            arc = ERROR_WPH_CORRUPT_HANDLES_DATA;
+                            arc = ERROR_WPH_PRFQUERYPROFILEDATA_BLOCK;
                             break;
                         }
                     }
@@ -829,7 +829,7 @@ APIRET wphQueryHandleFromPath(HINI hiniUser,      // in: HINI_USER or other INI 
     }
     CATCH(excpt1)
     {
-        arc = ERROR_WPH_CRASHED;
+        arc = ERROR_PROTECTION_VIOLATION; // V0.9.19 (2002-07-01) [umoeller]
     } END_CATCH();
 
     if (pszActiveHandles)
@@ -965,7 +965,7 @@ APIRET wphComposePath(HHANDLES hHandles,
         }
         CATCH(excpt1)
         {
-            arc = ERROR_WPH_CRASHED;
+            arc = ERROR_PROTECTION_VIOLATION; // V0.9.19 (2002-07-01) [umoeller]
         } END_CATCH();
     }
 
@@ -1042,11 +1042,70 @@ APIRET wphQueryPathFromHandle(HINI hiniUser,      // in: HINI_USER or other INI 
     }
     CATCH(excpt1)
     {
-        arc = ERROR_WPH_CRASHED;
+        arc = ERROR_PROTECTION_VIOLATION; // V0.9.19 (2002-07-01) [umoeller]
     } END_CATCH();
 
     return arc;
 }
 
+/*
+ *@@ wphDescribeError:
+ *      returns an error description for one of the handles
+ *      engine errors, or NULL if the error code is not
+ *      recognized.
+ *
+ *@@added V0.9.19 (2002-07-01) [umoeller]
+ */
 
+PCSZ wphDescribeError(APIRET arc)
+{
+    switch (arc)
+    {
+        case ERROR_WPH_NO_BASECLASS_DATA:
+            return "Cannot find PM_Workplace:BaseClass in OS2.INI";
 
+        case ERROR_WPH_NO_ACTIVEHANDLES_DATA:
+            return "Cannot find PM_Workplace:ActiveHandles in OS2SYS.INI";
+
+        case ERROR_WPH_INCOMPLETE_BASECLASS_DATA:
+            return "PM_Workplace:ActiveHandles in OS2SYS.INI is incomplete";
+
+        case ERROR_WPH_NO_HANDLES_DATA:
+            return "Active handles block in OS2SYS.INI is empty";
+
+        case ERROR_WPH_CORRUPT_HANDLES_DATA:
+            return "Cannot parse data in active handles block in OS2SYS.INI";
+
+        case ERROR_WPH_INVALID_PARENT_HANDLE:
+            return "Handle has invalid parent handle";
+
+        case ERROR_WPH_CANNOT_FIND_HANDLE:
+            return "No handle exists for the given filename";
+
+        case ERROR_WPH_DRIV_TREEINSERT_FAILED:
+            return "Duplicate DRIV node (treeInsert failed)";
+
+        case ERROR_WPH_NODE_TREEINSERT_FAILED:
+            return "Duplicate NODE node (treeInsert failed)";
+
+        case ERROR_WPH_NODE_BEFORE_DRIV:
+            return "NODE node before DRIV node";
+
+        case ERROR_WPH_NO_MATCHING_DRIVE_BLOCK:
+            return "No matching DRIV node";
+
+        case ERROR_WPH_NO_MATCHING_ROOT_DIR:
+            return "No matching root directory";
+
+        case ERROR_WPH_NOT_FILESYSTEM_HANDLE:
+            return "Handle is not a file-system handle";
+
+        case ERROR_WPH_PRFQUERYPROFILESIZE_BLOCK:
+            return "PrfQueryProfileSize failed on reading one BLOCK in OS2SYS.INI";
+
+        case ERROR_WPH_PRFQUERYPROFILEDATA_BLOCK:
+            return "PrfQueryProfileData failed on reading one BLOCK in OS2SYS.INI";
+    }
+
+    return NULL;
+}
