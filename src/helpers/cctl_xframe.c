@@ -76,6 +76,8 @@
  *      This can also be called externally if you have a frame
  *      window proc that implements tool or status bars.
  *      (XWorkplace status bars).
+ *
+ *@@changed V1.0.1 (2002-12-08) [umoeller]: didn't work if frame had no menu, fixed
  */
 
 MRESULT ctlFormatExtFrame(HWND hwndFrame,
@@ -102,6 +104,7 @@ MRESULT ctlFormatExtFrame(HWND hwndFrame,
         PSWP        paswp = (PSWP)mp1,
                     pswpClient = NULL,
                     pswpMenu = NULL,
+                    pswpTitleBar = NULL,
                     pswpToolBar = NULL,
                     pswpStatusBar = NULL,
                     // first of the new SWP entries:
@@ -131,6 +134,10 @@ MRESULT ctlFormatExtFrame(HWND hwndFrame,
                 case FID_MENU:
                     pswpMenu = &paswp[ul];
                 break;
+
+                case FID_TITLEBAR:
+                    pswpTitleBar = &paswp[ul];
+                break;
             }
         }
 
@@ -144,6 +151,10 @@ MRESULT ctlFormatExtFrame(HWND hwndFrame,
 
             if (pswpMenu)
                 pswpToolBar->y = pswpMenu->y - pxfc->lToolBarHeight;
+            // if we don't have a menu, we need to use the title bar instead
+            // or the toolbar will overlap it V1.0.1 (2002-12-08) [umoeller]
+            else if (pswpTitleBar)
+                pswpToolBar->y = pswpTitleBar->y - pxfc->lToolBarHeight;
             else
                 pswpToolBar->y  = rclFrame.yTop - ptlBorderSizes.y - pxfc->lToolBarHeight;
 

@@ -106,7 +106,7 @@ MRESULT EXPENTRY fnwpClient(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
             if (hps = WinBeginPaint(hwnd, NULLHANDLE, &rcl))
             {
                 gpihSwitchToRGB(hps);
-                WinFillRect(hps, &rcl, RGBCOL_GRAY);
+                WinFillRect(hps, &rcl, RGBCOL_DARKGRAY);
                 WinEndPaint(hps);
             }
         }
@@ -129,6 +129,9 @@ int main(int argc, char *argv[])
     HAB             hab;
     HMQ             hmq;
 
+    #undef TBBS_TEXT
+    #define TBBS_TEXT 0
+
     #define TBBS_COMMON TBBS_AUTORESIZE | TBBS_FLAT | TBBS_HILITE | WS_VISIBLE
 
     CHAR            szOpen[200],
@@ -136,6 +139,7 @@ int main(int argc, char *argv[])
 
     TOOLBARCONTROL  aControls[] =
         {
+            /*
             WC_CCTL_TBBUTTON,
             szExit,
             TBBS_COMMON | TBBS_BIGICON | TBBS_TEXT | TBBS_SYSCOMMAND,
@@ -145,17 +149,18 @@ int main(int argc, char *argv[])
 
             WC_CCTL_TBBUTTON,
             szExit,
-            TBBS_COMMON | TBBS_BIGICON /* TBBS_TEXT | */ ,
+            TBBS_COMMON | TBBS_BIGICON,
             0,
             10,
             10,
 
             WC_CCTL_TBBUTTON,
             szExit,
-            TBBS_COMMON | TBBS_MINIICON /* TBBS_TEXT | */ ,
+            TBBS_COMMON | TBBS_MINIICON,
             0,
             10,
             10,
+            */
 
             WC_CCTL_TBBUTTON,
             szOpen,
@@ -180,21 +185,21 @@ int main(int argc, char *argv[])
 
             WC_CCTL_TBBUTTON,
             "Group 1",
-            TBBS_COMMON | TBBS_TEXT | TBBS_CHECKGROUP | TBBS_CHECKINITIAL,
+            TBBS_COMMON | TBBS_TEXT | TBBS_RADIO | TBBS_CHECKINITIAL,
             1101,
             10,
             10,
 
             WC_CCTL_TBBUTTON,
             "Group 2",
-            TBBS_COMMON | TBBS_TEXT | TBBS_CHECKGROUP,
+            TBBS_COMMON | TBBS_TEXT | TBBS_RADIO,
             1102,
             10,
             10,
 
             WC_CCTL_TBBUTTON,
             "Group 3",
-            TBBS_COMMON | TBBS_TEXT | TBBS_CHECKGROUP,
+            TBBS_COMMON | TBBS_TEXT | TBBS_RADIO,
             1103,
             10,
             10,
@@ -269,7 +274,7 @@ int main(int argc, char *argv[])
     WinSetWindowText(hwndToolBar, "Tool bar");
     WinSetWindowText(hwndStatusBar, "Status bar");
 
-    hwndMenu = WinCreateMenu(hwndFrame,
+    /* hwndMenu = WinCreateMenu(hwndFrame,
                              NULL);
 
     hwndSubmenu = winhInsertSubmenu(hwndMenu,
@@ -288,6 +293,7 @@ int main(int argc, char *argv[])
                        "~Quit",
                        MIS_SYSCOMMAND | MIS_TEXT,
                        0);
+    */
 
     WinSendMsg(hwndFrame, WM_UPDATEFRAME, MPNULL, MPNULL);
 

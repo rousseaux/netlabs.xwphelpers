@@ -245,6 +245,10 @@ MRESULT ctlDefWindowProc(PDEFWINDATA pdwd, ULONG msg, MPARAM mp1, MPARAM mp2)
             ctlRefreshColors(pdwd);
         break;
 
+        case WM_ENABLE:
+            WinInvalidateRect(pdwd->hwnd, NULL, TRUE);
+        break;
+
         default:
             mrc = pdwd->pDefWindowProc(pdwd->hwnd, msg, mp1, mp2);
     }
@@ -267,6 +271,7 @@ PFNWP   G_pfnwpSepStatic = NULL;
  *
  *@@added V0.9.20 (2002-08-10) [umoeller]
  *@@changed V1.0.1 (2002-11-30) [umoeller]: added SEPS_VERTICAL
+ *@@changed V1.0.1 (2002-11-30) [umoeller]: fixed default background color
  */
 
 STATIC MRESULT EXPENTRY fnwpSeparatorLine(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
@@ -292,7 +297,8 @@ STATIC MRESULT EXPENTRY fnwpSeparatorLine(HWND hwnd, ULONG msg, MPARAM mp1, MPAR
                                                 PP_BACKGROUNDCOLOR,
                                                 PP_BACKGROUNDCOLORINDEX,
                                                 TRUE,
-                                                SYSCLR_WINDOW));
+                                                SYSCLR_DIALOGBACKGROUND)); // SYSCLR_WINDOW));
+                                                        // fixed V1.0.1 (2002-11-30) [umoeller]
 
                 if (WinQueryWindowULong(hwnd, QWL_STYLE) & SEPS_VERTICAL)
                 {

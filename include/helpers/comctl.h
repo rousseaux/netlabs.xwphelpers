@@ -978,10 +978,10 @@ extern "C" {
     #define TBBS_AUTORESIZE         0x0100
     #define TBBS_HILITE             0x0200
     #define TBBS_FLAT               0x0400
-    #define TBBS_DROPMNEMONIC       0x0800
 
     #define TBBS_COMMAND            0x1000
     #define TBBS_SYSCOMMAND         0x2000
+    #define TBBS_DROPMNEMONIC       0x4000
 
     // tool bar button messages
 

@@ -64,7 +64,9 @@
 #include "helpers\gpih.h"
 #include "helpers\linklist.h"
 #include "helpers\standards.h"
+#include "helpers\stringh.h"
 #include "helpers\winh.h"
+#include "helpers\xstring.h"
 
 #include "helpers\comctl.h"
 
@@ -101,7 +103,8 @@ typedef struct _TOOLBARDATA
 {
     DEFWINDATA  dwd;
 
-    HWND        hwndControlsOwner;
+    HWND        hwndControlsOwner,
+                hwndToolTip;        // != NULLHANDLE if TBS_TOOLTIPS is set
 
     LONG        lSpacing,
                 lMaxControlCY;
@@ -110,6 +113,8 @@ typedef struct _TOOLBARDATA
 
     ULONG       flReformat;
         #define RFFL_HEIGHT         0x0001      // height changed, needs complete resize
+
+    XSTRING     strToolTipBuf;
 
 } TOOLBARDATA, *PTOOLBARDATA;
 
@@ -168,6 +173,7 @@ VOID ctlInitXButtonData(PXBUTTONDATA pbd,   // in: button data
  *@@changed V0.9.16 (2001-10-28) [umoeller]: added bitmap support, fixed bad clip rectangle
  *@@changed V0.9.20 (2002-08-04) [umoeller]: fixed button offset, depressed color
  *@@changed V1.0.1 (2002-11-30) [umoeller]: moved this here from comctl.c, renamed
+ *@@changed V1.0.1 (2002-12-08) [umoeller]: added support for WS_DISABLED
  */
 
 VOID ctlPaintTBButton(HPS hps,               // in: presentation space (RGB mode)
@@ -211,9 +217,11 @@ VOID ctlPaintTBButton(HPS hps,               // in: presentation space (RGB mode
         lLeft = G_lcol3DLight;
         lRight = G_lcol3DDark;
 
-        if (!lBorder)
-            if (pbs->fMouseOver)
-                lBorder = 1;
+        if (    (!lBorder)
+             && (pbs->fMouseOver)
+             && (fl & TBBS_HILITE)
+           )
+            lBorder = 1;
     }
 
     if (lBorder)
@@ -309,16 +317,24 @@ VOID ctlPaintTBButton(HPS hps,               // in: presentation space (RGB mode
                           &ptl,
                           0,
                           0,
-                          DBM_NORMAL);
+                          (fl & WS_DISABLED)
+                               ? DBM_HALFTONE
+                               : DBM_NORMAL);
         else
+        {
+            ULONG   fl2 = DP_NORMAL;     // 0x0000
+
+            if (!(fl & TBBS_BIGICON))
+                fl2 = DP_MINI;
+            if (fl & WS_DISABLED)       // V1.0.1 (2002-12-08) [umoeller]
+                fl2 |= DP_HALFTONED;    // I love this... DBM_HALFTONE, but DP_HALFTONED!
+                                        // PM is just so half-toned itself...
             WinDrawPointer(hps,
-                           // center this in remaining rectl
                            ptl.x,
                            ptl.y,
                            pbd->hptr,
-                           (fl & TBBS_BIGICON)
-                               ? DP_NORMAL
-                               : DP_MINI);
+                           fl2);
+        }
 
         rclTemp.yTop -= pbd->szlIconOrBitmap.cy;
     }
@@ -746,7 +762,9 @@ MRESULT EXPENTRY ctl_fnwpToolbarButton(HWND hwndButton, ULONG msg, MPARAM mp1, M
                 if (fMouseOver != pData->bs.fMouseOver)
                 {
                     pData->bs.fMouseOver = fMouseOver;
-                    WinInvalidateRect(hwndButton, NULL, FALSE);
+
+                    if (winhQueryWindowStyle(hwndButton) & TBBS_HILITE)
+                        WinInvalidateRect(hwndButton, NULL, FALSE);
                 }
             }
         break;
@@ -762,7 +780,8 @@ MRESULT EXPENTRY ctl_fnwpToolbarButton(HWND hwndButton, ULONG msg, MPARAM mp1, M
                 {
                     gpihSwitchToRGB(hps);
                     ctlPaintTBButton(hps,
-                                     winhQueryWindowStyle(hwndButton) | TBBS_BACKGROUND,
+                                     winhQueryWindowStyle(hwndButton)
+                                        | TBBS_BACKGROUND,
                                      &pData->bd,
                                      &pData->bs);
                 }
@@ -864,6 +883,19 @@ STATIC HWND CreateToolbarControl(PTOOLBARDATA pData,
                                       ppp))
     {
         *px += pControl->cx + pData->lSpacing;
+
+        if (pData->hwndToolTip)
+        {
+            TOOLINFO    ti = {0};
+            ti.ulFlags = TTF_CENTER_X_ON_TOOL | TTF_POS_Y_BELOW_TOOL | TTF_SUBCLASS;
+            ti.hwndToolOwner = pData->dwd.hwnd;
+            ti.pszText = PSZ_TEXTCALLBACK;
+            ti.hwndTool = hwndControl;
+            WinSendMsg(pData->hwndToolTip,
+                       TTM_ADDTOOL,
+                       (MPARAM)0,
+                       &ti);
+        }
     }
 
     return hwndControl;
@@ -1084,6 +1116,22 @@ STATIC MRESULT TbCreate(HWND hwndToolBar, MPARAM mp1, MPARAM mp2)
     pData->lSpacing = 5;
     lstInit(&pData->llControls, FALSE);
 
+    xstrInit(&pData->strToolTipBuf, 0);
+
+    if (((PCREATESTRUCT)mp2)->flStyle & TBS_TOOLTIPS)
+    {
+        pData->hwndToolTip = WinCreateWindow(HWND_DESKTOP,
+                                             WC_CCTL_TOOLTIP,
+                                             NULL,
+                                             TTS_ALWAYSTIP,
+                                             0, 0, 0, 0,    // window pos and size, ignored
+                                             hwndToolBar,
+                                             NULLHANDLE,    // hwndInsertBehind, ignored
+                                             0,
+                                             NULL,          // control data
+                                             NULL);         // presparams
+    }
+
     if (    (ptbcd->cControls)
          && (ptbcd->patbc)
        )
@@ -1108,11 +1156,18 @@ STATIC VOID TbDestroy(HWND hwndToolBar)
     if (pData = (PTOOLBARDATA)WinQueryWindowPtr(hwndToolBar, QWL_USER + 1))
     {
         PLISTNODE pNode;
+
+        if (pData->hwndToolTip)
+            WinDestroyWindow(pData->hwndToolTip);
+
         FOR_ALL_NODES(&pData->llControls, pNode)
         {
             WinDestroyWindow((HWND)pNode->pItemData);
         }
         lstClear(&pData->llControls);
+
+        xstrClear(&pData->strToolTipBuf);
+
         free(pData);
     }
 }
@@ -1167,6 +1222,24 @@ MRESULT EXPENTRY ctl_fnwpToolbar(HWND hwndToolBar, ULONG msg, MPARAM mp1, MPARAM
                               SHORT1FROMMP(mp2),
                               (PTOOLBARCONTROL)mp1,
                               SHORT2FROMMP(mp2));
+            }
+        break;
+
+        case WM_CONTROL:
+            if (    (pData = (PTOOLBARDATA)WinQueryWindowPtr(hwndToolBar, QWL_USER + 1))
+                 && (pData->hwndToolTip)
+                 && (SHORT2FROMMP(mp1) == TTN_NEEDTEXT)
+               )
+            {
+                PTOOLTIPTEXT pttt = (PTOOLTIPTEXT)mp2;
+                PSZ psz;
+                xstrClear(&pData->strToolTipBuf);
+
+                if (psz = winhQueryWindowText(pttt->hwndTool))
+                    xstrset(&pData->strToolTipBuf, psz);
+
+                pttt->ulFormat = TTFMT_PSZ;
+                pttt->pszText = pData->strToolTipBuf.psz;
             }
         break;
 
@@ -1285,3 +1358,4 @@ HWND ctlCreateToolBar(HWND hwndParent,      // in: parent of tool bar (e.g. fram
                            &tbcd,
                            NULL);
 }
+

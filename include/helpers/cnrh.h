@@ -388,13 +388,15 @@ extern "C" {
      *
      *      <B>Details view:</B>
      *      --  CV_DETAIL: details view without column headers
-     *      --  CV_DETAIL | CA_DETAILSVIEWTITLES: details view _with_ column headers
+     *      --  CA_DETAILSVIEWTITLES: details view _with_ column headers
+     *      --  CV_MINI: mini icons (but set the CCS_MINICONS _window_
+     *          style in addition, see below)
      *
      *      <B>Mini icons:</B>
      *
      *      This is especially sick. The CV_MINI style in CNRINFO is only
      *      supported for "pure" icon view. For details and tree views,
-     *      in addition, you must set the (half-documented) CCS_MINICONS style
+     *      _in addition_, you must set the (half-documented) CCS_MINICONS style
      *      as a _window_ style on the container. Whoever came up with this.
      *
      *      <B>Target emphasis:</B>
