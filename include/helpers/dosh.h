@@ -95,6 +95,14 @@ extern "C" {
 
     ULONG doshQuerySysUptime(VOID);
 
+    APIRET doshDevIOCtl(HFILE hf,
+                        ULONG ulCategory,
+                        ULONG ulFunction,
+                        PVOID pvParams,
+                        ULONG cbParams,
+                        PVOID pvData,
+                        ULONG cbData);
+
     /* ******************************************************************
      *
      *   Memory helpers
@@ -211,13 +219,34 @@ extern "C" {
         BYTE doshQueryDriveType(ULONG ulLogicalDrive,
                                 PBIOSPARAMETERBLOCK pdp,
                                 BOOL fFixed);
-
-        APIRET XWPENTRY doshHasAudioCD(ULONG ulLogicalDrive,
-                                       HFILE hfDrive,
-                                       BOOL fMixedModeCD,
-                                       PBOOL pfAudio);
-
     #endif
+
+    APIRET doshQueryCDDrives(PBYTE pcCDs,
+                             PBYTE pbFirstCD);
+
+    APIRET XWPENTRY doshOpenDrive(ULONG ulLogicalDrive,
+                                  HFILE *phf);
+
+    APIRET XWPENTRY doshHasAudioCD(HFILE hfDrive,
+                                   BOOL fMixedModeCD,
+                                   PBOOL pfAudio);
+
+    #define CDFL_DOOROPEN               0x00000001      // bit 0
+    #define CDFL_DOORLOCKED             0x00000002      // bit 1
+    #define CDFL_COOKEDANDRAW           0x00000004      // bit 2
+    #define CDFL_READWRITE              0x00000008      // bit 3
+    #define CDFL_DATAANDAUDIO           0x00000010      // bit 4
+    #define CDFL_ISO9660INTERLEAVE      0x00000020      // bit 5
+    #define CDFL_PREFETCHSUPPORT        0x00000080      // bit 7
+    #define CDFL_AUDIOCHANNELMANIP      0x00000100      // bit 8
+    #define CDFL_MINUTESECONDADDR       0x00000200      // bit 9
+    #define CDFL_MODE2SUPPORT           0x00000400      // bit 10
+    #define CDFL_DISKPRESENT            0x00000800      // bit 11
+    #define CDFL_PLAYINGAUDIO           0x00001000      // bit 12
+    #define CDFL_CDDA                   0x40000000      // bit 30
+
+    APIRET XWPENTRY doshQueryCDStatus(HFILE hfDrive,
+                                      PULONG pflStatus);
 
     VOID XWPENTRY doshEnumDrives(PSZ pszBuffer,
                                  PCSZ pcszFileSystem,
@@ -231,10 +260,10 @@ extern "C" {
 
     #define ERROR_AUDIO_CD_ROM          10000
 
-    #define DRVFL_MIXEDMODECD        0x0001
-    #define DRVFL_TOUCHFLOPPIES      0x0002
-    #define DRVFL_CHECKEAS           0x0004
-    #define DRVFL_CHECKLONGNAMES     0x0008
+    #define DRVFL_MIXEDMODECD           0x0001
+    #define DRVFL_TOUCHFLOPPIES         0x0002
+    #define DRVFL_CHECKEAS              0x0004
+    #define DRVFL_CHECKLONGNAMES        0x0008
 
     APIRET doshAssertDrive(ULONG ulLogicalDrive,
                            ULONG fl);
@@ -306,7 +335,8 @@ extern "C" {
                 #define DRVTYPE_VDISK                   3
                 #define DRVTYPE_CDROM                   4
                 #define DRVTYPE_LAN                     5
-                #define DRVTYPE_PARTITIONABLEREMOVEABLE 6
+                #define DRVTYPE_PRT                     6
+                            // partitionable removeable (ZIP drive)
                 #define DRVTYPE_UNKNOWN               255
 
             ULONG       flDevice;
@@ -322,9 +352,9 @@ extern "C" {
                 #define DFL_BOOTDRIVE                   0x0008
                             // drive was booted from
 
-                // media flags:
+                // media flags: all changed V0.9.21 (2002-08-31) [umoeller]
 
-                #define DFL_MEDIA_PRESENT               0x1000
+                #define DFL_MEDIA_PRESENT               0x0100
                             // media is present in drive;
                             // -- always set for harddisks,
                             //    unless the file system is not
@@ -333,19 +363,25 @@ extern "C" {
                             // -- always set for A: and B:
                             // -- set for CD-ROMS only if data
                             //    CD-ROM is inserted
-                #define DFL_AUDIO_CD                    0x2000
+                #define DFL_AUDIO_CD                    0x0200
                             // set for CD-ROMs only, if an audio CD
                             // is currently inserted; in that case,
                             // DFL_MEDIA_PRESENT is _not_ set
-                #define DFL_SUPPORTS_EAS                0x4000
+                #define DFL_DOOR_OPEN                   0x0400
+                            // set for CD-ROMs only if the CD-ROM
+                            // door is currently open
+                            // V0.9.21 (2002-08-31) [umoeller]
+
+                #define DFL_SUPPORTS_EAS                0x0800
                             // drive supports extended attributes
                             // (assumption based on DosFSCtl,
                             // might not be correct for remote drives;
                             // reports correctly for FAT32 though)
-                #define DFL_SUPPORTS_LONGNAMES          0x8000
+                #define DFL_SUPPORTS_LONGNAMES          0x1000
                             // drive supports long names; this does not
                             // necessarily mean that we support all IFS
                             // characters also
+
 
             // the following are only valid if DFL_MEDIA_PRESENT is set;
             // they are always set for drives A: and B:

@@ -684,15 +684,18 @@ BYTE doshQueryDriveType(ULONG ulLogicalDrive,
     if (pdp)
     {
         if (pdp->fsDeviceAttr & DEVATTR_PARTITIONALREMOVEABLE) // 0x08
-            return DRVTYPE_PARTITIONABLEREMOVEABLE;
-        else if (fFixed)
+            return DRVTYPE_PRT;
+
+        if (fFixed)
             return DRVTYPE_HARDDISK;
-        else if (    (pdp->bDeviceType == 7)     // "other"
-                  && (pdp->usBytesPerSector == 2048)
-                  && (pdp->usSectorsPerTrack == (USHORT)-1)
-                )
-                 return DRVTYPE_CDROM;
-        else switch (pdp->bDeviceType)
+
+        if (    (pdp->bDeviceType == 7)     // "other"
+             && (pdp->usBytesPerSector == 2048)
+             && (pdp->usSectorsPerTrack == (USHORT)-1)
+           )
+            return DRVTYPE_CDROM;
+
+        switch (pdp->bDeviceType)
         {
             case DEVTYPE_TAPE: // 6
                 return DRVTYPE_TAPE;
@@ -707,15 +710,106 @@ BYTE doshQueryDriveType(ULONG ulLogicalDrive,
                      || (ulLogicalDrive == 2)
                    )
                     return DRVTYPE_FLOPPY;
-                else
-                    return DRVTYPE_VDISK;
+
+                return DRVTYPE_VDISK;
 
             case DEVTYPE_RWOPTICAL: // 8, what is this?!?
                 return DRVTYPE_FLOPPY;
         }
     }
 
-    return (DRVTYPE_UNKNOWN);
+    return DRVTYPE_UNKNOWN;
+}
+
+/*
+ *@@ doshQueryCDDrives:
+ *      returns the no. of CD-ROM drives on the system
+ *      as well as the drive letter of the first
+ *      CD-ROM drive.
+ *
+ *@@added V0.9.21 (2002-08-31) [umoeller]
+ */
+
+APIRET doshQueryCDDrives(PBYTE pcCDs,           // out: CD-ROM drives count
+                         PCHAR pcFirstCD)       // out: drive letter of first CD
+{
+    APIRET  arc;
+    HFILE   hfCDROM;
+    ULONG   ulAction;
+
+    if (!(arc = DosOpen("\\DEV\\CD-ROM2$",
+                        &hfCDROM,
+                        &ulAction,
+                        0,
+                        FILE_NORMAL,
+                        OPEN_ACTION_OPEN_IF_EXISTS,
+                        OPEN_SHARE_DENYNONE | OPEN_ACCESS_READONLY,
+                        NULL)))
+    {
+        struct
+        {
+            USHORT cCDs;
+            USHORT usFirstCD;       // 0 == A:, 1 == B:, ...
+        } cdinfo;
+
+        ULONG cb = sizeof(cdinfo);
+
+        if (!(arc = DosDevIOCtl(hfCDROM,
+                                0x82,
+                                0x60,
+                                NULL,
+                                0,
+                                NULL,
+                                &cdinfo,
+                                cb,
+                                &cb)))
+        {
+            *pcCDs = cdinfo.cCDs;
+            *pcFirstCD = cdinfo.usFirstCD + 'A';
+        }
+
+        DosClose(hfCDROM);
+    }
+
+    return arc;
+}
+
+/*
+ *@@ doshOpenDrive:
+ *      opens the given logical drive using
+ *      DosOpen with OPEN_FLAGS_DASD. Use
+ *      the file handle returned from here
+ *      for doshHasAudioCD and doshQueryCDStatus.
+ *
+ *      If NO_ERROR is returned, use DosClose
+ *      to close the device again.
+ *
+ *@@added V0.9.21 (2002-08-31) [umoeller]
+ */
+
+APIRET doshOpenDrive(ULONG ulLogicalDrive,
+                     HFILE *phf)            // out: open drive's file handle
+{
+    ULONG   dummy;
+
+    CHAR    szDrive[] = "C:";
+    szDrive[0] = 'A' + ulLogicalDrive - 1;
+
+    return DosOpen(szDrive,   // "C:", "D:", ...
+                   phf,
+                   &dummy,
+                   0,
+                   FILE_NORMAL,
+                   // OPEN_ACTION_FAIL_IF_NEW
+                          OPEN_ACTION_OPEN_IF_EXISTS,
+                   OPEN_FLAGS_DASD
+                          | OPEN_FLAGS_FAIL_ON_ERROR
+                                // ^^^ if this flag is not set, we get the white
+                                // hard-error box
+                          | OPEN_FLAGS_NOINHERIT     // V0.9.6 (2000-11-25) [pr]
+               //            | OPEN_ACCESS_READONLY  // V0.9.13 (2001-06-14) [umoeller]
+                          | OPEN_SHARE_DENYNONE,
+                   NULL);
 }
 
 /*
@@ -728,10 +822,10 @@ BYTE doshQueryDriveType(ULONG ulLogicalDrive,
  *      doshQueryRemoveableType to check.
  *
  *@@added V0.9.14 (2001-08-01) [umoeller]
+ *@@changed V0.9.21 (2002-08-31) [umoeller]: removed ulLogicalDrive which was not needed
  */
 
-APIRET doshHasAudioCD(ULONG ulLogicalDrive,
-                      HFILE hfDrive,            // in: DASD open
+APIRET doshHasAudioCD(HFILE hfDrive,            // in: DASD open
                       BOOL fMixedModeCD,
                       PBOOL pfAudio)
 {
@@ -757,11 +851,20 @@ APIRET doshHasAudioCD(ULONG ulLogicalDrive,
             arc = NO_ERROR;
         else
         {
+            #pragma pack(1)         // V0.9.21 (2002-08-31) [umoeller]
+
             struct {
                 UCHAR   ucFirstTrack,
                         ucLastTrack;
                 ULONG   ulLeadOut;
             } cdat;
+
+            struct {
+                ULONG   ulTrackAddress;
+                BYTE    bFlags;
+            } trackdata;
+
+            #pragma pack()
 
             // get track count
             if (!(arc = doshDevIOCtl(hfDrive,
@@ -778,11 +881,6 @@ APIRET doshHasAudioCD(ULONG ulLogicalDrive,
                 {
                     BYTE cdtp[5] =
                       { 'C', 'D', '0', '1', (UCHAR)i };
-
-                    struct {
-                        ULONG   ulTrackAddress;
-                        BYTE    bFlags;
-                    } trackdata;
 
                     if (!(arc = doshDevIOCtl(hfDrive,
                                              IOCTL_CDROMAUDIO,
@@ -827,6 +925,59 @@ APIRET doshHasAudioCD(ULONG ulLogicalDrive,
         // not CD-ROM: go on then
         // _Pmpf(("   CDROMDISK_GETDRIVER returned %d", arc));
         arc = NO_ERROR;
+    }
+
+    return arc;
+}
+
+/*
+ *@@ doshQueryCDStatus:
+ *      returns the status bits of a CD-ROM drive.
+ *      This calls the CDROMDISK_DEVICESTATUS
+ *      ioctl.
+ *
+ *      If NO_ERROR is returned, *pflStatus has
+ *      received the following flags:
+ *
+ *      --  CDFL_DOOROPEN (bit 0)
+ *
+ *      --  CDFL_DOORLOCKED (bit 1)
+ *
+ *      and many more (see dosh.h).
+ *
+ *      Actually I wrote this function to have a way to
+ *      find out whether the drive door is already open.
+ *      But thanks to IBM's thoughtful design, this ioctl
+ *      is 99% useless for that purpose since it requires
+ *      a DASD disk handle to be passed in, which cannot
+ *      be obtained if there's no media in the drive.
+ *
+ *      In other words, it is absolutely impossible to
+ *      ever get the CDFL_DOOROPEN flag, because if the
+ *      door is open, DosOpen already fails on the drive.
+ *      As a consequence, it is seems to be impossible
+ *      to find out if the door is open with OS/2.
+ *
+ *@@added V0.9.21 (2002-08-31) [umoeller]
+ */
+
+APIRET doshQueryCDStatus(HFILE hfDrive,            // in: DASD open
+                         PULONG pflStatus)         // out: CD-ROM status bits
+{
+    APIRET  arc;
+
+    CHAR    cds1[4] = { 'C', 'D', '0', '1' };
+    ULONG   fl;
+
+    *pflStatus = 0;
+
+    if (!(arc = doshDevIOCtl(hfDrive,
+                             IOCTL_CDROMDISK,
+                             CDROMDISK_DEVICESTATUS,
+                             &cds1, sizeof(cds1),
+                             &fl, sizeof(fl))))
+    {
+        *pflStatus = fl;
     }
 
     return arc;
@@ -964,7 +1115,7 @@ CHAR doshQueryBootDrive(VOID)
         cBootDrive = (CHAR)ulBootDrive + 'A' - 1;
     }
 
-    return (cBootDrive);
+    return cBootDrive;
 }
 
 /*
@@ -975,34 +1126,28 @@ CHAR doshQueryBootDrive(VOID)
  *      Call this only for non-fixed (removable) disks.
  *      Use doshIsFixedDisk to find out.
  *
+ *      Returns:
+ *
+ *      --  NO_ERROR: media is present.
+ *
+ *      --  ERROR_AUDIO_CD_ROM (10000): audio CD-ROM is present.
+ *
+ *      --  ERROR_NOT_READY (21) or other: drive has no media.
+ *
  *@@added V0.9.16 (2002-01-13) [umoeller]
  */
 
-APIRET doshQueryMedia(ULONG ulLogicalDrive,
+APIRET doshQueryMedia(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for C:, ...
                       BOOL fCDROM,             // in: is drive CD-ROM?
                       ULONG fl)                // in: DRVFL_* flags
 {
     APIRET  arc;
 
-    HFILE   hf = NULLHANDLE;
-    ULONG   dummy;
+    HFILE   hf;
 
-    CHAR    szDrive[3] = "C:";
-    szDrive[0] = 'A' + ulLogicalDrive - 1;
-
-    arc = DosOpen(szDrive,   // "C:", "D:", ...
-                  &hf,
-                  &dummy,
-                  0,
-                  FILE_NORMAL,
-                  OPEN_ACTION_FAIL_IF_NEW
-                         | OPEN_ACTION_OPEN_IF_EXISTS,
-                  OPEN_FLAGS_DASD
-                         | OPEN_FLAGS_FAIL_ON_ERROR
-                         | OPEN_FLAGS_NOINHERIT     // V0.9.6 (2000-11-25) [pr]
-              //            | OPEN_ACCESS_READONLY  // V0.9.13 (2001-06-14) [umoeller]
-                         | OPEN_SHARE_DENYNONE,
-                  NULL);
+    // exported this code to doshOpenDrive V0.9.21 (2002-08-31) [umoeller]
+    arc = doshOpenDrive(ulLogicalDrive,
+                        &hf);
 
     // this still returns NO_ERROR for audio CDs in a
     // CD-ROM drive...
@@ -1016,8 +1161,7 @@ APIRET doshQueryMedia(ULONG ulLogicalDrive,
        )
     {
         BOOL fAudio;
-        if (    (!(arc = doshHasAudioCD(ulLogicalDrive,
-                                        hf,
+        if (    (!(arc = doshHasAudioCD(hf,
                                         ((fl & DRVFL_MIXEDMODECD) != 0),
                                         &fAudio)))
              && (fAudio)
@@ -1178,16 +1322,17 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
  *          we will call DosFSCtl for the non-well-known
  *          file systems so we will always have a
  *          value for the DFL_SUPPORTS_EAS flags.
- *          Otherwise that flag might or might not
- *          be set correctly.
- *
  *          The EA support returned by DosFSCtl
  *          might not be correct for remote file
  *          systems since not all of them support
  *          that query.
  *
- *      --  DRVFL_CHECKLONGNAMES: drive should always be
- *          checked for longname support. If this is
+ *          If not set, we set DFL_SUPPORTS_EAS only
+ *          for file systems such as HPFS and JFS
+ *          that are known to support EAs.
+ *
+ *      --  DRVFL_CHECKLONGNAMES: drive should be
+ *          tested for longname support. If this is
  *          set, we will try a DosOpen("\\long.name.file")
  *          on the drive to see if it supports long
  *          filenames (unless it's a "well-known"
@@ -1375,7 +1520,7 @@ APIRET doshGetDriveInfo(ULONG ulLogicalDrive,
                         // recognized: store it then
                         pdi->bType = bTemp;
 
-                        if (bTemp == DRVTYPE_PARTITIONABLEREMOVEABLE)
+                        if (bTemp == DRVTYPE_PRT)
                             pdi->flDevice |=    DFL_FIXED
                                               | DFL_PARTITIONABLEREMOVEABLE;
                     }

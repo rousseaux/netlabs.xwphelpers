@@ -148,27 +148,39 @@ dep:
 # The exclamation point ( ! ) preceding the LIB command causes NMAKE
 # to execute the LIB command once for each dependent file in the list.
 
-$(OUTPUTDIR)\helpers.lib: $(OBJS)
+$(OUTPUTDIR)\helpers.lib: $(OBJS) makefile
 !ifdef EMX
     !emxomfar cr $* $?
 !else
-    !ilib /nol /nob $* -+$?;
+    rm -f $@
+    ilib /nol /nob $@ @<<$(TEMP)\ilib.lnk
++$(OBJS: =&^
+);
+<<KEEP
 !endif
 
 # same thing for cp.lib
-$(OUTPUTDIR)\cp.lib: $(CPOBJS)
+$(OUTPUTDIR)\cp.lib: $(CPOBJS) makefile
 !ifdef EMX
     !emxomfar cr $* $?
 !else
-    !ilib /nol /nob $* -+$?;
+    rm -f $@
+    ilib /nol /nob $@ @<<
++$(CPOBJS: =&^
+);
+<<KEEP
 !endif
 
 # same thing for plainc.lib
-$(OUTPUTDIR)\plainc.lib: $(PLAINCOBJS)
+$(OUTPUTDIR)\plainc.lib: $(PLAINCOBJS) makefile
 !ifdef EMX
     !emxomfar cr $* $?
 !else
-    !ilib /nol /nob $* -+$?;
+    rm -f $@
+    ilib /nol /nob $@ @<<
++$(PLAINCOBJS: =&^
+);
+<<KEEP
 !endif
 
 !include helpers_post.in

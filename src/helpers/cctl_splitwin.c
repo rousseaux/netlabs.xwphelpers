@@ -211,19 +211,15 @@ MRESULT EXPENTRY ctl_fnwpSplitWindow(HWND hwndSplit, ULONG msg, MPARAM mp1, MPAR
          */
 
         case WM_WINDOWPOSCHANGED:
-        {
             // this msg is passed two SWP structs:
             // one for the old, one for the new data
             // (from PM docs)
-            PSWP pswpNew = (PSWP)mp1;
-
-            if (pswpNew->fl & SWP_SIZE)
-            {
+            if (((PSWP)mp1)->fl & SWP_SIZE)
                 // _Pmpf(("ctl_fnwpSplitWindow, WM_WINDOWPOSCHANGED"));
                 ctlUpdateSplitWindow(hwndSplit);
-            }
+
             mrc = WinDefWindowProc(hwndSplit, msg, mp1, mp2);
-        break; }
+        break;
 
         /*
          * WM_PAINT:
@@ -250,9 +246,9 @@ MRESULT EXPENTRY ctl_fnwpSplitWindow(HWND hwndSplit, ULONG msg, MPARAM mp1, MPAR
         case SPLM_SETLINKS:
         {
             HWND    hwndSplitBar = WinWindowFromID(hwndSplit, ID_SPLITBAR);
-            PSPLITBARDATA pData = (PSPLITBARDATA)WinQueryWindowULong(hwndSplitBar,
-                                                                     QWL_USER);
-            if (pData)
+            PSPLITBARDATA pData;
+            if (pData = (PSPLITBARDATA)WinQueryWindowULong(hwndSplitBar,
+                                                           QWL_USER))
             {
                 pData->hwndLinked1 = (HWND)mp1;
                 pData->hwndLinked2 = (HWND)mp2;
@@ -262,7 +258,8 @@ MRESULT EXPENTRY ctl_fnwpSplitWindow(HWND hwndSplit, ULONG msg, MPARAM mp1, MPAR
                 WinSetParent(pData->hwndLinked2, hwndSplit,
                              FALSE);        // no redraw
             }
-        break; }
+        }
+        break;
 
         default:
             mrc = WinDefWindowProc(hwndSplit, msg, mp1, mp2);
@@ -444,7 +441,8 @@ static VOID PaintSplitBar(HWND hwndBar,
                     &rclBar,
                     pData->lcolInactiveBorder);
 
-        if ((pData->sbcd.ulCreateFlags & SBCF_3DSUNK) == 0)
+        if (!(pData->sbcd.ulCreateFlags & (SBCF_3DSUNK | SBCF_3DEXPLORERSTYLE)))
+                        // V0.9.21 (2002-08-31) [umoeller]
         {
             GpiSetColor(hps, pData->lcol3DLight);
             // draw left border (bottom to up)
