@@ -118,14 +118,14 @@ ULONG prfhINIError(ULONG ulOptions,
  */
 
 ULONG prfhINIError2(ULONG ulOptions,
-                    PSZ pszINI,
+                    const char *pcszINI,
                     FILE* fLog,
                     PFNWP fncbError,
                     PSZ pszErrorString)
 {
     CHAR szError2[2000];
     sprintf(szError2, "An error occured copying the profile %s: \n%s",
-            pszINI, pszErrorString);
+            pcszINI, pszErrorString);
     return (prfhINIError(ulOptions, fLog, fncbError, szError2));
 }
 

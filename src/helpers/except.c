@@ -227,6 +227,7 @@
 #define INCL_DOSMODULEMGR
 #define INCL_DOSEXCEPTIONS
 #define INCL_DOSPROCESS
+#define INCL_DOSMISC
 #define INCL_DOSERRORS
 #include <os2.h>
 
@@ -455,6 +456,9 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
                          PEXCEPTIONREPORTRECORD pReportRec, // in: excpt info
                          PCONTEXTRECORD pContextRec)   // in: excpt info
 {
+    ULONG       aulBuf[3];
+    const char  *pcszVersion = "unknown";
+
     PTIB        ptib = NULL;
     PPIB        ppib = NULL;
     HMODULE     hMod1, hMod2;
@@ -462,11 +466,6 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
                 szMod2[CCHMAXPATH] = "unknown";
     ULONG       ulObjNum,
                 ulOffset;
-                /* ulCountPages,
-                ulFlagsPage; */
-    // APIRET      arc;
-    // PULONG      pulStackWord;
-                // pulStackBegin;
     ULONG       ul;
 
     ULONG       ulOldPriority = 0x0100; // regular, delta 0
@@ -497,6 +496,30 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
         DosBeep( 500, 30);
         DosBeep( 250, 30);
     }
+
+    // generic exception info
+    DosQuerySysInfo(QSV_VERSION_MAJOR,      // 11
+                    QSV_VERSION_MINOR,      // 12
+                    &aulBuf, sizeof(aulBuf));
+    // Warp 3 is reported as 20.30
+    // Warp 4 is reported as 20.40
+    // Aurora is reported as 20.45
+
+    if (aulBuf[0] == 20)
+    {
+        switch (aulBuf[1])
+        {
+            case 30: pcszVersion = "Warp 3"; break;
+            case 40: pcszVersion = "Warp 4"; break;
+            case 45: pcszVersion = "WSeB kernel"; break;
+        }
+    }
+    fprintf(file,
+            "Running OS/2 version: %u.%u (%s)\n",
+            aulBuf[0],                      // major
+            aulBuf[1],
+            pcszVersion);
+
 
     // generic exception info
     fprintf(file,

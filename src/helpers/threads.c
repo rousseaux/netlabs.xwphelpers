@@ -295,37 +295,41 @@ ULONG thrRunSync(HAB hab,               // in: anchor block of calling thread
                                       0,
                                       0,
                                       NULL);
-    THREADINFO  ti = {0};
-    thrCreate(&ti,
-              pfn,
-              NULL,
-              THRF_PMMSGQUEUE,
-              ulData);
-    ti.hwndNotify = hwndNotify;
-
-    while (WinGetMsg(hab,
-                     &qmsg, 0, 0, 0))
+    if (hwndNotify)
     {
-        // current message for our object window?
-        if (    (qmsg.hwnd == hwndNotify)
-             && (qmsg.msg == WM_USER)
-           )
+        THREADINFO  ti = {0};
+        thrCreate(&ti,
+                  pfn,
+                  NULL,
+                  THRF_PMMSGQUEUE,
+                  ulData);
+        ti.hwndNotify = hwndNotify;
+
+        while (WinGetMsg(hab,
+                         &qmsg, 0, 0, 0))
         {
-            fQuit = TRUE;
-            ulrc = (ULONG)qmsg.mp1;
+            // current message for our object window?
+            if (    (qmsg.hwnd == hwndNotify)
+                 && (qmsg.msg == WM_USER)
+               )
+            {
+                fQuit = TRUE;
+                ulrc = (ULONG)qmsg.mp1;
+            }
+
+            WinDispatchMsg(hab, &qmsg);
+            if (fQuit)
+                break;
         }
 
-        WinDispatchMsg(hab, &qmsg);
-        if (fQuit)
-            break;
+        // we must wait for the thread to finish, or
+        // otherwise THREADINFO is deleted from the stack
+        // before the thread exits... will crash!
+        thrWait(&ti);
+
+        WinDestroyWindow(hwndNotify);
     }
 
-    // we must wait for the thread to finish, or
-    // otherwise THREADINFO is deleted from the stack
-    // before the thread exits... will crash!
-    thrWait(&ti);
-
-    WinDestroyWindow(hwndNotify);
     return (ulrc);
 }
 
@@ -366,7 +370,7 @@ BOOL thrWait(PTHREADINFO pti)
     if (pti)
         if (pti->tid)
         {
-            DosWaitThread(&(pti->tid), DCWW_WAIT);
+            DosWaitThread(&pti->tid, DCWW_WAIT);
             pti->tid = NULLHANDLE;
             return (TRUE);
         }

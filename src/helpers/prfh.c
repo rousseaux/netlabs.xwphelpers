@@ -87,16 +87,16 @@
  */
 
 PSZ prfhQueryKeysForApp(HINI hIni,      // in: INI handle (can be HINI_USER or HINI_SYSTEM)
-                        PSZ pszApp)     // in: application to query list for (or NULL for applications list)
+                        const char *pcszApp)     // in: application to query list for (or NULL for applications list)
 {
     PSZ     pKeys = NULL;
     ULONG   ulSizeOfKeysList = 0;
 
     // get size of keys list for pszApp
-    if (PrfQueryProfileSize(hIni, pszApp, NULL, &ulSizeOfKeysList))
+    if (PrfQueryProfileSize(hIni, (PSZ)pcszApp, NULL, &ulSizeOfKeysList))
     {
         pKeys = (PSZ)malloc(ulSizeOfKeysList);
-        if (!PrfQueryProfileData(hIni, pszApp, NULL, pKeys, &ulSizeOfKeysList))
+        if (!PrfQueryProfileData(hIni, (PSZ)pcszApp, NULL, pKeys, &ulSizeOfKeysList))
         {
             free(pKeys);
             pKeys = NULL;
@@ -117,8 +117,8 @@ PSZ prfhQueryKeysForApp(HINI hIni,      // in: INI handle (can be HINI_USER or H
  */
 
 PSZ prfhQueryProfileDataDebug(HINI hIni,      // in: INI handle (can be HINI_USER or HINI_SYSTEM)
-                              PSZ pszApp,      // in: application to query
-                              PSZ pszKey,      // in: key to query
+                              const char *pcszApp,      // in: application to query
+                              const char *pcszKey,      // in: key to query
                               PULONG pcbBuf,   // out: size of the returned buffer
                               const char *file,
                               unsigned long line,
@@ -128,12 +128,12 @@ PSZ prfhQueryProfileDataDebug(HINI hIni,      // in: INI handle (can be HINI_USE
     ULONG   ulSizeOfData = 0;
 
     // get size of data for pszApp/pszKey
-    if (PrfQueryProfileSize(hIni, pszApp, pszKey, &ulSizeOfData))
+    if (PrfQueryProfileSize(hIni, (PSZ)pcszApp, (PSZ)pcszKey, &ulSizeOfData))
     {
         if (ulSizeOfData)
         {
             pData = (PSZ)memdMalloc(ulSizeOfData, file, line, function);
-            if (!PrfQueryProfileData(hIni, pszApp, pszKey, pData, &ulSizeOfData))
+            if (!PrfQueryProfileData(hIni, (PSZ)pcszApp, (PSZ)pcszKey, pData, &ulSizeOfData))
             {
                 free(pData);
                 pData = NULL;
@@ -168,20 +168,20 @@ PSZ prfhQueryProfileDataDebug(HINI hIni,      // in: INI handle (can be HINI_USE
  */
 
 PSZ prfhQueryProfileData(HINI hIni,      // in: INI handle (can be HINI_USER or HINI_SYSTEM)
-                         PSZ pszApp,     // in: application to query
-                         PSZ pszKey,     // in: key to query
+                         const char *pcszApp,     // in: application to query
+                         const char *pcszKey,     // in: key to query
                          PULONG pcbBuf)  // out: size of the returned buffer; ptr can be NULL
 {
     PSZ     pData = NULL;
     ULONG   ulSizeOfData = 0;
 
     // get size of data for pszApp/pszKey
-    if (PrfQueryProfileSize(hIni, pszApp, pszKey, &ulSizeOfData))
+    if (PrfQueryProfileSize(hIni, (PSZ)pcszApp, (PSZ)pcszKey, &ulSizeOfData))
     {
         if (ulSizeOfData)
         {
             pData = (PSZ)malloc(ulSizeOfData);
-            if (!PrfQueryProfileData(hIni, pszApp, pszKey, pData, &ulSizeOfData))
+            if (!PrfQueryProfileData(hIni, (PSZ)pcszApp, (PSZ)pcszKey, pData, &ulSizeOfData))
             {
                 free(pData);
                 pData = NULL;
@@ -207,8 +207,8 @@ PSZ prfhQueryProfileData(HINI hIni,      // in: INI handle (can be HINI_USER or 
  */
 
 CHAR prfhQueryProfileChar(HINI hini,        // in: INI handle (can be HINI_USER or HINI_SYSTEM)
-                          PSZ pszApp,       // in: application to query
-                          PSZ pszKey,       // in: key to query
+                          const char *pcszApp,       // in: application to query
+                          const char *pcszKey,       // in: key to query
                           CHAR cDefault)    // in: default to return if not found
 {
     // CHAR    crc = 0;
@@ -216,7 +216,7 @@ CHAR prfhQueryProfileChar(HINI hini,        // in: INI handle (can be HINI_USER 
             szDefault[5];
     szDefault[0] = cDefault;
     szDefault[1] = 0;
-    PrfQueryProfileString(HINI_USER, pszApp, pszKey,
+    PrfQueryProfileString(HINI_USER, (PSZ)pcszApp, (PSZ)pcszKey,
                           szDefault,
                           szTemp, sizeof(szTemp)-1);
     return (szTemp[0]);
@@ -262,15 +262,16 @@ VOID prfhQueryCountrySettings(PCOUNTRYSETTINGS pcs)
  *      returns a system color in OS2.INI's PM_Colors as a LONG.
  */
 
-LONG prfhQueryColor(PSZ pszKeyName, PSZ pszDefault)
+LONG prfhQueryColor(const char *pcszKeyName,
+                    const char *pcszDefault)
 {
     CHAR szColor[30];
     ULONG r, g, b;
     PrfQueryProfileString(
                 HINI_USER,
                 "PM_Colors",
-                pszKeyName,
-                pszDefault,
+                (PSZ)pcszKeyName,
+                (PSZ)pcszDefault,
                 szColor,
                 sizeof(szColor)-1);
     sscanf(szColor, "%lu %lu %lu ", &r, &g, &b);
@@ -302,15 +303,15 @@ LONG prfhQueryColor(PSZ pszKeyName, PSZ pszDefault)
  */
 
 ULONG prfhCopyKey(HINI hiniSource,       // in: source profile (can be HINI_USER or HINI_SYSTEM)
-                 PSZ pszSourceApp,      // in: source application
-                 PSZ pszKey,            // in: source/target key
+                 const char *pcszSourceApp,      // in: source application
+                 const char *pcszKey,            // in: source/target key
                  HINI hiniTarget,       // in: target profile (can be HINI_USER or HINI_SYSTEM)
-                 PSZ pszTargetApp)      // in: target app
+                 const char *pcszTargetApp)      // in: target app
 {
     ULONG   ulSizeOfData = 0,
             ulrc = 0;       // return: no error
 
-    if (PrfQueryProfileSize(hiniSource, pszSourceApp, pszKey, &ulSizeOfData))
+    if (PrfQueryProfileSize(hiniSource, (PSZ)pcszSourceApp, (PSZ)pcszKey, &ulSizeOfData))
     {
         PSZ pData = 0;
 
@@ -331,14 +332,14 @@ ULONG prfhCopyKey(HINI hiniSource,       // in: source profile (can be HINI_USER
         if (pData)
         {
             if (PrfQueryProfileData(hiniSource,
-                                    pszSourceApp,
-                                    pszKey,
+                                    (PSZ)pcszSourceApp,
+                                    (PSZ)pcszKey,
                                     pData,
                                     &ulSizeOfData))
             {
                 if (!PrfWriteProfileData(hiniTarget,
-                                         pszTargetApp,
-                                         pszKey,
+                                         (PSZ)pcszTargetApp,
+                                         (PSZ)pcszKey,
                                          pData,
                                          ulSizeOfData))
                     ulrc = PRFERR_WRITE;
@@ -400,9 +401,9 @@ ULONG prfhCopyKey(HINI hiniSource,       // in: source profile (can be HINI_USER
  */
 
 ULONG prfhCopyApp(HINI hiniSource,   // in: source profile (can be HINI_USER or HINI_SYSTEM)
-                  PSZ pszSourceApp,  // in: source application
+                  const char *pcszSourceApp,  // in: source application
                   HINI hiniTarget,   // in: target profile (can be HINI_USER or HINI_SYSTEM)
-                  PSZ pszTargetApp,  // in: name of pszSourceApp in hiniTarget
+                  const char *pcszTargetApp,  // in: name of pszSourceApp in hiniTarget
                   PSZ pszErrorKey)   // out: failing key in case of error; ptr can be NULL
 {
     ULONG   ulrc;
@@ -411,7 +412,7 @@ ULONG prfhCopyApp(HINI hiniSource,   // in: source profile (can be HINI_USER or 
     if (pszErrorKey)
         *pszErrorKey = 0;
 
-    pszKeysList = prfhQueryKeysForApp(hiniSource, pszSourceApp);
+    pszKeysList = prfhQueryKeysForApp(hiniSource, (PSZ)pcszSourceApp);
     if (pszKeysList)
     {
         PSZ pKey2 = pszKeysList;
@@ -420,10 +421,10 @@ ULONG prfhCopyApp(HINI hiniSource,   // in: source profile (can be HINI_USER or 
         {
             // copy this key
             ulrc = prfhCopyKey(hiniSource,
-                               pszSourceApp,
+                               pcszSourceApp,
                                pKey2,
                                hiniTarget,
-                               pszTargetApp);
+                               pcszTargetApp);
             if (ulrc)
             {
                 // error: copy failing key to buffer
@@ -452,7 +453,7 @@ ULONG prfhCopyApp(HINI hiniSource,   // in: source profile (can be HINI_USER or 
  */
 
 BOOL prfhSetUserProfile(HAB hab,
-                        PSZ pszUserProfile)     // in: new user profile (.INI)
+                        const char *pcszUserProfile)     // in: new user profile (.INI)
 {
     BOOL    brc = FALSE;
     // find out current profile names
@@ -474,8 +475,8 @@ BOOL prfhSetUserProfile(HAB hab,
 
                 // change INIs
                 free(Profiles.pszUserName);
-                Profiles.pszUserName = pszUserProfile;
-                Profiles.cchUserName = strlen(pszUserProfile) + 1;
+                Profiles.pszUserName = (PSZ)pcszUserProfile;
+                Profiles.cchUserName = strlen(pcszUserProfile) + 1;
                 brc = PrfReset(hab, &Profiles);
                 free(Profiles.pszSysName);
             }

@@ -1016,8 +1016,6 @@ APIRET doshQueryPathAttr(const char* pcszFile,      // in: file or directory nam
     {
         if (pulAttr)
             *pulAttr = fs3.attrFile;
-        else
-            arc = ERROR_INVALID_PARAMETER;
     }
 
     return (arc);

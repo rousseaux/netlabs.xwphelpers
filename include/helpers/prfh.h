@@ -48,12 +48,12 @@ extern "C" {
     #define PRFERR_INVALID_FILE_NAME  10008   // profile names don't contain .INI
 
     PSZ prfhQueryKeysForApp(HINI hIni,
-                            PSZ pszApp);
+                            const char *pcszApp);
 
     #ifdef __XWPMEMDEBUG__ // setup.h, helpers\memdebug.c
         PSZ prfhQueryProfileDataDebug(HINI hIni,
-                                      PSZ pszApp,
-                                      PSZ pszKey,
+                                      const char *pcszApp,
+                                      const char *pcszKey,
                                       PULONG pcbBuf,
                                       const char *file,
                                       unsigned long line,
@@ -61,17 +61,17 @@ extern "C" {
         #define prfhQueryProfileData(a, b, c, d) prfhQueryProfileDataDebug((a), (b), (c), (d), __FILE__, __LINE__, __FUNCTION__)
     #else
         PSZ prfhQueryProfileData(HINI hIni,
-                                PSZ pszApp,
-                                PSZ pszKey,
-                                PULONG pcbBuf);
+                                 const char *pcszApp,
+                                 const char *pcszKey,
+                                 PULONG pcbBuf);
     #endif
 
     CHAR prfhQueryProfileChar(HINI hini,
-                              PSZ pszApp,
-                              PSZ pszKey,
+                              const char *pcszApp,
+                              const char *pcszKey,
                               CHAR cDefault);
 
-    LONG prfhQueryColor(PSZ pszKeyName, PSZ pszDefault);
+    LONG prfhQueryColor(const char *pcszKeyName, const char *pcszDefault);
 
     /*
      *@@ COUNTRYSETTINGS:
@@ -104,19 +104,19 @@ extern "C" {
     VOID prfhQueryCountrySettings(PCOUNTRYSETTINGS pcs);
 
     ULONG prfhCopyKey(HINI hiniSource,
-                     PSZ pszSourceApp,
-                     PSZ pszKey,
-                     HINI hiniTarget,
-                     PSZ pszTargetApp);
+                      const char *pcszSourceApp,
+                      const char *pcszKey,
+                      HINI hiniTarget,
+                      const char *pcszTargetApp);
 
     ULONG prfhCopyApp(HINI hiniSource,
-                      PSZ pszSourceApp,
+                      const char *pcszSourceApp,
                       HINI hiniTarget,
-                      PSZ pszTargetApp,
+                      const char *pcszTargetApp,
                       PSZ pszErrorKey);
 
     BOOL prfhSetUserProfile(HAB hab,
-                            PSZ pszUserProfile);
+                            const char *pcszUserProfile);
 
     ULONG prfhINIError(ULONG ulOptions,
                        FILE* fLog,
@@ -124,7 +124,7 @@ extern "C" {
                        PSZ pszErrorString);
 
     ULONG prfhINIError2(ULONG ulOptions,
-                        PSZ pszINI,
+                        const char *pcszINI,
                         FILE* fLog,
                         PFNWP fncbError,
                         PSZ pszErrorString);
