@@ -358,7 +358,7 @@ typedef struct _TOOLTIPDATA
 {
     HWND        hwndOwner;          // from WM_CREATE
     HAB         hab;                // from WM_CREATE
-    ULONG       ulTooltipID;        // from WM_CREATE
+    USHORT      usTooltipID;        // from WM_CREATE
 
     LONG        cxScreen,
                 cyScreen;
@@ -454,7 +454,7 @@ MRESULT TtmCreate(HWND hwndTooltip,
 
         pttd->hwndOwner = pcs->hwndOwner;
         pttd->hab = WinQueryAnchorBlock(hwndTooltip);
-        pttd->ulTooltipID = pcs->id;
+        pttd->usTooltipID = pcs->id;
 
         pttd->cxScreen = WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN);
         pttd->cyScreen = WinQuerySysValue(HWND_DESKTOP, SV_CYSCREEN);
@@ -921,12 +921,11 @@ VOID TtmGetText(HWND hwndTooltip, MPARAM mp2)
         // TTN_NEEDTEXT notification desired:
         // compose values for that msg
         TOOLTIPTEXT ttt = {0};
-        // _Pmpf(("TTM_GETTEXT: PSZ_TEXTCALLBACK... sending TTN_NEEDTEXT"));
         ttt.hwndTooltip = hwndTooltip;
         ttt.hwndTool = pti->hwndTool;
         WinSendMsg(pti->hwndToolOwner,
                    WM_CONTROL,
-                   MPFROM2SHORT(pttd->ulTooltipID,  // tooltip control wnd ID
+                   MPFROM2SHORT(pttd->usTooltipID,  // tooltip control wnd ID
                                 TTN_NEEDTEXT),
                    &ttt);
 
@@ -1265,7 +1264,7 @@ VOID TtmShowTooltip(HWND hwndTooltip,
                 // notify owner (TTN_SHOW)
                 WinSendMsg(pttd->hwndOwner,
                            WM_CONTROL,
-                           MPFROM2SHORT(pttd->ulTooltipID,  // tooltip control wnd ID
+                           MPFROM2SHORT(pttd->usTooltipID,  // tooltip control wnd ID
                                         TTN_SHOW),
                            pttd->ptiMouseOver);
 
@@ -1292,7 +1291,7 @@ VOID TtmShowTooltip(HWND hwndTooltip,
             // notify owner (TTN_POP)
             WinSendMsg(pttd->hwndOwner,
                        WM_CONTROL,
-                       MPFROM2SHORT(pttd->ulTooltipID,  // tooltip control wnd ID
+                       MPFROM2SHORT(pttd->usTooltipID,  // tooltip control wnd ID
                                     TTN_POP),
                        pttd->ptiMouseOver);
             WinShowWindow(hwndTooltip, FALSE);

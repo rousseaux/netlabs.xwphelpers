@@ -1524,6 +1524,350 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
 }
 
 /*
+ *@@ dlghCreateMessageBox:
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ */
+
+APIRET dlghCreateMessageBox(HWND *phwndDlg,
+                            HWND hwndOwner,
+                            HPOINTER hptrIcon,
+                            const char *pcszTitle,
+                            const char *pcszMessage,
+                            ULONG flFlags,
+                            const char *pcszFont,
+                            const MSGBOXSTRINGS *pStrings,
+                            PULONG pulAlarmFlag)      // out: alarm sound to be played
+{
+    CONTROLDEF
+        Icon = {
+                        WC_STATIC,
+                        NULL,           // text, set below
+                        WS_VISIBLE | SS_ICON,
+                        0,          // ID
+                        NULL,       // no font
+                        0,
+                        { SZL_AUTOSIZE, SZL_AUTOSIZE },
+                        5
+                    },
+        InfoText =
+                    {
+                        WC_STATIC,
+                        NULL,       // text, set below
+                        WS_VISIBLE | SS_TEXT | DT_WORDBREAK | DT_LEFT | DT_TOP,
+                        10,          // ID
+                        CTL_COMMON_FONT,
+                        0,
+                        { 400, SZL_AUTOSIZE },
+                        5
+                    },
+        Buttons[] = {
+                        {
+                            WC_BUTTON,
+                            NULL,       // text, set below
+                            WS_VISIBLE | BS_PUSHBUTTON,
+                            1,          // ID
+                            CTL_COMMON_FONT,  // no font
+                            0,
+                            { 100, 30 },
+                            5
+                        },
+                        {
+                            WC_BUTTON,
+                            NULL,       // text, set below
+                            WS_VISIBLE | BS_PUSHBUTTON,
+                            2,          // ID
+                            CTL_COMMON_FONT,  // no font
+                            0,
+                            { 100, 30 },
+                            5
+                        },
+                        {
+                            WC_BUTTON,
+                            NULL,       // text, set below
+                            WS_VISIBLE | BS_PUSHBUTTON,
+                            3,          // ID
+                            CTL_COMMON_FONT,  // no font
+                            0,
+                            { 100, 30 },
+                            5
+                        }
+                    };
+
+    DLGHITEM MessageBox[] =
+                 {
+                    START_TABLE,
+                        START_ROW(ROW_VALIGN_CENTER),
+                            CONTROL_DEF(&Icon),
+                        START_TABLE,
+                            START_ROW(ROW_VALIGN_CENTER),
+                                CONTROL_DEF(&InfoText),
+                            START_ROW(ROW_VALIGN_CENTER),
+                                CONTROL_DEF(&Buttons[0]),
+                                CONTROL_DEF(&Buttons[1]),
+                                CONTROL_DEF(&Buttons[2]),
+                        END_TABLE,
+                    END_TABLE
+                 };
+
+    ULONG flButtons = flFlags & 0xF;        // low nibble contains MB_YESNO etc.
+
+    const char  *p0 = "Error",
+                *p1 = NULL,
+                *p2 = NULL;
+
+    Icon.pcszText = (const char *)hptrIcon;
+    InfoText.pcszText = pcszMessage;
+
+    // now work on the three buttons of the dlg template:
+    // give them proper titles or hide them
+    if (flButtons == MB_OK)
+    {
+        p0 = pStrings->pcszOK;
+    }
+    else if (flButtons == MB_OKCANCEL)
+    {
+        p0 = pStrings->pcszOK;
+        p1 = pStrings->pcszCancel;
+    }
+    else if (flButtons == MB_RETRYCANCEL)
+    {
+        p0 = pStrings->pcszRetry;
+        p1 = pStrings->pcszCancel;
+    }
+    else if (flButtons == MB_ABORTRETRYIGNORE)
+    {
+        p0 = pStrings->pcszAbort;
+        p1 = pStrings->pcszRetry;
+        p2 = pStrings->pcszIgnore;
+    }
+    else if (flButtons == MB_YESNO)
+    {
+        p0 = pStrings->pcszYes;
+        p1 = pStrings->pcszNo;
+    }
+    else if (flButtons == MB_YESNOCANCEL)
+    {
+        p0 = pStrings->pcszYes;
+        p1 = pStrings->pcszNo;
+        p2 = pStrings->pcszCancel;
+    }
+    else if (flButtons == MB_CANCEL)
+    {
+        p0 = pStrings->pcszCancel;
+    }
+    else if (flButtons == MB_ENTER)
+    {
+        p0 = pStrings->pcszEnter;
+    }
+    else if (flButtons == MB_ENTERCANCEL)
+    {
+        p0 = pStrings->pcszEnter;
+        p1 = pStrings->pcszCancel;
+    }
+    else if (flButtons == MB_YES_YES2ALL_NO)
+    {
+        p0 = pStrings->pcszYes;
+        p1 = pStrings->pcszYesToAll;
+        p2 = pStrings->pcszNo;
+    }
+
+    // now set strings and hide empty buttons
+    Buttons[0].pcszText = p0;
+
+    if (p1)
+        Buttons[1].pcszText = p1;
+    else
+        Buttons[1].flStyle &= ~WS_VISIBLE;
+
+    if (p2)
+        Buttons[2].pcszText = p2;
+    else
+        Buttons[2].flStyle &= ~WS_VISIBLE;
+
+    // query default button IDs
+    if (flFlags & MB_DEFBUTTON2)
+        Buttons[1].flStyle |= BS_DEFAULT;
+    else if (flFlags & MB_DEFBUTTON3)
+        Buttons[2].flStyle |= BS_DEFAULT;
+    else
+        Buttons[0].flStyle |= BS_DEFAULT;
+
+    *pulAlarmFlag = WA_NOTE;
+    if (flFlags & (MB_ICONHAND | MB_ERROR))
+        *pulAlarmFlag = WA_ERROR;
+    else if (flFlags & (MB_ICONEXCLAMATION | MB_WARNING))
+        *pulAlarmFlag = WA_WARNING;
+
+    return (dlghCreateDlg(phwndDlg,
+                          hwndOwner,
+                          FCF_TITLEBAR | FCF_SYSMENU | FCF_DLGBORDER | FCF_NOBYTEALIGN,
+                          WinDefDlgProc,
+                          pcszTitle,
+                          MessageBox,
+                          ARRAYITEMCOUNT(MessageBox),
+                          NULL,
+                          pcszFont));
+}
+
+/*
+ *@@ dlghProcessMessageBox:
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ */
+
+ULONG dlghProcessMessageBox(HWND hwndDlg,
+                            ULONG ulAlarmFlag,
+                            ULONG flFlags)
+{
+    ULONG ulrcDlg;
+    ULONG flButtons = flFlags & 0xF;        // low nibble contains MB_YESNO etc.
+
+    winhCenterWindow(hwndDlg);
+
+    if (flFlags & MB_SYSTEMMODAL)
+        WinSetSysModalWindow(HWND_DESKTOP, hwndDlg);
+
+    if (ulAlarmFlag)
+        WinAlarm(HWND_DESKTOP, ulAlarmFlag);
+
+    ulrcDlg = WinProcessDlg(hwndDlg);
+
+    WinDestroyWindow(hwndDlg);
+
+    if (flButtons == MB_OK)
+        return MBID_OK;
+    else if (flButtons == MB_OKCANCEL)
+        switch (ulrcDlg)
+        {
+            case 1:     return MBID_OK;
+            default:    return MBID_CANCEL;
+        }
+    else if (flButtons == MB_RETRYCANCEL)
+        switch (ulrcDlg)
+        {
+            case 1:     return MBID_RETRY;
+            default:    return MBID_CANCEL;
+        }
+    else if (flButtons == MB_ABORTRETRYIGNORE)
+        switch (ulrcDlg)
+        {
+            case 2:     return MBID_RETRY;
+            case 3:     return MBID_IGNORE;
+            default:    return MBID_ABORT;
+        }
+    else if (flButtons == MB_YESNO)
+        switch (ulrcDlg)
+        {
+            case 1:     return MBID_YES;
+            default:    return MBID_NO;
+        }
+    else if (flButtons == MB_YESNOCANCEL)
+        switch (ulrcDlg)
+        {
+            case 1:     return MBID_YES;
+            case 2:     return MBID_NO;
+            default:    return MBID_CANCEL;
+        }
+    else if (flButtons == MB_CANCEL)
+        return MBID_CANCEL;
+    else if (flButtons == MB_ENTER)
+        return MBID_ENTER;
+    else if (flButtons == MB_ENTERCANCEL)
+        switch (ulrcDlg)
+        {
+            case 1:     return MBID_ENTER;
+            default:    return MBID_CANCEL;
+        }
+    else if (flButtons == MB_YES_YES2ALL_NO)
+        switch (ulrcDlg)
+        {
+            case 1:     return MBID_YES;
+            case 2:     return MBID_YES2ALL;
+            default:    return MBID_NO;
+        }
+
+    return (MBID_CANCEL);
+}
+
+/*
+ *@@ dlghMessageBox:
+ *      WinMessageBox replacement.
+ *
+ *      This has all the flags of the standard call,
+ *      but looks much prettier. Besides, it allows
+ *      you to specify any icon to be displayed.
+ *
+ *      Currently the following flStyle's are supported:
+ *
+ *      -- MB_OK                      0x0000
+ *      -- MB_OKCANCEL                0x0001
+ *      -- MB_RETRYCANCEL             0x0002
+ *      -- MB_ABORTRETRYIGNORE        0x0003
+ *      -- MB_YESNO                   0x0004
+ *      -- MB_YESNOCANCEL             0x0005
+ *      -- MB_CANCEL                  0x0006
+ *      -- MB_ENTER                   0x0007 (not implemented yet)
+ *      -- MB_ENTERCANCEL             0x0008 (not implemented yet)
+ *
+ *      -- MB_YES_YES2ALL_NO          0x0009
+ *          This is new: this has three buttons called "Yes"
+ *          (MBID_YES), "Yes to all" (MBID_YES2ALL), "No" (MBID_NO).
+ *
+ *      -- MB_DEFBUTTON2            (for two-button styles)
+ *      -- MB_DEFBUTTON3            (for three-button styles)
+ *
+ *      -- MB_ICONHAND
+ *      -- MB_ICONEXCLAMATION
+ *
+ *      Returns MBID_* codes like WinMessageBox.
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ */
+
+ULONG dlghMessageBox(HWND hwndOwner,            // in: owner for msg box
+                     HPOINTER hptrIcon,         // in: icon to display
+                     const char *pcszTitle,     // in: title
+                     const char *pcszMessage,   // in: message
+                     ULONG flFlags,             // in: standard message box flags
+                     const char *pcszFont,      // in: font (e.g. "9.WarpSans")
+                     const MSGBOXSTRINGS *pStrings) // in: strings array
+{
+    HWND hwndDlg;
+    ULONG ulAlarmFlag;
+    APIRET arc = dlghCreateMessageBox(&hwndDlg,
+                                      hwndOwner,
+                                      hptrIcon,
+                                      pcszTitle,
+                                      pcszMessage,
+                                      flFlags,
+                                      pcszFont,
+                                      pStrings,
+                                      &ulAlarmFlag);
+
+    if (!arc && hwndDlg)
+    {
+        // SHOW DIALOG
+        return (dlghProcessMessageBox(hwndDlg,
+                                      ulAlarmFlag,
+                                      flFlags));
+    }
+    else
+    {
+        CHAR szMsg[100];
+        sprintf(szMsg, "dlghCreateMessageBox reported error %u.", arc);
+        WinMessageBox(HWND_DESKTOP,
+                      NULLHANDLE,
+                      "Error",
+                      szMsg,
+                      0,
+                      MB_CANCEL | MB_MOVEABLE);
+    }
+
+    return (DID_CANCEL);
+}
+
+/*
  *@@ dlghSetPrevFocus:
  *      "backward" function for rotating the focus
  *      in a dialog when the "shift+tab" keys get

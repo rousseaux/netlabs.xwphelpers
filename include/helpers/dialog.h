@@ -188,6 +188,69 @@ extern "C" {
                          PVOID pCreateParams,
                          const char *pcszControlsFont);
 
+    /*
+     *@@ MSGBOXSTRINGS:
+     *
+     *@@added V0.9.13 (2001-06-21) [umoeller]
+     */
+
+    typedef struct _MSGBOXSTRINGS
+    {
+        const char      *pcszYes,           // "~Yes"
+                        *pcszNo,            // "~No"
+                        *pcszOK,            // "~OK"
+                        *pcszCancel,        // "~Cancel"
+                        *pcszAbort,         // "~Abort"
+                        *pcszRetry,         // "~Retry"
+                        *pcszIgnore,        // "~Ignore"
+                        *pcszEnter,
+                        *pcszYesToAll;      // "Yes to ~all"
+    } MSGBOXSTRINGS, *PMSGBOXSTRINGS;
+
+    /* the following are in os2.h somewhere:
+    #define MB_OK                      0x0000
+    #define MB_OKCANCEL                0x0001
+    #define MB_RETRYCANCEL             0x0002
+    #define MB_ABORTRETRYIGNORE        0x0003
+    #define MB_YESNO                   0x0004
+    #define MB_YESNOCANCEL             0x0005
+    #define MB_CANCEL                  0x0006
+    #define MB_ENTER                   0x0007
+    #define MB_ENTERCANCEL             0x0008 */
+    // we add:
+    #define MB_YES_YES2ALL_NO          0x0009
+
+    /* the following are in os2.h somewhere:
+    #define MBID_OK                    1
+    #define MBID_CANCEL                2
+    #define MBID_ABORT                 3
+    #define MBID_RETRY                 4
+    #define MBID_IGNORE                5
+    #define MBID_YES                   6
+    #define MBID_NO                    7
+    #define MBID_HELP                  8
+    #define MBID_ENTER                 9 */
+    // we add:
+    #define MBID_YES2ALL               10
+
+    APIRET dlghCreateMessageBox(HWND *phwndDlg,
+                                HWND hwndOwner,
+                                HPOINTER hptrIcon,
+                                const char *pcszTitle,
+                                const char *pcszMessage,
+                                ULONG flFlags,
+                                const char *pcszFont,
+                                const MSGBOXSTRINGS *pStrings,
+                                PULONG pulAlarmFlag);
+
+    ULONG dlghMessageBox(HWND hwndOwner,
+                         HPOINTER hptrIcon,
+                         const char *pcszTitle,
+                         const char *pcszMessage,
+                         ULONG flFlags,
+                         const char *pcszFont,
+                         const MSGBOXSTRINGS *pStrings);
+
     VOID dlghSetPrevFocus(PVOID pvllWindows);
 
     VOID dlghSetNextFocus(PVOID pvllWindows);

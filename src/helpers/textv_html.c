@@ -1415,7 +1415,8 @@ VOID HandleTag(PCOPYTARGET pct)
  *      called by HandleEscape to find the ANSI (CP 1004)
  *      character for the given escape sequence (pszTag).
  *
- *      pszTag contains the stuff between "&" and ";".
+ *      pszTag must be null-terminated and contain only
+ *      the stuff between "&" and ";".
  *
  *      This is really ugly spaghetti, but it's the fastest
  *      way to do it.

@@ -475,12 +475,12 @@ APIRET doshQueryDiskParams(ULONG ulLogicalDrive,        // in:  1 for A:, 2 for 
                            &parms, sizeof(parms),
                            pdp,   sizeof(BIOSPARAMETERBLOCK));
 
-        if (!arc)
+        /* if (!arc)
         {
             _Pmpf(("      bDeviceType: %d", pdp->bDeviceType));
             _Pmpf(("      bytes per sector: %d", pdp->usBytesPerSector));
             _Pmpf(("      sectors per track: %d", pdp->usSectorsPerTrack));
-        }
+        } */
     }
 
     return (arc);
@@ -690,8 +690,8 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
     arc = doshIsFixedDisk(ulLogicalDrive,
                           &fFixed);    // V0.9.13 (2001-06-14) [umoeller]
 
-    _Pmpf((__FUNCTION__ ": doshIsFixedDisk returned %d for disk %d", arc, ulLogicalDrive));
-    _Pmpf(("   fFixed is %d", fFixed));
+    // _Pmpf((__FUNCTION__ ": doshIsFixedDisk returned %d for disk %d", arc, ulLogicalDrive));
+    // _Pmpf(("   fFixed is %d", fFixed));
 
     if (!arc)
         if (!fFixed)
@@ -701,13 +701,13 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
             BIOSPARAMETERBLOCK bpb;
             arc = doshQueryDiskParams(ulLogicalDrive,
                                       &bpb);
-            _Pmpf(("   doshQueryDiskParams returned %d", arc));
+            // _Pmpf(("   doshQueryDiskParams returned %d", arc));
 
             if (    (!arc)
                  && (doshIsCDROM(&bpb))
                )
             {
-                _Pmpf(("   --> is CD-ROM"));
+                // _Pmpf(("   --> is CD-ROM"));
                 fCDROM = TRUE;
             }
         }
@@ -730,7 +730,7 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
                              | OPEN_SHARE_DENYNONE,
                       NULL);
 
-        _Pmpf(("   DosOpen(OPEN_FLAGS_DASD) returned %d", arc));
+        // _Pmpf(("   DosOpen(OPEN_FLAGS_DASD) returned %d", arc));
 
         // this still returns NO_ERROR for audio CDs in a
         // CD-ROM drive...
@@ -807,8 +807,8 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
                             }
                         }
 
-                        _Pmpf(("   got %d audio, %d data tracks",
-                                    ulAudioTracks, ulDataTracks));
+                        // _Pmpf(("   got %d audio, %d data tracks",
+                        //             ulAudioTracks, ulDataTracks));
 
                         if (!ulDataTracks)
                             arc = ERROR_AUDIO_CD_ROM;       // special private error code (10000)
@@ -817,7 +817,7 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
                     {
                         // not audio disk:
                         // go on then
-                        _Pmpf(("   CDROMAUDIO_GETAUDIODISK returned %d", arc));
+                        // _Pmpf(("   CDROMAUDIO_GETAUDIODISK returned %d", arc));
                         arc = NO_ERROR;
                     }
                 }
@@ -825,7 +825,7 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
             else
             {
                 // not CD-ROM: go on then
-                _Pmpf(("   CDROMDISK_GETDRIVER returned %d", arc));
+                // _Pmpf(("   CDROMDISK_GETDRIVER returned %d", arc));
                 arc = NO_ERROR;
             }
         }
@@ -861,7 +861,7 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
                                      FSIL_ALLOC,
                                      &fsa,
                                      sizeof(fsa));
-                _Pmpf(("   re-checked, DosQueryFSInfo returned %d", arc));
+                // _Pmpf(("   re-checked, DosQueryFSInfo returned %d", arc));
             }
         break;
     }
