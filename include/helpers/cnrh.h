@@ -394,7 +394,7 @@ extern "C" {
      *
      *      This is especially sick. The CV_MINI style in CNRINFO is only
      *      supported for "pure" icon view. For details and tree views,
-     *      you must instead set the (half-documented) CCS_MINICONS style
+     *      in addition, you must set the (half-documented) CCS_MINICONS style
      *      as a _window_ style on the container. Whoever came up with this.
      *
      *      <B>Target emphasis:</B>
