@@ -8,7 +8,8 @@
  *
  *@@added V0.9.9 (2001-04-01) [umoeller]
  *@@include <os2.h>
- *@@include #include "dialog.h"
+ *@@include #include "helpers\linklist.h"           // for mnemonic helpers
+ *@@include #include "helpers\dialog.h"
  */
 
 /*      Copyright (C) 2001 Ulrich M”ller.
@@ -183,6 +184,15 @@ extern "C" {
                          ULONG cDlgItems,
                          PVOID pCreateParams,
                          const char *pcszControlsFont);
+
+    VOID dlghSetPrevFocus(PVOID pvllWindows);
+
+    VOID dlghSetNextFocus(PVOID pvllWindows);
+
+    HWND dlghProcessMnemonic(PVOID pvllWindows,
+                             USHORT usch);
+
+    BOOL dlghEnter(PVOID pvllWindows);
 
 #endif
 

@@ -41,6 +41,7 @@
 #define INCL_WINWINDOWMGR
 #define INCL_WINFRAMEMGR
 #define INCL_WINDIALOGS
+#define INCL_WININPUT
 #define INCL_WINBUTTONS
 #define INCL_WINSTATICS
 #define INCL_WINSYS
@@ -1453,6 +1454,243 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
     }
 
     return (arc);
+}
+
+/*
+ *@@ dlghSetPrevFocus:
+ *      "backward" function for rotating the focus
+ *      in a dialog when the "shift+tab" keys get
+ *      pressed.
+ *
+ *      pllWindows must be a linked list with the
+ *      plain HWND window handles of the focussable
+ *      controls in the dialog.
+ */
+
+VOID dlghSetPrevFocus(PVOID pvllWindows)
+{
+    PLINKLIST   pllWindows = (PLINKLIST)pvllWindows;
+
+    // check current focus
+    HWND        hwndFocus = WinQueryFocus(HWND_DESKTOP);
+
+    PLISTNODE   pNode = lstNodeFromItem(pllWindows, (PVOID)hwndFocus);
+
+    BOOL fRestart = FALSE;
+
+    while (pNode)
+    {
+        CHAR    szClass[100];
+
+        // previos node
+        pNode = pNode->pPrevious;
+
+        if (    (!pNode)        // no next, or not found:
+             && (!fRestart)     // avoid infinite looping if bad list
+           )
+        {
+            pNode = lstQueryLastNode(pllWindows);
+            fRestart = TRUE;
+        }
+
+        if (pNode)
+        {
+            // check if this is a focusable control
+            if (WinQueryClassName((HWND)pNode->pItemData,
+                                  sizeof(szClass),
+                                  szClass))
+            {
+                if (    (strcmp(szClass, "#5"))    // not static
+                   )
+                    break;
+                // else: go for next then
+            }
+        }
+    }
+
+    if (pNode)
+    {
+        WinSetFocus(HWND_DESKTOP,
+                    (HWND)pNode->pItemData);
+    }
+}
+
+/*
+ *@@ dlghSetNextFocus:
+ *      "forward" function for rotating the focus
+ *      in a dialog when the "ab" key gets pressed.
+ *
+ *      pllWindows must be a linked list with the
+ *      plain HWND window handles of the focussable
+ *      controls in the dialog.
+ */
+
+VOID dlghSetNextFocus(PVOID pvllWindows)
+{
+    PLINKLIST   pllWindows = (PLINKLIST)pvllWindows;
+
+    // check current focus
+    HWND        hwndFocus = WinQueryFocus(HWND_DESKTOP);
+
+    PLISTNODE   pNode = lstNodeFromItem(pllWindows, (PVOID)hwndFocus);
+
+    BOOL fRestart = FALSE;
+
+    while (pNode)
+    {
+        CHAR    szClass[100];
+
+        // next focus in node
+        pNode = pNode->pNext;
+
+        if (    (!pNode)        // no next, or not found:
+             && (!fRestart)     // avoid infinite looping if bad list
+           )
+        {
+            pNode = lstQueryFirstNode(pllWindows);
+            fRestart = TRUE;
+        }
+
+        if (pNode)
+        {
+            // check if this is a focusable control
+            if (WinQueryClassName((HWND)pNode->pItemData,
+                                  sizeof(szClass),
+                                  szClass))
+            {
+                if (    (strcmp(szClass, "#5"))    // not static
+                   )
+                    break;
+                // else: go for next then
+            }
+        }
+    }
+
+    if (pNode)
+    {
+        WinSetFocus(HWND_DESKTOP,
+                    (HWND)pNode->pItemData);
+    }
+}
+
+/*
+ *@@ MatchMnemonic:
+ *      returns TRUE if the specified control matches
+ *
+ *
+ *@@added V0.9.9 (2001-03-17) [umoeller]
+ */
+
+/*
+ *@@ dlghProcessMnemonic:
+ *      finds the control which matches usch
+ *      and gives it the focus. If this is a
+ *      static control, the next control in the
+ *      list is given focus instead. (Standard
+ *      dialog behavior.)
+ *
+ *      Pass in usch from WM_CHAR. It is assumed
+ *      that the caller has already tested for
+ *      the "alt" key to be depressed.
+ *
+ *@@added V0.9.9 (2001-03-17) [umoeller]
+ */
+
+HWND dlghProcessMnemonic(PVOID pvllWindows,
+                         USHORT usch)
+{
+    PLINKLIST   pllWindows = (PLINKLIST)pvllWindows;
+
+    HWND hwndFound = NULLHANDLE;
+    PLISTNODE pNode = lstQueryFirstNode(pllWindows);
+    CHAR szClass[100];
+
+    while (pNode)
+    {
+        HWND hwnd = (HWND)pNode->pItemData;
+
+        if (WinSendMsg(hwnd,
+                       WM_MATCHMNEMONIC,
+                       (MPARAM)usch,
+                       0))
+        {
+            // according to the docs, only buttons and static
+            // return TRUE to that msg;
+            // if this is a static, give focus to the next
+            // control
+
+            _Pmpf((__FUNCTION__ ": hwnd 0x%lX", hwnd));
+
+            // check if this is a focusable control
+            if (WinQueryClassName(hwnd,
+                                  sizeof(szClass),
+                                  szClass))
+            {
+                if (!strcmp(szClass, "#3"))
+                    // it's a button: click it
+                    WinSendMsg(hwnd, BM_CLICK, (MPARAM)TRUE, 0);
+                else if (!strcmp(szClass, "#5"))
+                {
+                    // it's a static: give focus to following control
+                    pNode = pNode->pNext;
+                    if (pNode)
+                        WinSetFocus(HWND_DESKTOP, (HWND)pNode->pItemData);
+                }
+            }
+            else
+                // any other control (are there any?): give them focus
+                WinSetFocus(HWND_DESKTOP, hwnd);
+
+            // in any case, stop
+            hwndFound = hwnd;
+            break;
+        }
+
+        pNode = pNode->pNext;
+    }
+
+    return (hwndFound);
+}
+
+/*
+ *@@ dlghEnter:
+ *      presses the first button with BS_DEFAULT.
+ */
+
+BOOL dlghEnter(PVOID pvllWindows)
+{
+    PLINKLIST   pllWindows = (PLINKLIST)pvllWindows;
+
+    PLISTNODE pNode = lstQueryFirstNode(pllWindows);
+    CHAR szClass[100];
+    while (pNode)
+    {
+        HWND hwnd = (HWND)pNode->pItemData;
+        if (WinQueryClassName(hwnd,
+                              sizeof(szClass),
+                              szClass))
+        {
+            if (!strcmp(szClass, "#3"))    // button
+            {
+                _Pmpf((__FUNCTION__ ": found button"));
+                if (    (WinQueryWindowULong(hwnd, QWL_STYLE) & (BS_PUSHBUTTON | BS_DEFAULT))
+                     == (BS_PUSHBUTTON | BS_DEFAULT)
+                   )
+                {
+                    _Pmpf(("   is default!"));
+                    WinPostMsg(hwnd,
+                               BM_CLICK,
+                               (MPARAM)TRUE,        // upclick
+                               0);
+                    return (TRUE);
+                }
+            }
+        }
+
+        pNode = pNode->pNext;
+    }
+
+    return (FALSE);
 }
 
 
