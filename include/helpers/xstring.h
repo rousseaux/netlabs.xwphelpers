@@ -81,12 +81,12 @@ extern "C" {
     typedef ULONG XWPENTRY XSTRSET(PXSTRING pxstr, PSZ pszNew);
     typedef XSTRSET *PXSTRSET;
 
-    ULONG XWPENTRY xstrcpy(PXSTRING pxstr, const char *pcszSource);
-    typedef ULONG XWPENTRY XSTRCPY(PXSTRING pxstr, const char *pcszSource);
+    ULONG XWPENTRY xstrcpy(PXSTRING pxstr, const char *pcszSource, ULONG ulSourceLength);
+    typedef ULONG XWPENTRY XSTRCPY(PXSTRING pxstr, const char *pcszSource, ULONG ulSourceLength);
     typedef XSTRCPY *PXSTRCPY;
 
-    ULONG XWPENTRY xstrcat(PXSTRING pxstr, const char *pcszSource);
-    typedef ULONG XWPENTRY XSTRCAT(PXSTRING pxstr, const char *pcszSource);
+    ULONG XWPENTRY xstrcat(PXSTRING pxstr, const char *pcszSource, ULONG ulSourceLength);
+    typedef ULONG XWPENTRY XSTRCAT(PXSTRING pxstr, const char *pcszSource, ULONG ulSourceLength);
     typedef XSTRCAT *PXSTRCAT;
 
     ULONG XWPENTRY xstrcatc(PXSTRING pxstr, CHAR c);
@@ -101,6 +101,16 @@ extern "C" {
      */
 
     #define xstrIsString(psz) ( (psz != 0) && (*(psz) != 0) )
+
+    ULONG XWPENTRY xstrrpl(PXSTRING pxstr,
+                           ULONG ulFirstReplOfs,
+                           ULONG cReplLen,
+                           const XSTRING *pstrReplaceWith);
+    typedef ULONG XWPENTRY XSTRRPL(PXSTRING pxstr,
+                                   ULONG ulFirstReplOfs,
+                                   ULONG cReplLen,
+                                   const XSTRING *pstrReplaceWith);
+    typedef XSTRRPL *PXSTRRPL;
 
     PSZ XWPENTRY xstrFindWord(const XSTRING *pxstr,
                               ULONG ulOfs,
@@ -118,29 +128,34 @@ extern "C" {
                                       const char *pcszEndChars);
     typedef XSTRFINDWORD *PXSTRFINDWORD;
 
-    ULONG XWPENTRY xstrrpl(PXSTRING pxstr,
-                           PULONG pulOfs,
-                           const XSTRING *pstrSearch,
-                           const XSTRING *pstrReplace,
-                           size_t *pShiftTable,
-                           PBOOL pfRepeatFind);
-    typedef ULONG XWPENTRY XSTRRPL(PXSTRING pxstr,
+    ULONG XWPENTRY xstrFindReplace(PXSTRING pxstr,
                                    PULONG pulOfs,
                                    const XSTRING *pstrSearch,
                                    const XSTRING *pstrReplace,
                                    size_t *pShiftTable,
                                    PBOOL pfRepeatFind);
-    typedef XSTRRPL *PXSTRRPL;
+    typedef ULONG XWPENTRY XSTRFINDREPLACE(PXSTRING pxstr,
+                                           PULONG pulOfs,
+                                           const XSTRING *pstrSearch,
+                                           const XSTRING *pstrReplace,
+                                           size_t *pShiftTable,
+                                           PBOOL pfRepeatFind);
+    typedef XSTRFINDREPLACE *PXSTRFINDREPLACE;
 
-    ULONG XWPENTRY xstrcrpl(PXSTRING pxstr,
-                            PULONG pulOfs,
-                            const char *pcszSearch,
-                            const char *pcszReplace);
-    typedef ULONG XWPENTRY XSTRCRPL(PXSTRING pxstr,
+    ULONG XWPENTRY xstrFindReplaceC(PXSTRING pxstr,
                                     PULONG pulOfs,
                                     const char *pcszSearch,
                                     const char *pcszReplace);
-    typedef XSTRCRPL *PXSTRCRPL;
+    typedef ULONG XWPENTRY XSTRFINDREPLACEC(PXSTRING pxstr,
+                                            PULONG pulOfs,
+                                            const char *pcszSearch,
+                                            const char *pcszReplace);
+    typedef XSTRFINDREPLACEC *PXSTRFINDREPLACEC;
+
+    VOID XWPENTRY xstrConvertLineFormat(PXSTRING pxstr, BOOL fToCFormat);
+    typedef VOID XWPENTRY XSTRCONVERTLINEFORMAT(PXSTRING pxstr, BOOL fToCFormat);
+    typedef XSTRCONVERTLINEFORMAT *PXSTRCONVERTLINEFORMAT;
+
 #endif
 
 #if __cplusplus

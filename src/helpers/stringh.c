@@ -431,22 +431,23 @@ PSZ strhins(const char *pcszBuffer,
 }
 
 /*
- *@@ strhrpl:
- *      wrapper around xstrrpl to work with C strings.
+ *@@ strhFindReplace:
+ *      wrapper around xstrFindReplace to work with C strings.
  *      Note that *ppszBuf can get reallocated and must
  *      be free()'able.
  *
  *      Repetitive use of this wrapper is not recommended
- *      because it is considerably slower than xstrrpl.
+ *      because it is considerably slower than xstrFindReplace.
  *
  *@@added V0.9.6 (2000-11-01) [umoeller]
+ *@@changed V0.9.7 (2001-01-15) [umoeller]: renamed from strhrpl
  */
 
-ULONG strhrpl(PSZ *ppszBuf,                // in/out: string
-              PULONG pulOfs,               // in: where to begin search (0 = start);
-                                           // out: ofs of first char after replacement string
-              const char *pcszSearch,      // in: search string; cannot be NULL
-              const char *pcszReplace)     // in: replacement string; cannot be NULL
+ULONG strhFindReplace(PSZ *ppszBuf,                // in/out: string
+                      PULONG pulOfs,               // in: where to begin search (0 = start);
+                                                   // out: ofs of first char after replacement string
+                      const char *pcszSearch,      // in: search string; cannot be NULL
+                      const char *pcszReplace)     // in: replacement string; cannot be NULL
 {
     ULONG   ulrc = 0;
     XSTRING xstrBuf,
@@ -454,19 +455,18 @@ ULONG strhrpl(PSZ *ppszBuf,                // in/out: string
             xstrReplace;
     size_t  ShiftTable[256];
     BOOL    fRepeat = FALSE;
-    xstrInit(&xstrBuf, 0);
-    xstrset(&xstrBuf, *ppszBuf);
-    xstrInit(&xstrFind, 0);
-    xstrset(&xstrFind, (PSZ)pcszSearch);
-    xstrInit(&xstrReplace, 0);
-    xstrset(&xstrReplace, (PSZ)pcszReplace);
+    xstrInitSet(&xstrBuf, *ppszBuf);
+                // reallocated and returned, so we're safe
+    xstrInitSet(&xstrFind, (PSZ)pcszSearch);
+    xstrInitSet(&xstrReplace, (PSZ)pcszReplace);
+                // these two are never freed, so we're safe too
 
-    if ((ulrc = xstrrpl(&xstrBuf,
-                        pulOfs,
-                        &xstrFind,
-                        &xstrReplace,
-                        ShiftTable,
-                        &fRepeat)))
+    if ((ulrc = xstrFindReplace(&xstrBuf,
+                                pulOfs,
+                                &xstrFind,
+                                &xstrReplace,
+                                ShiftTable,
+                                &fRepeat)))
         // replaced:
         *ppszBuf = xstrBuf.psz;
 
@@ -1008,7 +1008,7 @@ PSZ strhFindEOL(const char *pcszSearchIn,        // in: where to search
         p++;
     }
 
-    if (pulOffset)
+    if ((pulOffset) && (prc))
         *pulOffset = prc - pcszSearchIn;
 
     return ((PSZ)prc);
@@ -1034,258 +1034,6 @@ PSZ strhFindNextLine(PSZ pszSearchIn, PULONG pulOffset)
     if (pulOffset)
         *pulOffset = pNextLine - pszSearchIn;
     return (pNextLine);
-}
-
-/*
- *@@ strhFindKey:
- *      finds pszKey in pszSearchIn; similar to strhistr,
- *      but this one makes sure the key is at the beginning
- *      of a line. Spaces before the key are tolerated.
- *      Returns NULL if the key was not found.
- *
- *      Used by strhGetParameter/strhSetParameter; useful
- *      for analyzing CONFIG.SYS settings.
- *
- *@@changed V0.9.0 [umoeller]: fixed bug in that this would also return something if only the first chars matched
- *@@changed V0.9.0 [umoeller]: fixed bug which could cause character before pszSearchIn to be examined
- */
-
-PSZ strhFindKey(const char *pcszSearchIn,   // in: text buffer to search
-                const char *pcszKey,        // in: key to search for
-                PBOOL pfIsAllUpperCase) // out: TRUE if key is completely in upper case;
-                                     // can be NULL if not needed
-{
-    const char  *p = NULL;
-    PSZ         pReturn = NULL;
-    // BOOL    fFound = FALSE;
-
-    p = pcszSearchIn;
-    do {
-        p = strhistr(p, pcszKey);
-
-        if ((p) && (p >= pcszSearchIn))
-        {
-            // make sure the key is at the beginning of a line
-            // by going backwards until we find a char != " "
-            const char *p2 = p;
-            while (     (*p2 == ' ')
-                     && (p2 > pcszSearchIn)
-                  )
-                p2--;
-
-            // if previous char is an EOL sign, go on
-            if (    (p2 == pcszSearchIn)     // order fixed V0.9.0, RÅdiger Ihle
-                 || (*(p2-1) == '\r')
-                 || (*(p2-1) == '\n')
-               )
-            {
-                // now check whether the char after the search
-                // is a "=" char
-                // ULONG cbKey = strlen(pszKey);
-
-                // tolerate spaces before "="
-                /* PSZ p3 = p;
-                while (*(p3+cbKey) == ' ')
-                    p3++;
-
-                if (*(p3+cbKey) == '=') */
-                {
-                    // found:
-                    pReturn = (PSZ)p; // go on, p contains found key
-
-                    // test for all upper case?
-                    if (pfIsAllUpperCase)
-                    {
-                        ULONG cbKey2 = strlen(pcszKey),
-                              ul = 0;
-                        *pfIsAllUpperCase = TRUE;
-                        for (ul = 0; ul < cbKey2; ul++)
-                            if (islower(*(p+ul)))
-                            {
-                                *pfIsAllUpperCase = FALSE;
-                                break; // for
-                            }
-                    }
-
-                    break; // do
-                }
-            } // else search next key
-
-            p++; // search on after this key
-        }
-    } while ((!pReturn) && (p != NULL) && (p != pcszSearchIn));
-
-    return (pReturn);
-}
-
-/*
- *@@ strhGetParameter:
- *      searches pszSearchIn for the key pszKey; if found, it
- *      returns a pointer to the following characters in pszSearchIn
- *      and, if pszCopyTo != NULL, copies the rest of the line to
- *      that buffer, of which cbCopyTo specified the size.
- *
- *      If the key is not found, NULL is returned.
- *      String search is done by calling strhFindKey.
- *      This is useful for querying CONFIG.SYS settings.
- *
- *      <B>Example:</B>
- *
- *      this would return "YES" if you searched for "PAUSEONERROR=",
- *      and "PAUSEONERROR=YES" existed in pszSearchIn.
- */
-
-PSZ strhGetParameter(const char *pcszSearchIn,  // in: text buffer to search
-                     const char *pcszKey,       // in: key to search for
-                     PSZ pszCopyTo,             // out: key value
-                     ULONG cbCopyTo)            // out: sizeof(*pszCopyTo)
-{
-    PSZ p = strhFindKey(pcszSearchIn, pcszKey, NULL),
-        prc = NULL;
-    if (p)
-    {
-        prc = p + strlen(pcszKey);
-        if (pszCopyTo)
-        // copy to pszCopyTo
-        {
-            ULONG cb;
-            PSZ pEOL = strhFindEOL(prc, &cb);
-            if (pEOL)
-            {
-                if (cb > cbCopyTo)
-                    cb = cbCopyTo-1;
-                strhncpy0(pszCopyTo, prc, cb);
-            }
-        }
-    }
-
-    return (prc);
-}
-
-/*
- *@@ strhSetParameter:
- *      searches *ppszBuf for the key pszKey; if found, it
- *      replaces the characters following this key up to the
- *      end of the line with pszParam. If pszKey is not found in
- *      *ppszBuf, it is appended to the file in a new line.
- *
- *      If any changes are made, *ppszBuf is re-allocated.
- *
- *      This function searches w/out case sensitivity.
- *
- *      Returns a pointer to the new parameter inside the buffer.
- *
- *@@changed V0.9.0 [umoeller]: changed function prototype to PSZ* ppszSearchIn
- */
-
-PSZ strhSetParameter(PSZ* ppszBuf,    // in: text buffer to search
-                     const char *pcszKey,   // in: key to search for
-                     PSZ pszNewParam, // in: new parameter to set for key
-                     BOOL fRespectCase)  // in: if TRUE, pszNewParam will
-                             // be converted to upper case if the found key is
-                             // in upper case also. pszNewParam should be in
-                             // lower case if you use this.
-{
-    BOOL fIsAllUpperCase = FALSE;
-    PSZ pKey = strhFindKey(*ppszBuf, pcszKey, &fIsAllUpperCase),
-        prc = NULL;
-
-    if (pKey)
-    {
-        // key found in file:
-        // replace existing parameter
-        PSZ pOldParam = pKey + strlen(pcszKey);
-
-        prc = pOldParam;
-        // pOldParam now has the old parameter, which we
-        // will overwrite now
-
-        if (pOldParam)
-        {
-            ULONG cbOldParam;
-            PSZ pEOL = strhFindEOL(pOldParam, &cbOldParam);
-            // pEOL now has first end-of-line after the parameter
-
-            if (pEOL)
-            {
-                XSTRING strBuf;
-                ULONG   ulOfs = 0;
-
-                PSZ pszOldCopy = (PSZ)malloc(cbOldParam+1);
-                strncpy(pszOldCopy, pOldParam, cbOldParam);
-                pszOldCopy[cbOldParam] = '\0';
-
-                xstrInit(&strBuf, 0);
-                xstrset(&strBuf, *ppszBuf);         // this must not be freed!
-                /* xstrInit(&strFind, 0);
-                xstrset(&strFind, pszOldCopy);      // this must not be freed!
-                xstrInit(&strReplace, 0);
-                xstrset(&strReplace, pszNewParam);  // this must not be freed!
-                   */
-
-                // check for upper case desired?
-                if (fRespectCase)
-                    if (fIsAllUpperCase)
-                        strupr(pszNewParam);
-
-                xstrcrpl(&strBuf, &ulOfs, pszOldCopy, pszNewParam);
-
-                free(pszOldCopy);
-
-                *ppszBuf = strBuf.psz;
-            }
-        }
-    }
-    else
-    {
-        PSZ pszNew = (PSZ)malloc(strlen(*ppszBuf)
-                              + strlen(pcszKey)
-                              + strlen(pszNewParam)
-                              + 5);     // 2 * \r\n + null byte
-        // key not found: append to end of file
-        sprintf(pszNew, "%s\r\n%s%s\r\n",
-                *ppszBuf, pcszKey, pszNewParam);
-        free(*ppszBuf);
-        *ppszBuf = pszNew;
-    }
-
-    return (prc);
-}
-
-/*
- *@@ strhDeleteLine:
- *      this deletes the line in pszSearchIn which starts with
- *      the key pszKey. Returns TRUE if the line was found and
- *      deleted.
- *
- *      This copies within pszSearchIn.
- */
-
-BOOL strhDeleteLine(PSZ pszSearchIn,        // in: buffer to search
-                    PSZ pszKey)             // in: key to find
-{
-    BOOL fIsAllUpperCase = FALSE;
-    PSZ pKey = strhFindKey(pszSearchIn, pszKey, &fIsAllUpperCase);
-    BOOL brc = FALSE;
-
-    if (pKey) {
-        PSZ pEOL = strhFindEOL(pKey, NULL);
-        // pEOL now has first end-of-line after the key
-        if (pEOL)
-        {
-            // delete line by overwriting it with
-            // the next line
-            strcpy(pKey, pEOL+2);
-        }
-        else
-        {
-            // EOL not found: we must be at the end of the file
-            *pKey = '\0';
-        }
-        brc = TRUE;
-    }
-
-    return (brc);
 }
 
 /*
@@ -1847,7 +1595,7 @@ PSZ strhCreateDump(PBYTE pb,            // in: start address of buffer
                             (ulCount & 0xFFFFFFF8),  // offset in hex
                             szLine,         // bytes string
                             szAscii);       // ASCII string
-            xstrcat(&strReturn, szTemp);
+            xstrcat(&strReturn, szTemp, 0);
 
             // restart line buffer
             pszLine = szLine;

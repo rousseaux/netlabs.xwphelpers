@@ -1064,7 +1064,7 @@ APIRET doshSetPathAttr(const char* pcszFile,    // in: file or directory name
 }
 
 /*
- *@@ doshReadTextFile:
+ *@@ doshLoadTextFile:
  *      reads a text file from disk, allocates memory
  *      via malloc() and sets a pointer to this
  *      buffer (or NULL upon errors).
@@ -1073,10 +1073,12 @@ APIRET doshSetPathAttr(const char* pcszFile,    // in: file or directory name
  *      If any error occured, no buffer was allocated.
  *      Otherwise, you should free() the buffer when
  *      no longer needed.
+ *
+ *@@changed V0.9.7 (2001-01-15) [umoeller]: renamed from doshReadTextFile
  */
 
-APIRET doshReadTextFile(PSZ pszFile,        // in: file name to read
-                        PSZ* ppszContent)   // out: newly allocated buffer with file's content
+APIRET doshLoadTextFile(const char *pcszFile,  // in: file name to read
+                        PSZ* ppszContent)      // out: newly allocated buffer with file's content
 {
     ULONG   ulSize,
             ulBytesRead = 0,
@@ -1084,7 +1086,7 @@ APIRET doshReadTextFile(PSZ pszFile,        // in: file name to read
     HFILE   hFile;
     PSZ     pszContent = NULL;
 
-    APIRET arc = DosOpen(pszFile,
+    APIRET arc = DosOpen((PSZ)pcszFile,
                          &hFile,
                          &ulAction,                      // action taken
                          5000L,                          // primary allocation size

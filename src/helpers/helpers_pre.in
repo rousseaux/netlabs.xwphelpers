@@ -71,6 +71,7 @@ $(OUTPUTDIR)\cctl_progbar.obj \
 $(OUTPUTDIR)\cctl_splitwin.obj \
 $(OUTPUTDIR)\cctl_tooltip.obj \
 $(OUTPUTDIR)\comctl.obj \
+$(OUTPUTDIR)\configsys.obj \
 $(OUTPUTDIR)\cnrh.obj \
 $(OUTPUTDIR)\gpih.obj \
 $(OUTPUTDIR)\memdebug.obj \

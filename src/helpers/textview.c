@@ -2395,7 +2395,9 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
             {
                 if (pwndParams->fsStatus & WPM_TEXT)
                 {
-                    xstrcpy(&ptxvd->xfd.strViewText, pwndParams->pszText);
+                    xstrcpy(&ptxvd->xfd.strViewText,
+                            pwndParams->pszText,
+                            0);
                     ptxvd->lViewXOfs = 0;
                     ptxvd->lViewYOfs = 0;
                     /* ptxvd->fVScrollVisible = FALSE;
@@ -3472,7 +3474,7 @@ BOOL txvPrint(HAB hab,
                      pszFaceName); */
 
     // use text from window
-    xstrcpy(&xfd.strViewText, pszViewText);
+    xstrcpy(&xfd.strViewText, pszViewText, 0);
 
     // setup page
     GpiQueryPageViewport(hps,

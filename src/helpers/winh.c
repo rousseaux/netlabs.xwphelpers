@@ -2431,29 +2431,41 @@ void winhDestroyHelp(HWND hwndHelp,
  *      to an environment variable.
  *
  *@@added V0.9.6 (2000-10-16) [umoeller]
+ *@@changed V0.9.7 (2001-01-15) [umoeller]: now using XSTRING
  */
 
 VOID CallBatchCorrectly(PPROGDETAILS pProgDetails,
-                        PSZ *ppszParams,            // in/out: modified parameters (reallocated)
+                        PXSTRING pstrParams,        // in/out: modified parameters (reallocated)
                         const char *pcszEnvVar,     // in: env var spec'g command proc
                                                     // (e.g. "OS2_SHELL"); can be NULL
                         const char *pcszDefProc)    // in: def't command proc (e.g. "CMD.EXE")
 {
     // XXX.CMD file as executable:
     // fix args to /C XXX.CMD
-    XSTRING strNewParams;
-    xstrInit(&strNewParams, 200);
-    xstrcpy(&strNewParams, "/C ");
-    xstrcat(&strNewParams, pProgDetails->pszExecutable);
-    if (*ppszParams)
+
+    PSZ     pszOldParams = NULL;
+    ULONG   ulOldParamsLength = pstrParams->ulLength;
+    if (ulOldParamsLength)
+        // we have parameters already:
+        // make a backup... we'll append that later
+        pszOldParams = strdup(pstrParams->psz);
+
+    // set new params to "/C filename.cmd"
+    xstrcpy(pstrParams, "/C ", 0);
+    xstrcat(pstrParams,
+            pProgDetails->pszExecutable,
+            0);
+
+    if (pszOldParams)
     {
-        // append old params
-        xstrcat(&strNewParams, " ");
-        xstrcat(&strNewParams, *ppszParams);
-        free(*ppszParams);
+        // .cmd had params:
+        // append space and old params
+        xstrcatc(pstrParams, ' ');
+        xstrcat(pstrParams,
+                pszOldParams,
+                ulOldParamsLength);
+        free(pszOldParams);
     }
-    *ppszParams = strNewParams.psz;
-            // freed by caller
 
     // set executable to $(OS2_SHELL)
     pProgDetails->pszExecutable = NULL;
@@ -2507,7 +2519,7 @@ HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as wit
                   const PROGDETAILS *pcProgDetails) // in: program data
 {
     HAPP            happ = NULLHANDLE;
-    PSZ             pszParamsPatched = NULL;
+    XSTRING         strParamsPatched;
     BOOL            fIsWindowsApp = FALSE,
                     fIsWindowsEnhApp = FALSE;
     PROGDETAILS     ProgDetails;
@@ -2526,7 +2538,12 @@ HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as wit
     // duplicate parameters...
     // we need this for string manipulations below...
     if (ProgDetails.pszParameters)
-        pszParamsPatched = strdup(ProgDetails.pszParameters);
+        xstrInitCopy(&strParamsPatched,
+                     ProgDetails.pszParameters,
+                     100);
+    else
+        // no old params:
+        xstrInit(&strParamsPatched, 100);
 
     // _Pmpf((__FUNCTION__ ": old progc: 0x%lX", pcProgDetails->progt.progc));
     // _Pmpf(("  pszTitle: %s", (ProgDetails.pszTitle) ? ProgDetails.pszTitle : NULL));
@@ -2586,17 +2603,18 @@ HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as wit
         if (fIsWindowsEnhApp)
         {
             // enhanced Win-OS/2 session:
-            XSTRING str2;
-            xstrInit(&str2, 200);
-            xstrcpy(&str2, "/3 ");
-            if (pszParamsPatched)
-            {
-                // append existing params
-                xstrcat(&str2, pszParamsPatched);
-                free(pszParamsPatched);
-            }
+            PSZ psz = NULL;
+            if (strParamsPatched.ulLength)
+                // "/3 " + existing params
+                psz = strdup(strParamsPatched.psz);
 
-            pszParamsPatched = str2.psz;
+            xstrcpy(&strParamsPatched, "/3 ", 0);
+
+            if (psz)
+            {
+                xstrcat(&strParamsPatched, psz, 0);
+                free(psz);
+            }
         }
 
         if (fIsWindowsApp)
@@ -2632,7 +2650,7 @@ HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as wit
                     if (stricmp(pszExtension, "CMD") == 0)
                     {
                         CallBatchCorrectly(&ProgDetails,
-                                           &pszParamsPatched,
+                                           &strParamsPatched,
                                            "OS2_SHELL",
                                            "CMD.EXE");
                     }
@@ -2648,7 +2666,7 @@ HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as wit
                     if (stricmp(pszExtension, "BAT") == 0)
                     {
                         CallBatchCorrectly(&ProgDetails,
-                                           &pszParamsPatched,
+                                           &strParamsPatched,
                                            NULL,
                                            "COMMAND.COM");
                     }
@@ -2715,12 +2733,12 @@ HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as wit
              //    : "NULL"));
     // _Pmpf(("    new progc: 0x%lX", ProgDetails.progt.progc));
 
-    ProgDetails.pszParameters = pszParamsPatched;
+    ProgDetails.pszParameters = strParamsPatched.psz;
 
     happ = WinStartApp(hwndNotify,
                                 // receives WM_APPTERMINATENOTIFY
                        &ProgDetails,
-                       pszParamsPatched,
+                       strParamsPatched.psz,
                        NULL,            // "reserved", PMREF says...
                        SAF_INSTALLEDCMDLINE);
                             // we MUST use SAF_INSTALLEDCMDLINE
@@ -2733,8 +2751,7 @@ HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as wit
 
     // _Pmpf((__FUNCTION__ ": got happ 0x%lX", happ));
 
-    if (pszParamsPatched)
-        free(pszParamsPatched);
+    xstrClear(&strParamsPatched);
     if (pszWinOS2Env)
         free(pszWinOS2Env);
 
@@ -3067,8 +3084,7 @@ PSZ winhQueryWindowText(HWND hwnd)
 /*
  *@@ winhReplaceWindowText:
  *      this is a combination of winhQueryWindowText
- *      and xstrrpl (stringh.c) to replace substrings
- *      in a window.
+ *      and strhFindReplace to replace substrings in a window.
  *
  *      This is useful for filling in placeholders
  *      a la "%1" in control windows, e.g. static
@@ -3092,7 +3108,7 @@ BOOL winhReplaceWindowText(HWND hwnd,           // in: window whose text is to b
     if (pszText)
     {
         ULONG ulOfs = 0;
-        if (strhrpl(&pszText, &ulOfs, pszSearch, pszReplaceWith) > 0)
+        if (strhFindReplace(&pszText, &ulOfs, pszSearch, pszReplaceWith) > 0)
         {
             WinSetWindowText(hwnd, pszText);
             brc = TRUE;

@@ -62,10 +62,10 @@ extern "C" {
                 ULONG ulInsertOfs,
                 const char *pcszInsert);
 
-    ULONG strhrpl(PSZ *ppszBuf,
-                  PULONG pulOfs,
-                  const char *pcszSearch,
-                  const char *pcszReplace);
+    ULONG strhFindReplace(PSZ *ppszBuf,
+                          PULONG pulOfs,
+                          const char *pcszSearch,
+                          const char *pcszReplace);
 
     ULONG strhWords(PSZ psz);
 
@@ -127,22 +127,6 @@ extern "C" {
     PSZ strhFindEOL(const char *pcszSearchIn, ULONG *pulOffset);
 
     PSZ strhFindNextLine(PSZ pszSearchIn, PULONG pulOffset);
-
-    PSZ strhFindKey(const char *pcszSearchIn,
-                    const char *pcszKey,
-                    PBOOL pfIsAllUpperCase);
-
-    PSZ strhGetParameter(const char *pcszSearchIn,
-                         const char *pcszKey,
-                         PSZ pszCopyTo,
-                         ULONG cbCopyTo);
-
-    PSZ strhSetParameter(PSZ* ppszBuf,
-                         const char *pcszKey,
-                         PSZ pszNewParam,
-                         BOOL fRespectCase);
-
-    BOOL strhDeleteLine(PSZ pszSearchIn, PSZ pszKey);
 
     BOOL strhBeautifyTitle(PSZ psz);
 

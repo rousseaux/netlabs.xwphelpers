@@ -154,6 +154,23 @@ VOID gpihManipulateRGB(PLONG plColor,       // in/out: RGB color
 }
 
 /*
+ *@@ gpihSwitchToRGB:
+ *      this switches the given HPS into RGB mode. You should
+ *      always use this if you are operating with RGB colors.
+ *
+ *      This is just a shortcut to calling
+ *
+ +          GpiCreateLogColorTable(hps, 0, LCOLF_RGB, 0, 0, NULL);
+ *
+ *@@changed V0.9.7 (2001-01-15) [umoeller]: turned macro into function
+ */
+
+BOOL gpihSwitchToRGB(HPS hps)
+{
+    return (GpiCreateLogColorTable(hps, 0, LCOLF_RGB, 0, 0, NULL));
+}
+
+/*
  *@@category: Helpers\PM helpers\GPI helpers\Drawing primitives
  */
 

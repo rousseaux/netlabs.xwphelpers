@@ -70,17 +70,21 @@ $(OUTPUTDIR)\cctl_splitwin.obj:     $(@B).c $(HLPINC)\comctl.h \
                $(HLPINC)\cnrh.h $(HLPINC)\except.h $(HLPINC)\gpih.h \
                     $(HLPINC)\linklist.h $(HLPINC)\winh.h
 
-$(OUTPUTDIR)\cctl_tooltip.obj:     $(@B).c $(HLPINC)\comctl.h \
+$(OUTPUTDIR)\cctl_tooltip.obj:      $(@B).c $(HLPINC)\comctl.h \
                $(PROJECTINC)\setup.h \
                $(HLPINC)\cnrh.h $(HLPINC)\except.h $(HLPINC)\gpih.h \
                     $(HLPINC)\linklist.h $(HLPINC)\winh.h
 
-$(OUTPUTDIR)\comctl.obj:     $(@B).c $(HLPINC)\$(@B).h \
+$(OUTPUTDIR)\comctl.obj:            $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h \
                $(HLPINC)\cnrh.h $(HLPINC)\except.h $(HLPINC)\gpih.h \
                     $(HLPINC)\linklist.h $(HLPINC)\winh.h
 
-$(OUTPUTDIR)\datetime.obj:     $(@B).c $(HLPINC)\$(@B).h \
+$(OUTPUTDIR)\configsys.obj:         $(@B).c $(HLPINC)\$(@B).h \
+               $(PROJECTINC)\setup.h \
+               $(HLPINC)\dosh.h $(HLPINC)\stringh.h $(HLPINC)\xstring.h
+
+$(OUTPUTDIR)\datetime.obj:          $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h
 
 $(OUTPUTDIR)\debug.obj:     $(@B).c $(HLPINC)\$(@B).h \

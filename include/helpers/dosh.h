@@ -289,7 +289,7 @@ extern "C" {
     APIRET doshSetPathAttr(const char* pcszFile,
                            ULONG ulAttr);
 
-    APIRET doshReadTextFile(PSZ pszFile,
+    APIRET doshLoadTextFile(const char *pcszFile,
                             PSZ* ppszContent);
 
     PSZ doshCreateBackupFileName(const char* pszExisting);

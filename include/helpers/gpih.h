@@ -71,18 +71,9 @@ extern "C" {
                            BYTE bMultiplier,
                            BYTE bDivisor);
 
-    #ifdef INCL_GPILOGCOLORTABLE
-
-        /*
-         *@@ gpihSwitchToRGB:
-         *      this switches the given HPS into RGB mode.
-         *      Requires INCL_GPILOGCOLORTABLE.
-         */
-
-        #define gpihSwitchToRGB(hps)                \
-            GpiCreateLogColorTable(hps, 0, LCOLF_RGB, 0, 0, NULL);
-
-    #endif
+    BOOL gpihSwitchToRGB(HPS hps);
+    typedef BOOL XWPENTRY GPIHSWITCHTORGB(HPS hps);
+    typedef GPIHSWITCHTORGB *PGPIHSWITCHTORGB;
 
     /* ******************************************************************
      *
@@ -107,12 +98,12 @@ extern "C" {
                             PRECTL prcl,
                             ULONG ulWidth);
 
-    VOID APIENTRY gpihDraw3DFrame(HPS hps,
+    VOID XWPENTRY gpihDraw3DFrame(HPS hps,
                                   PRECTL prcl,
                                   USHORT usWidth,
                                   LONG lColorLeft,
                                   LONG lColorRight);
-    typedef VOID APIENTRY GPIHDRAW3DFRAME(HPS hps,
+    typedef VOID XWPENTRY GPIHDRAW3DFRAME(HPS hps,
                                           PRECTL prcl,
                                           USHORT usWidth,
                                           LONG lColorLeft,

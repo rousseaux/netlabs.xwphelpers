@@ -369,6 +369,12 @@ ULONG xstrset(PXSTRING pxstr,               // in/out: string
  *
  *      If pxstr contains something, its contents are destroyed.
  *
+ *      With ulSourceLength, specify the length of pcszSource.
+ *      If you specify 0, this function will run strlen(pcszSource)
+ *      itself. If you already know the length of pcszSource (or
+ *      only want to copy a substring), you can speed this function
+ *      up a bit this way.
+ *
  *      Returns the length of the new string (excluding the null
  *      terminator), or null upon errors.
  *
@@ -376,52 +382,60 @@ ULONG xstrset(PXSTRING pxstr,               // in/out: string
  *
  +          XSTRING str;
  +          xstrInit(&str, 0);
- +          xstrcpy(&str, "blah");
+ +          xstrcpy(&str, "blah", 0);
  *
  *      This sequence can be abbreviated using xstrInitCopy.
  *
  *@@changed V0.9.2 (2000-04-01) [umoeller]: renamed from strhxcpy
  *@@changed V0.9.6 (2000-11-01) [umoeller]: rewritten
+ *@@changed V0.9.7 (2001-01-15) [umoeller]: added ulSourceLength
  */
 
 ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
-              const char *pcszSource)       // in: source, can be NULL
+              const char *pcszSource,       // in: source, can be NULL
+              ULONG ulSourceLength)         // in: length of pcszSource or 0
 {
-    xstrClear(pxstr);
+    // xstrClear(pxstr);        NOOOO! this frees the string, we want to keep the memory
 
     if (pxstr)
     {
-        ULONG   ulSourceLength = 0;
         if (pcszSource)
-            ulSourceLength = strlen(pcszSource);
-
-        if (ulSourceLength)
         {
-            // we do have a source string:
-            ULONG cbNeeded = ulSourceLength + 1;
-            if (cbNeeded > pxstr->cbAllocated)
+            if (ulSourceLength == 0)
+                ulSourceLength = strlen(pcszSource);
+
+            if (ulSourceLength)
             {
-                // we need more memory than we have previously
-                // allocated:
-                pxstr->cbAllocated = cbNeeded;
-                pxstr->psz = (PSZ)malloc(cbNeeded);
+                // we do have a source string:
+                ULONG cbNeeded = ulSourceLength + 1;
+                if (cbNeeded > pxstr->cbAllocated)
+                {
+                    // we need more memory than we have previously
+                    // allocated:
+                    pxstr->cbAllocated = cbNeeded;
+                    pxstr->psz = (PSZ)malloc(cbNeeded);
+                }
+                // else: we have enough memory
+
+                // strcpy(pxstr->psz, pcszSource);
+                memcpy(pxstr->psz,
+                       pcszSource,
+                       ulSourceLength);
+                *(pxstr->psz + ulSourceLength) = 0;
             }
-            // else: we have enough memory
+            else
+            {
+                // no source specified or source is empty:
+                if (pxstr->cbAllocated)
+                    // we did have a string: set to empty,
+                    // but leave allocated memory intact
+                    *(pxstr->psz) = 0;
+                // else: pxstr->psz is still NULL
+            }
 
-            strcpy(pxstr->psz, pcszSource);
+            // in all cases, set new length
+            pxstr->ulLength = ulSourceLength;
         }
-        else
-        {
-            // no source specified or source is empty:
-            if (pxstr->cbAllocated)
-                // we did have a string: set to empty,
-                // but leave allocated memory intact
-                *(pxstr->psz) = 0;
-            // else: pxstr->psz is still NULL
-        }
-
-        // in all cases, set new length
-        pxstr->ulLength = ulSourceLength;
     }
 
     return (pxstr->ulLength);
@@ -434,6 +448,12 @@ ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
  *
  *      If pxstr is empty, this behaves just like xstrcpy.
  *
+ *      With ulSourceLength, specify the length of pcszSource.
+ *      If you specify 0, this function will run strlen(pcszSource)
+ *      itself. If you already know the length of pcszSource (or
+ *      only want to copy a substring), you can speed this function
+ *      up a bit this way.
+ *
  *      Returns the length of the new string (excluding the null
  *      terminator) if the string was changed, or 0 if nothing
  *      happened.
@@ -445,8 +465,8 @@ ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
  *
  +          XSTRING str;
  +          xstrInit(&str, 0);
- +          xstrcpy(&str, "blah");
- +          xstrcat(&str, "blup");
+ +          xstrcpy(&str, "blah", 0);
+ +          xstrcat(&str, "blup", 0);
  *
  *      After this, str.psz points to a new string containing
  *      "blahblup".
@@ -457,62 +477,67 @@ ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
  *@@changed V0.9.3 (2000-05-11) [umoeller]: returned 0 if pszString was initially empty; fixed
  *@@changed V0.9.6 (2000-11-01) [umoeller]: rewritten
  *@@changed V0.9.7 (2000-12-10) [umoeller]: return value was wrong
+ *@@changed V0.9.7 (2001-01-15) [umoeller]: added ulSourceLength
  */
 
 ULONG xstrcat(PXSTRING pxstr,               // in/out: string
-              const char *pcszSource)       // in: source, can be NULL
+              const char *pcszSource,       // in: source, can be NULL
+              ULONG ulSourceLength)         // in: length of pcszSource or 0
 {
     ULONG   ulrc = 0;
 
     if (pxstr)
     {
-        ULONG   ulSourceLength = 0;
         if (pcszSource)
-            ulSourceLength = strlen(pcszSource);
-
-        if (ulSourceLength)
         {
-            // we do have a source string:
+            if (ulSourceLength == 0)
+                ulSourceLength = strlen(pcszSource);
 
-            // 1) memory management
-            ULONG   cbNeeded = pxstr->ulLength + ulSourceLength + 1;
-            if (cbNeeded > pxstr->cbAllocated)
+            if (ulSourceLength)
             {
-                // we need more memory than we have previously
-                // allocated:
-                if (pxstr->cbAllocated)
-                    // appendee already had memory:
-                    // reallocate
-                    pxstr->psz = (PSZ)realloc(pxstr->psz,
-                                              cbNeeded);
-                else
-                    // appendee has no memory:
-                    pxstr->psz = (PSZ)malloc(cbNeeded);
+                // we do have a source string:
 
-                pxstr->cbAllocated = cbNeeded;
-                        // ulLength is unchanged yet
-            }
-            // else: we have enough memory, both if appendee
-            //       is empty or not empty
+                // 1) memory management
+                ULONG   cbNeeded = pxstr->ulLength + ulSourceLength + 1;
+                if (cbNeeded > pxstr->cbAllocated)
+                {
+                    // we need more memory than we have previously
+                    // allocated:
+                    if (pxstr->cbAllocated)
+                        // appendee already had memory:
+                        // reallocate
+                        pxstr->psz = (PSZ)realloc(pxstr->psz,
+                                                  cbNeeded);
+                    else
+                        // appendee has no memory:
+                        pxstr->psz = (PSZ)malloc(cbNeeded);
 
-            // now we have:
-            // -- if appendee (pxstr) had enough memory, no problem
-            // -- if appendee (pxstr) needed more memory
-            //      -- and was not empty: pxstr->psz now points to a
-            //         reallocated copy of the old string
-            //      -- and was empty: pxstr->psz now points to a
-            //         new (unitialized) buffer
+                    pxstr->cbAllocated = cbNeeded;
+                            // ulLength is unchanged yet
+                }
+                // else: we have enough memory, both if appendee
+                //       is empty or not empty
 
-            // 2) append source string:
-            memcpy(pxstr->psz + pxstr->ulLength,
-                   pcszSource,
-                   ulSourceLength + 1);     // null terminator
+                // now we have:
+                // -- if appendee (pxstr) had enough memory, no problem
+                // -- if appendee (pxstr) needed more memory
+                //      -- and was not empty: pxstr->psz now points to a
+                //         reallocated copy of the old string
+                //      -- and was empty: pxstr->psz now points to a
+                //         new (unitialized) buffer
 
-            // in all cases, set new length
-            pxstr->ulLength += ulSourceLength;
-            ulrc = pxstr->ulLength;     // V0.9.7 (2000-12-10) [umoeller]
+                // 2) append source string:
+                memcpy(pxstr->psz + pxstr->ulLength,
+                       pcszSource,
+                       ulSourceLength + 1);     // null terminator
 
-        } // end if (ulSourceLength)
+                // in all cases, set new length
+                pxstr->ulLength += ulSourceLength;
+                ulrc = pxstr->ulLength;     // V0.9.7 (2000-12-10) [umoeller]
+
+            } // end if (ulSourceLength)
+        }
+
         // else no source specified or source is empty:
         // do nothing
     }
@@ -600,6 +625,167 @@ ULONG xstrcatc(PXSTRING pxstr,     // in/out: string
 }
 
 /*
+ *@@ xstrrpl:
+ *      replaces cSearchLen characters in pxstr, starting
+ *      at the position ulStart, with the string
+ *      in pxstrReplaceWith.
+ *
+ *      Returns the new length of the string, excluding
+ *      the null terminator, or 0 if the replacement failed
+ *      (e.g. because the offsets were too large).
+ *
+ *      This has been extracted from xstrFindReplace because
+ *      if you already know the position of a substring,
+ *      you can now call this directly. This properly
+ *      reallocates the string if more memory is needed.
+ *
+ *      Example:
+ *
+ +          XSTRING xstr, xstrReplacement;
+ +          xstrInitCopy(&xstr, "This is a test string.");
+ +          //  positions:       0123456789012345678901
+ +          //                             1         2
+ +
+ +          xstrInitCopy(&xstrReplacement, "stupid");
+ +
+ +          xstrrpl(&xstr,
+ +                  10,     // position of "test"
+ +                  4,      // length of "test"
+ +                  &xstrReplacement);
+ *
+ *      This would yield "This is a stupid string."
+ *
+ *@@added V0.9.7 (2001-01-15) [umoeller]
+ */
+
+ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
+              ULONG ulFirstReplOfs,             // in: ofs of first char to replace
+              ULONG cReplLen,                   // in: no. of chars to replace
+              const XSTRING *pstrReplaceWith)   // in: string to replace chars with
+{
+    ULONG   ulrc = 0;
+
+    // security checks...
+    if (    (ulFirstReplOfs + cReplLen <= pxstr->ulLength)
+         && (pstrReplaceWith)
+         // && (pstrReplaceWith->ulLength)      no, this can be empty
+       )
+    {
+        ULONG   cReplaceLen = pstrReplaceWith->ulLength;
+                    // can be 0!
+
+        // length of new string
+        ULONG   cbNeeded = pxstr->ulLength
+                         + cReplaceLen
+                         - cReplLen
+                         + 1;                  // null terminator
+        // offset where pszSearch was found
+                // ulFirstReplOfs = pFound - pxstr->psz; now ulFirstReplOfs
+        PSZ     pFound = pxstr->psz + ulFirstReplOfs;
+
+        // now check if we have enough memory...
+        if (pxstr->cbAllocated < cbNeeded)
+        {
+            // no, we need more memory:
+            // allocate new buffer
+            PSZ pszNew = (PSZ)malloc(cbNeeded);
+
+            if (ulFirstReplOfs)
+                // "found" was not at the beginning:
+                // copy from beginning up to found-offset
+                memcpy(pszNew,
+                       pxstr->psz,
+                       ulFirstReplOfs);     // up to "found"
+
+            if (cReplaceLen)
+            {
+                // we have a replacement:
+                // insert it next
+                memcpy(pszNew + ulFirstReplOfs,
+                       pstrReplaceWith->psz,
+                       cReplaceLen + 1);        // include null terminator
+            }
+
+            // copy rest:
+            // pxstr      frontFOUNDtail
+            //            0         1
+            //            01234567890123
+            //            ³    ³    ³  ³
+            //            ³    ³    ÀÄ ulFirstReplOfs + cReplLen = 10
+            //            ³    ³       ³
+            //            ³    ÀÄ ulFirstReplOfs = 5
+            //            ³            ³
+            //            pxstr->ulLength = 14
+            memcpy(pszNew + ulFirstReplOfs + cReplaceLen,
+                   pFound + cReplLen,
+                   // remaining bytes:
+                   pxstr->ulLength - ulFirstReplOfs - cReplLen // 9
+                        + 1); // null terminator
+
+            // replace old buffer with new one
+            free(pxstr->psz);
+            pxstr->psz = pszNew;
+            pxstr->ulLength = cbNeeded - 1;
+            pxstr->cbAllocated = cbNeeded;
+        } // end if (pxstr->cbAllocated < cbNeeded)
+        else
+        {
+            // we have enough memory left,
+            // we can just overwrite in the middle...
+
+            PSZ     pszAfterFoundBackup = 0;
+            // calc length of string after "found"
+            ULONG   cTailLength = pxstr->ulLength - ulFirstReplOfs - cReplLen;
+
+            // if "replace" is longer than "found",
+            // make a backup of the stuff after "found",
+            // or this would get overwritten
+            if (cReplaceLen > cReplLen)
+            {
+                pszAfterFoundBackup = (PSZ)malloc(cTailLength + 1);
+                memcpy(pszAfterFoundBackup,
+                       pFound + cReplLen,
+                       cTailLength + 1);
+            }
+
+            // now overwrite "found" in the middle
+            if (cReplaceLen)
+            {
+                memcpy(pxstr->psz + ulFirstReplOfs,
+                       pstrReplaceWith->psz,
+                       cReplaceLen);        // no null terminator
+            }
+
+            // now append tail (stuff after "found") again...
+            if (pszAfterFoundBackup)
+            {
+                // we made a backup above:
+                memcpy(pxstr->psz + ulFirstReplOfs + cReplaceLen,
+                       pszAfterFoundBackup,
+                       cTailLength + 1);
+                free(pszAfterFoundBackup);
+                        // done!
+            }
+            else
+                // no backup:
+                if (cReplaceLen < cReplLen)
+                    // "replace" is shorter than "found:
+                    memcpy(pxstr->psz + ulFirstReplOfs + cReplaceLen,
+                           pFound + cReplLen,
+                           cTailLength + 1);
+                // else (cReplaceLen == cReplLen):
+                // we can leave the tail as it is
+
+            pxstr->ulLength = cbNeeded - 1;
+        }
+
+        ulrc = cbNeeded - 1;
+    } // end checks
+
+    return (ulrc);
+}
+
+/*
  *@@ xstrFindWord:
  *      searches for pstrFind in pxstr, starting at ulOfs.
  *      However, this only finds pstrFind if it's a "word",
@@ -667,7 +853,7 @@ PSZ xstrFindWord(const XSTRING *pxstr,        // in: buffer to search ("haystack
 }
 
 /*
- *@@ xstrrpl:
+ *@@ xstrFindReplace:
  *      replaces the first occurence of pstrSearch with
  *      pstrReplace in pxstr.
  *
@@ -687,6 +873,7 @@ PSZ xstrFindWord(const XSTRING *pxstr,        // in: buffer to search ("haystack
  *      This starts the search at *pulOffset. If
  *      (*pulOffset == 0), this starts from the beginning
  *      of pxstr.
+ *
  *      If the string was found, *pulOffset will be set to the
  *      first character after the new replacement string. This
  *      allows you to call this func again with the same strings
@@ -696,21 +883,29 @@ PSZ xstrFindWord(const XSTRING *pxstr,        // in: buffer to search ("haystack
  *      work on C strings instead (however, thus losing the
  *      speed advantage):
  *
- *      -- strhrpl operates on C strings only;
+ *      -- strhFindReplace operates on C strings only;
  *
- *      -- xstrcrpl uses C strings for the search and replace
+ *      -- xstrFindReplaceC uses C strings for the search and replace
  *         parameters.
  *
  *      <B>Example usage:</B>
  *
- +          XSTRING str;
- +          ULONG ulOffset = 0;
- +          xstrInit(&str, 0);
- +          xstrcpy(&str, "Test phrase 1. Test phrase 2.");
- +          while (xstrrpl(&str,
- +                         &ulPos,      // in/out: offset
- +                         "Test",      // search
- +                         "Dummy")     // replace
+ +          XSTRING strBuf,
+ +                  strFind,
+ +                  strRepl;
+ +          size_t  ShiftTable[256];
+ +          BOOL    fRepeat = FALSE;
+ +          ULONG   ulOffset = 0;
+ +
+ +          xstrInitCopy(&strBuf, "Test phrase 1. Test phrase 2.", 0);
+ +          xstrInitSet(&strFind, "Test");
+ +          xstrInitSet(&strRepl, "Dummy");
+ +          while (xstrFindReplace(&str,
+ +                                 &ulPos,      // in/out: offset
+ +                                 &strFind,    // search
+ +                                 &strRepl,    // replace
+ +                                 ShiftTable,
+ +                                 &fRepeat))
  +              ;
  *
  *      would replace all occurences of "Test" in str with
@@ -721,15 +916,16 @@ PSZ xstrFindWord(const XSTRING *pxstr,        // in: buffer to search ("haystack
  *@@changed V0.9.2 (2000-04-01) [umoeller]: renamed from strhxrpl
  *@@changed V0.9.6 (2000-11-01) [umoeller]: rewritten
  *@@changed V0.9.6 (2000-11-12) [umoeller]: now using strhmemfind
+ *@@changed V0.9.7 (2001-01-15) [umoeller]: renamed from xstrrpl; extracted new xstrrpl
  */
 
-ULONG xstrrpl(PXSTRING pxstr,               // in/out: string
-              PULONG pulOfs,                // in: where to begin search (0 = start);
-                                            // out: ofs of first char after replacement string
-              const XSTRING *pstrSearch,    // in: search string; cannot be NULL
-              const XSTRING *pstrReplace,   // in: replacement string; cannot be NULL
-              size_t *pShiftTable,          // in: shift table (see strhmemfind)
-              PBOOL pfRepeatFind)           // in: repeat find? (see strhmemfind)
+ULONG xstrFindReplace(PXSTRING pxstr,               // in/out: string
+                      PULONG pulOfs,                // in: where to begin search (0 = start);
+                                                    // out: ofs of first char after replacement string
+                      const XSTRING *pstrSearch,    // in: search string; cannot be NULL
+                      const XSTRING *pstrReplace,   // in: replacement string; cannot be NULL
+                      size_t *pShiftTable,          // in: shift table (see strhmemfind)
+                      PBOOL pfRepeatFind)           // in: repeat find? (see strhmemfind)
 {
     ULONG    ulrc = 0;      // default: not found
 
@@ -743,127 +939,26 @@ ULONG xstrrpl(PXSTRING pxstr,               // in/out: string
            )
         {
             // yes:
-            /* PSZ     pFound = strstr(pxstr->psz + *pulOfs,
-                                    pstrSearch->psz);        */
-            PSZ pFound = (PSZ)strhmemfind(pxstr->psz + *pulOfs, // in: haystack
-                                          pxstr->ulLength - *pulOfs,
-                                          pstrSearch->psz,
-                                          cSearchLen,
-                                          pShiftTable,
-                                          pfRepeatFind);
+            ULONG   ulOfs = *pulOfs;
+            const char *pFound
+                = (const char *)strhmemfind(pxstr->psz + ulOfs, // in: haystack
+                                            pxstr->ulLength - ulOfs,
+                                            pstrSearch->psz,
+                                            cSearchLen,
+                                            pShiftTable,
+                                            pfRepeatFind);
             if (pFound)
             {
+                ULONG ulFirstReplOfs = pFound - pxstr->psz;
                 // found in buffer from ofs:
-                ULONG   cReplaceLen = pstrReplace->ulLength;
-                            // can be 0!
-
-                // length of new string
-                ULONG   cbNeeded = pxstr->ulLength
-                                 + cReplaceLen
-                                 - cSearchLen
-                                 + 1,                  // null terminator
-                // offset where pszSearch was found
-                        ulFoundOfs = pFound - pxstr->psz;
-
-                // now check if we have enough memory...
-                if (pxstr->cbAllocated < cbNeeded)
-                {
-                    // no, we need more memory:
-                    // allocate new buffer
-                    PSZ pszNew = (PSZ)malloc(cbNeeded);
-
-                    if (ulFoundOfs)
-                        // "found" was not at the beginning:
-                        // copy from beginning up to found-offset
-                        memcpy(pszNew,
-                               pxstr->psz,
-                               ulFoundOfs);     // up to "found"
-
-                    if (cReplaceLen)
-                    {
-                        // we have a replacement:
-                        // insert it next
-                        memcpy(pszNew + ulFoundOfs,
-                               pstrReplace->psz,
-                               cReplaceLen + 1);        // include null terminator
-                    }
-
-                    // copy rest:
-                    // pxstr      frontFOUNDtail
-                    //            0         1
-                    //            01234567890123
-                    //            ³    ³    ³  ³
-                    //            ³    ³    ÀÄ ulFoundOfs + cSearchLen = 10
-                    //            ³    ³       ³
-                    //            ³    ÀÄ ulFoundOfs = 5
-                    //            ³            ³
-                    //            pxstr->ulLength = 14
-                    memcpy(pszNew + ulFoundOfs + cReplaceLen,
-                           pFound + cSearchLen,
-                           // remaining bytes:
-                           pxstr->ulLength - ulFoundOfs - cSearchLen // 9
-                                + 1); // null terminator
-
-                    // replace old buffer with new one
-                    free(pxstr->psz);
-                    pxstr->psz = pszNew;
-                    pxstr->ulLength = cbNeeded - 1;
-                    pxstr->cbAllocated = cbNeeded;
-                } // end if (pxstr->cbAllocated < cbNeeded)
-                else
-                {
-                    // we have enough memory left,
-                    // we can just overwrite in the middle...
-
-                    PSZ     pszAfterFoundBackup = 0;
-                    // calc length of string after "found"
-                    ULONG   cTailLength = pxstr->ulLength - ulFoundOfs - cSearchLen;
-
-                    // if "replace" is longer than "found",
-                    // make a backup of the stuff after "found",
-                    // or this would get overwritten
-                    if (cReplaceLen > cSearchLen)
-                    {
-                        pszAfterFoundBackup = (PSZ)malloc(cTailLength + 1);
-                        memcpy(pszAfterFoundBackup,
-                               pFound + cSearchLen,
-                               cTailLength + 1);
-                    }
-
-                    // now overwrite "found" in the middle
-                    if (cReplaceLen)
-                    {
-                        memcpy(pxstr->psz + ulFoundOfs,
-                               pstrReplace->psz,
-                               cReplaceLen);        // no null terminator
-                    }
-
-                    // now append tail (stuff after "found") again...
-                    if (pszAfterFoundBackup)
-                    {
-                        // we made a backup above:
-                        memcpy(pxstr->psz + ulFoundOfs + cReplaceLen,
-                               pszAfterFoundBackup,
-                               cTailLength + 1);
-                        free(pszAfterFoundBackup);
-                                // done!
-                    }
-                    else
-                        // no backup:
-                        if (cReplaceLen < cSearchLen)
-                            // "replace" is shorter than "found:
-                            memcpy(pxstr->psz + ulFoundOfs + cReplaceLen,
-                                   pFound + cSearchLen,
-                                   cTailLength + 1);
-                        // else (cReplaceLen == cSearchLen):
-                        // we can leave the tail as it is
-
-                    pxstr->ulLength = cbNeeded - 1;
-                }
+                // replace pFound with pstrReplace
+                ulrc = xstrrpl(pxstr,
+                               ulFirstReplOfs,              // where to start
+                               cSearchLen,                  // chars to replace
+                               pstrReplace);
 
                 // return new length
-                ulrc = cbNeeded - 1;
-                *pulOfs = ulFoundOfs + cReplaceLen;
+                *pulOfs = ulFirstReplOfs + pstrReplace->ulLength;
             } // end if (pFound)
         } // end if (    (*pulOfs < pxstr->ulLength) ...
     } // end if ((pxstr) && (pstrSearch) && (pstrReplace))
@@ -872,25 +967,28 @@ ULONG xstrrpl(PXSTRING pxstr,               // in/out: string
 }
 
 /*
- *@@ xstrcrpl:
- *      wrapper around xstrrpl() which allows using C strings
- *      for the find and replace parameters.
+ *@@ xstrFindReplaceC:
+ *      wrapper around xstrFindReplace() which allows using
+ *      C strings for the find and replace parameters.
  *
  *      This creates two temporary XSTRING's for pcszSearch
- *      pcszReplace. As a result, this is slower than xstrrpl.
+ *      and pcszReplace and thus cannot use the shift table
+ *      for repetitive searches. As a result, this is slower
+ *      than xstrFindReplace.
+ *
  *      If you search with the same strings several times,
- *      you'll be better off using xstrrpl() directly.
+ *      you'll be better off using xstrFindReplace() directly.
  *
  *@@added V0.9.6 (2000-11-01) [umoeller]
+ *@@changed V0.9.7 (2001-01-15) [umoeller]: renamed from xstrcrpl
  */
 
-ULONG xstrcrpl(PXSTRING pxstr,              // in/out: string
-               PULONG pulOfs,               // in: where to begin search (0 = start);
-                                            // out: ofs of first char after replacement string
-               const char *pcszSearch,      // in: search string; cannot be NULL
-               const char *pcszReplace)     // in: replacement string; cannot be NULL
+ULONG xstrFindReplaceC(PXSTRING pxstr,              // in/out: string
+                       PULONG pulOfs,               // in: where to begin search (0 = start);
+                                                    // out: ofs of first char after replacement string
+                       const char *pcszSearch,      // in: search string; cannot be NULL
+                       const char *pcszReplace)     // in: replacement string; cannot be NULL
 {
-    // ULONG   ulrc = 0;
     XSTRING xstrFind,
             xstrReplace;
     size_t  ShiftTable[256];
@@ -901,7 +999,52 @@ ULONG xstrcrpl(PXSTRING pxstr,              // in/out: string
     xstrInitSet(&xstrFind, (PSZ)pcszSearch);
     xstrInitSet(&xstrReplace, (PSZ)pcszReplace);
 
-    return (xstrrpl(pxstr, pulOfs, &xstrFind, &xstrReplace, ShiftTable, &fRepeat));
+    return (xstrFindReplace(pxstr, pulOfs, &xstrFind, &xstrReplace, ShiftTable, &fRepeat));
+}
+
+/*
+ *@@ xstrConvertLineFormat:
+ *      converts between line formats.
+ *
+ *      If (fToCFormat == TRUE), all \r\n pairs are replaced
+ *      with \n chars (UNIX or C format).
+ *
+ *      Reversely, if (fToCFormat == FALSE), all \n chars
+ *      are converted to \r\n pairs (DOS and OS/2 formats).
+ *      No check is made whether this has already been done.
+ *
+ *@@added V0.9.7 (2001-01-15) [umoeller]
+ */
+
+VOID xstrConvertLineFormat(PXSTRING pxstr,
+                           BOOL fToCFormat) // in: if TRUE, to C format; if FALSE, to OS/2 format.
+{
+    XSTRING     strFind,
+                strRepl;
+    size_t      ShiftTable[256];
+    BOOL        fRepeat = FALSE;
+    ULONG       ulOfs = 0;
+
+    if (fToCFormat)
+    {
+        // OS/2 to C:
+        xstrInitSet(&strFind, "\r\n");
+        xstrInitSet(&strRepl, "\n");
+    }
+    else
+    {
+        // C to OS/2:
+        xstrInitSet(&strFind, "\n");
+        xstrInitSet(&strRepl, "\r\n");
+    }
+
+    while (xstrFindReplace(pxstr,
+                           &ulOfs,
+                           &strFind,
+                           &strRepl,
+                           ShiftTable,
+                           &fRepeat))
+            ;
 }
 
 // test case
@@ -911,73 +1054,104 @@ ULONG xstrcrpl(PXSTRING pxstr,              // in/out: string
     XSTRING str,
             strFind,
             strReplace;
+    size_t  shift[256];
+    BOOL    fRepeat = FALSE;
     ULONG   ulOfs = 0;
 
     xstrInit(&str, 100);
     xstrInit(&strFind, 0);
     xstrInit(&strReplace, 0);
 
-    xstrcpy(&str, "Test string 1. Test string 2. Test string 3. !");
-    xstrcpy(&strFind, "Test");
-    xstrcpy(&strReplace, "Dummy");
+    xstrcpy(&str, "Test string 1. Test string 2. Test string 3. !", 0);
+    xstrcpy(&strFind, "Test", 0);
+    xstrcpy(&strReplace, "Dummy", 0);
 
     printf("Old string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
 
-    while (xstrrpl(&str,
-                   ulOfs,
-                   &strFind,
-                   &strReplace,
-                   &ulOfs))
+    printf("Replacing \"%s\" with \"%s\".\n", strFind.psz, strReplace.psz);
+
+    fRepeat = FALSE;
+    ulOfs = 0;
+    while (xstrFindReplace(&str,
+                           &ulOfs,
+                           &strFind,
+                           &strReplace,
+                           shift, &fRepeat));
         ;
 
     printf("New string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
 
-    xstrcpy(&strFind, strReplace.psz);
+    xstrcpy(&strFind, strReplace.psz, 0);
     xstrClear(&strReplace);
+
+    printf("Replacing \"%s\" with \"%s\".\n", strFind.psz, strReplace.psz);
+
+    fRepeat = FALSE;
     ulOfs = 0;
-    while (xstrrpl(&str,
-                   ulOfs,
+    while (xstrFindReplace(&str,
+                   &ulOfs,
                    &strFind,
                    &strReplace,
-                   &ulOfs))
+                   shift, &fRepeat));
         ;
 
     printf("New string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
 
-    xstrcpy(&strFind, " ");
-    xstrcpy(&strReplace, ".");
+    xstrcpy(&strFind, " ", 0);
+    xstrcpy(&strReplace, ".", 0);
+
+    printf("Replacing \"%s\" with \"%s\".\n", strFind.psz, strReplace.psz);
+
+    fRepeat = FALSE;
     ulOfs = 0;
-    while (xstrrpl(&str,
-                   ulOfs,
+    while (xstrFindReplace(&str,
+                   &ulOfs,
                    &strFind,
                    &strReplace,
-                   &ulOfs))
+                   shift, &fRepeat));
         ;
 
     printf("New string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
 
-    xstrcpy(&strFind, ".");
-    xstrcpy(&strReplace, "***************************");
+    xstrcpy(&strFind, ".", 0);
+    xstrcpy(&strReplace, "*.........................*", 0);
+
+    printf("Replacing \"%s\" with \"%s\".\n", strFind.psz, strReplace.psz);
+
+    fRepeat = FALSE;
     ulOfs = 0;
-    while (xstrrpl(&str,
-                   ulOfs,
+    while (xstrFindReplace(&str,
+                   &ulOfs,
                    &strFind,
                    &strReplace,
-                   &ulOfs))
+                   shift, &fRepeat));
         ;
 
     printf("New string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
 
-    xstrcpy(&strFind, "*");
-    xstrClear(&strReplace);
+    printf("Reserving extra mem.\n");
+
+    xstrReserve(&str, 6000);
+    printf("New string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
+
+    xstrcpy(&strFind, "..........", 0);
+    xstrcpy(&strReplace, "@", 0);
+
+    printf("Replacing \"%s\" with \"%s\".\n", strFind.psz, strReplace.psz);
+
+    fRepeat = FALSE;
     ulOfs = 0;
-    while (xstrrpl(&str,
-                   ulOfs,
+    while (xstrFindReplace(&str,
+                   &ulOfs,
                    &strFind,
                    &strReplace,
-                   &ulOfs))
+                   shift, &fRepeat));
         ;
 
     printf("New string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
-} */
+
+    return (0);
+}
+*/
+
 
