@@ -175,6 +175,11 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
  *         typical PM "Worker" thread where you need to disable
  *         menu items on thread 1 while the thread is running.
  *
+ *      -- THRF_TRANSIENT: creates a "transient" thread where
+ *         pti may be NULL. A THREADINFO structure is then
+ *         allocated from the heap internally, but not visible
+ *         to the caller.
+ *
  *@@changed V0.9.0 [umoeller]: default stack size raised for Watcom (thanks, RÅdiger Ihle)
  *@@changed V0.9.0 [umoeller]: _beginthread is now only called after all variables have been set (thanks, RÅdiger Ihle)
  *@@changed V0.9.2 (2000-03-04) [umoeller]: added stack size parameter

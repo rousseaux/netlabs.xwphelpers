@@ -35,10 +35,11 @@
  *          supported.
  *
  *      --  When a window is deleted, its timers are not
- *          automatically cleaned up. To be on the safe
- *          side, always call tmrStopAllTimers when
- *          WM_DESTROY comes into a window which has used
- *          timers.
+ *          automatically cleaned up. The timer thread does
+ *          detect invalid windows and removes them from the
+ *          timers list before posting, but to be on the safe
+ *          side, always call tmrStopAllTimers when WM_DESTROY
+ *          comes into a window which has used timers.
  *
  *      Function prefixes:
  *      --  tmr*   timer functions
@@ -203,7 +204,7 @@ void _Optlink fntTimersThread(PTHREADINFO ptiMyself)
     // keep running while we have timers
     while (!ptiMyself->fExit)
     {
-        ULONG ulNesting = 0;
+        // ULONG ulNesting = 0;
 
         ULONG ulTimeNow;
 
@@ -215,7 +216,7 @@ void _Optlink fntTimersThread(PTHREADINFO ptiMyself)
         // fire at a lower interval...
         ulInterval = 100;
 
-        DosEnterMustComplete(&ulNesting);
+        // DosEnterMustComplete(&ulNesting);
 
         TRY_LOUD(excpt1)
         {
@@ -239,7 +240,7 @@ void _Optlink fntTimersThread(PTHREADINFO ptiMyself)
                     DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
                                     &ulTimeNow, sizeof(ulTimeNow));
 
-                    while (pTimerNode)
+                    while ((pTimerNode) && (!ptiMyself->fExit))
                     {
                         PXTIMER pTimer = (PXTIMER)pTimerNode->pItemData;
 
@@ -278,7 +279,7 @@ void _Optlink fntTimersThread(PTHREADINFO ptiMyself)
                     } // end while (pTimerNode)
 
                     // destroy invalid timers, if any
-                    if (fFoundInvalid)
+                    if ((fFoundInvalid) && (!ptiMyself->fExit))
                     {
                         PLISTNODE pNodeNode = lstQueryFirstNode(&llInvalidTimers);
                         while (pNodeNode)
@@ -301,7 +302,7 @@ void _Optlink fntTimersThread(PTHREADINFO ptiMyself)
             fLocked = FALSE;
         }
 
-        DosExitMustComplete(&ulNesting);
+        // DosExitMustComplete(&ulNesting);
 
     } // end while (!ptiMyself->fExit)
 

@@ -438,14 +438,17 @@ extern "C" {
     #define TTS_SHADOW              0x0008
 
     // TOOLINFO.uFlags flags (ORed)
-    #define TTF_IDISHWND            0x0001
-    #define TTF_CENTERTIP           0x0002
-    #define TTF_RTLREADING          0x0004
+    // #define TTF_IDISHWND            0x0001
+                // V0.9.7 (2001-01-03) [umoeller]: removed this win95 bullshit
+    #define TTF_CENTERBELOW         0x0002
+    #define TTF_CENTERABOVE         0x0004
+    // #define TTF_RTLREADING          0x0004
+                // V0.9.7 (2001-01-03) [umoeller]: removed this win95 bullshit
     #define TTF_SUBCLASS            0x0008
     // non-Win95 flags
     #define TTF_SHYMOUSE            0x0010
 
-    #define LPSTR_TEXTCALLBACK      (PSZ)-1
+    #define PSZ_TEXTCALLBACK      (PSZ)-1
 
     #define TT_SHADOWOFS            10
     #define TT_ROUNDING             8
@@ -455,57 +458,40 @@ extern "C" {
      *      info structure to register a tool with a
      *      tooltip control. Used with TTM_ADDTOOL
      *      and many other TTM_* messages.
+     *
+     *@@changed V0.9.7 (2001-01-03) [umoeller]: removed all that win95 bullshit
      */
 
     typedef struct _TOOLINFO
     {
-        ULONG /* UINT */ cbSize;       // in: sizeof(TOOLINFO)
-        ULONG /* UINT */ uFlags;
+        ULONG   ulFlags;
                     // in: flags for the tool, any combination of:
-                    // -- TTF_IDISHWND: Indicates that the uId member is the window
-                    //      handle to the tool. If this flag is not set, uId is
-                    //      the identifier of the tool.
-                    // -- TTF_CENTERTIP:  Centers the tooltip window below the
-                    //      tool specified by the uId member.
-                    // -- TTF_RTLREADING: Windows 95 only: Displays text using
-                    //      right-to-left reading order on Hebrew or Arabic systems.
-                    //      (Ignored on OS/2).
+                    // -- TTF_CENTERBELOW:  centers the tooltip window below the
+                    //      tool specified by the hwndTool member.
+                    // -- TTF_CENTERABOVE:  centers the tooltip window above the
+                    //      tool specified by the hwndTool member.
                     // -- TTF_SUBCLASS: Indicates that the tooltip control should
-                    //      subclass the tool's window to intercept messages,
+                    //      subclass hwndTool to intercept messages,
                     //      such as WM_MOUSEMOVE. See TTM_RELAYEVENT.
                     // -- TTF_SHYMOUSE (OS/2 only): shy away from mouse pointer;
                     //      always position the tool tip such that it is never
                     //      covered by the mouse pointer (for readability);
                     //      added V0.9.1 (2000-02-04) [umoeller]
-        HWND      hwnd;
+        HWND    hwndToolOwner;
                     // in: handle to the window that contains the tool. If
                     // lpszText includes the LPSTR_TEXTCALLBACK value, this
                     // member identifies the window that receives TTN_NEEDTEXT
                     // notification messages.
-        ULONG /* UINT */ uId;
-                    // in: application-defined identifier of the tool. If uFlags
-                    // includes the TTF_IDISHWND value, uId must specify the
-                    // window handle to the tool.
-        RECTL /* RECT */ rect;
-                    // in: coordinates of the bounding rectangle of the tool.
-                    // The coordinates are relative to the upper-left corner of
-                    // the client area of the window identified by hwnd. If
-                    // uFlags includes the TTF_IDISHWND value, this member is
-                    // ignored.
-        HMODULE /* HINSTANCE */ hinst;
-                    // in: handle to the instance that contains the string
-                    // resource for the tool. If lpszText specifies the identifier
-                    // of a string resource, this member is used.
-                    // Note: On Win32, this is an HINSTANCE field. On OS/2,
-                    // this is a HMODULE field. The field name is retained for
-                    // compatibility.
-        PSZ /* LPTSTR */ lpszText;
+        HWND    hwndTool;
+                    // in: window handle of the tool.
+                    // ### simple rectangles of hwndToolOwner not yet supported
+        PSZ     pszText;
                     // in: pointer to the buffer that contains the text for the
                     // tool (if the hiword is != NULL), or identifier of the string
                     // resource that contains the text (if the hiword == NULL).
-                    // If this member is set to the LPSTR_TEXTCALLBACK value,
+                    // If this member is set to the PSZ_TEXTCALLBACK value,
                     // the control sends the TTN_NEEDTEXT notification message to
-                    // the owner window to retrieve the text.
+                    // hwndToolOwner to retrieve the text.
     } TOOLINFO, *PTOOLINFO;
 
     #define TTM_FIRST                   (WM_USER + 1000)
@@ -528,54 +514,39 @@ extern "C" {
 
     #define TTM_SETDELAYTIME            (TTM_FIRST + 6)
 
-    /*
-     *@@ NMHDR:
-     *      structure used with TOOLTIPTEXT;
-     *      under Win32, this is a generic structure which
-     *      comes with all WM_NOTIFY messages.
-     */
-
-    typedef struct _NMHDR
-    {
-        HWND    hwndFrom;       // control sending the message
-        ULONG   idFrom;         // ID of that control
-        USHORT  code;           // notification code
-    } NMHDR, *PNMHDR;
+    #define TTFMT_PSZ           0x01
+    #define TTFMT_STRINGRES     0x02
 
     /*
      *@@ TOOLTIPTEXT:
      *      identifies a tool for which text is to be displayed and
-     *      receives the text for the tool.
+     *      receives the text for the tool. The tool must fill all
+     *      fields of this structure.
      *
      *      This structure is used with the TTN_NEEDTEXT notification.
+     *
+     *@@changed V0.9.7 (2001-01-03) [umoeller]: got rid of this win95 bullshit
      */
 
     typedef struct _TOOLTIPTEXT
     {
-        NMHDR     hdr;          // on Win95, this is required for all WM_NOTIFY msgs
-        PSZ /* LPTSTR */ lpszText;
-                    // out: pointer to a string that contains or receives the text
-                    // for a tool. If hinst specifies an instance handle, this
-                    // member must be the identifier of a string resource.
-        char      szText[80];
-                    // out: buffer that receives the tooltip text. An application can
-                    // copy the text to this buffer as an alternative to specifying a
-                    // string address or string resource.
-        HMODULE /* HINSTANCE */ hinst;
-                    // out: handle to the instance (OS/2: module) that contains a string
-                    // resource to be used as the tooltip text. If lpszText is the
-                    // pointer to the tooltip text, this member is NULL.
-                    // Note: On Win32, this is an HINSTANCE field. On OS/2,
-                    // this is a HMODULE field. The field name is retained for
-                    // compatibility.
-        ULONG /* UINT */ uFlags;
-                    // in: flag that indicates how to interpret the idFrom member of
-                    // the NMHDR structure that is included in the structure. If this
-                    // member is the TTF_IDISHWND value, idFrom is the handle of the
-                    // tool. Otherwise, idFrom is the identifier of the tool.
-                    // Windows 95 only: If this member is the TTF_RTLREADING value,
-                    // then text on Hebrew or Arabic systems is displayed using
-                    // right-to-left reading order. (Ignored on OS/2.)
+        HWND    hwndTooltip;
+                    // in: tooltip control who's sending this.
+        HWND    hwndTool;
+                    // in: tool for which the text is needed.
+        ULONG   ulFormat;
+                    // out: one of:
+                    // -- TTFMT_PSZ: pszText contains the new, zero-terminated string.
+                    // -- TTFMT_STRINGRES: hmod and idResource specify a string resource
+                    //    to be loaded.
+        PSZ     pszText;
+                    // out: with TTFMT_PSZ, pointer to a string that contains the
+                    // tool text. Note that this is not copied into the tooltip...
+                    // so this must point to a static buffer.
+        HMODULE hmod;
+                    // out: with TTFMT_STRINGRES, the module handle of the resource.
+        ULONG   idResource;
+                    // out: with TTFMT_STRINGRES, the string resource ID.
     } TOOLTIPTEXT, *PTOOLTIPTEXT;
 
     #define TTM_GETTEXT                 (TTM_FIRST + 7)
