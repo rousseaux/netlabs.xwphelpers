@@ -63,9 +63,13 @@ extern "C" {
      *
      ********************************************************************/
 
-    VOID doshEnumDrives(PSZ pszBuffer,
-                        const char *pcszFileSystem,
-                        BOOL fSkipRemoveables);
+    VOID XWPENTRY doshEnumDrives(PSZ pszBuffer,
+                                 const char *pcszFileSystem,
+                                 BOOL fSkipRemoveables);
+    typedef VOID XWPENTRY DOSHENUMDRIVES(PSZ pszBuffer,
+                                         const char *pcszFileSystem,
+                                         BOOL fSkipRemoveables);
+    typedef DOSHENUMDRIVES *PDOSHENUMDRIVES;
 
     CHAR doshQueryBootDrive(VOID);
 
@@ -73,12 +77,17 @@ extern "C" {
 
     APIRET doshSetLogicalMap(ULONG ulLogicalDrive);
 
-    APIRET doshQueryDiskFree(ULONG ulLogicalDrive,
-                             double *pdFree);
+    APIRET XWPENTRY doshQueryDiskSize(ULONG ulLogicalDrive, double *pdSize);
+    typedef APIRET XWPENTRY DOSHQUERYDISKSIZE(ULONG ulLogicalDrive, double *pdSize);
+    typedef DOSHQUERYDISKSIZE *PDOSHQUERYDISKSIZE;
 
-    APIRET doshQueryDiskFSType(ULONG ulLogicalDrive,
-                               PSZ pszBuf,
-                               ULONG cbBuf);
+    APIRET XWPENTRY doshQueryDiskFree(ULONG ulLogicalDrive, double *pdFree);
+    typedef APIRET XWPENTRY DOSHQUERYDISKFREE(ULONG ulLogicalDrive, double *pdFree);
+    typedef DOSHQUERYDISKFREE *PDOSHQUERYDISKFREE;
+
+    APIRET XWPENTRY doshQueryDiskFSType(ULONG ulLogicalDrive, PSZ pszBuf, ULONG cbBuf);
+    typedef APIRET XWPENTRY DOSHQUERYDISKFSTYPE(ULONG ulLogicalDrive, PSZ pszBuf, ULONG cbBuf);
+    typedef DOSHQUERYDISKFSTYPE *PDOSHQUERYDISKFSTYPE;
 
     APIRET doshIsFixedDisk(ULONG  ulLogicalDrive,
                            PBOOL  pfFixed);

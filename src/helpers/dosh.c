@@ -571,6 +571,7 @@ APIRET doshSetLogicalMap(ULONG ulLogicalDrive)
                        | OPEN_ACCESS_READONLY
                        | OPEN_SHARE_DENYNONE,
                  0);
+
     if (rc == NO_ERROR)
     {
         param = 0;
@@ -588,13 +589,37 @@ APIRET doshSetLogicalMap(ULONG ulLogicalDrive)
 }
 
 /*
- *@@ doshQueryDiskFree:
- *       returns the number of bytes remaining on the disk
- *       specified by the given logical drive.
+ *@@ doshQueryDiskSize:
+ *      returns the size of the specified disk in bytes.
  *
- *       Note: This returns a "double" value, because a ULONG
- *       can only hold values of some 4 billion, which would
- *       lead to funny results for drives > 4 GB.
+ *      Note: This returns a "double" value, because a ULONG
+ *      can only hold values of some 4 billion, which would
+ *      lead to funny results for drives > 4 GB.
+ *
+ *@@added V0.9.11 (2001-04-18) [umoeller]
+ */
+
+APIRET doshQueryDiskSize(ULONG ulLogicalDrive, // in: 1 for A:, 2 for B:, 3 for C:, ...
+                         double *pdSize)
+{
+    APIRET      arc = NO_ERROR;
+    FSALLOCATE  fsa;
+    double      dbl = -1;
+
+    if (!(arc = DosQueryFSInfo(ulLogicalDrive, FSIL_ALLOC, &fsa, sizeof(fsa))))
+        *pdSize = ((double)fsa.cSectorUnit * fsa.cbSector * fsa.cUnit);
+
+    return (arc);
+}
+
+/*
+ *@@ doshQueryDiskFree:
+ *      returns the number of bytes remaining on the disk
+ *      specified by the given logical drive.
+ *
+ *      Note: This returns a "double" value, because a ULONG
+ *      can only hold values of some 4 billion, which would
+ *      lead to funny results for drives > 4 GB.
  *
  *@@changed V0.9.0 [umoeller]: fixed another > 4 GB bug (thanks to RÅdiger Ihle)
  *@@changed V0.9.7 (2000-12-01) [umoeller]: changed prototype
@@ -607,8 +632,7 @@ APIRET doshQueryDiskFree(ULONG ulLogicalDrive, // in: 1 for A:, 2 for B:, 3 for 
     FSALLOCATE  fsa;
     double      dbl = -1;
 
-    arc = DosQueryFSInfo(ulLogicalDrive, FSIL_ALLOC, &fsa, sizeof(fsa));
-    if (arc == NO_ERROR)
+    if (!(arc = DosQueryFSInfo(ulLogicalDrive, FSIL_ALLOC, &fsa, sizeof(fsa))))
         *pdFree = ((double)fsa.cSectorUnit * fsa.cbSector * fsa.cUnitAvail);
                    // ^ fixed V0.9.0
 
