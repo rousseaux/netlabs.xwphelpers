@@ -778,24 +778,87 @@ ULONG appIsWindowsApp(ULONG ulProgCategory)
  ********************************************************************/
 
 /*
+ *@@ CheckAndQualifyExecutable:
+ *      checks the executable in the given PROGDETAILS
+ *      for whether it is fully qualified.
+ *
+ *      If so, the existence is verified.
+ *
+ *      If not, we search for it on the PATH. If we
+ *      find it, we use pstrExecutablePath to store
+ *      the fully qualified executable and set
+ *      pDetails->pszExecutable to it. The caller
+ *      must initialize the buffer and clear it
+ *      after the call.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR: executable exists and might
+ *          have been fully qualified.
+ *
+ *      --  ERROR_FILE_NOT_FOUND
+ *
+ *@@added V0.9.20 (2002-07-03) [umoeller]
+ */
+
+static APIRET CheckAndQualifyExecutable(PPROGDETAILS pDetails,          // in/out: program details
+                                        PXSTRING pstrExecutablePatched) // in/out: buffer for q'fied exec (must be init'ed)
+{
+    APIRET arc = NO_ERROR;
+
+    ULONG ulAttr;
+    // check if the executable is fully qualified; if so,
+    // check if the executable file exists
+    if (    (pDetails->pszExecutable[1] == ':')
+         && (strchr(pDetails->pszExecutable, '\\'))
+       )
+    {
+        arc = doshQueryPathAttr(pDetails->pszExecutable,
+                                &ulAttr);
+    }
+    else
+    {
+        // _not_ fully qualified: look it up on the PATH then
+        // V0.9.16 (2001-12-06) [umoeller]
+        CHAR    szFQExecutable[CCHMAXPATH];
+        if (!(arc = doshSearchPath("PATH",
+                                   pDetails->pszExecutable,
+                                   szFQExecutable,
+                                   sizeof(szFQExecutable))))
+        {
+            // alright, found it:
+            xstrcpy(pstrExecutablePatched, szFQExecutable, 0);
+            pDetails->pszExecutable = pstrExecutablePatched->psz;
+        }
+    }
+
+    return arc;
+}
+
+/*
  *@@ CallBatchCorrectly:
  *      fixes the specified PROGDETAILS for
  *      command files in the executable part
  *      by inserting /C XXX into the parameters
- *      and setting the executable according
- *      to an environment variable.
+ *      and setting the executable to the fully
+ *      qualified command interpreter specified
+ *      by the given environment variable.
  *
  *@@added V0.9.6 (2000-10-16) [umoeller]
  *@@changed V0.9.7 (2001-01-15) [umoeller]: now using XSTRING
  *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from winh.c to apps.c
+ *@@changed V0.9.20 (2002-07-03) [umoeller]: now always qualifying executable to fix broken BAT files
  */
 
-static VOID CallBatchCorrectly(PPROGDETAILS pProgDetails,
-                               PXSTRING pstrParams,        // in/out: modified parameters (reallocated)
-                               const char *pcszEnvVar,     // in: env var spec'g command proc
-                                                           // (e.g. "OS2_SHELL"); can be NULL
-                               const char *pcszDefProc)    // in: def't command proc (e.g. "CMD.EXE")
+static APIRET CallBatchCorrectly(PPROGDETAILS pProgDetails,
+                                 PXSTRING pstrExecutablePatched, // in/out: buffer for q'fied exec (must be init'ed)
+                                 PXSTRING pstrParams,        // in/out: modified parameters (reallocated)
+                                 const char *pcszEnvVar,     // in: env var spec'g command proc
+                                                             // (e.g. "OS2_SHELL"); can be NULL
+                                 const char *pcszDefProc)    // in: def't command proc (e.g. "CMD.EXE")
 {
+    APIRET arc = NO_ERROR;
+
     // XXX.CMD file as executable:
     // fix args to /C XXX.CMD
 
@@ -830,6 +893,11 @@ static VOID CallBatchCorrectly(PPROGDETAILS pProgDetails,
     if (!pProgDetails->pszExecutable)
         pProgDetails->pszExecutable = (PSZ)pcszDefProc;
                 // should be on PATH
+
+    // and make sure this is always qualified
+    // V0.9.20 (2002-07-03) [umoeller]
+    return CheckAndQualifyExecutable(pProgDetails,
+                                     pstrExecutablePatched);
 }
 
 /*
@@ -1133,9 +1201,11 @@ APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem
                     0);
 
         #ifdef DEBUG_PROGRAMSTART
-            _Pmpf((__FUNCTION__ ": old progc: 0x%lX", pcProgDetails->progt.progc));
-            _Pmpf(("  pszTitle: %s", (Details.pszTitle) ? Details.pszTitle : NULL));
-            _Pmpf(("  pszIcon: %s", (Details.pszIcon) ? Details.pszIcon : NULL));
+            _PmpfF((" old progc: 0x%lX", pcProgDetails->progt.progc));
+            _Pmpf(("  pszTitle: %s", STRINGORNULL(Details.pszTitle)));
+            _Pmpf(("  pszExecutable: %s", STRINGORNULL(Details.pszExecutable)));
+            _Pmpf(("  pszParameters: %s", STRINGORNULL(Details.pszParameters)));
+            _Pmpf(("  pszIcon: %s", STRINGORNULL(Details.pszIcon)));
         #endif
 
         // program type fixups
@@ -1184,19 +1254,25 @@ APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem
             ulIsWinApp = appIsWindowsApp(Details.progt.progc);
         }
 
-        if (!arc)
+        /*
+         * command lines fixups:
+         *
+         */
+
+        if (!strcmp(Details.pszExecutable, "*"))
         {
             /*
-             * command lines fixups:
+             * "*" for command sessions:
              *
              */
 
-            if (!strcmp(Details.pszExecutable, "*"))
+            if (ulIsWinApp)
             {
-                /*
-                 * "*" for command sessions:
-                 *
-                 */
+                // cheat: WinStartApp doesn't support NULL
+                // for Win-OS2 sessions, so manually start winos2.com
+                Details.pszExecutable = "WINOS2.COM";
+                // this is a DOS app, so fix this to DOS fullscreen
+                Details.progt.progc = PROG_VDM;
 
                 if (ulIsWinApp == 2)
                 {
@@ -1214,105 +1290,95 @@ APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem
                         free(psz);
                     }
                 }
-
-                if (ulIsWinApp)
-                {
-                    // cheat: WinStartApp doesn't support NULL
-                    // for Win-OS2 sessions, so manually start winos2.com
-                    Details.pszExecutable = "WINOS2.COM";
-                    // this is a DOS app, so fix this to DOS fullscreen
-                    Details.progt.progc = PROG_VDM;
-                }
-                else
-                    // for all other executable types
-                    // (including OS/2 and DOS sessions),
-                    // set pszExecutable to NULL; this will
-                    // have WinStartApp start a cmd shell
-                    Details.pszExecutable = NULL;
-
-            } // end if (strcmp(pProgDetails->pszExecutable, "*") == 0)
+            }
             else
+                // for all other executable types
+                // (including OS/2 and DOS sessions),
+                // set pszExecutable to NULL; this will
+                // have WinStartApp start a cmd shell
+                Details.pszExecutable = NULL;
+
+        } // end if (strcmp(pProgDetails->pszExecutable, "*") == 0)
+
+        // else
+
+        // no, this else breaks the WINOS2.COM hack above... we
+        // need to look for that on the PATH as well
+        // V0.9.20 (2002-07-03) [umoeller]
+        if (Details.pszExecutable)
+        {
+            // check the executable and look for it on the
+            // PATH if necessary
+            if (!(arc = CheckAndQualifyExecutable(&Details,
+                                                  &strExecutablePatched)))
             {
-                // check if the executable is fully qualified; if so,
-                // check if the executable file exists
-                if (    (Details.pszExecutable[1] == ':')
-                     && (strchr(Details.pszExecutable, '\\'))
-                   )
+                PSZ pszExtension;
+
+                // make sure startup dir is really a directory
+                // V0.9.20 (2002-07-03) [umoeller]: moved this down
+                if (Details.pszStartupDir)
                 {
                     ULONG ulAttr;
-                    if (!(arc = doshQueryPathAttr(Details.pszExecutable,
-                                                  &ulAttr)))
+                    // it is valid to specify a startup dir of "C:"
+                    if (    (strlen(Details.pszStartupDir) > 2)
+                         && (!(arc = doshQueryPathAttr(Details.pszStartupDir,
+                                                       &ulAttr)))
+                         && (!(ulAttr & FILE_DIRECTORY))
+                       )
+                        arc = ERROR_PATH_NOT_FOUND;
+                }
+
+                // we frequently get here for BAT and CMD files
+                // with progtype == PROG_DEFAULT, so include
+                // that in the check, or all BAT files will fail
+                // V0.9.20 (2002-07-03) [umoeller]
+
+                switch (Details.progt.progc)
+                {
+                    /*
+                     *  .CMD files fixups
+                     *
+                     */
+
+                    case PROG_DEFAULT:          // V0.9.20 (2002-07-03) [umoeller]
+                    case PROG_FULLSCREEN:       // OS/2 fullscreen
+                    case PROG_WINDOWABLEVIO:    // OS/2 window
                     {
-                        // make sure startup dir is really a directory
-                        if (Details.pszStartupDir)
+                        if (    (pszExtension = doshGetExtension(Details.pszExecutable))
+                             && (!stricmp(pszExtension, "CMD"))
+                           )
                         {
-                            // it is valid to specify a startup dir of "C:"
-                            if (    (strlen(Details.pszStartupDir) > 2)
-                                 && (!(arc = doshQueryPathAttr(Details.pszStartupDir,
-                                                               &ulAttr)))
-                                 && (!(ulAttr & FILE_DIRECTORY))
-                               )
-                                arc = ERROR_PATH_NOT_FOUND;
+                            arc = CallBatchCorrectly(&Details,
+                                                     &strExecutablePatched,
+                                                     &strParamsPatched,
+                                                     "OS2_SHELL",
+                                                     "CMD.EXE");
                         }
                     }
+                    break;
                 }
-                else
+
+                switch (Details.progt.progc)
                 {
-                    // _not_ fully qualified: look it up on the PATH then
-                    // V0.9.16 (2001-12-06) [umoeller]
-                    CHAR    szFQExecutable[CCHMAXPATH];
-                    if (!(arc = doshSearchPath("PATH",
-                                               Details.pszExecutable,
-                                               szFQExecutable,
-                                               sizeof(szFQExecutable))))
+                    case PROG_DEFAULT:          // V0.9.20 (2002-07-03) [umoeller]
+                    case PROG_VDM:              // DOS fullscreen
+                    case PROG_WINDOWEDVDM:      // DOS window
                     {
-                        // alright, found it:
-                        xstrcpy(&strExecutablePatched, szFQExecutable, 0);
-                        Details.pszExecutable = strExecutablePatched.psz;
+                        if (    (pszExtension = doshGetExtension(Details.pszExecutable))
+                             && (!stricmp(pszExtension, "BAT"))
+                           )
+                        {
+                            arc = CallBatchCorrectly(&Details,
+                                                     &strExecutablePatched,
+                                                     &strParamsPatched,
+                                                     // there is no environment variable
+                                                     // for the DOS shell
+                                                     NULL,
+                                                     "COMMAND.COM");
+                        }
                     }
-                }
-
-                if (!arc)
-                {
-                    PSZ pszExtension;
-                    switch (Details.progt.progc)
-                    {
-                        /*
-                         *  .CMD files fixups
-                         *
-                         */
-
-                        case PROG_FULLSCREEN:       // OS/2 fullscreen
-                        case PROG_WINDOWABLEVIO:    // OS/2 window
-                        {
-                            if (    (pszExtension = doshGetExtension(Details.pszExecutable))
-                                 && (!stricmp(pszExtension, "CMD"))
-                               )
-                            {
-                                CallBatchCorrectly(&Details,
-                                                   &strParamsPatched,
-                                                   "OS2_SHELL",
-                                                   "CMD.EXE");
-                            }
-                        }
-                        break;
-
-                        case PROG_VDM:              // DOS fullscreen
-                        case PROG_WINDOWEDVDM:      // DOS window
-                        {
-                            if (    (pszExtension = doshGetExtension(Details.pszExecutable))
-                                 && (!stricmp(pszExtension, "BAT"))
-                               )
-                            {
-                                CallBatchCorrectly(&Details,
-                                                   &strParamsPatched,
-                                                   NULL,
-                                                   "COMMAND.COM");
-                            }
-                        }
-                        break;
-                    } // end switch (Details.progt.progc)
-                }
+                    break;
+                } // end switch (Details.progt.progc)
             }
         }
 
@@ -1407,6 +1473,14 @@ APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem
                 cbStartupDir,
                 cbIcon,
                 cbEnvironment;
+
+        #ifdef DEBUG_PROGRAMSTART
+            _PmpfF((" new progc: 0x%lX", pcProgDetails->progt.progc));
+            _Pmpf(("  pszTitle: %s", STRINGORNULL(Details.pszTitle)));
+            _Pmpf(("  pszExecutable: %s", STRINGORNULL(Details.pszExecutable)));
+            _Pmpf(("  pszParameters: %s", STRINGORNULL(Details.pszParameters)));
+            _Pmpf(("  pszIcon: %s", STRINGORNULL(Details.pszIcon)));
+        #endif
 
         // allocate a chunk of tiled memory from OS/2 to make sure
         // this is aligned on a 64K memory (backed up by a 16-bit

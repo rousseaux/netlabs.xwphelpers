@@ -111,14 +111,9 @@ BOOL nlsDBCS(VOID)
     // does not return an error
     G_fDBCS = FALSE;
 
-    if (arc = DosQueryDBCSEnv(8 * sizeof(DBCSVECTOR),
-                              &G_cc,
-                              (PCHAR)G_aDBCSVector))
-    {
-        // not DBCS:
-        _PmpfF(("DosQueryDBCSEnv returned arc %d", arc));
-    }
-    else
+    if (!(arc = DosQueryDBCSEnv(8 * sizeof(DBCSVECTOR),
+                                &G_cc,
+                                (PCHAR)G_aDBCSVector)))
     {
         int i;
         for (i = 0;
