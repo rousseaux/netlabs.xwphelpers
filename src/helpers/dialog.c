@@ -321,7 +321,7 @@ VOID CalcAutoSize(PCONTROLDEF pControlDef,
                                         | BS_3STATE
                                         | BS_CHECKBOX
                                         | BS_RADIOBUTTON))
-                pszlAuto->cx += 20;     // @@@
+                pszlAuto->cx += 20;     // @@todo
             else if (pControlDef->flStyle & BS_BITMAP)
                 ;
             else if (pControlDef->flStyle & (BS_ICON | BS_MINIICON))
@@ -464,7 +464,7 @@ VOID ProcessColumn(PCOLUMNDEF pColumnDef,
                 else
                     pColumnDef->cpControl.cy = pszl->cy;
 
-                // @@@hack sizes
+                // @@todo hack sizes
 
                 ulXSpacing = ulYSpacing = (2 * pControlDef->ulSpacing);
             }
@@ -634,7 +634,7 @@ VOID ProcessColumn(PCOLUMNDEF pColumnDef,
                                       pDlgData->hwndDlg,   // owner
                                       HWND_BOTTOM,
                                       pControlDef->usID,
-                                      NULL,             // control data @@@
+                                      NULL,             // @@todo control data
                                       ppp);
 
                 if (pColumnDef->hwndControl && lHandleSet)

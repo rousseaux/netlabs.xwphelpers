@@ -499,7 +499,7 @@ VOID xmlDeleteNode(PNODEBASE pNode)
                 pDomNode->pParentNode = NULL;
             }
 
-            xstrFree(pDomNode->pstrNodeValue);
+            xstrFree(&pDomNode->pstrNodeValue);
             lstClear(&pDomNode->llChildren);
         }
 
@@ -2650,7 +2650,7 @@ PLINKLIST xmlGetElementsByTagName(PDOMNODE pParent,
         if (cItems)
             return (pll);
         else
-            lstFree(pll);
+            lstFree(&pll);
     }
 
     return (0);

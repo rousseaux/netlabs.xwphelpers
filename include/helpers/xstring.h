@@ -75,8 +75,8 @@ extern "C" {
     typedef PXSTRING XWPENTRY XSTRCREATE(ULONG ulPreAllocate);
     typedef XSTRCREATE *PXSTRCREATE;
 
-    VOID XWPENTRY xstrFree(PXSTRING pxstr);
-    typedef VOID XWPENTRY XSTRFREE(PXSTRING pxstr);
+    VOID XWPENTRY xstrFree(PXSTRING *ppxstr);
+    typedef VOID XWPENTRY XSTRFREE(PXSTRING *ppxstr);
     typedef XSTRFREE *PXSTRFREE;
 
     ULONG XWPENTRY xstrset(PXSTRING pxstr, PSZ pszNew);

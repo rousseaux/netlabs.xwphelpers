@@ -356,15 +356,25 @@ PXSTRING xstrCreate(ULONG ulPreAllocate)
  *      frees the specified heap XSTRING, which must
  *      have been created using xstrCreate.
  *
+ *      This uses a pointer to a PXSTRING so that
+ *      the pointer is automatically reset to NULL
+ *      by this function AND to avoid confusion
+ *      with xstrClear.
+ *
  *@@added V0.9.6 (2000-11-01) [umoeller]
+ *@@changed V0.9.12 (2001-05-24) [umoeller]: changed prototype to use pointer to pointer
  */
 
-VOID xstrFree(PXSTRING pxstr)               // in/out: string
+VOID xstrFree(PXSTRING *ppxstr)               // in/out: string
 {
-    if (pxstr)
+    PXSTRING p;
+    if (    ppxstr
+         && (p = *ppxstr)
+       )
     {
-        xstrClear(pxstr);
-        free(pxstr);
+        xstrClear(p);
+        free(p);
+        *ppxstr = NULL;
     }
 }
 

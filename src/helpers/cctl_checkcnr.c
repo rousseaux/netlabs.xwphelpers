@@ -454,8 +454,7 @@ MRESULT EXPENTRY ctl_fnwpSubclCheckboxCnr(HWND hwndCnr, ULONG msg, MPARAM mp1, M
                     lstRemoveItem(G_pllCnrOwners, pcbco);
                     if (lstCountItems(G_pllCnrOwners) == 0)
                     {
-                        lstFree(G_pllCnrOwners);
-                        G_pllCnrOwners = NULL;
+                        lstFree(&G_pllCnrOwners);
                     }
                     DosReleaseMutexSem(G_hmtxCnrOwnersList);
                 }

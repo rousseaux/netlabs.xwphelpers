@@ -157,8 +157,8 @@ extern "C" {
         typedef LSTCREATE *PLSTCREATE;
     #endif
 
-    BOOL XWPENTRY lstFree(PLINKLIST pList);
-    typedef BOOL XWPENTRY LSTFREE(PLINKLIST pList);
+    BOOL XWPENTRY lstFree(PLINKLIST *ppList);
+    typedef BOOL XWPENTRY LSTFREE(PLINKLIST *ppList);
     typedef LSTFREE *PLSTFREE;
 
     BOOL XWPENTRY lstClear(PLINKLIST pList);

@@ -310,23 +310,36 @@ PLINKLIST (lstCreate)(BOOL fItemsFreeable)    // in: invoke free() on the data
  *
  *      This must only be used with heap lists created
  *      with lstCreate.
+ *
+ *      This uses a pointer to a PLINKLIST so that
+ *      the pointer is automatically reset to NULL
+ *      by this function AND to avoid confusion
+ *      with lstClear.
+ *
+ *@@changed V0.9.12 (2001-05-24) [umoeller]: changed prototype to use pointer to pointer
  */
 
-BOOL lstFree(PLINKLIST pList)
+BOOL lstFree(PLINKLIST *ppList)
 {
     BOOL brc = FALSE;
+    PLINKLIST p;
 
-    if (lstClear(pList))        // this checks for list integrity
-    {
-        // unset magic word; the pList pointer
-        // will point to invalid memory after
-        // freeing the list, and subsequent
-        // integrity checks must fail
-        pList->ulMagic = 0;
-        free(pList);
+    if (    (ppList)
+         && (p = *ppList)
+       )
+        if (lstClear(p))        // this checks for list integrity
+        {
+            // unset magic word; the pList pointer
+            // will point to invalid memory after
+            // freeing the list, and subsequent
+            // integrity checks must fail
+            p->ulMagic = 0;
+            free(p);
 
-        brc = TRUE;
-    }
+            *ppList = NULL;
+
+            brc = TRUE;
+        }
 
     return (brc);
 }
