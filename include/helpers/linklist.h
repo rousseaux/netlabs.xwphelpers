@@ -33,6 +33,8 @@ extern "C" {
     // define some basic things to make this work even with standard C
     #if (!defined OS2_INCLUDED) && (!defined _OS2_H) && (!defined __SIMPLES_DEFINED)   // changed V0.9.0 (99-10-22) [umoeller]
         typedef unsigned long BOOL;
+        typedef unsigned long ULONG;
+        typedef unsigned char *PSZ;
         #define TRUE (BOOL)1
         #define FALSE (BOOL)0
 

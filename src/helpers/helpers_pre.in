@@ -40,7 +40,8 @@ OUTPUTDIR = $(HELPERS_OUTPUT_DIR)
 
 PLAINCOBJS = \
        $(OUTPUTDIR)\linklist.obj \
-       $(OUTPUTDIR)\tree.obj
+       $(OUTPUTDIR)\tree.obj \
+       $(OUTPUTDIR)\xml.obj \
 
 CPOBJS = $(PLAINCOBJS) \
        $(OUTPUTDIR)\datetime.obj \
