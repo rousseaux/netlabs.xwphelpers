@@ -815,10 +815,10 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
 
             case WM_DESTROY:
                 // stop timers
-                if (pttd->ulTimeoutInitial)
+                if (pttd->idTimerInitial)
                     WinStopTimer(pttd->hab,
                                  hwndTooltip,
-                                 pttd->ulTimeoutInitial);
+                                 pttd->idTimerInitial);
                 if (pttd->idTimerAutopop)
                     WinStopTimer(pttd->hab,
                                  hwndTooltip,

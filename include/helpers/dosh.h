@@ -335,6 +335,14 @@ extern "C" {
      *
      ********************************************************************/
 
+    ULONG XWPENTRY doshMyPID(VOID);
+    typedef ULONG XWPENTRY DOSHMYPID(VOID);
+    typedef DOSHMYPID *PDOSHMYPID;
+
+    ULONG XWPENTRY doshMyTID(VOID);
+    typedef ULONG XWPENTRY DOSHMYTID(VOID);
+    typedef DOSHMYTID *PDOSHMYTID;
+
     APIRET doshFindExecutable(const char *pcszCommand,
                               PSZ pszExecutable,
                               ULONG cbExecutable,
@@ -677,20 +685,23 @@ extern "C" {
 
     APIRET doshExecQueryBldLevel(PEXECUTABLE pExec);
 
-    PFSYSRESOURCE doshExecQueryResources(PEXECUTABLE pExec,
-                                         PULONG pcResources);
-
-    APIRET doshExecFreeResources(PFSYSRESOURCE paResources);
-
-    PFSYSMODULE doshExecQueryImportedModules(PEXECUTABLE pExec,
-                                             PULONG pcModules);
+    APIRET doshExecQueryImportedModules(PEXECUTABLE pExec,
+                                        PFSYSMODULE *ppaModules,
+                                        PULONG pcModules);
 
     APIRET doshExecFreeImportedModules(PFSYSMODULE paModules);
 
-    PFSYSFUNCTION doshExecQueryExportedFunctions(PEXECUTABLE pExec,
-                                                 PULONG pcFunctions);
+    APIRET doshExecQueryExportedFunctions(PEXECUTABLE pExec,
+                                          PFSYSFUNCTION *ppaFunctions,
+                                          PULONG pcFunctions);
 
     APIRET doshExecFreeExportedFunctions(PFSYSFUNCTION paFunctions);
+
+    APIRET doshExecQueryResources(PEXECUTABLE pExec,
+                                  PFSYSRESOURCE *ppaResources,
+                                  PULONG pcResources);
+
+    APIRET doshExecFreeResources(PFSYSRESOURCE paResources);
 
     /********************************************************************
      *
@@ -850,7 +861,7 @@ extern "C" {
     // restore original alignment
     #pragma pack()
 
-    char* doshType2FSName(unsigned char bFSType);
+    const char* doshType2FSName(unsigned char bFSType);
 
     APIRET doshGetBootManager(USHORT   *pusDisk,
                               USHORT   *pusPart,

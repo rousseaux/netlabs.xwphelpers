@@ -14,6 +14,7 @@
  *      Note: Version numbering in this file relates to XWorkplace version
  *            numbering.
  *
+ *@@added V0.9.9 (2001-04-01) [umoeller]
  *@@header "helpers\dialog.h"
  */
 
@@ -79,8 +80,6 @@
  *      by dlghCreateDlg. This is what is really
  *      used, even though the prototype only
  *      declares DIALOGDATA.
- *
- *@@added V0.9.9 (2001-04-01) [umoeller]
  */
 
 typedef struct _DLGPRIVATE
@@ -113,8 +112,6 @@ typedef struct _TABLEDEF *PTABLEDEF;
 /*
  *@@ CONTROLPOS:
  *      control position. We don't want to use SWP.
- *
- *@@added V0.9.9 (2001-04-01) [umoeller]
  */
 
 typedef struct _CONTROLPOS
@@ -133,8 +130,6 @@ typedef struct _CONTROLPOS
  *      A table column represents either a PM control
  *      window or another table, which may therefore
  *      be nested.
- *
- *@@added V0.9.9 (2001-04-01) [umoeller]
  */
 
 typedef struct _COLUMNDEF
@@ -157,7 +152,6 @@ typedef struct _COLUMNDEF
 /*
  *@@ ROWDEF:
  *
- *@@added V0.9.9 (2001-04-01) [umoeller]
  */
 
 typedef struct _ROWDEF
@@ -173,7 +167,6 @@ typedef struct _ROWDEF
 /*
  *@@ TABLEDEF:
  *
- *@@added V0.9.9 (2001-04-01) [umoeller]
  */
 
 typedef struct _TABLEDEF
@@ -189,7 +182,6 @@ typedef struct _TABLEDEF
 /*
  *@@ PROCESSMODE:
  *
- *@@added V0.9.9 (2001-04-01) [umoeller]
  */
 
 typedef enum _PROCESSMODE
@@ -216,7 +208,6 @@ VOID ProcessTable(PTABLEDEF pTableDef,
 /*
  *@@ CalcAutoSizeText:
  *
- *@@added V0.9.9 (2001-04-01) [umoeller]
  */
 
 VOID CalcAutoSizeText(PCONTROLDEF pControlDef,
@@ -286,7 +277,6 @@ VOID CalcAutoSizeText(PCONTROLDEF pControlDef,
 /*
  *@@ CalcAutoSize:
  *
- *@@added V0.9.9 (2001-04-01) [umoeller]
  */
 
 VOID CalcAutoSize(PCONTROLDEF pControlDef,
@@ -383,7 +373,6 @@ VOID CalcAutoSize(PCONTROLDEF pControlDef,
  *         a string assigned, this also produces a group box
  *         after the recursion.
  *
- *@@added V0.9.9 (2001-04-01) [umoeller]
  */
 
 VOID ProcessColumn(PCOLUMNDEF pColumnDef,
@@ -632,7 +621,6 @@ VOID ProcessColumn(PCOLUMNDEF pColumnDef,
 /*
  *@@ ProcessRow:
  *
- *@@added V0.9.9 (2001-04-01) [umoeller]
  */
 
 VOID ProcessRow(PROWDEF pRowDef,
@@ -697,7 +685,6 @@ VOID ProcessRow(PROWDEF pRowDef,
  *      this must be the lower left corner of the column
  *      to which the nested table belongs.
  *
- *@@added V0.9.9 (2001-04-01) [umoeller]
  */
 
 VOID ProcessTable(PTABLEDEF pTableDef,
@@ -753,7 +740,6 @@ VOID ProcessTable(PTABLEDEF pTableDef,
  *      -- PROCESS_CREATE_CONTROLS: creates the controls with the
  *         positions and sizes calculated before.
  *
- *@@added V0.9.9 (2001-04-01) [umoeller]
  */
 
 VOID ProcessAll(PDLGPRIVATE pDlgData,
@@ -804,7 +790,6 @@ VOID ProcessAll(PDLGPRIVATE pDlgData,
 /*
  *@@ CreateColumn:
  *
- *@@added V0.9.9 (2001-04-01) [umoeller]
  */
 
 APIRET CreateColumn(PROWDEF pCurrentRow,
@@ -851,7 +836,6 @@ APIRET CreateColumn(PROWDEF pCurrentRow,
 /*
  *@@ STACKITEM:
  *
- *@@added V0.9.9 (2001-04-01) [umoeller]
  */
 
 typedef struct _STACKITEM
@@ -1068,7 +1052,6 @@ typedef struct _STACKITEM
  +          }
  *
  *
- *@@added V0.9.9 (2001-03-30) [umoeller]
  */
 
 APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog

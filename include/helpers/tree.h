@@ -100,17 +100,24 @@ extern "C" {
         TREE_COLOUR     colour;
     } TREE, *PTREE;
 
+    #if defined(__IBMC__) || defined(__IBMCPP__)
+        #define TREEENTRY _Optlink
+    #else
+        // EMX or whatever: doesn't know calling conventions
+        #define TREENTRY
+    #endif
+
     // The tree algorithm needs to know how to sort the data.
     // It does this using a functions provided by the calling program.
     // This must return:
     // --   0: t1 == t2
     // --  -1: t1 < t2
     // --  +1: t1 > t2
-    typedef int XWPENTRY FNTREE_COMPARE_NODES(TREE *t1, TREE *t2);
-    typedef int XWPENTRY FNTREE_COMPARE_DATA(TREE *t1, void *pData);
+    typedef int TREEENTRY FNTREE_COMPARE_NODES(TREE *t1, TREE *t2);
+    typedef int TREEENTRY FNTREE_COMPARE_DATA(TREE *t1, void *pData);
 
     //  Define a function type for use with the tree traversal function
-    typedef void XWPENTRY TREE_PROCESS(TREE *t, void *pUser);
+    typedef void TREEENTRY TREE_PROCESS(TREE *t, void *pUser);
 
     //  Global variables
     extern TREE   TREE_EMPTY;

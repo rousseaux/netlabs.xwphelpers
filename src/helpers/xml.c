@@ -163,7 +163,7 @@
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
 
-int XWPENTRY CompareNodeBaseNodes(TREE *t1,
+int TREEENTRY CompareNodeBaseNodes(TREE *t1,
                                   TREE *t2)
 {
     PNODEBASE   p1 = (PNODEBASE)t1,
@@ -179,7 +179,7 @@ int XWPENTRY CompareNodeBaseNodes(TREE *t1,
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
 
-int XWPENTRY CompareNodeBaseData(TREE *t1,
+int TREEENTRY CompareNodeBaseData(TREE *t1,
                                  void *pData)
 {
     PNODEBASE     p1 = (PNODEBASE)t1;

@@ -6,6 +6,7 @@
  *      Note: Version numbering in this file relates to XWorkplace version
  *            numbering.
  *
+ *@@added V0.9.9 (2001-04-01) [umoeller]
  *@@include <os2.h>
  *@@include #include "dialog.h"
  */
@@ -69,7 +70,6 @@ extern "C" {
      *      with the TYPE_CONTROL_DEF type in
      *      DLGHITEM.
      *
-     *@@added V0.9.9 (2001-04-01) [umoeller]
      */
 
     typedef struct _CONTROLDEF
@@ -111,7 +111,6 @@ extern "C" {
     /*
      *@@ DLGHITEMTYPE:
      *
-     *@@added V0.9.9 (2001-04-01) [umoeller]
      */
 
     typedef enum _DLGHITEMTYPE
@@ -146,7 +145,6 @@ extern "C" {
      *      to tell it what controls the dialog contains.
      *      See dlghCreateDlg for details.
      *
-     *@@added V0.9.9 (2001-04-01) [umoeller]
      */
 
     typedef struct _DLGHITEM

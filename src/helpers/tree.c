@@ -90,12 +90,16 @@
  *
  *         The order of nodes in the tree is determined by calling a
  *         node comparison function provided by the caller
- *         (which you must write). This takes two TREE pointers and
- *         must return:
+ *         (which you must write). This must be declared as:
  *
- +           0: tree1 == tree2
- +          -1: tree1 < tree2
- +          +1: tree1 > tree2
+ +              int TREEENTRY fnMyCompareNodes(TREE *t1, TREE *t2);
+ *
+ *         It obviously receives two TREE pointers, which it must
+ *         compare and return:
+ *
+ +               0: tree1 == tree2
+ +              -1: tree1 < tree2
+ +              +1: tree1 > tree2
  *
  *      -- The "ID" functions (e.g. treeInsertID) do not require
  *         a comparison function, but will use the "id" member of
@@ -196,7 +200,7 @@ void treeInit(TREE **root)
  *added V0.9.9 (2001-02-06) [umoeller]
  */
 
-int fnCompareIDs(unsigned long id1, unsigned long id2)
+int TREEENTRY fnCompareIDs(unsigned long id1, unsigned long id2)
 {
     if (id1 < id2)
         return -1;
@@ -258,11 +262,9 @@ int treeInsertID(TREE **root,             // in: root of tree
                  TREE *tree,              // in: new tree node
                  BOOL fAllowDuplicates)   // in: whether duplicates with the same ID are allowed
 {
-    TREE
-       *current,
-       *parent;
-    int
-        last_comp = 0;
+    TREE    *current,
+            *parent;
+    int     last_comp = 0;
 
     // find where node belongs
     current = *root;
@@ -275,11 +277,11 @@ int treeInsertID(TREE **root,             // in: root of tree
         {
             case -1: current = current->left;  break;
             case  1: current = current->right; break;
-            default: if (fAllowDuplicates)
-                         current = current->left;
-                     else
-                         return TREE_DUPLICATE;
-
+            default:
+                if (fAllowDuplicates)
+                    current = current->left;
+                else
+                    return TREE_DUPLICATE;
         }
     }
 
@@ -690,6 +692,7 @@ static void delete_fixup(TREE **root,
 /*
  *@@ treeFindEQID:
  *      finds a node with ID exactly matching that provided.
+ *      Returns NULL if not found.
  */
 
 void* treeFindEQID(TREE **root,
@@ -697,9 +700,8 @@ void* treeFindEQID(TREE **root,
 {
     TREE
        *current = *root,
-       *found;
+       *found = NULL;
 
-    found = NULL;
     while (current != TREE_NULL)
         switch (fnCompareIDs(current->id, id))
         {

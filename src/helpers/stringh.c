@@ -232,13 +232,28 @@ BOOL strhIsDecimal(PSZ psz)
  +                p1     p2
  +          strhSubstr(p1, p2)
  *      would return a new string containing "2345678".
+ *
+ *@@changed V0.9.9 (2001-04-04) [umoeller]: fixed crashes with invalid pointers
+ *@@changed V0.9.9 (2001-04-04) [umoeller]: now using memcpy for speed
  */
 
-PSZ strhSubstr(const char *pBegin, const char *pEnd)
+PSZ strhSubstr(const char *pBegin,      // in: first char
+               const char *pEnd)        // in: last char (not included)
 {
-    ULONG cbSubstr = (pEnd - pBegin);
-    PSZ pszSubstr = (PSZ)malloc(cbSubstr + 1);
-    strhncpy0(pszSubstr, pBegin, cbSubstr);
+    PSZ pszSubstr = NULL;
+
+    if (pEnd > pBegin)      // V0.9.9 (2001-04-04) [umoeller]
+    {
+        ULONG cbSubstr = (pEnd - pBegin);
+        pszSubstr = (PSZ)malloc(cbSubstr + 1);
+        if (pszSubstr)
+        {
+            // strhncpy0(pszSubstr, pBegin, cbSubstr);
+            memcpy(pszSubstr, pBegin, cbSubstr);        // V0.9.9 (2001-04-04) [umoeller]
+            *(pszSubstr + cbSubstr) = '\0';
+        }
+    }
+
     return (pszSubstr);
 }
 

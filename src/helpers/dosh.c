@@ -518,25 +518,6 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive) // in: 1 for A:, 2 for B:, 3 for C:
     }
 
     return (arc);
-
-    /* FSALLOCATE  fsa;
-    APIRET arc = NO_ERROR;
-
-    if (fSuppress)
-    {
-        DosError(FERR_DISABLEHARDERR | FERR_DISABLEEXCEPTION);
-        DosEnterCritSec();
-    }
-
-    arc = DosQueryFSInfo(ulLogicalDrive, FSIL_ALLOC, &fsa, sizeof(fsa));
-
-    if (fSuppress)
-    {
-        DosError(FERR_ENABLEHARDERR | FERR_ENABLEEXCEPTION);
-        DosExitCritSec();
-    }
-
-    return (arc); */
 }
 
 /*
@@ -1929,6 +1910,72 @@ APIRET doshPerfClose(PDOSHPERFSYS *ppPerfSys)
  *   Process helpers
  *
  ********************************************************************/
+
+static PVOID    G_pvGlobalInfoSeg = NULL,
+                G_pvLocalInfoSeg = NULL;
+
+USHORT _Far16 _Pascal Dos16GetInfoSeg(PSEL pselGlobal,
+                                      PSEL pselLocal);
+
+/*
+ * GetInfoSegs:
+ *
+ */
+
+VOID GetInfoSegs(VOID)
+{
+    SEL     GlobalInfoSegSelector,
+            LocalInfoSegSelector;
+
+    // get selectors (old 16-bit API; this gets called only once)
+    Dos16GetInfoSeg(&GlobalInfoSegSelector,
+                    &LocalInfoSegSelector);
+    // thunk
+    G_pvGlobalInfoSeg = (PVOID)(   (GlobalInfoSegSelector << 0x000D)
+                                 & 0x01fff0000);
+    G_pvLocalInfoSeg  = (PVOID)(   (LocalInfoSegSelector << 0x000D)
+                                 & 0x01fff0000);
+}
+
+/*
+ *@@ doshMyPID:
+ *      returns the PID of the current process.
+ *
+ *      This uses an interesting hack which is way
+ *      faster than DosGetInfoBlocks.
+ *
+ *@@added V0.9.9 (2001-04-04) [umoeller]
+ */
+
+ULONG doshMyPID(VOID)
+{
+    if (!G_pvLocalInfoSeg)
+        // first call:
+        GetInfoSegs();
+
+    // PID is at offset 0 in the local info seg
+    return (*(PUSHORT)G_pvLocalInfoSeg);
+}
+
+/*
+ *@@ doshMyTID:
+ *      returns the TID of the current thread.
+ *
+ *      This uses an interesting hack which is way
+ *      faster than DosGetInfoBlocks.
+ *
+ *@@added V0.9.9 (2001-04-04) [umoeller]
+ */
+
+ULONG doshMyTID(VOID)
+{
+    if (!G_pvLocalInfoSeg)
+        // first call:
+        GetInfoSegs();
+
+    // TID is at offset 6 in the local info seg
+    return (*(PUSHORT)((PBYTE)G_pvLocalInfoSeg + 6));
+}
 
 /*
  *@@ doshFindExecutable:
