@@ -12,7 +12,8 @@
 !endif
 
 # include setup (compiler options etc.)
-!include $(PROJECT_BASE_DIR)\setup.in
+!include $(PROJECT_BASE_DIR)\config.in
+!include $(PROJECT_BASE_DIR)\make\setup.in
 
 !ifndef HELPERS_OUTPUT_DIR
 !error in $(MAKEDIR)\makefile: HELPERS_OUTPUT_DIR must be set before calling the HELPERS makefile. Terminating.

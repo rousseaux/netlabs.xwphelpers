@@ -88,7 +88,6 @@
 #include "helpers\gpih.h"
 #include "helpers\standards.h"
 #include "helpers\stringh.h"
-#include "helpers\undoc.h"
 #include "helpers\xstring.h"            // extended string helpers
 
 /*
@@ -2725,14 +2724,13 @@ ULONG winhCenteredDlgBox(HWND hwndParent,
  *      Works only if hwnd is a desktop child.
  *
  *@@added V0.9.19 (2002-04-17) [umoeller]
+ *@@changed V0.9.21 (2002-08-26) [umoeller]: fixed cx and cy confusion
  */
 
 BOOL winhPlaceBesides(HWND hwnd,
                       HWND hwndRelative,
                       ULONG fl)
 {
-    BOOL brc = FALSE;
-
     SWP     swpRel,
             swpThis;
     LONG    xNew, yNew;
@@ -2760,7 +2758,9 @@ BOOL winhPlaceBesides(HWND hwnd,
         // center vertically
         yNew = ptlRel.y  + ((swpRel.cy - swpThis.cy) / 2);
 
-        if (xNew + swpThis.cy > WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN))
+        // if (xNew + swpThis.cy > WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN))
+                // not cy, but cx V0.9.21 (2002-08-26) [umoeller]
+        if (xNew + swpThis.cx > WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN))
         {
             // place left then
             xNew = ptlRel.x - swpThis.cx;
@@ -2769,21 +2769,20 @@ BOOL winhPlaceBesides(HWND hwnd,
             {
                 // center then
                 winhCenterWindow(hwnd);
-                brc = TRUE;
+                return TRUE;
             }
         }
 
-        if (!brc)
-            brc = WinSetWindowPos(hwnd,
-                                  0,
-                                  xNew,
-                                  yNew,
-                                  0,
-                                  0,
-                                  SWP_MOVE);
+        return WinSetWindowPos(hwnd,
+                               0,
+                               xNew,
+                               yNew,
+                               0,
+                               0,
+                               SWP_MOVE);
     }
 
-    return brc;
+    return FALSE;
 }
 
 /*

@@ -867,6 +867,11 @@ extern "C" {
 
     HWND XWPENTRY winhCreateFakeDesktop(HWND hwndSibling);
 
+    // Warp 4 notebook button style
+    #ifndef BS_NOTEBOOKBUTTON
+        #define BS_NOTEBOOKBUTTON       8L
+    #endif
+
     BOOL XWPENTRY winhAssertWarp4Notebook(HWND hwndDlg,
                                           USHORT usIdThreshold);
 
