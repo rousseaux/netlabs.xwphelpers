@@ -352,12 +352,14 @@ long lstCountItems(PLINKLIST pList)
  *
  *      The item data can be queried from the node
  *      as follows:
+ *
  +          PLINKLIST pll = lstCreate();
  +          ...  // add items here
  +          PLISTNODE pNode = lstQueryFirstNode(pll);
  +          PYOURDATA pData = pNode->pItemData;
  *
  *      You can iterate over the whole list like this:
+ *
  +          PLISTNODE pNode = lstQueryFirstNode(pll);
  +          while (pNode)
  +          {
@@ -424,7 +426,8 @@ PLISTNODE lstNodeFromIndex(PLINKLIST pList,
  *      the list yourself.
  */
 
-PLISTNODE lstNodeFromItem(PLINKLIST pList, void* pItemData)
+PLISTNODE lstNodeFromItem(PLINKLIST pList,
+                          void* pItemData)
 {
     PLISTNODE pNode = 0,
               pNodeFound = 0;
@@ -464,13 +467,48 @@ PLISTNODE lstNodeFromItem(PLINKLIST pList, void* pItemData)
  *      structure.
  */
 
-void* lstItemFromIndex(PLINKLIST pList, unsigned long ulIndex)
+void* lstItemFromIndex(PLINKLIST pList,
+                       unsigned long ulIndex)
 {
     PLISTNODE pNode = lstNodeFromIndex(pList, ulIndex);
     if (pNode)
         return (pNode->pItemData);
     else
         return (0);
+}
+
+/*
+ *@@ lstIndexFromItem:
+ *      returns the index of the list node with
+ *      the specified item pointer. The first
+ *      node returns 0, the second 1, and so on.
+ *
+ *      Returns -1 if not found.
+ *
+ *      In the worst case, this function traverses
+ *      the whole list.
+ *
+ *@@added V0.9.7 (2000-12-13) [umoeller]
+ */
+
+unsigned long lstIndexFromItem(PLINKLIST pList, void *pItemData)
+{
+    ULONG ulrc = -1,
+          ulIndex = 0;
+    PLISTNODE pNode = lstQueryFirstNode(pList);
+    while (pNode)
+    {
+        if (pNode->pItemData == pItemData)
+        {
+            ulrc = ulIndex;
+            break;
+        }
+
+        pNode = pNode->pNext;
+        ulIndex++;
+    }
+
+    return (ulrc);
 }
 
 #ifdef __XWPMEMDEBUG__

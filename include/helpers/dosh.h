@@ -177,65 +177,28 @@ extern "C" {
 
     /* ******************************************************************
      *
-     *   File helpers
+     *   Module handling helpers
      *
      ********************************************************************/
 
-    PSZ doshGetExtension(const char *pcszFilename);
-
-    BOOL doshIsFileOnFAT(const char* pcszFileName);
-
-    APIRET doshIsValidFileName(const char* pcszFile,
-                               BOOL fFullyQualified);
-
-    BOOL doshMakeRealName(PSZ pszTarget, PSZ pszSource, CHAR cReplace, BOOL fIsFAT);
-
-    ULONG doshQueryFileSize(HFILE hFile);
-
-    ULONG doshQueryPathSize(PSZ pszFile);
-
-    APIRET doshQueryPathAttr(const char* pcszFile,
-                             PULONG pulAttr);
-
-    APIRET doshSetPathAttr(const char* pcszFile,
-                           ULONG ulAttr);
-
-    APIRET doshReadTextFile(PSZ pszFile,
-                            PSZ* ppszContent);
-
-    PSZ doshCreateBackupFileName(const char* pszExisting);
-
-    APIRET doshWriteTextFile(const char* pszFile,
-                             const char* pszContent,
-                             PULONG pulWritten,
-                             PSZ pszBackup);
-
-    HFILE doshOpenLogFile(const char* pcszFilename);
-
-    APIRET doshWriteToLogFile(HFILE hfLog, const char* pcsz);
-
-    /* ******************************************************************
+    /*
+     *@@ RESOLVEFUNCTION:
+     *      one of these structures each define
+     *      a single function import to doshResolveImports.
      *
-     *   Directory helpers
-     *
-     ********************************************************************/
+     *@@added V0.9.3 (2000-04-25) [umoeller]
+     */
 
-    BOOL doshQueryDirExist(PSZ pszDir);
+    typedef struct _RESOLVEFUNCTION
+    {
+        const char  *pcszFunctionName;
+        PFN         *ppFuncAddress;
+    } RESOLVEFUNCTION, *PRESOLVEFUNCTION;
 
-    APIRET doshCreatePath(PSZ pszPath,
-                          BOOL fHidden);
-
-    APIRET doshQueryCurrentDir(PSZ pszBuf);
-
-    APIRET doshSetCurrentDir(const char *pcszDir);
-
-    #define DOSHDELDIR_RECURSE      0x0001
-    #define DOSHDELDIR_DELETEFILES  0x0002
-
-    APIRET doshDeleteDir(const char *pcszDir,
-                         ULONG flFlags,
-                         PULONG pulDirs,
-                         PULONG pulFiles);
+    APIRET doshResolveImports(PSZ pszModuleName,
+                              HMODULE *phmod,
+                              PRESOLVEFUNCTION paResolves,
+                              ULONG cResolves);
 
     /* ******************************************************************
      *
@@ -303,6 +266,68 @@ extern "C" {
 
     /* ******************************************************************
      *
+     *   File helpers
+     *
+     ********************************************************************/
+
+    PSZ doshGetExtension(const char *pcszFilename);
+
+    BOOL doshIsFileOnFAT(const char* pcszFileName);
+
+    APIRET doshIsValidFileName(const char* pcszFile,
+                               BOOL fFullyQualified);
+
+    BOOL doshMakeRealName(PSZ pszTarget, PSZ pszSource, CHAR cReplace, BOOL fIsFAT);
+
+    ULONG doshQueryFileSize(HFILE hFile);
+
+    ULONG doshQueryPathSize(PSZ pszFile);
+
+    APIRET doshQueryPathAttr(const char* pcszFile,
+                             PULONG pulAttr);
+
+    APIRET doshSetPathAttr(const char* pcszFile,
+                           ULONG ulAttr);
+
+    APIRET doshReadTextFile(PSZ pszFile,
+                            PSZ* ppszContent);
+
+    PSZ doshCreateBackupFileName(const char* pszExisting);
+
+    APIRET doshWriteTextFile(const char* pszFile,
+                             const char* pszContent,
+                             PULONG pulWritten,
+                             PSZ pszBackup);
+
+    HFILE doshOpenLogFile(const char* pcszFilename);
+
+    APIRET doshWriteToLogFile(HFILE hfLog, const char* pcsz);
+
+    /* ******************************************************************
+     *
+     *   Directory helpers
+     *
+     ********************************************************************/
+
+    BOOL doshQueryDirExist(PSZ pszDir);
+
+    APIRET doshCreatePath(PSZ pszPath,
+                          BOOL fHidden);
+
+    APIRET doshQueryCurrentDir(PSZ pszBuf);
+
+    APIRET doshSetCurrentDir(const char *pcszDir);
+
+    #define DOSHDELDIR_RECURSE      0x0001
+    #define DOSHDELDIR_DELETEFILES  0x0002
+
+    APIRET doshDeleteDir(const char *pcszDir,
+                         ULONG flFlags,
+                         PULONG pulDirs,
+                         PULONG pulFiles);
+
+    /* ******************************************************************
+     *
      *   Process helpers
      *
      ********************************************************************/
@@ -355,31 +380,6 @@ extern "C" {
                                   PULONG pulSize);
 
     APIRET doshFreeEnvironment(PDOSENVIRONMENT pEnv);
-
-    /* ******************************************************************
-     *
-     *   Module handling helpers
-     *
-     ********************************************************************/
-
-    /*
-     *@@ RESOLVEFUNCTION:
-     *      one of these structures each define
-     *      a single function import to doshResolveImports.
-     *
-     *@@added V0.9.3 (2000-04-25) [umoeller]
-     */
-
-    typedef struct _RESOLVEFUNCTION
-    {
-        const char  *pcszFunctionName;
-        PFN         *ppFuncAddress;
-    } RESOLVEFUNCTION, *PRESOLVEFUNCTION;
-
-    APIRET doshResolveImports(PSZ pszModuleName,
-                              HMODULE *phmod,
-                              PRESOLVEFUNCTION paResolves,
-                              ULONG cResolves);
 
     /********************************************************************
      *

@@ -36,7 +36,11 @@ extern "C" {
                          HBITMAP hbm,
                          ULONG ulAnimationTime);
 
-    VOID anmPowerOff(HPS hps, ULONG ulSteps);
+    VOID anmPowerOff(HPS hps,
+                     ULONG ulMaxTime1,
+                     ULONG ulMaxTime2,
+                     ULONG ulMaxTime3,
+                     ULONG ulWaitEnd);
 
 #endif
 

@@ -3250,12 +3250,14 @@ HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
  *      this repaints all children of hwndParent.
  *      If this is passed as HWND_DESKTOP, the
  *      whole screen is repainted.
+ *
+ *@@changed V0.9.7 (2000-12-13) [umoeller]: hwndParent was never respected, fixed
  */
 
 VOID winhRepaintWindows(HWND hwndParent)
 {
     HWND    hwndTop;
-    HENUM   henum = WinBeginEnumWindows(HWND_DESKTOP);
+    HENUM   henum = WinBeginEnumWindows(hwndParent);
     while ((hwndTop = WinGetNextWindow(henum)))
         if (WinIsWindowShowing(hwndTop))
             WinInvalidateRect(hwndTop, NULL, TRUE);

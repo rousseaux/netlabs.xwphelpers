@@ -1375,6 +1375,46 @@ LONG cnrhQueryRecordIndex(HWND hwndCnr,
 }
 
 /*
+ *@@ cnrhIsChildOf:
+ *      returns TRUE only if precTest is a child record
+ *      of precParent in a tree view.
+ *
+ *@@added V0.9.7 (2000-12-13) [umoeller]
+ */
+
+BOOL cnrhIsChildOf(HWND hwndCnr,
+                   PRECORDCORE precTest,        // in: recc to test
+                   PRECORDCORE precParent)      // in: parent to test
+{
+    BOOL brc = FALSE;
+    if ((precTest) && (precParent))
+    {
+        PRECORDCORE precParentThis = precTest;
+
+        while (precParentThis)
+        {
+            // first call: get parent of precTest;
+            // subsequent calls: climb up
+            precParentThis = WinSendMsg(hwndCnr,
+                                        CM_QUERYRECORD,
+                                        precParentThis,
+                                        MPFROM2SHORT(CMA_PARENT,
+                                                     CMA_ITEMORDER));
+            if (precParentThis == (PRECORDCORE)-1)
+                break;
+            else
+                if (precParentThis == precParent)
+                {
+                    brc = TRUE;
+                    break;
+                }
+        }
+    }
+
+    return (brc);
+}
+
+/*
  *@@ cnrhForAllRecords:
  *      this monster function calls pfnwpCallback
  *      for really all the records in the container,
@@ -1662,13 +1702,17 @@ HWND cnrhQueryCnrFromFrame(HWND hwndFrame)
  *          after the records have been given "picked" emphasis.
  *
  *          Note: You must intercept CN_DROPNOTIFY in your window proc
- *          to clean up resources later.
+ *          to clean up resources later. For this, call:
+ *
+ +              DrgDeleteDraginfoStrHandles(pdrgInfo);
+ +              DrgFreeDraginfo(pdrgInfo);
  *
  *      2)  However, if (usNotifyCode == CN_INITDRAG), we will start
  *          a regular modal drag here by calling DrgDrag. This function
  *          will _not_ return until the object has been dropped or d'n'd
  *          has been cancelled. PM establishes another message loop
- *          internally for this.
+ *          internally for this. In this case, this function managed
+ *          cleanup automatically.
  *
  *      This function supports one single record core only. The following
  *      information will be set in the DRAGITEM structure:

@@ -43,6 +43,7 @@
 #define INCL_DOSMISC
 #define INCL_DOSERRORS
 
+#define INCL_WINWINDOWMGR
 #define INCL_WINPOINTERS
 #define INCL_WINSYS
 
@@ -54,12 +55,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "setup.h"                      // code generation and debugging options
+// #include "setup.h"                      // code generation and debugging options
 
-#include "helpers\animate.h"
+// #include "helpers\animate.h"
 
-#include "helpers\winh.h"
-#include "helpers\gpih.h"
+// #include "helpers\winh.h"
+// #include "helpers\gpih.h"
 
 /*
  *@@category: Helpers\PM helpers\Animation helpers
@@ -164,9 +165,7 @@ BOOL anmBlowUpBitmap(HPS hps,               // in: from WinGetScreenPS(HWND_DESK
     return (ulrc);
 }
 
-#define LAST_WIDTH 2
-#define LAST_STEPS 50
-#define WAIT_TIME  10
+#define LAST_LINE_WIDTH 2
 
 /* ******************************************************************
  *
@@ -178,19 +177,29 @@ BOOL anmBlowUpBitmap(HPS hps,               // in: from WinGetScreenPS(HWND_DESK
  *@@ anmPowerOff:
  *      displays an animation that looks like a
  *      monitor being turned off; hps must have
- *      been acquired using WinGetScreenPS,
- *      ulSteps should be around 40-50.
+ *      been acquired using WinGetScreenPS.
  *
  *@@changed V0.9.7 (2000-12-08) [umoeller]: got rid of dtGetULongTime
  */
 
-VOID anmPowerOff(HPS hps, ULONG ulSteps)
+VOID anmPowerOff(HPS hps,
+                 ULONG ulMaxTime1, //  = 500,
+                 ULONG ulMaxTime2, //  = 800,
+                 ULONG ulMaxTime3, //  = 200,
+                 ULONG ulWaitEnd)  //  = 300
 {
-    RECTL       rclScreen, rclNow, rclLast, rclDraw;
-    ULONG       ul = ulSteps;
-    ULONG       ulPhase = 1;
+    RECTL       rclScreen,
+                rclNow,
+                rclLast,
+                rclDraw;
+    ULONG       ulPhase = 1,
+                ulCXLastLine;
+
+    ULONG       ulStartTime = 0,
+                ulTimeNow = 0;
 
     WinQueryWindowRect(HWND_DESKTOP, &rclScreen);
+    ulCXLastLine = rclScreen.xRight / 3;
 
     WinShowPointer(HWND_DESKTOP, FALSE);
 
@@ -199,15 +208,19 @@ VOID anmPowerOff(HPS hps, ULONG ulSteps)
     // In order to draw the animation, we tell apart three
     // "phases", signified by the ulPhase variable. While
     // ulPhase != 99, we stay in a do-while loop.
-    ul = 0;
     ulPhase = 1;
 
     do
     {
-        ULONG ulFromTime, ulTime2;
+        // get current time
         DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
-                        &ulFromTime,
-                        sizeof(ulFromTime));
+                        &ulTimeNow,
+                        sizeof(ulTimeNow));
+
+        // get start time
+        if (ulStartTime == 0)
+            // this is reset when we enter a new phase
+            ulStartTime = ulTimeNow;
 
         if (ulPhase == 1)
         {
@@ -217,30 +230,49 @@ VOID anmPowerOff(HPS hps, ULONG ulSteps)
             // rectangles a bit closer to the center, until
             // the center is black too. Sort of like this:
 
-            //          ***************************
-            //          *       black             *
-            //          *                         *
-            //          *      .............      *
-            //          *      . rclNow:   .      *
-            //          *  ->  . untouched .  <-  *
-            //          *      .............      *
-            //          *            ^            *
-            //          *            !            *
-            //          ***************************
+            //          ษอออออออออออออออออออออออออป
+            //          บ       black             บ
+            //          บ                         บ
+            //          บ      ฺฤฤฤฤฤฤฤฤฤฤฤฟ      บ
+            //          บ      ณ rclNow:   ณ      บ
+            //          บ  ->  ณ untouched ณ  <-  บ
+            //          บ      ภฤฤฤฤฤฤฤฤฤฤฤู      บ
+            //          บ            ^            บ
+            //          บ            |            บ
+            //          ศอออออออออออออออออออออออออผ
+
+            // This part lasts exactly (ulMaxTime1) milliseconds.
 
             // rclNow contains the rectangle _around_ which
             // the black rectangles are to be drawn. With
             // every iteration, rclNow is reduced in size.
-            rclNow.xLeft = ((rclScreen.yTop / 2) * ul / ulSteps );
+            ULONG ulMaxX = (rclScreen.xRight - ulCXLastLine) / 2,
+                  ulMaxY = rclScreen.yTop / 2 - LAST_LINE_WIDTH;
+            ULONG ulTimePassed = (ulTimeNow - ulStartTime);
+            if (ulTimePassed >= ulMaxTime1)
+            {
+                // time has elapsed:
+                ulTimePassed = ulMaxTime1;
+                // enter next phase on next loop
+                ulPhase++;
+                // reget start time
+                ulStartTime = 0;
+            }
+            rclNow.xLeft = ulMaxX * ulTimePassed / ulMaxTime1;
+            rclNow.yBottom = ulMaxY * ulTimePassed / ulMaxTime1;
             rclNow.xRight = (rclScreen.xRight) - rclNow.xLeft;
-            rclNow.yBottom = ((rclScreen.yTop / 2) * ul / ulSteps );
             rclNow.yTop = (rclScreen.yTop) - rclNow.yBottom;
 
-            if (rclNow.yBottom > (rclNow.yTop - LAST_WIDTH) )
+            /* rclNow.xLeft = ((rclScreen.yTop / 2) * ul / ulSteps );
+            rclNow.xRight = (rclScreen.xRight) - rclNow.xLeft;
+            rclNow.yBottom = ((rclScreen.yTop / 2) * ul / ulSteps );
+            rclNow.yTop = (rclScreen.yTop) - rclNow.yBottom; */
+
+            /* if (rclNow.yBottom > (rclNow.yTop - LAST_WIDTH) )
             {
                 rclNow.yBottom = (rclScreen.yTop / 2) - LAST_WIDTH;
                 rclNow.yTop = (rclScreen.yTop / 2) + LAST_WIDTH;
-            }
+            } */
 
             // draw black rectangle on top of rclNow
             rclDraw.xLeft = rclLast.xLeft;
@@ -274,94 +306,201 @@ VOID anmPowerOff(HPS hps, ULONG ulSteps)
             memcpy(&rclLast, &rclNow, sizeof(RECTL));
 
             // done with "shrinking"?
-            if ( rclNow.xRight < ((rclScreen.xRight / 2) + LAST_WIDTH) )
+            /* if ( rclNow.xRight < ((rclScreen.xRight / 2) + LAST_WIDTH) )
+            {
                 ulPhase = 2; // exit
+                // reget start time
+                ulStartTime = 0;
+            } */
+
+            if (ulPhase == 2)
+            {
+                // this was the last step in this phase:
+                memcpy(&rclLast, &rclScreen, sizeof(RECTL));
+            }
         }
         else if (ulPhase == 2)
         {
             // Phase 2: draw a horizontal white line about
-            // where the last rclNow was. This is only
-            // executed once.
+            // where the last rclNow was. and shrink it
+            // towards the middle. This ends with a white
+            // dot in the middle of the screen.
 
-            //          ***************************
-            //          *       black             *
-            //          *                         *
-            //          *                         *
-            //          *        -----------      *
-            //          *                         *
-            //          *                         *
-            //          *                         *
-            //          ***************************
+            //          ษอออออออออออออออออออออออออป
+            //          บ       black             บ
+            //          บ                         บ
+            //          บ                         บ
+            //          บ  -->   ฤwhiteฤฤฤฤ   <-- บ
+            //          บ                         บ
+            //          บ                         บ
+            //          บ                         บ
+            //          ศอออออออออออออออออออออออออผ
 
-            rclDraw.xLeft = (rclScreen.xRight / 2) - LAST_WIDTH;
-            rclDraw.xRight = (rclScreen.xRight / 2) + LAST_WIDTH;
-            rclDraw.yBottom = (rclScreen.yTop * 1 / 4);
-            rclDraw.yTop = (rclScreen.yTop * 3 / 4);
-            WinFillRect(hps, &rclDraw, CLR_WHITE);
+            // This part lasts exactly (ulMaxTime2) milliseconds.
 
-            ulPhase = 3;
-            ul = 0;
+            // start is same as max in step 1
+            ULONG ulStartX = (rclScreen.xRight - ulCXLastLine) / 2,
+                  ulY      = rclScreen.yTop / 2 - LAST_LINE_WIDTH;
+            ULONG ulMaxX = (rclScreen.xRight) / 2 - LAST_LINE_WIDTH;      // center
+            ULONG ulTimePassed = (ulTimeNow - ulStartTime);
+            if (ulTimePassed >= ulMaxTime2)
+            {
+                // time has elapsed:
+                ulTimePassed = ulMaxTime2;
+                // enter next phase on next loop
+                ulPhase++;
+                // reget start time
+                ulStartTime = 0;
+            }
 
+            rclNow.xLeft =  ulStartX
+                          + ( (ulMaxX - ulStartX) * ulTimePassed / ulMaxTime2 );
+            rclNow.yBottom = ulY;
+            rclNow.xRight = (rclScreen.xRight) - rclNow.xLeft;
+            rclNow.yTop = (rclScreen.yTop) - rclNow.yBottom;
+
+            // draw black rectangle left of rclNow
+            rclDraw.xLeft = rclLast.xLeft;
+            rclDraw.xRight = rclNow.xLeft;
+            rclDraw.yBottom = rclLast.yBottom;
+            rclDraw.yTop = rclLast.yTop;
+            WinFillRect(hps, &rclDraw, CLR_BLACK);
+
+            // draw black rectangle right of rclNow
+            rclDraw.xLeft = rclNow.xRight;
+            rclDraw.xRight = rclLast.xRight;
+            rclDraw.yBottom = rclLast.yBottom;
+            rclDraw.yTop = rclLast.yTop;
+            WinFillRect(hps, &rclDraw, CLR_BLACK);
+
+            // WinFillRect(hps, &rclNow, CLR_WHITE);
+
+            // remember rclNow for next iteration
+            memcpy(&rclLast, &rclNow, sizeof(RECTL));
+
+            if (ulPhase == 3)
+            {
+                // this was the last step in this phase:
+                // keep the dot visible for a while
+                DosSleep(ulMaxTime3);
+
+                // draw a white line for phase 3
+                rclLast.xLeft = ulMaxX;
+                rclLast.yBottom = rclScreen.yTop / 4;
+                rclLast.xRight = rclScreen.xRight - rclLast.xLeft;
+                rclLast.yTop = rclScreen.yTop - rclLast.yBottom;
+
+                WinFillRect(hps, &rclLast, CLR_WHITE);
+            }
         }
         else if (ulPhase == 3)
         {
             // Phase 3: make the white line shorter with
             // every iteration by drawing black rectangles
-            // above it. These are drawn closer to the
-            // center with each iteration.
+            // above and below it. These are drawn closer
+            // to the center with each iteration.
 
-            //          ***************************
-            //          *       black             *
-            //          *                         *
-            //          *                         *
-            //          *       ->  ----  <-      *
-            //          *                         *
-            //          *                         *
-            //          *                         *
-            //          ***************************
+            //          ษอออออออออออออออออออออออออป
+            //          บ                         บ
+            //          บ                         บ
+            //          บ            |            บ
+            //          บ            |            บ
+            //          บ            |            บ
+            //          บ                         บ
+            //          บ                         บ
+            //          ศอออออออออออออออออออออออออผ
 
-            rclDraw.xLeft = (rclScreen.xRight / 2) - LAST_WIDTH;
-            rclDraw.xRight = (rclScreen.xRight / 2) + LAST_WIDTH;
-            rclDraw.yTop = (rclScreen.yTop * 3 / 4);
-            rclDraw.yBottom = (rclScreen.yTop * 3 / 4) - ((rclScreen.yTop * 1 / 4) * ul / LAST_STEPS);
-            if (rclDraw.yBottom < ((rclScreen.yTop / 2) + LAST_WIDTH))
-                rclDraw.yBottom = ((rclScreen.yTop / 2) + LAST_WIDTH);
+            // This part lasts exactly ulMaxTime3 milliseconds.
+            ULONG ulX = (rclScreen.xRight) / 2 - LAST_LINE_WIDTH,      // center
+                  ulStartY = rclScreen.yTop / 4;
+            ULONG ulMaxY = (rclScreen.yTop) / 2 - LAST_LINE_WIDTH;      // center
+            ULONG ulTimePassed = (ulTimeNow - ulStartTime);
+            if (ulTimePassed >= ulMaxTime3)
+            {
+                // time has elapsed:
+                ulTimePassed = ulMaxTime3;
+                // stop
+                ulPhase = 99;
+            }
+
+            rclNow.xLeft =  ulX;
+            rclNow.yBottom = ulStartY
+                          + ( (ulMaxY - ulStartY) * ulTimePassed / ulMaxTime3 );
+            rclNow.xRight = (rclScreen.xRight) - rclNow.xLeft;
+            rclNow.yTop = (rclScreen.yTop) - rclNow.yBottom;
+
+            // draw black rectangle on top of rclNow
+            rclDraw.xLeft = rclLast.xLeft;
+            rclDraw.xRight = rclLast.xRight;
+            rclDraw.yBottom = rclNow.yTop;
+            rclDraw.yTop = rclLast.yTop;
             WinFillRect(hps, &rclDraw, CLR_BLACK);
 
-            rclDraw.xLeft = (rclScreen.xRight / 2) - LAST_WIDTH;
-            rclDraw.xRight = (rclScreen.xRight / 2) + LAST_WIDTH;
+            // draw black rectangle at the bottom of rclNow
+            rclDraw.xLeft = rclLast.xLeft;
+            rclDraw.xRight = rclLast.xRight;
+            rclDraw.yBottom = rclLast.yBottom;
+            rclDraw.yTop = rclNow.yBottom;
+            WinFillRect(hps, &rclDraw, CLR_BLACK);
+
+            // remember rclNow for next iteration
+            memcpy(&rclLast, &rclNow, sizeof(RECTL));
+
+            /* rclDraw.xLeft = (rclScreen.xRight / 2) - LAST_LINE_WIDTH;
+            rclDraw.xRight = (rclScreen.xRight / 2) + LAST_LINE_WIDTH;
+            rclDraw.yTop = (rclScreen.yTop * 3 / 4);
+            rclDraw.yBottom = (rclScreen.yTop * 3 / 4) - ((rclScreen.yTop * 1 / 4) * ul / LAST_STEPS);
+            if (rclDraw.yBottom < ((rclScreen.yTop / 2) + LAST_LINE_WIDTH))
+                rclDraw.yBottom = ((rclScreen.yTop / 2) + LAST_LINE_WIDTH);
+            WinFillRect(hps, &rclDraw, CLR_BLACK);
+
+            rclDraw.xLeft = (rclScreen.xRight / 2) - LAST_LINE_WIDTH;
+            rclDraw.xRight = (rclScreen.xRight / 2) + LAST_LINE_WIDTH;
             rclDraw.yBottom = (rclScreen.yTop * 1 / 4);
             rclDraw.yTop = (rclScreen.yTop * 1 / 4) + ((rclScreen.yTop * 1 / 4) * ul / LAST_STEPS);
-            if (rclDraw.yTop > ((rclScreen.yTop / 2) - LAST_WIDTH))
-                rclDraw.yBottom = ((rclScreen.yTop / 2) - LAST_WIDTH);
+            if (rclDraw.yTop > ((rclScreen.yTop / 2) - LAST_LINE_WIDTH))
+                rclDraw.yBottom = ((rclScreen.yTop / 2) - LAST_LINE_WIDTH);
 
             WinFillRect(hps, &rclDraw, CLR_BLACK);
 
             ul++;
-            if (ul > LAST_STEPS)
-                ulPhase = 99;
+            if (ul > LAST_STEPS) */
+            //     ulPhase = 99;
         }
 
-        ul++;
-
-        DosSleep(WAIT_TIME);
-
-        /* do
-        {
-            DosSleep(0);
-            DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
-                            &ulTime2,
-                            sizeof(ulTime2));
-        }  while (ulTime2 < ulFromTime + WAIT_TIME); */
     } while (ulPhase != 99);
 
     // sleep a while
-    DosSleep(500);
+    DosSleep(ulWaitEnd / 2);
     WinFillRect(hps, &rclScreen, CLR_BLACK);
-    DosSleep(500);
+    DosSleep(ulWaitEnd / 2);
 
     WinShowPointer(HWND_DESKTOP, TRUE);
 }
 
 
+// testcase
 
+/* int main(int argc, char* argp)
+{
+    HENUM henum;
+    HWND hwndTop;
+    HAB hab = WinInitialize(0);
+    HMQ hmq = WinCreateMsgQueue(hab, 0);
+    HPS hps = WinGetScreenPS(HWND_DESKTOP);
+
+    anmPowerOff(hps);
+
+    henum = WinBeginEnumWindows(HWND_DESKTOP);
+    while ((hwndTop = WinGetNextWindow(henum)))
+        if (WinIsWindowShowing(hwndTop))
+            WinInvalidateRect(hwndTop, NULL, TRUE);
+    WinEndEnumWindows(henum);
+
+    WinShowPointer(HWND_DESKTOP, TRUE);
+
+    WinDestroyMsgQueue(hmq);
+    WinTerminate(hab);
+
+    return (0);
+} */

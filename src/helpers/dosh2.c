@@ -720,63 +720,6 @@ APIRET doshFreeEnvironment(PDOSENVIRONMENT pEnv)
 }
 
 /*
- *@@category: Helpers\Control program helpers\Module handling
- */
-
-/* ******************************************************************
- *
- *   Module handling helpers
- *
- ********************************************************************/
-
-/*
- *@@ doshResolveImports:
- *      this function loads the module called pszModuleName
- *      and resolves imports dynamically using DosQueryProcAddress.
- *
- *      To specify the functions to be imported, a RESOLVEFUNCTION
- *      array is used. In each of the array items, specify the
- *      name of the function and a pointer to a function pointer
- *      where to store the resolved address.
- *
- *@@added V0.9.3 (2000-04-29) [umoeller]
- */
-
-APIRET doshResolveImports(PSZ pszModuleName,    // in: DLL to load
-                          HMODULE *phmod,       // out: module handle
-                          PRESOLVEFUNCTION paResolves, // in/out: function resolves
-                          ULONG cResolves)      // in: array item count (not array size!)
-{
-    CHAR    szName[CCHMAXPATH];
-    APIRET arc = DosLoadModule(szName,
-                               sizeof(szName),
-                               pszModuleName,
-                               phmod);
-    if (arc == NO_ERROR)
-    {
-        ULONG  ul;
-        for (ul = 0;
-             ul < cResolves;
-             ul++)
-        {
-            arc = DosQueryProcAddr(*phmod,
-                                   0,               // ordinal, ignored
-                                   (PSZ)paResolves[ul].pcszFunctionName,
-                                   paResolves[ul].ppFuncAddress);
-
-            /* _Pmpf(("Resolved %s to 0x%lX, rc: %d",
-                    paResolves[ul].pcszFunctionName,
-                    *paResolves[ul].ppFuncAddress,
-                    arc)); */
-            if (arc != NO_ERROR)
-                break;
-        }
-    }
-
-    return (arc);
-}
-
-/*
  *@@category: Helpers\Control program helpers\Executable info
  */
 

@@ -158,6 +158,10 @@ extern "C" {
     typedef void* XWPENTRY LSTITEMFROMINDEX(PLINKLIST pList, unsigned long ulIndex);
     typedef LSTITEMFROMINDEX *PLSTITEMFROMINDEX;
 
+    unsigned long lstIndexFromItem(PLINKLIST pList, void *pItemData);
+    typedef unsigned long LSTINDEXFROMITEM(PLINKLIST pList, void *pItemData);
+    typedef LSTINDEXFROMITEM *PLSTINDEXFROMITEM;
+
     #ifdef __XWPMEMDEBUG__ // setup.h, helpers\memdebug.c
         PLISTNODE XWPENTRY lstAppendItemDebug(PLINKLIST pList,
                                               void* pNewItemData,

@@ -72,6 +72,8 @@
 #define INCL_DOSSEMAPHORES
 #define INCL_DOSMISC
 #define INCL_DOSERRORS
+
+#define INCL_WINMESSAGEMGR
 #include <os2.h>
 
 #include <stdio.h>
@@ -150,7 +152,7 @@ BOOL LockTimers(VOID)
                         == NO_ERROR);
     }
     else
-        brc = (DosRequestMutexSem(G_hmtxTimers, SEM_INDEFINITE_WAIT)
+        brc = (WinRequestMutexSem(G_hmtxTimers, SEM_INDEFINITE_WAIT)
                     == NO_ERROR);
     return (brc);
 }
@@ -163,19 +165,6 @@ BOOL LockTimers(VOID)
 VOID UnlockTimers(VOID)
 {
     DosReleaseMutexSem(G_hmtxTimers);
-}
-
-/*
- *@@ tmrOnKill:
- *      on-kill proc for exception handlers.
- *
- *@@added V0.9.7 (2000-12-09) [umoeller]
- */
-
-VOID APIENTRY tmrOnKill(PEXCEPTIONREGISTRATIONRECORD2 pRegRec2)
-{
-    DosBeep(500, 500);
-    UnlockTimers();
 }
 
 /*
@@ -216,6 +205,8 @@ void _Optlink fntTimersThread(PTHREADINFO ptiMyself)
     {
         ULONG ulNesting = 0;
 
+        ULONG ulTimeNow;
+
         DosSleep(ulInterval);
 
         // minimum interval: 100 ms; this is lowered
@@ -224,10 +215,10 @@ void _Optlink fntTimersThread(PTHREADINFO ptiMyself)
         // fire at a lower interval...
         ulInterval = 100;
 
+        DosEnterMustComplete(&ulNesting);
+
         TRY_LOUD(excpt1)
         {
-            DosEnterMustComplete(&ulNesting);
-
             fLocked = LockTimers();
             if (fLocked)
             {
@@ -243,12 +234,14 @@ void _Optlink fntTimersThread(PTHREADINFO ptiMyself)
                 {
                     // we have timers:
                     BOOL      fFoundInvalid = FALSE;
+
+                    // get current time
+                    DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
+                                    &ulTimeNow, sizeof(ulTimeNow));
+
                     while (pTimerNode)
                     {
                         PXTIMER pTimer = (PXTIMER)pTimerNode->pItemData;
-                        ULONG ulTimeNow;
-                        DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
-                                        &ulTimeNow, sizeof(ulTimeNow));
 
                         if (pTimer->ulNextFire < ulTimeNow)
                         {

@@ -481,6 +481,10 @@ extern "C" {
     LONG cnrhQueryRecordIndex(HWND hwndCnr,
                               PRECORDCORE precc);
 
+    BOOL cnrhIsChildOf(HWND hwndCnr,
+                       PRECORDCORE precTest,
+                       PRECORDCORE precParent);
+
     typedef ULONG EXPENTRY FNCBRECC(HWND, PRECORDCORE, ULONG, ULONG);
     typedef FNCBRECC *PFNCBRECC;
 
