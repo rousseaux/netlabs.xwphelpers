@@ -34,6 +34,7 @@ extern "C" {
     #define THRF_PMMSGQUEUE     0x0001
     #define THRF_WAIT           0x0002
     #define THRF_TRANSIENT      0x0004
+    #define THRF_WAIT_EXPLICIT  0x0008          // V0.9.9 (2001-03-14) [umoeller]
 
     /*
      *@@ THREADINFO:

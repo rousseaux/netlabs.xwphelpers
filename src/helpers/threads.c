@@ -138,6 +138,7 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
         if (pti->flFlags & THRF_WAIT)
             // "Wait" flag set: thrCreate is then
             // waiting on the wait event sem posted
+                    // do not post if THRF_WAIT_EXPLICIT!
             DosPostEventSem(pti->hevRunning);
 
         if (pti->flFlags & THRF_PMMSGQUEUE)
@@ -160,7 +161,7 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
             // no msgqueue:
             ((PTHREADFUNC)pti->pThreadFunc)(pti);
 
-        if (pti->flFlags & THRF_WAIT)
+        if (pti->flFlags & (THRF_WAIT | THRF_WAIT_EXPLICIT))    // V0.9.9 (2001-03-14) [umoeller]
             // "Wait" flag set: delete semaphore
             DosCloseEventSem(pti->hevRunning);
 
@@ -250,6 +251,18 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
  *         typical PM "Worker" thread where you need to disable
  *         menu items on thread 1 while the thread is running.
  *
+ *      -- THRF_WAIT_EXPLICIT: like THRF_WAIT, but in this case,
+ *         your thread function must post THREADINFO.hevRunning
+ *         yourself (thr_fntGeneric will not automatically
+ *         post it). Useful for waiting until your own thread
+ *         function is fully initialized, e.g. if it creates
+ *         an object window.
+ *
+ *         WARNING: if your thread forgets to post this, we'll
+ *         hang.
+ *
+ *         Added V0.9.9 (2001-03-14) [umoeller].
+ *
  *      -- THRF_TRANSIENT: creates a "transient" thread where
  *         pti may be NULL. A THREADINFO structure is then
  *         allocated from the heap internally, but not visible
@@ -268,6 +281,7 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
  *@@changed V0.9.7 (2000-12-18) [lafaix]: THRF_TRANSIENT support added
  *@@changed V0.9.9 (2001-02-06) [umoeller]: now returning TID
  *@@changed V0.9.9 (2001-03-07) [umoeller]: added pcszThreadName
+ *@@changed V0.9.9 (2001-03-14) [umoeller]: added THRF_WAIT_EXPLICIT
  */
 
 ULONG thrCreate(PTHREADINFO pti,     // out: THREADINFO data
@@ -298,9 +312,9 @@ ULONG thrCreate(PTHREADINFO pti,     // out: THREADINFO data
         pti->flFlags = flFlags;
         pti->ulData = ulData;
 
-        if (flFlags & THRF_WAIT)
+        if (flFlags & (THRF_WAIT | THRF_WAIT_EXPLICIT)) // V0.9.9 (2001-03-14) [umoeller]
             // "Wait" flag set: create an event semaphore which
-            // will be posted by thr_fntGeneric
+            // will be posted by thr_fntGeneric (THRF_WAIT only)
             if (DosCreateEventSem(NULL,     // unnamed
                                   &pti->hevRunning,
                                   0,        // unshared
@@ -331,10 +345,9 @@ ULONG thrCreate(PTHREADINFO pti,     // out: THREADINFO data
                     UnlockThreadInfos();
                 }
 
-                if (flFlags & THRF_WAIT)
+                if (flFlags & (THRF_WAIT | THRF_WAIT_EXPLICIT))
                 {
                     // "Wait" flag set: wait on event semaphore
-                    // posted by thr_fntGeneric
                     DosWaitEventSem(pti->hevRunning,
                                     SEM_INDEFINITE_WAIT);
                 }
