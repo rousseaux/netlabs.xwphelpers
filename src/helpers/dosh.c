@@ -453,6 +453,7 @@ CHAR doshQueryBootDrive(VOID)
  *@@changed V0.9.1 (2000-02-09) [umoeller]: this didn't work for network drives, including RAMFS; fixed.
  *@@changed V0.9.3 (2000-03-28) [umoeller]: added check for network drives, which weren't working
  *@@changed V0.9.4 (2000-08-03) [umoeller]: more network fixes
+ *@@changed V0.9.9 (2001-03-19) [pr]: validate drive number
  */
 
 APIRET doshAssertDrive(ULONG ulLogicalDrive) // in: 1 for A:, 2 for B:, 3 for C:, ...
@@ -461,6 +462,9 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive) // in: 1 for A:, 2 for B:, 3 for C:
     HFILE   hfDrive = 0;
     ULONG   ulTemp = 0;
     APIRET  arc;
+
+    if ((ulLogicalDrive < 1) || (ulLogicalDrive > 26))
+        return(ERROR_PATH_NOT_FOUND);
 
     szDrive[0] = 'A' + ulLogicalDrive - 1;
 
