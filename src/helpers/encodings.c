@@ -187,7 +187,7 @@ int encGetTable(ENCID id,
  *      codepage, or UNSUPPORTED if there's none.
  *
  *@@added V0.9.18 (2002-03-08) [umoeller]
- *@@changed fixed Korean codepage from 951to 949 V1.0.2 (2003-09-19) [umoeller]
+ *@@changed V1.0.2 (2003-09-19) [umoeller]: fixed Korean codepage from 951 to 949
  */
 
 ENCID encFindIdForCodepage(unsigned short usCodepage,       // in: codepage to find
