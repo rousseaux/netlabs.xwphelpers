@@ -9,7 +9,7 @@
  *      to this separate file (99-11-01) [umoeller].
  *      More logger classes were added with V0.9.9 (2001-03-30) [umoeller].
  *
- *@@header "base\bs_logger.h"
+ *@@header "cppbase\bs_logger.h"
  *@@added V0.9.0 (99-11-01) [umoeller]
  */
 

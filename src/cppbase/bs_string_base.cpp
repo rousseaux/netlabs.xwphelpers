@@ -3,7 +3,7 @@
  *@@sourcefile bs_string.cpp:
  *      BSString implementation.
  *
- *@@header "base\bs_string.h"
+ *@@header "cppbase\bs_string.h"
  */
 
 /*

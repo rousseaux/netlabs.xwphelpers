@@ -3,7 +3,7 @@
  *@@sourcefile bs_string_conv.cpp:
  *      implementation for BSUniCodec.
  *
- *@@header "base\bs_string.h"
+ *@@header "cppbase\bs_string.h"
  *@@added V0.9.18 (2002-03-08) [umoeller]
  */
 

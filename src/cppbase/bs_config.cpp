@@ -63,8 +63,8 @@
  *
  *      See bs_config.h for the declarations of these classes.
  *
- *@@header "base\bs_config.h"
- *@@header "base\bs_config_impl.h"
+ *@@header "cppbase\bs_config.h"
+ *@@header "cppbase\bs_config_impl.h"
  */
 
 /*

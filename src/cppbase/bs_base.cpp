@@ -4,9 +4,9 @@
  *      implements the BSRoot class, which was added
  *      with V0.9.14.
  *
- *@@header "base\bs_base.h"
- *@@header "base\bs_list.h"
- *@@header "base\bs_errors.h"
+ *@@header "cppbase\bs_base.h"
+ *@@header "cppbase\bs_list.h"
+ *@@header "cppbase\bs_errors.h"
  *@@added V0.9.14 (2001-07-12) [umoeller]
  */
 
