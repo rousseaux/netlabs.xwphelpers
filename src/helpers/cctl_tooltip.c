@@ -1373,7 +1373,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              */
 
             case TTM_GETDELAYTIME:
-                switch ((USHORT)mp1)
+                switch ((ULONG)mp1)
                 {
                     case TTDT_AUTOPOP:
                         mrc = (MRESULT)pttd->ulTimeoutAutopop;
