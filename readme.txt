@@ -1,6 +1,6 @@
 XWP Helpers 0.9.6 README
 (W) Ulrich M”ller, October 26, 2000
-Last updated October 26, 2000, Ulrich M”ller
+Last updated December 11, 2000, Ulrich M”ller
 
 
 0. CONTENTS OF THIS FILE
@@ -116,6 +116,17 @@ Last updated October 26, 2000, Ulrich M”ller
     "setup.in" which sets up more environment variables. You can
     take the one from the XWPHelpers makefile as a template.
 
+    Here's an example: Say you have a CVS root directory of
+    "C:\cvs" on your system. The XWPHelpers reside in
+    "C:\cvs\xwphelpers". Your own project resides in
+    "C:\cvs\myproject" (plus subdirectories). So set
+    PROJECT_BASE_DIR to "C:\cvs\myproject" and put setup.in
+    in that directory.
+
+    Note that the XWPHelpers also expect a "setup.h" header
+    file to be somewhere on your INCLUDE path. See remarks
+    below.
+
     See the top of src\helpers\makefile for additional variables.
 
     Of course, nothing stops you from writing your own makefile
@@ -148,7 +159,24 @@ Last updated October 26, 2000, Ulrich M”ller
     compile.
 
     Besides, the helpers C code expects a file called "setup.h"
-    in your include path somewhere. This is included by all
+    in your include path somewhere. This is included by _all_
     the C files so you can (re)define certain macros there.
+    XWorkplace and WarpIN both have such a header file in their
+    respective "include" directories.
+
+    With V0.9.7, many function prototypes have been changed in
+    the helpers headers to allow exporting them in a DLL.
+    (This was necessary for creating XWorkplace plugin DLLs.)
+    As a result, you now MUST define XWPENTRY in your setup.h
+    to contain the linkage for the helpers functions. This
+    can look like this:
+
+        #ifdef __EMX__
+            // with EMX, do nothing; EMX always uses _System linkage
+            #define XWPENTRY
+        #elif defined (__IBMCPP__) || defined (__IBMC__)
+            // with VAC, use _Optlink; that's faster than _System
+            #define XWPENTRY _Optlink
+        #endif
 
 
