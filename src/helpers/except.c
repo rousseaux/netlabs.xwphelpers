@@ -581,7 +581,7 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
             fprintf(file,
                     "Explanation: An attempt was made to execute an instruction that\n"
                     "             is not permitted in the current machine mode or that\n"
-                    "             XFolder had no permission to execute.\n");
+                    "             the program had no permission to execute.\n");
         break;
 
         case XCPT_INTEGER_OVERFLOW:

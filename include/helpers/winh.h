@@ -579,6 +579,9 @@ extern "C" {
                                      PHELPTABLE pHelpTable,
                                      const char *pcszWindowTitle);
 
+        ULONG winhDisplayHelpPanel(HWND hwndHelpInstance,
+                                   ULONG ulHelpPanel);
+
         void XWPENTRY winhDestroyHelp(HWND hwndHelp, HWND hwndFrame);
     #endif
 

@@ -1641,12 +1641,6 @@ BOOL dbgPrintStackFrame(FILE *LogFile,
                         // but the SYM files are still in the WARP4 directory...)
                         // V0.9.3 (2000-04-26) [umoeller]
                         pszVersionDir = "WARP4";
-                    /* else if (aulBuf[1] == 45)
-                        // Warp Server for e-Business (aka Warp 4.5):
-                        // we use the SYM files for the UNI kernel,
-                        // I have found no way to find out whether
-                        // we're running on an SMP kernel
-                        pszVersionDir = "WARP45_U"; */
                 }
 
                 pszFilename++;
