@@ -1316,10 +1316,13 @@ APIRET doshWriteToLogFile(HFILE hfLog, const char* pcsz)
  *      exists.
  */
 
-BOOL doshQueryDirExist(PSZ pszDir)
+BOOL doshQueryDirExist(const char *pcszDir)
 {
     FILESTATUS3 fs3;
-    APIRET arc = DosQueryPathInfo(pszDir, FIL_STANDARD, &fs3, sizeof(fs3));
+    APIRET arc = DosQueryPathInfo((PSZ)pcszDir,
+                                  FIL_STANDARD,
+                                  &fs3,
+                                  sizeof(fs3));
     if (arc == NO_ERROR)
         // file found:
         return ((fs3.attrFile & FILE_DIRECTORY) != 0);
