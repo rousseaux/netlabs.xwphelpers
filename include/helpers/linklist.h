@@ -215,6 +215,17 @@ extern "C" {
                                 PFNSORTLIST pfnSort,
                                 void* pStorage);
 
+    /* ******************************************************************
+     *
+     *   List pseudo-stacks
+     *
+     ********************************************************************/
+
+    PLISTNODE lstPush(PLINKLIST pList,
+                      void* pNewItemData);
+
+    PLISTNODE lstPop(PLINKLIST pList);
+
 #endif
 
 #if __cplusplus

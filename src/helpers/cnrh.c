@@ -468,7 +468,7 @@ ULONG cnrhInsertRecords(HWND hwndCnr,   // in: container to insert into
                             // in: record core to insert (allocated using
                             // cnrhAllocRecords)
                         BOOL fInvalidate,
-                        PSZ pszText,
+                        const char *pcszText,
                             // in: text for recc. in all views (or NULL)
                         ULONG flRecordAttr,
                             // in: CRA_* flags
@@ -483,12 +483,12 @@ ULONG cnrhInsertRecords(HWND hwndCnr,   // in: container to insert into
         precc->flRecordAttr = flRecordAttr;
         // precc->preccNextRecord = NULL;
 
-        if (pszText) // V0.9.0
+        if (pcszText) // V0.9.0
         {
-            precc->pszIcon = pszText;
-            precc->pszText = pszText;
-            precc->pszName = pszText;
-            precc->pszTree = pszText;
+            precc->pszIcon = (PSZ)pcszText;
+            precc->pszText = (PSZ)pcszText;
+            precc->pszName = (PSZ)pcszText;
+            precc->pszTree = (PSZ)pcszText;
         }
 
         // setup RECORDINSERT struct

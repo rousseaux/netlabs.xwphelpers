@@ -16,13 +16,19 @@ Last updated January 6, 2001, Ulrich M”ller
 1. LICENSE, COPYRIGHT, DISCLAIMER
 =================================
 
-    Copyright (C) 1997-2000 Ulrich M”ller,
+    Copyright (C) 1997-2001 Ulrich M”ller,
                             Christian Langanke,
                             and others (see the individual source files).
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as contained in
-    the file COPYING in this distribution.
+    Most of this library is published under the GNU General Public Licence.
+    You can redistribute it and/or modify those parts under the terms of the
+    GNU General Public License as contained in the file COPYING in the
+    main directory.
+
+    Parts of this library are published under MIT licence. See the
+    COPYING.MIT file in the main directory.
+
+    See the individual source files for what licence applies.
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of

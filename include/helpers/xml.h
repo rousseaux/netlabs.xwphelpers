@@ -7,8 +7,10 @@
  *
  *@@added V0.9.6 (2000-10-29) [umoeller]
  *@@include #include <os2.h>
- *@@include #include "linklist.h"
- *@@include #include "xml.h"
+ *@@include #include "expat\expat.h"
+ *@@include #include "helpers\linklist.h"
+ *@@include #include "helpers\xstring.h"
+ *@@include #include "helpers\xml.h"
  */
 
 #if __cplusplus
@@ -33,16 +35,20 @@ extern "C" {
         #define __SIMPLES_DEFINED
     #endif
 
-    #define DOMERR_INDEX_SIZE                  1;
-    #define DOMERR_DOMSTRING_SIZE              2;
-    #define DOMERR_HIERARCHY_REQUEST           3;
-    #define DOMERR_WRONG_DOCUMENT              4;
-    #define DOMERR_INVALID_CHARACTER           5;
-    #define DOMERR_NO_DATA_ALLOWED             6;
-    #define DOMERR_NO_MODIFICATION_ALLOWED     7;
-    #define DOMERR_NOT_FOUND                   8;
-    #define DOMERR_NOT_SUPPORTED               9;
-    #define DOMERR_INUSE_ATTRIBUTE            10;
+    #define ERROR_DOM_FIRST                14000
+
+    #define ERROR_DOM_INDEX_SIZE                   (ERROR_DOM_FIRST + 1)
+    #define ERROR_DOM_DOMSTRING_SIZE               (ERROR_DOM_FIRST + 2)
+    #define ERROR_DOM_HIERARCHY_REQUEST            (ERROR_DOM_FIRST + 3)
+    #define ERROR_DOM_WRONG_DOCUMENT               (ERROR_DOM_FIRST + 4)
+    #define ERROR_DOM_INVALID_CHARACTER            (ERROR_DOM_FIRST + 5)
+    #define ERROR_DOM_NO_DATA_ALLOWED              (ERROR_DOM_FIRST + 6)
+    #define ERROR_DOM_NO_MODIFICATION_ALLOWED      (ERROR_DOM_FIRST + 7)
+    #define ERROR_DOM_NOT_FOUND                    (ERROR_DOM_FIRST + 8)
+    #define ERROR_DOM_NOT_SUPPORTED                (ERROR_DOM_FIRST + 9)
+    #define ERROR_DOM_INUSE_ATTRIBUTE              (ERROR_DOM_FIRST + 10)
+
+    #define ERROR_DOM_PARSING                      (ERROR_DOM_FIRST + 11)
 
     #define DOMNODE_ELEMENT         1          // node is an ELEMENT
     #define DOMNODE_ATTRIBUTE       2          // node is an ATTRIBUTE
@@ -86,16 +92,30 @@ extern "C" {
     typedef struct _DOMNODE
     {
         ULONG       ulNodeType;
+                    // one of:
+                    // -- DOMNODE_ELEMENT
+                    // -- DOMNODE_ATTRIBUTE
+                    // -- DOMNODE_TEXT
+                    // -- DOMNODE_CDATA_SECTION
+                    // -- DOMNODE_ENTITY_REFERENCE
+                    // -- DOMNODE_ENTITY
+                    // -- DOMNODE_PROCESSING_INSTRUCTION
+                    // -- DOMNODE_COMMENT
+                    // -- DOMNODE_DOCUMENT: the root document. See @documents.
+                    // -- DOMNODE_DOCUMENT_TYPE
+                    // -- DOMNODE_DOCUMENT_FRAGMENT
+                    // -- DOMNODE_NOTATION
 
-        PSZ         pszNodeName;
-        PSZ         pszNodeValue;
+        XSTRING     strNodeName;            // malloc()'d
+        XSTRING     strNodeValue;           // malloc()'d
 
         struct _DOMNODE *pParentNode;
                         // the parent node;
                         // NULL for DOCUMENT, DOCUMENT_FRAGMENT and ATTR
-        LINKLIST    listChildNodes;     // of DOMNODE* pointers
 
-        LINKLIST    listAttributeNodes; // of DOMNODE* pointers
+        LINKLIST    llChildNodes;     // of DOMNODE* pointers, no auto-free
+
+        LINKLIST    llAttributeNodes; // of DOMNODE* pointers, no auto-free
 
     } DOMNODE, *PDOMNODE;
 
@@ -110,12 +130,55 @@ extern "C" {
 
     ULONG xmlDeleteNode(PDOMNODE pNode);
 
-    ULONG xmlParse(PDOMNODE pParentNode,
-                   const char *pcszBuf,
-                   PFNVALIDATE pfnValidateTag);
+    /* ******************************************************************
+     *
+     *   DOM APIs
+     *
+     ********************************************************************/
 
-    PDOMNODE xmlCreateDocumentFromString(const char *pcszXML,
-                                         PFNVALIDATE pfnValidateTag);
+    /*
+     *@@ XMLDOM:
+     *      DOM instance returned by xmlCreateDOM.
+     *
+     *@@added V0.9.9 (2000-02-14) [umoeller]
+     */
+
+    typedef struct _XMLDOM
+    {
+        /*
+         *  Public fields (should be read only)
+         */
+
+        PDOMNODE        pDocumentNode;
+
+        enum XML_Error  Error;
+        const char      *pcszErrorDescription;
+        ULONG           ulErrorLine;
+        ULONG           ulErrorColumn;
+
+        /*
+         *  Private fields (for xml* functions)
+         */
+
+        XML_Parser      pParser;
+                            // expat parser instance
+
+        LINKLIST        llStack;
+                            // stack for maintaining the current items;
+                            // these point to the NODERECORDs (no auto-free)
+
+        PDOMNODE        pLastWasTextNode;
+    } XMLDOM, *PXMLDOM;
+
+    APIRET xmlCreateDOM(ULONG flParserFlags,
+                        PXMLDOM *ppDom);
+
+    APIRET xmlParse(PXMLDOM pDom,
+                    const char *pcszBuf,
+                    ULONG cb,
+                    BOOL fIsLast);
+
+    APIRET xmlFreeDOM(PXMLDOM pDom);
 
 #endif
 

@@ -1,29 +1,96 @@
 
 /*
  *@@sourcefile xml.c:
- *      XML parsing.
+ *      XML document handling.
  *
- *      This is vaguely modelled after the Document Object Model
- *      (DOM) standardized by the W3C.
+ *      XML support in the XWorkplace Helpers is broken into two
+ *      layers:
+ *
+ *      --  The bottom layer is implemented by expat, which I have
+ *          ported to this library. See xmlparse.c for an introduction.
+ *
+ *      --  Because expat requires so many callbacks and is non-validating,
+ *          I have added a top layer above the expat library
+ *          which is vaguely modelled after the Document Object Model
+ *          (DOM) standardized by the W3C. That's this file.
+ *
+ *      To understand and use this code, you should be familiar with
+ *      the following:
+ *
+ *      -- XML parsers operate on XML @documents.
+ *
+ *      -- Each XML document has both a logical and a physical
+ *         structure.
+ *
+ *         Physically, the document is composed of units called
+ *         @entities.
+ *
+ *         Logically, the document is composed of @markup and
+ *         @content. Among other things, markup separates the content
+ *         into @elements.
+ *
+ *      -- The logical and physical structures must nest properly (be
+ *         @well-formed) for each entity, which results in the entire
+ *         XML document being well-formed as well.
+ *
+ *      <B>Document Object Model (DOM)</B>
  *
  *      In short, DOM specifies that an XML document is broken
  *      up into a tree of nodes, representing the various parts
- *      of an XML document. Most importantly, we have:
+ *      of an XML document. The W3C calls this "a platform- and
+ *      language-neutral interface that allows programs and scripts
+ *      to dynamically access and update the content, structure
+ *      and style of documents. The Document Object Model provides
+ *      a standard set of objects for representing HTML and XML
+ *      documents, a standard model of how these objects can
+ *      be combined, and a standard interface for accessing and
+ *      manipulating them. Vendors can support the DOM as an
+ *      interface to their proprietary data structures and APIs,
+ *      and content authors can write to the standard DOM
+ *      interfaces rather than product-specific APIs, thus
+ *      increasing interoperability on the Web."
  *
- *      -- ELEMENT: some XML tag or a pair of tags (e.g. <LI>...<LI>.
+ *      Example: Take this HTML table definition:
+ +
+ +          <TABLE>
+ +          <TBODY>
+ +          <TR>
+ +          <TD>Column 1-1</TD>
+ +          <TD>Column 1-2</TD>
+ +          </TR>
+ +          <TR>
+ +          <TD>Column 2-1</TD>
+ +          <TD>Column 2-2</TD>
+ +          </TR>
+ +          </TBODY>
+ +          </TABLE>
  *
- *      -- ATTRIBUTE: an attribute to an element.
+ *      This function will create a tree as follows:
+ +
+ +                          ÚÄÄÄÄÄÄÄÄÄÄÄÄ¿
+ +                          ³   TABLE    ³        (only ELEMENT node in root DOCUMENT node)
+ +                          ÀÄÄÄÄÄÂÄÄÄÄÄÄÙ
+ +                                ³
+ +                          ÚÄÄÄÄÄÁÄÄÄÄÄÄ¿
+ +                          ³   TBODY    ³        (only ELEMENT node in root "TABLE" node)
+ +                          ÀÄÄÄÄÄÂÄÄÄÄÄÄÙ
+ +                    ÚÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄ¿
+ +              ÚÄÄÄÄÄÁÄÄÄÄÄÄ¿          ÚÄÄÄÄÄÁÄÄÄÄÄÄ¿
+ +              ³   TR       ³          ³   TR       ³
+ +              ÀÄÄÄÄÄÂÄÄÄÄÄÄÙ          ÀÄÄÄÄÄÂÄÄÄÄÄÄÙ
+ +                ÚÄÄÄÁÄÄÄÄÄÄ¿            ÚÄÄÄÁÄÄÄÄÄÄ¿
+ +            ÚÄÄÄÁÄ¿     ÚÄÄÁÄÄ¿     ÚÄÄÄÁÄ¿     ÚÄÄÁÄÄ¿
+ +            ³ TD  ³     ³ TD  ³     ³ TD  ³     ³ TD  ³
+ +            ÀÄÄÂÄÄÙ     ÀÄÄÂÄÄÙ     ÀÄÄÄÂÄÙ     ÀÄÄÂÄÄÙ
+ +         ÉÍÍÍÍÍÊÍÍÍÍ» ÉÍÍÍÍÊÍÍÍÍÍ» ÉÍÍÍÍÊÍÍÍÍÍ» ÉÍÍÊÍÍÍÍÍÍÍ»
+ +         ºColumn 1-1º ºColumn 1-2º ºColumn 2-1º ºColumn 2-2º    (one TEXT node in each parent node)
+ +         ÈÍÍÍÍÍÍÍÍÍÍ¼ ÈÍÍÍÍÍÍÍÍÍÍ¼ ÈÍÍÍÍÍÍÍÍÍÍ¼ ÈÍÍÍÍÍÍÍÍÍÍ¼
  *
- *      -- TEXT: a piece of, well, text.
- *
- *      -- COMMENT: a comment.
- *
- *      See xmlParse() for a more detailed explanation.
- *
- *      However, since this implementation was supposed to be a
- *      C-only interface, we do not implement inheritance. Instead,
- *      each XML document is broken up into a tree of DOMNODE's only,
- *      each of which has a special type.
+ *      DOM really calls for object oriented programming so the various
+ *      structs can inherit from each other. Since this implementation
+ *      was supposed to be a C-only interface, we do not implement
+ *      inheritance. Instead, each XML document is broken up into a tree
+ *      of DOMNODE's only, each of which has a special type.
  *
  *      It shouldn't be too difficult to write a C++ encapsulation
  *      of this which implements all the methods required by the DOM
@@ -44,7 +111,7 @@
  */
 
 /*
- *      Copyright (C) 2000 Ulrich M”ller.
+ *      Copyright (C) 2000-2001 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -69,30 +136,40 @@
 
 #include "setup.h"                      // code generation and debugging options
 
+#include "expat\expat.h"
+
 #include "helpers\linklist.h"
 #include "helpers\stringh.h"
+#include "helpers\xstring.h"
 #include "helpers\xml.h"
 
 #pragma hdrstop
 
 /*
- *@@category: Helpers\C helpers\XML\Node management
+ *@@category: Helpers\C helpers\XML
+ *      see xml.c.
+ */
+
+/*
+ *@@category: Helpers\C helpers\XML\Document Object Model (DOM)
+ *      see xml.c.
  */
 
 /* ******************************************************************
  *
- *   Node Management
+ *   Node management
  *
  ********************************************************************/
 
 /*
  *@@ xmlCreateNode:
  *      creates a new DOMNODE with the specified
- *      type and parent.
+ *      type and parent. Other than that, the
+ *      node is zeroed.
  */
 
-PDOMNODE xmlCreateNode(PDOMNODE pParentNode,
-                       ULONG ulNodeType)
+PDOMNODE xmlCreateNode(PDOMNODE pParentNode,        // in: parent node or NULL if root
+                       ULONG ulNodeType)            // in: DOMNODE_* type
 {
     PDOMNODE pNewNode = (PDOMNODE)malloc(sizeof(DOMNODE));
     if (pNewNode)
@@ -105,12 +182,12 @@ PDOMNODE xmlCreateNode(PDOMNODE pParentNode,
             // parent specified:
             // append this new node to the parent's
             // list of child nodes
-            lstAppendItem(&pParentNode->listChildNodes,
+            lstAppendItem(&pParentNode->llChildNodes,
                           pNewNode);
         }
 
-        lstInit(&pNewNode->listChildNodes, FALSE);
-        lstInit(&pNewNode->listAttributeNodes, FALSE);
+        lstInit(&pNewNode->llChildNodes, FALSE);
+        lstInit(&pNewNode->llAttributeNodes, FALSE);
     }
 
     return (pNewNode);
@@ -138,12 +215,12 @@ ULONG xmlDeleteNode(PDOMNODE pNode)
 
     if (!pNode)
     {
-        ulrc = DOMERR_NOT_FOUND;
+        ulrc = ERROR_DOM_NOT_FOUND;
     }
     else
     {
         // recurse into child nodes
-        PLISTNODE   pNodeThis = lstQueryFirstNode(&pNode->listChildNodes);
+        PLISTNODE   pNodeThis = lstQueryFirstNode(&pNode->llChildNodes);
         while (pNodeThis)
         {
             // recurse!!
@@ -153,7 +230,7 @@ ULONG xmlDeleteNode(PDOMNODE pNode)
         }
 
         // delete attribute nodes
-        pNodeThis = lstQueryFirstNode(&pNode->listAttributeNodes);
+        pNodeThis = lstQueryFirstNode(&pNode->llAttributeNodes);
         while (pNodeThis)
         {
             // recurse!!
@@ -167,21 +244,16 @@ ULONG xmlDeleteNode(PDOMNODE pNode)
             // node has a parent:
             // remove this node from the parent's list
             // of child nodes before deleting this node
-            lstRemoveItem(&pNode->pParentNode->listChildNodes,
+            lstRemoveItem(&pNode->pParentNode->llChildNodes,
                           pNode);
             pNode->pParentNode = NULL;
         }
 
-        if (pNode->pszNodeName)
-        {
-            free(pNode->pszNodeName);
-            pNode->pszNodeName = NULL;
-        }
-        if (pNode->pszNodeValue)
-        {
-            free(pNode->pszNodeValue);
-            pNode->pszNodeValue = NULL;
-        }
+        xstrClear(&pNode->strNodeName);
+        xstrClear(&pNode->strNodeValue);
+
+        lstClear(&pNode->llChildNodes);
+        lstClear(&pNode->llAttributeNodes);
 
         free(pNode);
     }
@@ -189,762 +261,312 @@ ULONG xmlDeleteNode(PDOMNODE pNode)
     return (ulrc);
 }
 
-/*
- *@@category: Helpers\C helpers\XML\Parsing
- */
-
 /* ******************************************************************
  *
- *   Tokenizing (Compiling)
+ *   Expat handlers
  *
  ********************************************************************/
 
 /*
- *@@ xmlTokenize:
- *      this takes any block of XML text and "tokenizes"
- *      it.
+ *@@ StartElementHandler:
+ *      expat handler called when a new element is
+ *      found.
  *
- *      Tokenizing (or compiling, or "scanning" in bison/flex
- *      terms) means preparing the XML code for parsing later.
- *      This finds all tags and tag attributes and creates
- *      special codes for them in the output buffer.
- *
- *      For example:
- +
- +      <TAG ATTR="text"> block </TAG>
- +
- *      becomes
- *
- +      0xFF            escape code
- +      0x01            tag start code
- +      "TAG"           tag name
- +      0xFF            end of tag name code
- +
- +      0xFF            escape code
- +      0x03            attribute name code
- +      "ATTR"          attribute name
- +      0xFF
- +      "text"          attribute value (without quotes)
- +      0xFF            end of attribute code
- +
- +      " block "       regular text
- +
- +      0xFF            escape code
- +      0x01            tag start code
- +      "/TAG"          tag name
- +      0xFF            end of tag name code
- *
- *@@added V0.9.6 (2000-11-01) [umoeller]
+ *      We create a new record in the container and
+ *      push it onto our stack so we can insert
+ *      children into it. We first start with the
+ *      attributes.
  */
 
-PSZ xmlTokenize(const char *pcszXML)
+void EXPATENTRY StartElementHandler(void *data,           // in: our PXMLFILE really
+                                    const char *pcszElement,
+                                    const char **papcszAttribs)
 {
-    return (0);
+    PXMLDOM     pDom = (PXMLDOM)data;
+
+    ULONG       i;
+
+    PDOMNODE    pParent = NULL,
+                pNew = NULL;
+
+    PLISTNODE   pParentNode = lstPop(&pDom->llStack);
+
+    if (pParentNode)
+    {
+        // non-root level:
+        pParent = (PDOMNODE)pParentNode->pItemData;
+
+        pNew = xmlCreateNode(pParent,
+                             DOMNODE_ELEMENT);
+
+        if (pNew)
+            xstrcpy(&pNew->strNodeName, pcszElement, 0);
+
+        // push this on the stack so we can add child elements
+        lstPush(&pDom->llStack, pNew);
+
+        // now for the attribs
+        for (i = 0;
+             papcszAttribs[i];
+             i += 2)
+        {
+            PDOMNODE    pAttrNode = xmlCreateNode(pNew,     // element
+                                                  DOMNODE_ATTRIBUTE);
+            if (pAttrNode)
+            {
+                xstrcpy(&pAttrNode->strNodeName, papcszAttribs[i], 0);
+                xstrcpy(&pAttrNode->strNodeValue, papcszAttribs[i + 1], 0);
+            }
+        }
+    }
+
+    pDom->pLastWasTextNode = NULL;
+}
+
+/*
+ *@@ EndElementHandler:
+ *
+ */
+
+void EXPATENTRY EndElementHandler(void *data,             // in: our PXMLFILE really
+                                  const XML_Char *name)
+{
+    PXMLDOM     pDom = (PXMLDOM)data;
+    PLISTNODE   pNode = lstPop(&pDom->llStack);
+    if (pNode)
+        lstRemoveNode(&pDom->llStack, pNode);
+
+    pDom->pLastWasTextNode = NULL;
+}
+
+/*
+ *@@ CharacterDataHandler:
+ *
+ */
+
+void EXPATENTRY CharacterDataHandler(void *userData,      // in: our PXMLFILE really
+                                     const XML_Char *s,
+                                     int len)
+{
+    PXMLDOM     pDom = (PXMLDOM)userData;
+
+    ULONG       i;
+
+    if (len)
+    {
+        if (pDom->pLastWasTextNode)
+        {
+            // we had a text node, and no elements or other
+            // stuff in between:
+            xstrcat(&pDom->pLastWasTextNode->strNodeValue,
+                    s,
+                    len);
+        }
+        else
+        {
+            // we need a new text node:
+            PDOMNODE pNew,
+                     pParent;
+            // non-root level:
+            PLISTNODE pParentNode = lstPop(&pDom->llStack);
+            pParent = (PDOMNODE)pParentNode->pItemData;
+
+            pNew = xmlCreateNode(pParent,
+                                 DOMNODE_TEXT);
+            if (pNew)
+            {
+                PSZ pszNodeValue = (PSZ)malloc(len + 1);
+                memcpy(pszNodeValue, s, len);
+                pszNodeValue[len] = '\0';
+                xstrInitSet(&pNew->strNodeValue, pszNodeValue);
+            }
+
+            pDom->pLastWasTextNode = pNew;
+        }
+    }
 }
 
 /* ******************************************************************
  *
- *   Parsing
+ *   DOM APIs
  *
  ********************************************************************/
 
 /*
- * TAGFOUND:
- *      structure created for each tag by BuildTagsList.
+ *@@ xmlCreateDOM:
+ *
+ *      Usage:
+ *
+ *      1) Create a DOM instance.
+ *
+ +          PXMLDOM pDom = NULL;
+ +          APIRET arc = xmlCreateDom(flags, &pDom);
+ +
+ *      2) Give chunks of data (or an entire buffer)
+ *         to the DOM instance for parsing.
+ *
+ +          arc = xmlParse(pDom,
+ +                         pBuf,
+ +                         TRUE); // if last, this will clean up the parser
+ *
+ *      3) Process the data in the DOM tree. When done,
+ *         call xmlFreeDOM, which will free all memory.
+ *
+ *@@added V0.9.9 (2000-02-14) [umoeller]
  */
 
-typedef struct _TAGFOUND
+APIRET xmlCreateDOM(ULONG flParserFlags,
+                    PXMLDOM *ppDom)
 {
-    BOOL        fIsComment;
-    const char  *pOpenBrck;
-    const char  *pStartOfTagName;
-    const char  *pFirstAfterTagName;
-    const char  *pCloseBrck;             // ptr to '>' char; this plus one should
-                                         // point to after the tag
-} TAGFOUND, *PTAGFOUND;
+    APIRET  arc = NO_ERROR;
 
-/*
- * BuildTagsList:
- *      builds a LINKLIST containing TAGFOUND structs for
- *      each tag found in the specified buffer.
- *
- *      This is a flat list without any tree structure. This
- *      only searches for the tags and doesn't create any
- *      hierarchy.
- *
- *      The tags are simply added to the list in the order
- *      in which they are found in pcszBuffer.
- *
- *      The list is auto-free, you can simply do a lstFree
- *      to clean up.
- */
-
-PLINKLIST BuildTagsList(const char *pcszBuffer)
-{
-    PLINKLIST    pllTags = lstCreate(TRUE);
-
-    const char *pSearchPos = pcszBuffer;
-
-    while ((pSearchPos) && (*pSearchPos))
+    PXMLDOM pDom = (PXMLDOM)malloc(sizeof(XMLDOM));
+    if (!pDom)
+        arc = ERROR_NOT_ENOUGH_MEMORY;
+    else
     {
-        // find first '<'
-        PSZ     pOpenBrck = strchr(pSearchPos, '<');
-        if (!pOpenBrck)
-            // no open bracket found: stop search
-            pSearchPos = 0;
+        memset(pDom, 0, sizeof(XMLDOM));
+
+        lstInit(&pDom->llStack,
+                FALSE);                 // no auto-free
+
+        // create the document node
+        pDom->pDocumentNode = xmlCreateNode(NULL, // no parent
+                                            DOMNODE_DOCUMENT);
+
+        if (!pDom->pDocumentNode)
+            arc = ERROR_NOT_ENOUGH_MEMORY;
         else
         {
-            if (strncmp(pOpenBrck + 1, "!--", 3) == 0)
-            {
-                // it's a comment:
-                // treat that differently
-                const char *pEndOfComment = strstr(pOpenBrck + 4, "-->");
-                const char *pCloseBrck = 0;
-                const char *pFirstAfterTagName = 0;
-                PTAGFOUND pTagFound;
-                if (!pEndOfComment)
-                {
-                    // no end of comment found:
-                    // skip entire rest of string
-                    pCloseBrck = pOpenBrck + strlen(pOpenBrck);
-                    pFirstAfterTagName = pCloseBrck;
-                    pSearchPos = 0;
-                }
-                else
-                {
-                    pCloseBrck = pEndOfComment + 2; // point directly to '>'
-                    pFirstAfterTagName = pCloseBrck + 1;
-                }
+            // push the document on the stack so the handlers
+            // will append to that
+            lstPush(&pDom->llStack,
+                    pDom->pDocumentNode);
 
-                // append it to the list
-                pTagFound = (PTAGFOUND)malloc(sizeof(TAGFOUND));
-                if (!pTagFound)
-                    // error:
-                    pSearchPos = 0;
-                else
-                {
-                    pTagFound->fIsComment = TRUE;
-                    pTagFound->pOpenBrck = pOpenBrck;
-                    pTagFound->pStartOfTagName = pOpenBrck + 1;
-                    pTagFound->pFirstAfterTagName = pFirstAfterTagName;
-                    pTagFound->pCloseBrck = pCloseBrck;
+            pDom->pParser = XML_ParserCreate(NULL);
 
-                    lstAppendItem(pllTags, pTagFound);
-                }
-
-                pSearchPos = pFirstAfterTagName;
-            }
+            if (!pDom->pParser)
+                arc = ERROR_NOT_ENOUGH_MEMORY;
             else
             {
-                // no comment:
-                // find matching closing bracket
-                const char *pCloseBrck = strchr(pOpenBrck + 1, '>');
-                if (!pCloseBrck)
-                    pSearchPos = 0;
-                else
-                {
-                    const char *pNextOpenBrck = strchr(pOpenBrck + 1, '<');
-                    // if we have another opening bracket before the closing bracket,
-                    if ((pNextOpenBrck) && (pNextOpenBrck < pCloseBrck))
-                        // ignore this one
-                        pSearchPos = pNextOpenBrck;
-                    else
-                    {
-                        // OK, apparently we have a tag.
-                        // Skip all spaces after the tag.
-                        const char *pTagName = pOpenBrck + 1;
-                        while (    (*pTagName)
-                                && (    (*pTagName == ' ')
-                                     || (*pTagName == '\r')
-                                     || (*pTagName == '\n')
-                                   )
-                              )
-                            pTagName++;
-                        if (!*pTagName)
-                            // no tag name: stop
-                            pSearchPos = 0;
-                        else
-                        {
-                            // ookaaayyy, we got a tag now.
-                            // Find first space or ">" after tag name:
-                            const char *pFirstAfterTagName = pTagName + 1;
-                            while (    (*pFirstAfterTagName)
-                                    && (*pFirstAfterTagName != ' ')
-                                    && (*pFirstAfterTagName != '\n')
-                                    && (*pFirstAfterTagName != '\r')
-                                    && (*pFirstAfterTagName != '\t')        // tab
-                                    && (*pFirstAfterTagName != '>')
-                                  )
-                                pFirstAfterTagName++;
-                            if (!*pFirstAfterTagName)
-                                // no closing bracket found:
-                                pSearchPos = 0;
-                            else
-                            {
-                                // got a tag name:
-                                // append it to the list
-                                PTAGFOUND pTagFound = (PTAGFOUND)malloc(sizeof(TAGFOUND));
-                                if (!pTagFound)
-                                    // error:
-                                    pSearchPos = 0;
-                                else
-                                {
-                                    pTagFound->fIsComment = FALSE;
-                                    pTagFound->pOpenBrck = pOpenBrck;
-                                    pTagFound->pStartOfTagName = pTagName;
-                                    pTagFound->pFirstAfterTagName = pFirstAfterTagName;
-                                    pTagFound->pCloseBrck = pCloseBrck;
+                XML_SetElementHandler(pDom->pParser,
+                                      StartElementHandler,
+                                      EndElementHandler);
 
-                                    lstAppendItem(pllTags, pTagFound);
+                XML_SetCharacterDataHandler(pDom->pParser,
+                                            CharacterDataHandler);
 
-                                    // search on after closing bracket
-                                    pSearchPos = pCloseBrck + 1;
-                                }
-                            }
-                        }
-                    }
-                } // end else if (!pCloseBrck)
-            } // end else if (strncmp(pOpenBrck + 1, "!--"))
-        } // end if (pOpenBrck)
-    } // end while
+                // pass the XMLDOM as user data to the handlers
+                XML_SetUserData(pDom->pParser,
+                                pDom);
 
-    return (pllTags);
-}
-
-/*
- *@@ CreateTextNode:
- *      shortcut for creating a TEXT node. Calls
- *      xmlCreateNode in turn.
- *
- *      The text is extracted from in between the
- *      two pointers using strhSubstr.
- */
-
-PDOMNODE CreateTextNode(PDOMNODE pParentNode,
-                        const char *pStart,
-                        const char *pEnd)
-{
-    PDOMNODE pNewTextNode = xmlCreateNode(pParentNode,
-                                          DOMNODE_TEXT);
-    if (pNewTextNode)
-        pNewTextNode->pszNodeValue = strhSubstr(pStart,
-                                                pEnd);
-
-    return (pNewTextNode);
-}
-
-/*
- *@@ CreateElementNode:
- *      shortcut for creating a new ELEMENT node and
- *      parsing attributes at the same time.
- *
- *      pszTagName is assumed to be static (no copy
- *      is made).
- *
- *      pAttribs is assumed to point to an attributes
- *      string. This function creates ATTRIBUTE nodes
- *      from that string until either a null character
- *      or '>' is found.
- */
-
-PDOMNODE CreateElementNode(PDOMNODE pParentNode,
-                           PSZ pszTagName,
-                           const char *pAttribs) // in: ptr to attribs; can be NULL
-{
-    PDOMNODE pNewNode = xmlCreateNode(pParentNode,
-                                      DOMNODE_ELEMENT);
-    if (pNewNode)
-    {
-        const char *p = pAttribs;
-
-        pNewNode->pszNodeName = pszTagName;
-
-        // find-start-of-attribute loop
-        while (p)
-        {
-            switch (*p)
-            {
-                case 0:
-                case '>':
-                    p = 0;
-                break;
-
-                case ' ':
-                case '\t':  // tab
-                case '\n':
-                case '\r':
-                    p++;
-                break;
-
-                default:
-                {
-                    // first (or next) non-space:
-                    // that's the start of an attrib, probably
-                    // go until we find a space or '>'
-
-                    const char *pNameStart = p,
-                               *p2 = p;
-
-                    const char *pEquals = 0,
-                               *pFirstQuote = 0,
-                               *pEnd = 0;       // last char... non-inclusive!
-
-                    // copy-rest-of-attribute loop
-                    while (p2)
-                    {
-                        switch (*p2)
-                        {
-                            case '"':
-                                if (!pEquals)
-                                {
-                                    // '"' cannot appear before '='
-                                    p2 = 0;
-                                    p = 0;
-                                }
-                                else
-                                {
-                                    if (pFirstQuote)
-                                    {
-                                        // second quote:
-                                        // get value between quotes
-                                        pEnd = p2;
-                                        // we're done with this one
-                                        p = p2 + 1;
-                                        p2 = 0;
-                                    }
-                                    else
-                                    {
-                                        // first quote:
-                                        pFirstQuote = p2;
-                                        p2++;
-                                    }
-                                }
-                            break;
-
-                            case '=':
-                                if (!pEquals)
-                                {
-                                    // first equals sign:
-                                    pEquals = p2;
-                                    // extract name
-                                    p2++;
-                                }
-                                else
-                                    if (pFirstQuote)
-                                        p2++;
-                                    else
-                                    {
-                                        // error
-                                        p2 = 0;
-                                        p = 0;
-                                    }
-                            break;
-
-                            case ' ':
-                            case '\t':  // tab
-                            case '\n':
-                            case '\r':
-                                // spaces can appear in quotes
-                                if (pFirstQuote)
-                                    // just continue
-                                    p2++;
-                                else
-                                {
-                                    // end of it!
-                                    pEnd = p2;
-                                    p = p2 + 1;
-                                    p2 = 0;
-                                }
-                            break;
-
-                            case 0:
-                            case '>':
-                            {
-                                pEnd = p2;
-                                // quit inner AND outer loop
-                                p2 = 0;
-                                p = 0;
-                            break; }
-
-                            default:
-                                p2++;
-                        }
-                    } // end while (p2)
-
-                    if (pEnd)
-                    {
-                        PDOMNODE pAttribNode = xmlCreateNode(pNewNode,
-                                                             DOMNODE_ATTRIBUTE);
-                        if (pAttribNode)
-                        {
-                            if (pEquals)
-                            {
-                                pAttribNode->pszNodeName
-                                    = strhSubstr(pNameStart, pEquals);
-
-                                // did we have quotes?
-                                if (pFirstQuote)
-                                    pAttribNode->pszNodeValue
-                                        = strhSubstr(pFirstQuote + 1, pEnd);
-                                else
-                                    pAttribNode->pszNodeValue
-                                        = strhSubstr(pEquals + 1, pEnd);
-                            }
-                            else
-                                // no "equals":
-                                pAttribNode->pszNodeName
-                                    = strhSubstr(pNameStart, pEnd);
-                        }
-                    }
-                break; }
             }
         }
     }
 
-    return (pNewNode);
+    if (arc == NO_ERROR)
+        *ppDom = pDom;
+    else
+        xmlFreeDOM(pDom);
+
+    return (arc);
 }
 
 /*
- *@@ CreateNodesForBuf:
- *      this gets called (recursively) for a piece of text
- *      for which we need to create TEXT and ELEMENT DOMNODE's.
+ *@@ xmlParse:
+ *      parses another piece of XML data.
  *
- *      This does the heavy work for xmlParse.
+ *      If (fIsLast == TRUE), the internal expat parser
+ *      will be freed, but not the DOM itself.
  *
- *      If an error (!= 0) is returned, *ppError points to
- *      the code part that failed.
+ *      You can pass an XML document to this function
+ *      in one flush. Set fIsLast = TRUE on the first
+ *      and only call then.
+ *
+ *      This returns NO_ERROR if the chunk was successfully
+ *      parsed. Otherwise ERROR_DOM_PARSING is returned,
+ *      and you will find error information in the XMLDOM
+ *      fields.
+ *
+ *@@added V0.9.9 (2000-02-14) [umoeller]
  */
 
-ULONG CreateNodesForBuf(const char *pcszBufStart,
-                        const char *pcszBufEnd,     // in: can be NULL
-                        PLINKLIST pllTagsList,
-                        PDOMNODE pParentNode,
-                        PFNVALIDATE pfnValidateTag,
-                        const char **ppError)
+APIRET xmlParse(PXMLDOM pDom,
+                const char *pcszBuf,
+                ULONG cb,
+                BOOL fIsLast)
 {
-    ULONG ulrc = 0;
-    PLISTNODE pCurrentTagListNode = lstQueryFirstNode(pllTagsList);
-    const char *pBufCurrent = pcszBufStart;
-    BOOL        fContinue = TRUE;
+    APIRET arc = NO_ERROR;
 
-    if (pcszBufEnd == NULL)
-        pcszBufEnd = pcszBufStart + strlen(pcszBufStart);
-
-    while (fContinue)
+    if (!pDom)
+        arc = ERROR_INVALID_PARAMETER;
+    else
     {
-        if (    (!*pBufCurrent)
-             || (pBufCurrent == pcszBufEnd)
-           )
-            // end of buf reached:
-            fContinue = FALSE;
+        BOOL fSuccess = XML_Parse(pDom->pParser,
+                                  pcszBuf,
+                                  cb,
+                                  fIsLast);
 
-        else if (!pCurrentTagListNode)
+        if (!fSuccess)
         {
-            // no (more) tags for this buffer:
-            CreateTextNode(pParentNode,
-                           pBufCurrent,
-                           pcszBufEnd);
-            fContinue = FALSE;
+            // error:
+            pDom->Error = XML_GetErrorCode(pDom->pParser);
+            pDom->pcszErrorDescription = XML_ErrorString(pDom->Error);
+            pDom->ulErrorLine = XML_GetCurrentLineNumber(pDom->pParser);
+            pDom->ulErrorColumn = XML_GetCurrentColumnNumber(pDom->pParser);
+
+            if (pDom->pDocumentNode)
+            {
+                xmlDeleteNode(pDom->pDocumentNode);
+                pDom->pDocumentNode = NULL;
+            }
+
+            arc = ERROR_DOM_PARSING;
         }
-        else
+
+
+        if (!fSuccess && fIsLast)
         {
-            // another tag found:
-            PTAGFOUND pFoundTag = (PTAGFOUND)pCurrentTagListNode->pItemData;
-            const char *pStartOfTag = pFoundTag->pOpenBrck;
-            if (pStartOfTag > pBufCurrent + 1)
-            {
-                // we have text before the opening tag:
-                // make a DOMTEXT out of this
-                CreateTextNode(pParentNode,
-                               pBufCurrent,
-                               pStartOfTag);
-                pBufCurrent = pStartOfTag;
-            }
-            else
-            {
-                // OK, go for this tag...
+            // last call or error: clean up
+            XML_ParserFree(pDom->pParser);
+            pDom->pParser = NULL;
 
-                if (*(pFoundTag->pStartOfTagName) == '/')
-                {
-                    // this is a closing tag: that's an error
-                    ulrc = 1;
-                    *ppError = pFoundTag->pStartOfTagName;
-                    fContinue = FALSE;
-                }
-                else if (pFoundTag->fIsComment)
-                {
-                    // it's a comment: that's simple
-                    PDOMNODE pCommentNode = xmlCreateNode(pParentNode,
-                                                          DOMNODE_COMMENT);
-                    if (!pCommentNode)
-                        ulrc = ERROR_NOT_ENOUGH_MEMORY;
-                    else
-                    {
-                        pCommentNode->pszNodeValue = strhSubstr(pFoundTag->pOpenBrck + 4,
-                                                                pFoundTag->pCloseBrck - 2);
-                    }
-                    pBufCurrent = pFoundTag->pCloseBrck + 1;
-                }
-                else
-                {
-                    BOOL fKeepTagName = FALSE;       // free pszTagName below
-                    PSZ pszTagName = strhSubstr(pFoundTag->pStartOfTagName,
-                                                pFoundTag->pFirstAfterTagName);
-                    if (!pszTagName)
-                        // zero-length string:
-                        // go ahead after that
-                        pBufCurrent = pFoundTag->pCloseBrck + 1;
-                    else
-                    {
-                        // XML knows two types of elements:
-
-                        // a) Element pairs, which have opening and closing tags
-                        //    (<TAG> and </TAG>
-                        // b) Single elements, which must have "/" as their last
-                        //    character; these have no closing tag
-                        //    (<TAG/>)
-
-                        // However, HTML doesn't usually tag single elements
-                        // with a trailing '/'. To maintain compatibility,
-                        // if we don't find a matching closing tag, we extract
-                        // everything up to the end of the buffer.
-
-                        ULONG   ulTagNameLen = strlen(pszTagName);
-
-                        // search for closing tag first...
-                        // create string with closing tag to search for;
-                        // that's '/' plus opening tag name
-                        ULONG   ulClosingTagLen2Find = ulTagNameLen + 1;
-                        PSZ     pszClosingTag2Find = (PSZ)malloc(ulClosingTagLen2Find + 1); // plus null byte
-                        PLISTNODE pTagListNode2 = pCurrentTagListNode->pNext;
-                        PLISTNODE pTagListNodeForChildren = pTagListNode2;
-
-                        BOOL    fClosingTagFound = FALSE;
-
-                        *pszClosingTag2Find = '/';
-                        strcpy(pszClosingTag2Find + 1, pszTagName);
-
-                        // now find matching closing tag
-                        while (pTagListNode2)
-                        {
-                            PTAGFOUND pFoundTag2 = (PTAGFOUND)pTagListNode2->pItemData;
-                            ULONG ulFoundTag2Len = (pFoundTag2->pFirstAfterTagName - pFoundTag2->pStartOfTagName);
-                            // compare tag name lengths
-                            if (ulFoundTag2Len == ulClosingTagLen2Find)
-                            {
-                                // same length:
-                                // compare
-                                if (memcmp(pFoundTag2->pStartOfTagName,
-                                           pszClosingTag2Find,
-                                           ulClosingTagLen2Find)
-                                     == 0)
-                                {
-                                    // found matching closing tag:
-
-                                    // we now have
-                                    // -- pCurrentTagListNode pointing to the opening tag
-                                    //    (pFoundTag has its PTAGFOUND item data)
-                                    // -- pTagListNode2 pointing to the closing tag
-                                    //    (pFoundTag2 has its PTAGFOUND item data)
-
-                                    // create DOM node
-                                    PDOMNODE pNewNode = CreateElementNode(pParentNode,
-                                                                          pszTagName,
-                                                                          pFoundTag->pFirstAfterTagName);
-                                    if (pNewNode)
-                                    {
-                                        ULONG       ulAction = XMLACTION_BREAKUP;
-
-                                        fKeepTagName = TRUE;    // do not free below
-
-                                        // validate tag
-                                        if (pfnValidateTag)
-                                        {
-                                            // validator specified:
-                                            ulAction = pfnValidateTag(pszTagName);
-                                        }
-
-                                        if (ulAction == XMLACTION_COPYASTEXT)
-                                        {
-                                            CreateTextNode(pNewNode,
-                                                           pFoundTag->pCloseBrck + 1,
-                                                           pFoundTag2->pOpenBrck - 1);
-                                        }
-                                        else if (ulAction == XMLACTION_BREAKUP)
-                                        {
-                                            PLINKLIST   pllSubList = lstCreate(FALSE);
-                                            PLISTNODE   pSubNode = 0;
-                                            ULONG       cSubNodes = 0;
-
-                                            // text buffer to search
-                                            const char *pSubBufStart = pFoundTag->pCloseBrck + 1;
-                                            const char *pSubBufEnd = pFoundTag2->pOpenBrck;
-
-                                            // create a child list containing
-                                            // all tags from the first tag after
-                                            // the current opening tag to the closing tag
-                                            for (pSubNode = pTagListNodeForChildren;
-                                                 pSubNode != pTagListNode2;
-                                                 pSubNode = pSubNode->pNext)
-                                            {
-                                                lstAppendItem(pllSubList,
-                                                              pSubNode->pItemData);
-                                                cSubNodes++;
-                                            }
-
-                                            // now recurse to build child nodes
-                                            // (text and elements), even if the
-                                            // list is empty, we can have text!
-                                            CreateNodesForBuf(pSubBufStart,
-                                                              pSubBufEnd,
-                                                              pllSubList,
-                                                              pNewNode,
-                                                              pfnValidateTag,
-                                                              ppError);
-
-                                            lstFree(pllSubList);
-                                        } // end if (ulAction == XMLACTION_BREAKUP)
-
-                                        // now search on after the closing tag
-                                        // we've found; the next tag will be set below
-                                        pCurrentTagListNode = pTagListNode2;
-                                        pBufCurrent = pFoundTag2->pCloseBrck + 1;
-
-                                        fClosingTagFound = TRUE;
-
-                                        break; // // while (pTagListNode2)
-                                    } // end if (pNewNode)
-                                } // end if (memcmp(pFoundTag2->pStartOfTagName,
-                            } // if (ulFoundTag2Len == ulClosingTagLen2Find)
-
-                            pTagListNode2 = pTagListNode2->pNext;
-
-                        } // while (pTagListNode2)
-
-                        if (!fClosingTagFound)
-                        {
-                            // no matching closing tag found:
-                            // that's maybe a block of not well-formed XML
-
-                            // e.g. with WarpIN:
-                            // <README> <-- we start after this
-                            //      block of plain HTML with <P> tags and such
-                            // </README>
-
-                            // just create an element
-                            PDOMNODE pNewNode = CreateElementNode(pParentNode,
-                                                                  pszTagName,
-                                                                  pFoundTag->pFirstAfterTagName);
-                            if (pNewNode)
-                                fKeepTagName = TRUE;
-
-                            // now search on after the closing tag
-                            // we've found; the next tag will be set below
-                            // pCurrentTagListNode = pTagListNodeForChildren;
-                            pBufCurrent = pFoundTag->pCloseBrck + 1;
-                        }
-
-                        free(pszClosingTag2Find);
-
-                        if (!fKeepTagName)
-                            free(pszTagName);
-                    } // end if (pszTagName)
-                }
-
-                pCurrentTagListNode = pCurrentTagListNode->pNext;
-            }
+            // clean up the stack (but not the DOM itself)
+            lstClear(&pDom->llStack);
         }
     }
 
-    return (ulrc);
+    return (arc);
 }
 
 /*
- * xmlParse:
- *      generic XML parser.
+ *@@ xmlFreeDOM:
+ *      cleans up all resources allocated by
+ *      xmlCreateDOM and xmlParse, including
+ *      the entire DOM tree.
  *
- *      This takes the specified zero-terminated string
- *      in pcszBuf and parses it, adding DOMNODE's as
- *      children to pNode.
+ *      If you wish to keep any data, make
+ *      a copy of the respective pointers in pDom
+ *      or subitems and set them to NULL before
+ *      calling this function.
  *
- *      This recurses, if necessary, to build a node tree.
- *
- *      Example: Take this HTML table definition:
- +
- +          <TABLE>
- +          <TBODY>
- +          <TR>
- +          <TD>Column 1-1</TD>
- +          <TD>Column 1-2</TD>
- +          </TR>
- +          <TR>
- +          <TD>Column 2-1</TD>
- +          <TD>Column 2-2</TD>
- +          </TR>
- +          </TBODY>
- +          </TABLE>
- *
- *      This function will create a tree as follows:
- +
- +                    ÚÄÄÄÄÄÄÄÄÄÄÄÄ¿
- +                    ³   TABLE    ³        (only ELEMENT node in root DOCUMENT node)
- +                    ÀÄÄÄÄÄÂÄÄÄÄÄÄÙ
- +                          ³
- +                    ÚÄÄÄÄÄÁÄÄÄÄÄÄ¿
- +                    ³   TBODY    ³        (only ELEMENT node in root "TABLE" node)
- +                    ÀÄÄÄÄÄÂÄÄÄÄÄÄÙ
- +              ÚÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄ¿
- +        ÚÄÄÄÄÄÁÄÄÄÄÄÄ¿          ÚÄÄÄÄÄÁÄÄÄÄÄÄ¿
- +        ³   TR       ³          ³   TR       ³
- +        ÀÄÄÄÄÄÂÄÄÄÄÄÄÙ          ÀÄÄÄÄÄÂÄÄÄÄÄÄÙ
- +          ÚÄÄÄÁÄÄÄÄÄÄ¿            ÚÄÄÄÁÄÄÄÄÄÄ¿
- +      ÚÄÄÄÁÄ¿     ÚÄÄÁÄÄ¿     ÚÄÄÄÁÄ¿     ÚÄÄÁÄÄ¿
- +      ³ TD  ³     ³ TD  ³     ³ TD  ³     ³ TD  ³
- +      ÀÄÄÂÄÄÙ     ÀÄÄÂÄÄÙ     ÀÄÄÄÂÄÙ     ÀÄÄÂÄÄÙ
- +   ÉÍÍÍÍÍÊÍÍÍÍ» ÉÍÍÍÍÊÍÍÍÍÍ» ÉÍÍÍÍÊÍÍÍÍÍ» ÉÍÍÊÍÍÍÍÍÍÍ»
- +   ºColumn 1-1º ºColumn 1-2º ºColumn 2-1º ºColumn 2-2º    (one TEXT node in each parent node)
- +   ÈÍÍÍÍÍÍÍÍÍÍ¼ ÈÍÍÍÍÍÍÍÍÍÍ¼ ÈÍÍÍÍÍÍÍÍÍÍ¼ ÈÍÍÍÍÍÍÍÍÍÍ¼
+ *@@added V0.9.9 (2000-02-14) [umoeller]
  */
 
-ULONG xmlParse(PDOMNODE pParentNode,        // in: node to append children to; must not be NULL
-               const char *pcszBuf,         // in: buffer to search
-               PFNVALIDATE pfnValidateTag)
+APIRET xmlFreeDOM(PXMLDOM pDom)
 {
-    ULONG   ulrc = 0;
+    APIRET arc = NO_ERROR;
+    if (pDom)
+    {
+        // if the parser is still alive for some reason, close it.
+        if (pDom->pParser)
+        {
+            XML_ParserFree(pDom->pParser);
+            pDom->pParser = NULL;
+        }
 
-    PLINKLIST pllTags = BuildTagsList(pcszBuf);
+        free(pDom);
+    }
 
-    // now create DOMNODE's according to that list...
-    const char *pcszError = 0;
-    CreateNodesForBuf(pcszBuf,
-                      NULL,     // enitre buffer
-                      pllTags,
-                      pParentNode,
-                      pfnValidateTag,
-                      &pcszError);
-
-    lstFree(pllTags);
-
-    return (ulrc);
+    return (arc);
 }
-
-/*
- *@@ xmlCreateDocumentFromString:
- *      creates a DOCUMENT DOMNODE and calls xmlParse
- *      to break down the specified buffer into that
- *      node.
- */
-
-PDOMNODE xmlCreateDocumentFromString(const char *pcszXML,
-                                     PFNVALIDATE pfnValidateTag)
-{
-    PDOMNODE pDocument = xmlCreateNode(NULL,       // no parent
-                                       DOMNODE_DOCUMENT);
-    xmlParse(pDocument,
-             pcszXML,
-             pfnValidateTag);
-
-    return (pDocument);
-}
-
-

@@ -39,11 +39,17 @@ OUTPUTDIR = $(HELPERS_OUTPUT_DIR)
 # These will be put into BIN\.
 
 PLAINCOBJS = \
+$(OUTPUTDIR)\encodings.obj \
 $(OUTPUTDIR)\linklist.obj \
 $(OUTPUTDIR)\tree.obj \
 $(OUTPUTDIR)\xml.obj \
 
-CPOBJS = $(PLAINCOBJS) \
+XMLOBJS = \
+$(OUTPUTDIR)\xmlparse.obj \
+$(OUTPUTDIR)\xmlrole.obj \
+$(OUTPUTDIR)\xmltok.obj \
+
+CPOBJS = $(PLAINCOBJS) $(XMLOBJS) \
 $(OUTPUTDIR)\datetime.obj \
 $(OUTPUTDIR)\debug.obj \
 $(OUTPUTDIR)\dosh.obj \

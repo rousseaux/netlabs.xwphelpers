@@ -3072,7 +3072,7 @@ BOOL winhFileDlg(HWND hwndOwner,    // in: owner for file dlg
         if (PrfQueryProfileString(hini,
                                   (PSZ)pcszApplication,
                                   (PSZ)pcszKey,
-                                  "",      // default string
+                                  "",      // default string V0.9.9 (2001-02-10) [umoeller]
                                   fd.szFullFile,
                                   sizeof(fd.szFullFile)-10)
                     >= 2)

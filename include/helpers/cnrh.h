@@ -139,7 +139,7 @@ extern "C" {
                             PRECORDCORE preccParent,
                             PRECORDCORE precc,
                             BOOL fInvalidate,
-                            PSZ pszText,
+                            const char *pcszText,
                             ULONG flRecordAttr,
                             ULONG ulCount);
 

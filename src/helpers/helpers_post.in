@@ -84,6 +84,9 @@ $(OUTPUTDIR)\configsys.obj:         $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h \
                $(HLPINC)\dosh.h $(HLPINC)\stringh.h $(HLPINC)\xstring.h
 
+$(OUTPUTDIR)\encodings.obj:         $(@B).c $(INC)\encodings\*.h \
+               $(PROJECTINC)\setup.h
+
 $(OUTPUTDIR)\datetime.obj:          $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h
 
@@ -180,16 +183,42 @@ $(OUTPUTDIR)\winh.obj:      $(@B).c $(HLPINC)\$(@B).h \
 $(OUTPUTDIR)\wphandle.obj:  $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h
 
+$(OUTPUTDIR)\xml.obj:      $(@B).c $(HLPINC)\$(@B).h \
+               $(PROJECTINC)\setup.h \
+               $(HLPINC)\stringh.h
+
 $(OUTPUTDIR)\xprf.obj:  $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h \
                $(HLPINC)\linklist.h
 
 $(OUTPUTDIR)\xprf2.obj:  $(@B).c $(HLPINC)\xprf.h \
                $(PROJECTINC)\setup.h \
-               $(HLPINC)\prfh.h $(HLPINC)\stringh.h
+               $(INC)\expat\expat.h \
+               $(HLPINC)\linklist.h $(HLPINC)\stringh.h $(HLPINC)\xstring.h
 
 $(OUTPUTDIR)\xstring.obj:  $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h \
                $(HLPINC)\stringh.h
+
+XMLHEADERS = $(PROJECTINC)\setup.h \
+$(INC)\expat\ascii.h \
+$(INC)\expat\asciitab.h \
+$(INC)\expat\expat.h \
+$(INC)\expat\iasciitab.h \
+$(INC)\expat\latin1tab.h \
+$(INC)\expat\nametab.h \
+$(INC)\expat\utf8tab.h \
+$(INC)\expat\winconfig.h \
+$(INC)\expat\xmlrole.h \
+$(INC)\expat\xmltok.h \
+$(INC)\expat\xmltok_impl.h
+
+$(OUTPUTDIR)\xml_charset.obj: $(@B).c $(XMLHEADERS)
+
+$(OUTPUTDIR)\xmlparse.obj: $(@B).c $(XMLHEADERS)
+
+$(OUTPUTDIR)\xmlrole.obj: $(@B).c $(XMLHEADERS)
+
+$(OUTPUTDIR)\xmltok.obj: $(@B).c xmltok_impl.c xmltok_ns.c $(XMLHEADERS)
 
 

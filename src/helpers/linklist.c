@@ -1039,6 +1039,7 @@ PLISTNODE lstPush(PLINKLIST pList,
  *@@ lstPop:
  *      returns the last item which has been pushed onto
  *      a pseudo-stack LIFO LINKLIST using lstPush.
+ *
  *      Note that to really "pop" the item, i.e. remove
  *      it from the list, you MUST call lstRemoveNode
  *      with the list node returned from this function,
@@ -1064,8 +1065,8 @@ PLISTNODE lstPush(PLINKLIST pList,
 
 PLISTNODE lstPop(PLINKLIST pList)
 {
-    PLISTNODE pNodeReturn = NULL;
-    unsigned long cItems = lstCountItems(pList);
+    return (pList->pLast);
+    /* unsigned long cItems = lstCountItems(pList);
     if (cItems)
     {
         // list not empty:
@@ -1073,6 +1074,6 @@ PLISTNODE lstPop(PLINKLIST pList)
         pNodeReturn = lstNodeFromIndex(pList,
                                        cItems - 1);
     }
-    return (pNodeReturn);
+    return (pNodeReturn); */
 }
 

@@ -55,7 +55,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-// #include "setup.h"                      // code generation and debugging options
+#include "setup.h"                      // code generation and debugging options
 
 // #include "helpers\animate.h"
 
