@@ -3929,18 +3929,16 @@ HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
 
     if (hwndFrame)
     {
-        *phwndClient = WinCreateWindow(hwndFrame,      // parent
-                                       (PSZ)pcszClassClient, // class
-                                       NULL,           // no title
-                                       flStyleClient,  // style
-                                       0,0,0,0,        // size and position = 0
-                                       hwndFrame,      // owner
-                                       HWND_BOTTOM,    // bottom z-order
-                                       FID_CLIENT,     // frame window ID
-                                       pClientCtlData, // class data
-                                       NULL);          // no presparams
-
-        if (*phwndClient)
+        if (*phwndClient = WinCreateWindow(hwndFrame,      // parent
+                                           (PSZ)pcszClassClient, // class
+                                           NULL,           // no title
+                                           flStyleClient,  // style
+                                           0,0,0,0,        // size and position = 0
+                                           hwndFrame,      // owner
+                                           HWND_BOTTOM,    // bottom z-order
+                                           FID_CLIENT,     // frame window ID
+                                           pClientCtlData, // class data
+                                           NULL))          // no presparams
         {
             if (pswpFrame)
             {

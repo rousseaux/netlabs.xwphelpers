@@ -3068,6 +3068,7 @@ static VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *@@changed V0.9.14 (2001-08-21) [umoeller]: fixed default push button problems
  *@@changed V0.9.16 (2001-12-06) [umoeller]: fixed bad owner if not direct desktop child
  *@@changed V0.9.19 (2002-04-24) [umoeller]: added excpt handling
+ +@@changed V0.9.21 (2002-08-21) [umoeller]: now setting wait pointer
  */
 
 APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
@@ -3081,6 +3082,8 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                      PCSZ pcszControlsFont)     // in: font for ctls with CTL_COMMON_FONT
 {
     APIRET      arc = NO_ERROR;
+
+    HPOINTER    hptrOld = winhSetWaitPointer();     // V0.9.21 (2002-08-21) [umoeller]
 
     TRY_LOUD(excpt1)
     {
@@ -3241,6 +3244,8 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                      "Error in Dialog Manager",
                      szErr);
     }
+
+    WinSetPointer(HWND_DESKTOP, hptrOld); // V0.9.21 (2002-08-21) [umoeller]
 
     return arc;
 }
