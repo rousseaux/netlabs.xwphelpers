@@ -1008,6 +1008,17 @@ extern "C" {
 
     APIRET doshExecFreeExportedFunctions(PFSYSFUNCTION paFunctions);
 
+    #define WINRT_ACCELERATOR          9
+    #define WINRT_BITMAP               2
+    #define WINRT_CURSOR               1
+    #define WINRT_DIALOG               5
+    #define WINRT_FONT                 8
+    #define WINRT_FONTDIR              7
+    #define WINRT_ICON                 3
+    #define WINRT_MENU                 4
+    #define WINRT_RCDATA               10
+    #define WINRT_STRING               6
+
     /*
      *@@ FSYSRESOURCE:
      *

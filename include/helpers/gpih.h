@@ -263,9 +263,11 @@ extern "C" {
     typedef BOOL XWPENTRY GPIHCREATEMEMPS(HAB hab, PSIZEL psizlPage, HDC *hdcMem, HPS *hpsMem);
     typedef GPIHCREATEMEMPS *PGPIHCREATEMEMPS;
 
-    HBITMAP XWPENTRY gpihCreateBitmap(HPS hpsMem, ULONG  cx, ULONG  cy);
-    typedef HBITMAP XWPENTRY GPIHCREATEBITMAP(HPS hpsMem, ULONG  cx, ULONG  cy);
+    HBITMAP XWPENTRY gpihCreateBitmap(HPS hpsMem, ULONG  cx, ULONG cy);
+    typedef HBITMAP XWPENTRY GPIHCREATEBITMAP(HPS hpsMem, ULONG  cx, ULONG cy);
     typedef GPIHCREATEBITMAP *PGPIHCREATEBITMAP;
+
+    HBITMAP XWPENTRY gpihCreateBitmap2(HPS hpsMem, ULONG  cx, ULONG cy, ULONG cPlanes, ULONG cBitCount);
 
     HBITMAP XWPENTRY gpihCreateBmpFromPS(HAB hab, HPS hpsScreen, PRECTL prcl);
     typedef HBITMAP XWPENTRY GPIHCREATEBMPFROMPS(HAB hab, HPS hpsScreen, PRECTL prcl);
@@ -328,6 +330,14 @@ extern "C" {
     PXBITMAP XWPENTRY gpihCreateXBitmap(HAB hab, LONG cx, LONG cy);
     typedef PXBITMAP XWPENTRY GPIHCREATEXBITMAP(HAB hab, LONG cx, LONG cy);
     typedef GPIHCREATEXBITMAP *PGPIHCREATEXBITMAP;
+
+    PXBITMAP gpihCreateXBitmap2(HAB hab,
+                                LONG cx,
+                                LONG cy,
+                                ULONG cPlanes,
+                                ULONG cBitCount);
+
+    HBITMAP XWPENTRY gpihDetachBitmap(PXBITMAP pbmp);
 
     VOID XWPENTRY gpihDestroyXBitmap(PXBITMAP *ppbmp);
     typedef VOID XWPENTRY GPIHDESTROYXBITMAP(PXBITMAP *ppbmp);
