@@ -2353,6 +2353,7 @@ LONG gpihStretchBitmap(HPS hpsTarget,       // in: memory PS to copy bitmap to
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.16 (2001-10-15) [umoeller]: added pptlLowerLeft
  *@@changed V0.9.16 (2001-10-15) [umoeller]: fixed inclusive/exclusive confusion (sigh...)
+ *@@changed V0.9.19 (2002-06-13) [umoeller]: fixed funny colors when scaling
  */
 
 BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap selected into it
@@ -2408,13 +2409,17 @@ BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap sel
 
         // GpiErase(hpsMem);
 
+        // V0.9.19 (2002-06-13) [umoeller]:
+        // use BBO_IGNORE instead of BBO_OR or we get funny colors
+        // when scaling down
+
         // work on the AND image
         GpiWCBitBlt(hpsMem,     // target
                     pi.hbmPointer,  // src bmp
                     4L,         // must always be 4
                     &aptl[0],   // point array
                     ROP_SRCAND,   // source AND target
-                    BBO_OR);
+                    BBO_IGNORE);        // V0.9.19 (2002-06-13) [umoeller]
 
         // paint the real image
         if (pi.hbmColor)
@@ -2423,7 +2428,7 @@ BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap sel
                         4L,         // must always be 4
                         &aptl[0],   // point array
                         ROP_SRCPAINT,    // source OR target
-                        BBO_OR);
+                        BBO_IGNORE);        // V0.9.19 (2002-06-13) [umoeller]
 
         GpiSetColor(hpsMem, lBkgndColor);
         // work on the XOR image
@@ -2435,7 +2440,7 @@ BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap sel
                     4L,         // must always be 4
                     &aptl[0],   // point array
                     ROP_SRCINVERT,
-                    BBO_OR);
+                    BBO_IGNORE);        // V0.9.19 (2002-06-13) [umoeller]
 
         brc = TRUE;
     }
