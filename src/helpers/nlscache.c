@@ -82,13 +82,18 @@ STATIC HMODULE             G_hmod = NULLHANDLE;
 STATIC PCSTRINGENTITY      G_paEntities = NULL;
 STATIC ULONG               G_cEntities = 0;
 
+STATIC HMTX        G_hmtxStringsCache = NULLHANDLE;
+STATIC TREE        *G_StringsCache;
+STATIC LONG        G_cStringsInCache = 0;
+
+
 /*
- *@@ ReplaceEntities:
+ *@@ nlsReplaceEntities:
  *
  *@@added V0.9.16 (2001-09-29) [umoeller]
  */
 
-STATIC ULONG ReplaceEntities(PXSTRING pstr)
+ULONG nlsReplaceEntities(PXSTRING pstr)
 {
     ULONG ul,
           rc = 0;
@@ -106,18 +111,24 @@ STATIC ULONG ReplaceEntities(PXSTRING pstr)
             rc++;
     }
 
-    return (rc);
+    return rc;
 }
 
 /*
- *@@ LoadString:
+ *@@ nlsLoadString:
  *
- *@@added V0.9.18 (2002-03-08) [umoeller]
+ *@@changed V0.9.0 [umoeller]: "string not found" is now re-allocated using strdup (avoids crashes)
+ *@@changed V0.9.0 (99-11-28) [umoeller]: added more meaningful error message
+ *@@changed V0.9.2 (2000-02-26) [umoeller]: made temporary buffer larger
+ *@@changed V0.9.16 (2001-09-29) [umoeller]: added entities support
+ *@@changed V0.9.16 (2002-01-26) [umoeller]: added pulLength param
+ *@@changed V1.0.0 (2002-09-17) [umoeller]: optimized
+ *@@changed V1.0.1 (2002-12-11) [umoeller]: moved this here from XWorkplace common.c
  */
 
-STATIC void LoadString(ULONG ulID,
-                       PSZ *ppsz,
-                       PULONG pulLength)        // out: length of new string (ptr can be NULL)
+VOID nlsLoadString(ULONG ulID,
+                   PSZ *ppsz,
+                   PULONG pulLength)        // out: length of new string (ptr can be NULL)
 {
     CHAR szBuf[500];
     XSTRING str;
@@ -137,16 +148,12 @@ STATIC void LoadString(ULONG ulID,
                 G_hmod);
 
     xstrInitCopy(&str, szBuf, 0);
-    ReplaceEntities(&str);
+    nlsReplaceEntities(&str);
     *ppsz = str.psz;
     if (pulLength)
         *pulLength = str.ulLength;
     // do not free string
 }
-
-STATIC HMTX        G_hmtxStringsCache = NULLHANDLE;
-STATIC TREE        *G_StringsCache;
-STATIC LONG        G_cStringsInCache = 0;
 
 /*
  *@@ LockStrings:
@@ -201,6 +208,43 @@ typedef struct _STRINGTREENODE
 } STRINGTREENODE, *PSTRINGTREENODE;
 
 /*
+ *@@ Unload:
+ *      removes all loaded strings from memory.
+ *
+ *@@added V0.9.9 (2001-04-04) [umoeller]
+ *@@changed V1.0.1 (2002-12-11) [umoeller]: moved this here from XWorkplace common.c
+ */
+
+STATIC VOID Unload(VOID)
+{
+    // to delete all nodes, build a temporary
+    // array of all string node pointers;
+    // we don't want to rebalance the tree
+    // for each node
+    LONG            cNodes = G_cStringsInCache;
+    PSTRINGTREENODE *papNodes
+        = (PSTRINGTREENODE*)treeBuildArray(G_StringsCache,
+                                           &cNodes);
+    if (papNodes)
+    {
+        // delete all nodes in array
+        ULONG ul;
+        for (ul = 0;
+             ul < cNodes;
+             ul++)
+        {
+            free(papNodes[ul]);
+        }
+
+        free(papNodes);
+    }
+
+    // reset the tree to "empty"
+    treeInit(&G_StringsCache,
+             &G_cStringsInCache);
+}
+
+/*
  *@@ nlsInitStrings:
  *      initializes the NLS strings cache. Call this
  *      before calling nlsGetString for the first time.
@@ -213,10 +257,26 @@ VOID nlsInitStrings(HAB hab,                    // in: anchor block
                     PCSTRINGENTITY paEntities,  // in: entities array or NULL
                     ULONG cEntities)            // in: array item count of paEntities or 0
 {
-    G_hab = hab;
-    G_hmod = hmod;
-    G_paEntities = paEntities;
-    G_cEntities = cEntities;
+    BOOL    fLocked = FALSE;
+
+    TRY_LOUD(excpt1)
+    {
+        if (fLocked = LockStrings())
+        {
+            if (G_cStringsInCache)
+                // not first call:
+                Unload();
+
+            G_hab = hab;
+            G_hmod = hmod;
+            G_paEntities = paEntities;
+            G_cEntities = cEntities;
+        }
+    }
+    CATCH(excpt1) {} END_CATCH();
+
+    if (fLocked)
+        UnlockStrings();
 }
 
 /*
@@ -274,6 +334,7 @@ VOID nlsInitStrings(HAB hab,                    // in: anchor block
  *@@added V0.9.9 (2001-04-04) [umoeller]
  *@@changed V0.9.16 (2001-10-19) [umoeller]: fixed bad string count which was never set
  *@@changed V0.9.16 (2002-01-26) [umoeller]: optimized heap locality
+ *@@changed V1.0.1 (2002-12-11) [umoeller]: moved this here from XWorkplace common.c
  */
 
 PCSZ nlsGetString(ULONG ulStringID)
@@ -298,9 +359,9 @@ PCSZ nlsGetString(ULONG ulStringID)
                 PSZ     psz = NULL;
                 ULONG   ulLength = 0;
 
-                LoadString(ulStringID,
-                           &psz,
-                           &ulLength);
+                nlsLoadString(ulStringID,
+                              &psz,
+                              &ulLength);
 
                 if (    (!psz)
                      || (!(pNode = (PSTRINGTREENODE)malloc(   sizeof(STRINGTREENODE)
@@ -335,7 +396,7 @@ PCSZ nlsGetString(ULONG ulStringID)
     if (fLocked)
         UnlockStrings();
 
-    return (pszReturn);
+    return pszReturn;
 }
 
 

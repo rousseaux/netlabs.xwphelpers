@@ -344,6 +344,28 @@ BOOL winhIsDlgItemEnabled(HWND hwndDlg,
     return WinIsWindowEnabled(WinWindowFromID(hwndDlg, id));
 }
 
+/*
+ *@@ winhDestroyWindow:
+ *      wrapper around WinDestroyWindow that also sets
+ *      *phwnd to NULLHANDLE to avoid loose window
+ *      handles lying around.
+ *
+ *@@added V1.0.1 (2002-12-11) [umoeller]
+ */
+
+BOOL winhDestroyWindow(HWND *phwnd)
+{
+    if (    (*phwnd)
+         && (WinDestroyWindow(*phwnd))
+       )
+    {
+        *phwnd = NULLHANDLE;
+
+        return TRUE;
+    }
+
+    return FALSE;
+}
 
 /*
  *@@category: Helpers\PM helpers\Menu helpers

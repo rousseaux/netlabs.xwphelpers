@@ -91,6 +91,7 @@
 #include "helpers\except.h"
 #include "helpers\gpih.h"
 #include "helpers\linklist.h"
+#include "helpers\nlscache.h"
 #include "helpers\standards.h"
 #include "helpers\stringh.h"
 #include "helpers\textview.h"
@@ -1496,9 +1497,12 @@ STATIC APIRET ColumnCreateControl(PCOLUMNDEF pColumn,
                 if (!(arc = DosQueryMem((PVOID)pcszClass, &Size, &Attr)))
                     strhncpy0(szText2, pcszText, sizeof(szText2));
 
+                #ifdef DEBUG_DIALOG_WINDOWS
                 _Pmpf(("Crash creating control of class 0x%lX (%s), title 0x%lX (%s)",
                         szClass2,
                         szText2));
+                #endif
+
                 arc = ERROR_PROTECTION_VIOLATION;
             } END_CATCH();
         }
@@ -1760,8 +1764,10 @@ STATIC APIRET ProcessColumn(PCOLUMNDEF pColumn,
                                     pTablesColumn;
                         LONG        cxWidestRowsMinBox = pOwningTable->cxMinBox; // pWidestRow->cxMinBox;
 
+                        #ifdef DEBUG_DIALOG_WINDOWS
                         _Pmpf(("  pWidestRow->cxMinBox %d", pWidestRow->cxMinBox));
                         _Pmpf(("  pOwningTable->cxMinBox %d", pOwningTable->cxMinBox));
+                        #endif
 
                         // now, since we're supposed to set our own CONTENT
                         // rectangle, subtract our own padding and margin
@@ -1859,9 +1865,12 @@ STATIC APIRET ProcessColumn(PCOLUMNDEF pColumn,
                                     CHAR szTemp[40];
                                     strhncpy0(szTemp, pControlDef->pcszText, sizeof(szTemp));
                                     strcpy(szTemp + 35, "...");
+
+                                    #ifdef DEBUG_DIALOG_WINDOWS
                                     _PmpfF(("   widest column is [%s] cxMinContent %d",
                                             szTemp,
                                             pCorrespondingColumn->cxMinContent));
+                                    #endif
                                 }
                             }
                             #endif
@@ -2241,7 +2250,9 @@ STATIC APIRET ProcessTable(PTABLEDEF pTableDef,
                             cxMax = pRowThis->cxMinBox;
                     }
 
+                    #ifdef DEBUG_DIALOG_WINDOWS
                     _Pmpf(("    cxMax found is %d", cxMax));
+                    #endif
 
                     pTableDef->cxMinBox =   cxMax
                                           - pOwningColumn->cxSpacingTotal;
@@ -2393,6 +2404,7 @@ STATIC APIRET ProcessAll(PDLGPRIVATE pDlgData,
  *@@ CreateColumn:
  *
  *@@changed V1.0.0 (2002-08-18) [umoeller]: mostly rewritten for new algorithm
+ *@@changed V1.0.1 (2002-12-11) [umoeller]: added interface into nlsGetString
  */
 
 STATIC APIRET CreateColumn(PDLGPRIVATE pDlgData,
@@ -2445,7 +2457,13 @@ STATIC APIRET CreateColumn(PDLGPRIVATE pDlgData,
             {
                 // copy control fields
                 pColumn->pcszClass = pControlDef->pcszClass;
-                pColumn->pcszText = pControlDef->pcszText;
+
+                if (pControlDef->pcszText == LOAD_STRING)
+                    pColumn->pcszText = nlsGetString(pControlDef->usID);
+                            // V1.0.1 (2002-12-11) [umoeller]
+                else
+                    pColumn->pcszText = pControlDef->pcszText;
+
                 pColumn->flStyle = pControlDef->flStyle;
                 pColumn->usID = pControlDef->usID;
 
@@ -2568,7 +2586,7 @@ STATIC APIRET Dlg0_Init(PDLGPRIVATE *ppDlgData,
     POINTL          ptl = {100, 100};
 
     if (!(pDlgData = NEW(DLGPRIVATE)))
-        return (ERROR_NOT_ENOUGH_MEMORY);
+        return ERROR_NOT_ENOUGH_MEMORY;
 
     ZERO(pDlgData);
     lstInit(&pDlgData->llTables, FALSE);
@@ -3893,7 +3911,7 @@ ULONG dlghProcessMessageBox(HWND hwndDlg,
             default:    return MBID_NO;
         }
 
-    return (MBID_CANCEL);
+    return MBID_CANCEL;
 }
 
 /*
@@ -3965,9 +3983,9 @@ ULONG dlghMessageBox(HWND hwndOwner,            // in: owner for msg box
        )
     {
         // SHOW DIALOG
-        return (dlghProcessMessageBox(hwndDlg,
-                                      ulAlarmFlag,
-                                      flFlags));
+        return dlghProcessMessageBox(hwndDlg,
+                                     ulAlarmFlag,
+                                     flFlags);
     }
 
     sprintf(szMsg, "dlghCreateMessageBox reported error %u.", arc);
@@ -3978,7 +3996,7 @@ ULONG dlghMessageBox(HWND hwndOwner,            // in: owner for msg box
                   0,
                   MB_CANCEL | MB_MOVEABLE);
 
-    return (DID_CANCEL);
+    return DID_CANCEL;
 }
 
 /*
@@ -4118,7 +4136,7 @@ PSZ dlghTextEntryBox(HWND hwndOwner,
 
     xstrClear(&strTitle);
 
-    return (pszReturn);
+    return pszReturn;
 }
 
 /* ******************************************************************
@@ -4312,7 +4330,7 @@ HWND dlghProcessMnemonic(PVOID pvllWindows,
         pNode = pNode->pNext;
     }
 
-    return (hwndFound);
+    return hwndFound;
 }
 
 /*
@@ -4345,7 +4363,7 @@ BOOL dlghEnter(PVOID pvllWindows)
                                BM_CLICK,
                                (MPARAM)TRUE,        // upclick
                                0);
-                    return (TRUE);
+                    return TRUE;
                 }
             }
         }
@@ -4353,7 +4371,7 @@ BOOL dlghEnter(PVOID pvllWindows)
         pNode = pNode->pNext;
     }
 
-    return (FALSE);
+    return FALSE;
 }
 
 

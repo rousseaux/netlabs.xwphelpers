@@ -193,6 +193,8 @@ extern "C" {
 
     BOOL XWPENTRY winhIsDlgItemEnabled(HWND hwndDlg, SHORT id);
 
+    BOOL winhDestroyWindow(HWND *phwnd);
+
     /* ******************************************************************
      *
      *   Menu helpers

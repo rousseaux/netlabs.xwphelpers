@@ -56,6 +56,14 @@ extern "C" {
                                  PCSTRINGENTITY paEntities,
                                  ULONG cEntities);
 
+    #ifdef XSTRING_HEADER_INCLUDED
+        ULONG XWPENTRY nlsReplaceEntities(PXSTRING pstr);
+    #endif
+
+    VOID XWPENTRY nlsLoadString(ULONG ulID,
+                                PSZ *ppsz,
+                                PULONG pulLength);
+
     PCSZ XWPENTRY nlsGetString(ULONG ulStringID);
 
 
