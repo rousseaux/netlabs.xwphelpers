@@ -551,7 +551,7 @@ APIRET doshExecOpen(const char* pcszExecutable,
                     if (sizeof(PEHEADER) > cbRead)
                         cbRead = sizeof(PEHEADER);
 
-                    if (!(pbHeader = malloc(cbRead)))
+                    if (!(pbHeader = (PBYTE)malloc(cbRead)))
                         arc = ERROR_NOT_ENOUGH_MEMORY;
                     else if (!(arc = doshReadAt(hFile,
                                                 ulNewHeaderOfs,

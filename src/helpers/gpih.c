@@ -61,7 +61,7 @@
 
 // array for querying device capabilities (gpihQueryDisplayCaps)
 LONG            DisplayCaps[CAPS_DEVICE_POLYSET_POINTS] = {0};
-BOOL            fCapsQueried = FALSE;
+BOOL            G_fCapsQueried = FALSE;
 
 /*
  *@@category: Helpers\PM helpers\GPI helpers
@@ -170,15 +170,18 @@ VOID gpihInflateRect(PRECTL prcl,
  *
  *      This function will load all the device capabilities
  *      only once into a global array and re-use them afterwards.
+ *
+ *@@changed V0.9.16 (2001-12-18) [umoeller]: fixed multiple loads
  */
 
 ULONG gpihQueryDisplayCaps(ULONG ulIndex)
 {
-    if (!fCapsQueried)
+    if (!G_fCapsQueried)
     {
         HPS hps = WinGetScreenPS(HWND_DESKTOP);
         HDC hdc = GpiQueryDevice(hps);
         DevQueryCaps(hdc, 0, CAPS_DEVICE_POLYSET_POINTS, &DisplayCaps[0]);
+        G_fCapsQueried = TRUE;      // was missing V0.9.16 (2001-12-18) [umoeller]
     }
 
     return (DisplayCaps[ulIndex]);
@@ -1458,6 +1461,27 @@ BOOL gpihCreateMemPS(HAB hab,       // in: anchor block
 
 /*
  *@@ gpihCreateBitmap:
+ *      calls gpihCreateBitmap2 with cPlanes and cBitCount == 0
+ *      for compatibility with exports. Widgets might
+ *      have used this func.
+ *
+ *@@changed V0.9.0 [umoeller]: function prototype changed to cx and cy
+ *@@changed V0.9.16 (2001-12-18) [umoeller]: now using optimized gpihCreateBitmap2
+ */
+
+HBITMAP gpihCreateBitmap(HPS hpsMem,        // in: memory DC
+                         ULONG cx,          // in: width of new bitmap
+                         ULONG cy)          // in: height of new bitmap
+{
+    return (gpihCreateBitmap2(hpsMem,
+                              cx,
+                              cy,
+                              0,
+                              0));            // current screen bit count
+}
+
+/*
+ *@@ gpihCreateBitmap2:
  *      creates a new bitmap for a given memory PS.
  *      This bitmap will have the cPlanes and bitcount
  *      which are found in the memory PS.
@@ -1471,17 +1495,19 @@ BOOL gpihCreateMemPS(HAB hab,       // in: anchor block
  *
  *      Returns the bitmap handle or NULLHANDLE upon errors.
  *
- *@@changed V0.9.0 [umoeller]: function prototype changed to cx and cy
+ *@@added V0.9.16 (2001-12-18) [umoeller]
  */
 
-HBITMAP gpihCreateBitmap(HPS hpsMem,        // in: memory DC
-                         ULONG cx,          // in: width of new bitmap
-                         ULONG cy)          // in: height of new bitmap
+HBITMAP gpihCreateBitmap2(HPS hpsMem,        // in: memory DC
+                          ULONG cx,          // in: width of new bitmap
+                          ULONG cy,          // in: height of new bitmap
+                          ULONG cPlanes,     // in: color planes (usually 1); if 0, current screen is used
+                          ULONG cBitCount)   // in: either 1, 4, or 24; if 0, current screen value
 {
     HBITMAP hbm = NULLHANDLE;
     LONG alData[2];
     BITMAPINFOHEADER2 bih2;
-    PBITMAPINFO2 pbmi = NULL;
+    // PBITMAPINFO2 pbmi = NULL;
 
     // determine the device's plane/bit-count format;
     // alData[0] then has cPlanes,
@@ -1492,8 +1518,10 @@ HBITMAP gpihCreateBitmap(HPS hpsMem,        // in: memory DC
         bih2.cbFix = (ULONG)sizeof(BITMAPINFOHEADER2);
         bih2.cx = cx; // (prcl->xRight - prcl->xLeft);       changed V0.9.0
         bih2.cy = cy; // (prcl->yTop - prcl->yBottom);       changed V0.9.0
-        bih2.cPlanes = alData[0];
-        bih2.cBitCount = alData[1];
+        bih2.cPlanes = (cPlanes) ? cPlanes : alData[0];
+        bih2.cBitCount = (cBitCount) ? cBitCount : alData[1];
+            _Pmpf((__FUNCTION__ ": cPlanes %d, cBitCount %d",
+                        bih2.cPlanes, bih2.cBitCount));
         bih2.ulCompression = BCA_UNCOMP;
         bih2.cbImage = (    (   (bih2.cx
                                     * (1 << bih2.cPlanes)
@@ -1514,48 +1542,12 @@ HBITMAP gpihCreateBitmap(HPS hpsMem,        // in: memory DC
         bih2.ulColorEncoding = BCE_RGB;     // only possible value
         bih2.ulIdentifier = 0;              // application-specific data
 
-        // allocate memory for info header
-        if (DosAllocMem((PPVOID)&pbmi,
-                        sizeof(BITMAPINFO2) +
-                            (sizeof(RGB2)
-                                * (1 << bih2.cPlanes)
-                                * (1 << bih2.cBitCount)
-                            ),
-                        PAG_COMMIT | PAG_READ | PAG_WRITE)
-            == NO_ERROR)
-        {
-            pbmi->cbFix = bih2.cbFix;
-            pbmi->cx = bih2.cx;
-            pbmi->cy = bih2.cy;
-            pbmi->cPlanes = bih2.cPlanes;
-            pbmi->cBitCount = bih2.cBitCount;
-            pbmi->ulCompression = BCA_UNCOMP;
-            pbmi->cbImage = ((bih2.cx+31)/32) * bih2.cy;
-            pbmi->cxResolution = 70;
-            pbmi->cyResolution = 70;
-            pbmi->cclrUsed = 2;
-            pbmi->cclrImportant = 0;
-            pbmi->usUnits = BRU_METRIC;
-            pbmi->usReserved = 0;
-            pbmi->usRecording = BRA_BOTTOMUP;
-            pbmi->usRendering = BRH_NOTHALFTONED;
-            pbmi->cSize1 = 0;
-            pbmi->cSize2 = 0;
-            pbmi->ulColorEncoding = BCE_RGB;
-            pbmi->ulIdentifier = 0;
-
-            // create a bit map that is compatible with the display
-            hbm = GpiCreateBitmap(hpsMem,
-                                  &bih2,
-                                  FALSE,
-                                  NULL,
-                                  pbmi);
-
-            // free the memory we allocated previously; GPI has
-            // allocated all the resources it needs itself, so
-            // we can release this
-            DosFreeMem(pbmi);
-        }
+        // create a bit map that is compatible with the display
+        hbm = GpiCreateBitmap(hpsMem,
+                              &bih2,
+                              0,            // do not initialize
+                              NULL,
+                              NULL);
     }
 
     return (hbm);
@@ -2085,6 +2077,27 @@ BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap sel
 
 /*
  *@@ gpihCreateXBitmap:
+ *      calls gpihCreateXBitmap2 with cPlanes and cBitCount == 0
+ *      for compatibility with exports. Widgets might
+ *      have used this func.
+ *
+ *@@added V0.9.12 (2001-05-20) [umoeller]
+ *@@changed V0.9.16 (2001-12-18) [umoeller]: now using optimized gpihCreateXBitmap2
+ */
+
+PXBITMAP gpihCreateXBitmap(HAB hab,         // in: anchor block
+                           LONG cx,         // in: bitmap width
+                           LONG cy)         // in: bitmap height
+{
+    return (gpihCreateXBitmap2(hab,
+                               cx,
+                               cy,
+                               0,
+                               0));
+}
+
+/*
+ *@@ gpihCreateXBitmap:
  *      creates an XBitmap, which is returned in an
  *      _XBITMAP structure.
  *
@@ -2123,12 +2136,14 @@ BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap sel
  *      Without the gpih* functions, the above would expand
  *      to more than 100 lines.
  *
- *@@added V0.9.12 (2001-05-20) [umoeller]
+ *@@added V0.9.16 (2001-12-18) [umoeller]
  */
 
-PXBITMAP gpihCreateXBitmap(HAB hab,         // in: anchor block
-                           LONG cx,         // in: bitmap width
-                           LONG cy)         // in: bitmap height
+PXBITMAP gpihCreateXBitmap2(HAB hab,         // in: anchor block
+                            LONG cx,         // in: bitmap width
+                            LONG cy,         // in: bitmap height
+                            ULONG cPlanes,     // in: color planes (usually 1); if 0, current screen is used
+                            ULONG cBitCount)   // in: either 1, 4, or 24; if 0, current screen value
 {
     BOOL fOK = FALSE;
     PXBITMAP pbmp = (PXBITMAP)malloc(sizeof(XBITMAP));
@@ -2144,10 +2159,15 @@ PXBITMAP gpihCreateXBitmap(HAB hab,         // in: anchor block
                             &pbmp->hdcMem,
                             &pbmp->hpsMem))
         {
-            gpihSwitchToRGB(pbmp->hpsMem);
-            if (pbmp->hbm = gpihCreateBitmap(pbmp->hpsMem,
-                                             cx,
-                                             cy))
+            if (cBitCount != 1)
+                // not monochrome bitmap:
+                gpihSwitchToRGB(pbmp->hpsMem);
+
+            if (pbmp->hbm = gpihCreateBitmap2(pbmp->hpsMem,
+                                              cx,
+                                              cy,
+                                              cPlanes,
+                                              cBitCount))
             {
                 if (GpiSetBitmap(pbmp->hpsMem,
                                  pbmp->hbm)
@@ -2161,6 +2181,30 @@ PXBITMAP gpihCreateXBitmap(HAB hab,         // in: anchor block
     }
 
     return (pbmp);
+}
+
+/*
+ *@@ gpihDetachBitmap:
+ *      "detaches" the bitmap from the given XBITMAP.
+ *      This will deselect the bitmap from the internal
+ *      memory PS so it can be used with many OS/2 APIs
+ *      that require that the bitmap not be selected
+ *      into any memory PS.
+ *
+ *      Note that it then becomes the responsibility
+ *      of the caller to explicitly call GpiDeleteBitmap
+ *      because it will not be deleted by gpihDestroyXBitmap.
+ *
+ *@@added V0.9.16 (2001-12-18) [umoeller]
+ */
+
+HBITMAP gpihDetachBitmap(PXBITMAP pbmp)
+{
+    HBITMAP hbm = pbmp->hbm;
+    pbmp->hbm = NULLHANDLE;
+    GpiSetBitmap(pbmp->hpsMem, NULLHANDLE);
+
+    return (hbm);
 }
 
 /*

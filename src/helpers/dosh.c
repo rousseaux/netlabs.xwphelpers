@@ -333,7 +333,7 @@ APIRET doshAllocArray(ULONG c,              // in: array item count
         return ERROR_NO_DATA;
 
     *pcbAllocated = c * cbArrayItem;
-    if (!(*ppv = malloc(*pcbAllocated)))
+    if (!(*ppv = (PBYTE)malloc(*pcbAllocated)))
         return ERROR_NOT_ENOUGH_MEMORY;
 
     return NO_ERROR;
@@ -1778,6 +1778,7 @@ APIRET doshReadAt(HFILE hf,        // in: OS/2 file handle
  *      --  ERROR_INVALID_PARAMETER
  *
  *@@added V0.9.16 (2001-10-19) [umoeller]
+ *@@changed V0.9.16 (2001-12-18) [umoeller]: fixed error codes
  */
 
 APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
@@ -1788,98 +1789,104 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
 {
     APIRET arc = NO_ERROR;
 
-    // run this first, because if the file doesn't
-    // exists, DosOpen only returns ERROR_OPEN_FAILED,
-    // which isn't that meaningful
-    // V0.9.16 (2001-12-08) [umoeller]
-    if (!(arc = doshQueryPathSize(pcszFilename,
-                                  pcbFile)))
+    ULONG   fsOpenFlags = 0,
+            fsOpenMode =    OPEN_FLAGS_FAIL_ON_ERROR
+                          | OPEN_FLAGS_NO_LOCALITY
+                          | OPEN_FLAGS_NOINHERIT;
+
+    switch (flOpenMode & XOPEN_ACCESS_MASK)
     {
-        ULONG   fsOpenFlags = 0,
-                fsOpenMode =    OPEN_FLAGS_FAIL_ON_ERROR
-                              | OPEN_FLAGS_NO_LOCALITY
-                              | OPEN_FLAGS_NOINHERIT;
+        case XOPEN_READ_EXISTING:
+            fsOpenFlags =   OPEN_ACTION_FAIL_IF_NEW
+                          | OPEN_ACTION_OPEN_IF_EXISTS;
+            fsOpenMode |=   OPEN_SHARE_DENYWRITE
+                          | OPEN_ACCESS_READONLY;
+            // _Pmpf((__FUNCTION__ ": opening XOPEN_READ_EXISTING"));
 
-        switch (flOpenMode & XOPEN_ACCESS_MASK)
+            // run this first, because if the file doesn't
+            // exists, DosOpen only returns ERROR_OPEN_FAILED,
+            // which isn't that meaningful
+            // V0.9.16 (2001-12-08) [umoeller]
+            arc = doshQueryPathSize(pcszFilename,
+                                    pcbFile);
+        break;
+
+        case XOPEN_READWRITE_APPEND:
+            fsOpenFlags =   OPEN_ACTION_CREATE_IF_NEW
+                          | OPEN_ACTION_OPEN_IF_EXISTS;
+            fsOpenMode |=   OPEN_SHARE_DENYREADWRITE
+                          | OPEN_ACCESS_READWRITE;
+            // _Pmpf((__FUNCTION__ ": opening XOPEN_READWRITE_APPEND"));
+        break;
+
+        case XOPEN_READWRITE_NEW:
+            fsOpenFlags =   OPEN_ACTION_CREATE_IF_NEW
+                          | OPEN_ACTION_REPLACE_IF_EXISTS;
+            fsOpenMode |=   OPEN_SHARE_DENYREADWRITE
+                          | OPEN_ACCESS_READWRITE;
+            // _Pmpf((__FUNCTION__ ": opening XOPEN_READWRITE_NEW"));
+        break;
+    }
+
+    if ((!arc) && fsOpenFlags && pcbFile && ppFile)
+    {
+        PXFILE pFile;
+        if (pFile = NEW(XFILE))
         {
-            case XOPEN_READ_EXISTING:
-                fsOpenFlags =   OPEN_ACTION_FAIL_IF_NEW
-                              | OPEN_ACTION_OPEN_IF_EXISTS;
-                fsOpenMode |=   OPEN_SHARE_DENYWRITE
-                              | OPEN_ACCESS_READONLY;
-                // _Pmpf((__FUNCTION__ ": opening XOPEN_READ_EXISTING"));
-            break;
+            ULONG ulAction;
 
-            case XOPEN_READWRITE_APPEND:
-                fsOpenFlags =   OPEN_ACTION_CREATE_IF_NEW
-                              | OPEN_ACTION_OPEN_IF_EXISTS;
-                fsOpenMode |=   OPEN_SHARE_DENYREADWRITE
-                              | OPEN_ACCESS_READWRITE;
-                // _Pmpf((__FUNCTION__ ": opening XOPEN_READWRITE_APPEND"));
-            break;
+            ZERO(pFile);
 
-            case XOPEN_READWRITE_NEW:
-                fsOpenFlags =   OPEN_ACTION_CREATE_IF_NEW
-                              | OPEN_ACTION_REPLACE_IF_EXISTS;
-                fsOpenMode |=   OPEN_SHARE_DENYREADWRITE
-                              | OPEN_ACCESS_READWRITE;
-                // _Pmpf((__FUNCTION__ ": opening XOPEN_READWRITE_NEW"));
-            break;
-        }
+            // copy open flags
+            pFile->flOpenMode = flOpenMode;
 
-        if ((!arc) && fsOpenFlags && pcbFile && ppFile)
-        {
-            PXFILE pFile;
-            if (pFile = NEW(XFILE))
+            if (!(arc = DosOpen((PSZ)pcszFilename,
+                                &pFile->hf,
+                                &ulAction,
+                                *pcbFile,
+                                FILE_ARCHIVED,
+                                fsOpenFlags,
+                                fsOpenMode,
+                                NULL)))       // EAs
             {
-                ULONG ulAction;
+                // alright, got the file:
 
-                ZERO(pFile);
-
-                // copy open flags
-                pFile->flOpenMode = flOpenMode;
-
-                if (!(arc = DosOpen((PSZ)pcszFilename,
-                                    &pFile->hf,
-                                    &ulAction,
-                                    *pcbFile,
-                                    FILE_ARCHIVED,
-                                    fsOpenFlags,
-                                    fsOpenMode,
-                                    NULL)))       // EAs
-                {
-                    // alright, got the file:
-
-                    if (    (ulAction == FILE_EXISTED)
-                         && ((flOpenMode & XOPEN_ACCESS_MASK) == XOPEN_READWRITE_APPEND)
-                       )
-                        // get its size and set ptr to end for append
-                        arc = DosSetFilePtr(pFile->hf,
-                                            0,
-                                            FILE_END,
-                                            pcbFile);
-                    else
-                        arc = doshQueryFileSize(pFile->hf,
-                                                pcbFile);
-                        // file ptr is at beginning
-
-                    // store file size
-                    pFile->cbInitial
-                    = pFile->cbCurrent
-                    = *pcbFile;
-                }
-
-                if (arc)
-                    doshClose(&pFile);
+                if (    (ulAction == FILE_EXISTED)
+                     && ((flOpenMode & XOPEN_ACCESS_MASK) == XOPEN_READWRITE_APPEND)
+                   )
+                    // get its size and set ptr to end for append
+                    arc = DosSetFilePtr(pFile->hf,
+                                        0,
+                                        FILE_END,
+                                        pcbFile);
                 else
-                    *ppFile = pFile;
+                    arc = doshQueryFileSize(pFile->hf,
+                                            pcbFile);
+                    // file ptr is at beginning
+
+                 if (arc)
+                    _Pmpf((__FUNCTION__ ": DosSetFilePtr/queryfilesize returned %d for %s",
+                                arc, pcszFilename));
+
+                // store file size
+                pFile->cbInitial
+                = pFile->cbCurrent
+                = *pcbFile;
             }
             else
-                arc = ERROR_NOT_ENOUGH_MEMORY;
+                 _Pmpf((__FUNCTION__ ": DosOpen returned %d for %s",
+                             arc, pcszFilename));
+
+            if (arc)
+                doshClose(&pFile);
+            else
+                *ppFile = pFile;
         }
         else
-            arc = ERROR_INVALID_PARAMETER;
+            arc = ERROR_NOT_ENOUGH_MEMORY;
     }
+    else
+        arc = ERROR_INVALID_PARAMETER;
 
     return (arc);
 }
