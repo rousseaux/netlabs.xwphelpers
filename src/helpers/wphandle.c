@@ -11,8 +11,10 @@
  *      Function prefixes (new with V0.81):
  *      --  wph*   WPS object helper functions
  *
- *      This code is mostly written by Henk Kelder and published
- *      with his kind permission.
+ *      Thanks go out to Henk Kelder for telling me the
+ *      format of the WPS INI data. With V0.9.16, this
+ *      file was completely rewritten and no longer uses
+ *      his code though.
  *
  *      Note: Version numbering in this file relates to XWorkplace version
  *            numbering.
@@ -21,8 +23,7 @@
  */
 
 /*
- *      This file Copyright (C) 1997-2000 Ulrich M”ller,
- *                                        Henk Kelder.
+ *      This file Copyright (C) 1997-2001 Ulrich M”ller,
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -39,32 +40,28 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
+#define INCL_DOSEXCEPTIONS
+#define INCL_DOSPROCESS
+#define INCL_DOSERRORS
+
 #define INCL_WINSHELLDATA
 #include <os2.h>
-
-#define OPTIONS_SIZE 32767
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <io.h>
+#include <setjmp.h>
 
 #include "setup.h"                      // code generation and debugging options
 
+#include "helpers\except.h"
+#include "helpers\prfh.h"
+#include "helpers\standards.h"
+#include "helpers\stringh.h"
+#define INCLUDE_WPHANDLE_PRIVATE
 #include "helpers\wphandle.h"
-
-/****************************************************
- *                                                  *
- *  helper functions                                *
- *                                                  *
- ****************************************************/
-
-static USHORT wphSearchBufferForHandle(PBYTE pHandlesBuffer, ULONG ulBufSize, USHORT usParent, PSZ pszFname);
-PNODE wphFindPartName(PBYTE pHandlesBuffer, ULONG ulBufSize, USHORT usID, PSZ pszFname, USHORT usMax);
-
-#define MakeDiskHandle(usObjID) (usObjID | 0x30000)
-
-#define IsObjectDisk(hObject) ((hObject & 0x30000) == 0x30000)
+#include "helpers\xstring.h"
 
 /*
  *@@category: Helpers\PM helpers\Workplace Shell\Handles (OS2SYS.INI)
@@ -73,107 +70,352 @@ PNODE wphFindPartName(PBYTE pHandlesBuffer, ULONG ulBufSize, USHORT usID, PSZ ps
 
 /* ******************************************************************
  *
- *   Helper functions
+ *   Load handles functions
  *
  ********************************************************************/
 
 /*
- *@@ wphQueryProfileData:
- *      like PrfQueryProfileData, but allocates sufficient
- *      memory and returns a pointer to that buffer.
- *      pulSize must point to a ULONG which will then
- *      contain the no. of copied bytes.
- */
-
-PBYTE wphQueryProfileData(HINI hIniSystem,    // in: can be HINI_USER or HINI_SYSTEM
-                          PSZ pApp, PSZ pKey, // in: load what?
-                          PULONG pulSize)     // out: bytes loaded
-{
-    PBYTE pData = NULL;
-    if (PrfQueryProfileSize(hIniSystem, pApp, pKey, pulSize))
-    {
-        pData = (PBYTE)malloc(*pulSize);
-        PrfQueryProfileData(hIniSystem, pApp, pKey, pData, pulSize);
-    }
-    // _Pmpf(("  wphQueryProfileData(%lX, %s, %s, %d)", hIniSystem, pApp, pKey, *pulSize));
-    return (pData);
-}
-
-/*
- *@@ wphEnumProfileKeys:
- *      allocates memory for a buffer and copies the keys
- *      for pApp into it.
- *      Returns the pointer to the buffer.
- *      pulKeysSize must point to a ULONG which will then
- *      contain the size of the returned buffer.
- */
-
-PBYTE wphEnumProfileKeys(HINI hIniSystem,       // in: can be HINI_USER or HINI_SYSTEM
-                         PSZ pApp,              // in: app to query
-                         PULONG pulKeysSize)    // out: sizeof(return buffer)
-{
-    PBYTE pszKeys = NULL;
-    if (PrfQueryProfileSize(hIniSystem, pApp, NULL, pulKeysSize))
-    {
-        pszKeys = (PBYTE)malloc(*pulKeysSize);
-        if (pszKeys)
-            PrfQueryProfileData(hIniSystem, pApp, NULL, pszKeys, pulKeysSize);
-    }
-    return (pszKeys);
-}
-
-/*
- * wphResetBlockBuffer:
- *      Reset the block buffer, make sure the buffer is re-read.
- */
-
-/* VOID wphResetBlockBuffer(VOID)
-{
-   if (pHandlesBuffer)
-   {
-       free(pHandlesBuffer);
-       pHandlesBuffer = NULL;
-   }
-} */
-
-/*
  *@@ wphQueryActiveHandles:
- *      this copies the contents of PM_Workplace:ActiveHandles
- *      in OS2SYS.INI into a given buffer. There are always two
- *      buffers in OS2SYS.INI for object handles, called
- *      "PM_Workplace:HandlesX" with "X" either being "0" or "1".
+ *      returns the value of PM_Workplace:ActiveHandles
+ *      in OS2SYS.INI as a new buffer.
+ *
+ *      There are always two buffers in OS2SYS.INI for object
+ *      handles, called "PM_Workplace:HandlesX" with "X" either
+ *      being "0" or "1".
+ *
  *      It seems that every time the WPS does something in the
  *      handles section, it writes the data to the inactive
  *      buffer first and then makes it the active buffer by
  *      changing the "active handles" key. You can test this
  *      by creating a shadow on your Desktop.
  *
- *      This function copies the key only, but not the actual
- *      handles blocks (use wphReadAllBlocks for that).
+ *      This returns a new PSZ which the caller must free()
+ *      after use.
  *
  *      This gets called by the one-shot function
  *      wphQueryHandleFromPath.
+ *
+ *@@changed V0.9.16 (2001-10-02) [umoeller]: rewritten
  */
 
-BOOL wphQueryActiveHandles(HINI hIniSystem,       // in: can be HINI_USER or HINI_SYSTEM
-                           PSZ pszHandlesAppName, // out: active handles buffer.
-                           USHORT usMax)          // in:  sizeof(pszHandlesAppName)
+APIRET wphQueryActiveHandles(HINI hiniSystem,
+                             PSZ *ppszActiveHandles)
 {
-    PBYTE pszHandles;
-    ULONG ulProfileSize;
-
-    pszHandles = wphQueryProfileData(hIniSystem,
-                                     ACTIVEHANDLES, HANDLESAPP,
-                                     &ulProfileSize);
-    if (!pszHandles)
+    PSZ pszActiveHandles;
+    if (pszActiveHandles = prfhQueryProfileData(hiniSystem,
+                                                WPINIAPP_ACTIVEHANDLES,
+                                                WPINIAPP_HANDLESAPP,
+                                                NULL))
     {
-        strncpy(pszHandlesAppName, HANDLES, usMax-1);
-        return TRUE;
+        *ppszActiveHandles = pszActiveHandles;
+        return (NO_ERROR);
     }
-    // fNewFormat = TRUE;
-    strncpy(pszHandlesAppName, pszHandles, usMax-1);
-    free(pszHandles);
-    return TRUE;
+
+    return (ERROR_WPH_NO_ACTIVEHANDLES_DATA);
+}
+
+/*
+ *@@ wphQueryBaseClassesHiwords:
+ *      returns the hiwords for the WPS base
+ *      classes. Unless the user's system is
+ *      really badly configured, this should
+ *      set
+ *
+ *      --  pusHiwordAbstract to 2;
+ *      --  pusHiwordFileSystem to 3.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR
+ *
+ *      --  ERROR_WPH_NO_BASECLASS_DATA
+ *
+ *      --  ERROR_WPH_INCOMPLETE_BASECLASS_DATA
+ *
+ *      This gets called automatically from wphLoadHandles.
+ *
+ *@@added V0.9.16 (2001-10-02) [umoeller]
+ */
+
+APIRET wphQueryBaseClassesHiwords(HINI hiniUser,
+                                  PUSHORT pusHiwordAbstract,
+                                  PUSHORT pusHiwordFileSystem)
+{
+    APIRET arc = NO_ERROR;
+
+    // get the index of WPFileSystem from the base classes list...
+    // we need this to determine the hiword for file-system handles
+    // properly. Normally, this should be 3.
+    ULONG cbBaseClasses = 0;
+    PSZ pszBaseClasses;
+    if (pszBaseClasses = prfhQueryProfileData(hiniUser,
+                                              "PM_Workplace:BaseClass",
+                                              "ClassList",
+                                              &cbBaseClasses))
+    {
+        // parse that buffer... these has the base class names,
+        // separated by 0. List is terminated by two zeroes.
+        PSZ     pszClassThis = pszBaseClasses;
+        ULONG   ulHiwordThis = 1;
+        while (    (*pszClassThis)
+                && (pszClassThis - pszBaseClasses < cbBaseClasses)
+              )
+        {
+            if (!strcmp(pszClassThis, "WPFileSystem"))
+                *pusHiwordFileSystem = ulHiwordThis;
+            else if (!strcmp(pszClassThis, "WPAbstract"))
+                *pusHiwordAbstract = ulHiwordThis;
+
+            ulHiwordThis++;
+            pszClassThis += strlen(pszClassThis) + 1;
+        }
+
+        // now check if we found both
+        if (    (!(*pusHiwordFileSystem))
+             || (!(*pusHiwordAbstract))
+           )
+            arc = ERROR_WPH_INCOMPLETE_BASECLASS_DATA;
+
+        free(pszBaseClasses);
+    }
+    else
+        arc = ERROR_WPH_NO_BASECLASS_DATA;
+
+    return (arc);
+}
+
+/*
+ *@@ wphRebuildNodeHashTable:
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR
+ *
+ *      --  ERROR_INVALID_PARAMETER
+ *
+ *      --  ERROR_WPH_CORRUPT_HANDLES_DATA
+ *
+ *@@added V0.9.16 (2001-10-02) [umoeller]
+ */
+
+APIRET wphRebuildNodeHashTable(PHANDLESBUF pHandlesBuf)
+{
+    APIRET arc = NO_ERROR;
+
+    if (    (!pHandlesBuf)
+         || (!pHandlesBuf->pbData)
+         || (!pHandlesBuf->cbData)
+       )
+        arc = ERROR_INVALID_PARAMETER;
+    else
+    {
+        // start at beginning of buffer
+        PBYTE pCur = pHandlesBuf->pbData + 4;
+        PBYTE pEnd = pHandlesBuf->pbData + pHandlesBuf->cbData;
+
+        memset(pHandlesBuf->NodeHashTable, 0, sizeof(pHandlesBuf->NodeHashTable));
+
+        // now set up hash table
+        while (pCur < pEnd)
+        {
+            if (!memicmp(pCur, "DRIV", 4))
+            {
+                // pCur points to a DRIVE node:
+                // these never have handles, so skip this
+                PDRIV pDriv = (PDRIV)pCur;
+                pCur += sizeof(DRIV) + strlen(pDriv->szName);
+            }
+            else if (!memicmp(pCur, "NODE", 4))
+            {
+                // pCur points to a regular NODE: offset pointer first
+                PNODE pNode = (PNODE)pCur;
+                // store PNODE in hash table
+                pHandlesBuf->NodeHashTable[pNode->usHandle] = pNode;
+                pCur += sizeof (NODE) + pNode->usNameSize;
+            }
+            else
+            {
+                arc = ERROR_WPH_CORRUPT_HANDLES_DATA;
+                break;
+            }
+        }
+    }
+
+    if (!arc)
+        pHandlesBuf->fNodeHashTableValid = TRUE;
+
+    return (arc);
+}
+
+/*
+ *@@ wphLoadHandles:
+ *      returns a HANDLESBUF structure which will hold
+ *      all the handles from OS2SYS.INI. In addition,
+ *      this calls wphQueryBaseClassesHiwords and puts
+ *      the hiwords for WPAbstract and WPFileSystem into
+ *      the HANDLESBUF as well.
+ *
+ *      Prerequisite before using any of the other wph*
+ *      functions.
+ *
+ *      Call wphFreeHandles to free all data allocated
+ *      by this function.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR
+ *
+ *      --  ERROR_NOT_ENOUGH_MEMORY
+ *
+ *      --  ERROR_INVALID_PARAMETER
+ *
+ *      --  ERROR_WPH_NO_HANDLES_DATA: cannot read handle blocks.
+ *
+ *      --  ERROR_WPH_CORRUPT_HANDLES_DATA: cannot read handle blocks.
+ *
+ *@@added V0.9.16 (2001-10-02) [umoeller]
+ */
+
+APIRET wphLoadHandles(HINI hiniUser,      // in: HINI_USER or other INI handle
+                      HINI hiniSystem,    // in: HINI_SYSTEM or other INI handle
+                      const char *pcszActiveHandles,
+                      PHANDLESBUF *ppHandlesBuf)
+{
+    APIRET arc = NO_ERROR;
+
+    if (!ppHandlesBuf)
+        arc = ERROR_INVALID_PARAMETER;
+    else
+    {
+        PSZ pszKeysList;
+        if (!(arc = prfhQueryKeysForApp(hiniSystem,
+                                        pcszActiveHandles,
+                                        &pszKeysList)))
+        {
+            PHANDLESBUF pReturn = NULL;
+
+            ULONG   ulHighestBlock = 0,
+                    ul,
+                    cbTotal;
+            PBYTE   pbData;
+
+            const char *pKey2 = pszKeysList;
+            while (*pKey2)
+            {
+                if (!memicmp((PVOID)pKey2, "BLOCK", 5))
+                {
+                    ULONG ulBlockThis = atoi(pKey2 + 5);
+                    if (ulBlockThis > ulHighestBlock)
+                        ulHighestBlock = ulBlockThis;
+                }
+
+                pKey2 += strlen(pKey2)+1; // next key
+            }
+
+            free(pszKeysList);
+
+            if (!ulHighestBlock)
+                arc = ERROR_WPH_NO_HANDLES_DATA;
+            else
+            {
+                // now go read the data
+                // (BLOCK1, BLOCK2, ..., BLOCKn)
+                cbTotal = 0;
+                pbData = NULL;
+                for (ul = 1;
+                     ul <= ulHighestBlock;
+                     ul++)
+                {
+                    ULONG   cbBlockThis;
+                    CHAR    szBlockThis[10];
+                    sprintf(szBlockThis, "BLOCK%d", ul);
+                    if (!PrfQueryProfileSize(hiniSystem,
+                                             (PSZ)pcszActiveHandles,
+                                             szBlockThis,
+                                             &cbBlockThis))
+                    {
+                        arc = ERROR_WPH_CORRUPT_HANDLES_DATA;
+                        break;
+                    }
+                    else
+                    {
+                        ULONG   cbTotalOld = cbTotal;
+                        cbTotal += cbBlockThis;
+                        if (!(pbData = realloc(pbData, cbTotal)))
+                                // on first call, pbData is NULL and this
+                                // behaves like malloc()
+                        {
+                            arc = ERROR_NOT_ENOUGH_MEMORY;
+                            break;
+                        }
+
+                        if (!PrfQueryProfileData(hiniSystem,
+                                                 (PSZ)pcszActiveHandles,
+                                                 szBlockThis,
+                                                 pbData + cbTotalOld,
+                                                 &cbBlockThis))
+                        {
+                            arc = ERROR_WPH_CORRUPT_HANDLES_DATA;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!arc)
+            {
+                // all went OK:
+                if (pReturn = NEW(HANDLESBUF))
+                {
+                    ZERO(pReturn);
+
+                    pReturn->pbData = pbData;
+                    pReturn->cbData = cbTotal;
+
+                    // and load the hiwords too
+                    if (!(arc = wphQueryBaseClassesHiwords(hiniUser,
+                                                           &pReturn->usHiwordAbstract,
+                                                           &pReturn->usHiwordFileSystem)))
+                        *ppHandlesBuf = pReturn;
+                }
+                else
+                    arc = ERROR_NOT_ENOUGH_MEMORY;
+            }
+
+            if (arc)
+                // error:
+                wphFreeHandles(&pReturn);
+        }
+    }
+
+    return (arc);
+}
+
+/*
+ *@@ wphFreeHandles:
+ *      frees all data allocated by wphLoadHandles
+ *      and sets *ppHandlesBuf to NULL, for safety.
+ *
+ *@@added V0.9.16 (2001-10-02) [umoeller]
+ */
+
+APIRET wphFreeHandles(PHANDLESBUF *ppHandlesBuf)
+{
+    APIRET arc = NO_ERROR;
+
+    if (ppHandlesBuf && *ppHandlesBuf)
+    {
+        PBYTE pbData;
+        if (pbData = (*ppHandlesBuf)->pbData)
+            free(pbData);
+
+        free(*ppHandlesBuf);
+        *ppHandlesBuf = NULL;
+    }
+    else
+        arc = ERROR_INVALID_PARAMETER;
+
+    return (arc);
 }
 
 /*
@@ -194,7 +436,7 @@ BOOL wphQueryActiveHandles(HINI hIniSystem,       // in: can be HINI_USER or HIN
  *      wphQueryHandleFromPath.
  */
 
-BOOL wphReadAllBlocks(HINI hiniSystem,       // in: can be HINI_USER or HINI_SYSTEM
+/* BOOL wphReadAllBlocks(HINI hiniSystem,       // in: can be HINI_USER or HINI_SYSTEM
                       PSZ pszActiveHandles,  // in: active handles section
                       PBYTE* ppBlock,        // in/out: pointer to buffer, which
                                              //    will point to the allocated
@@ -245,7 +487,6 @@ BOOL wphReadAllBlocks(HINI hiniSystem,       // in: can be HINI_USER or HINI_SYS
     *ppBlock = (PBYTE)malloc(ulTotalSize);
     if (!(*ppBlock))
     {
-       /* MessageBox("wphReadAllBlocks", "Not enough memory for profile data!"); */
          free(pbAllBlocks);
          return FALSE;
     }
@@ -277,7 +518,7 @@ BOOL wphReadAllBlocks(HINI hiniSystem,       // in: can be HINI_USER or HINI_SYS
 
     free(pbAllBlocks);
     return TRUE;
-}
+} */
 
 /* ******************************************************************
  *
@@ -288,7 +529,7 @@ BOOL wphReadAllBlocks(HINI hiniSystem,       // in: can be HINI_USER or HINI_SYS
 /*
  *@@ wphSearchBufferForHandle:
  *      returns the four-digit object handle which corresponds
- *      to pszFname, searching pHandlesBuffer. Note that you
+ *      to pszFilename, searching pHandlesBuffer. Note that you
  *      must OR the return value with 0x30000 to make this
  *      a valid WPS file-system handle.
  *
@@ -303,7 +544,7 @@ USHORT wphSearchBufferForHandle(PBYTE pHandlesBuffer, // in: handles buffer (all
                                 ULONG ulBufSize,      // in: sizeof(pHandlesBuffer)
                                 USHORT usParent,      // in: parent NODE ID;
                                                       //     must be 0 initially
-                                PSZ pszFname) // in: fully qlf'd filename to search for
+                                PSZ pszFilename) // in: fully qlf'd filename to search for
 {
     PDRIV pDriv;
     PNODE pNode;
@@ -312,7 +553,7 @@ USHORT wphSearchBufferForHandle(PBYTE pHandlesBuffer, // in: handles buffer (all
           pEnd;                 // *end of buffer
     USHORT usPartSize;
 
-    // _Pmpf(("Entering wphSearchBufferForHandle for %s", pszFname));
+    // _Pmpf(("Entering wphSearchBufferForHandle for %s", pszFilename));
 
     // The composed BLOCKs in the handles buffer make up a tree of
     // DRIVE and NODE structures (see wphandle.h). Each NODE stands
@@ -333,12 +574,12 @@ USHORT wphSearchBufferForHandle(PBYTE pHandlesBuffer, // in: handles buffer (all
 
     // So first find the length of the first filename part (which
     // should be 2 for the drive letter, "C:")
-    p = strchr(pszFname, '\\');
+    p = strchr(pszFilename, '\\');
     if (p)
         // backslash found:
-        usPartSize = p - pszFname;      // extract first part
+        usPartSize = p - pszFilename;      // extract first part
     else
-        usPartSize = strlen(pszFname);
+        usPartSize = strlen(pszFilename);
 
     // now set the pointer for the end of the BLOCKs buffer
     pEnd = pHandlesBuffer + ulBufSize;
@@ -347,7 +588,7 @@ USHORT wphSearchBufferForHandle(PBYTE pHandlesBuffer, // in: handles buffer (all
     // is some offset of 4 bytes at the beginning (duh)
     pCur = pHandlesBuffer + 4;
 
-    // _Pmpf(("  Searching for: %s, usPartSize: %d", pszFname, usPartSize));
+    // _Pmpf(("  Searching for: %s, usPartSize: %d", pszFilename, usPartSize));
 
     // go!
     while (pCur < pEnd)
@@ -385,26 +626,26 @@ USHORT wphSearchBufferForHandle(PBYTE pHandlesBuffer, // in: handles buffer (all
                     // _Pmpf(("    found matching partnames sizes: %d", pNode->usNameSize));
 
                     // do the partnames match too?
-                    if (memicmp(pszFname, pNode->szName, usPartSize) == 0)
+                    if (memicmp(pszFilename, pNode->szName, usPartSize) == 0)
                     {
                         // OK!! proper NODE found!
                         // _Pmpf(("      FOUND %s!!", pNode->szName));
 
                         // now check if this was the last NODE
                         // we were looking for
-                        if (strlen(pszFname) == usPartSize)
+                        if (strlen(pszFilename) == usPartSize)
                            // yes: return ID
                            return (pNode->usHandle);
 
                         // else: update our status;
                         // get next partname
-                        pszFname += usPartSize + 1;
+                        pszFilename += usPartSize + 1;
                         // calc next partname length
-                        p = strchr(pszFname, '\\');
+                        p = strchr(pszFilename, '\\');
                         if (p)
-                           usPartSize = p - pszFname;
+                            usPartSize = p - pszFilename;
                         else
-                           usPartSize = strlen(pszFname);
+                            usPartSize = strlen(pszFilename);
 
                         // get next parent to search for
                         // (which is the current handle)
@@ -425,98 +666,72 @@ USHORT wphSearchBufferForHandle(PBYTE pHandlesBuffer, // in: handles buffer (all
 
 /*
  *@@ wphQueryHandleFromPath:
- *      find the object handle for pszName; this
- *      can either be an object ID ("<WP_DESKTOP>")
- *      or a fully qualified filename.
+ *      finds the object handle for the given fully qualified
+ *      filename.
  *      This is a one-shot function, using wphQueryActiveHandles,
  *      wphReadAllBlocks, and wphSearchBufferForHandle.
  *
  *      Returns:
- *      --  -1:     file does not exist
- *      --  -2:     error querying handles buffer
- *      --  0:      object handle not found; might not exist
- *      --  other:  found object handle
  *
- *      NOTE: This function uses C runtime library
- *      string comparison functions. These only work
- *      properly if you have set the locale for the
- *      C runtime properly. This is, for example, a
- *      problem with file names containing German umlauts,
- *      which are not found properly.
- *      You should put some
- +          setlocale(LC_ALL, "");
- *      statement somewhere, which reacts to the LANG
- *      variable which OS/2 puts into CONFIG.SYS per
- *      default.
+ *      --  NO_ERROR: *phobj has received the object handle.
+ *
+ *      --  ERROR_FILE_NOT_FOUND: file does not exist.
+ *
+ *      plus the error codes of the other wph* functions called.
+ *
+ *@@changed V0.9.16 (2001-10-02) [umoeller]: rewritten
  */
 
-HOBJECT wphQueryHandleFromPath(HINI hIniUser,   // in: user ini file
-                               HINI hIniSystem, // in: system ini file
-                               PSZ pszName)     // in: fully qlf'd filename
+APIRET wphQueryHandleFromPath(HINI hiniUser,      // in: HINI_USER or other INI handle
+                              HINI hiniSystem,    // in: HINI_SYSTEM or other INI handle
+                              const char *pcszName,    // in: fully qlf'd filename
+                              HOBJECT *phobj)      // out: object handle found if NO_ERROR
 {
-    PBYTE       pHandlesBuffer = NULL;
-    ULONG       cbHandlesBuffer = 0,
-                cbLocation = 0;
-    USHORT      usObjID;
+    APIRET      arc = NO_ERROR;
     PVOID       pvData;
-    HOBJECT     hObject = 0L;
-    BYTE        szFullPath[300];
-    CHAR        szActiveHandles[100];
 
-    // _Pmpf(("wphQueryHandleFromPath: %s", pszName));
-
-    // try to get the objectID via PM_Workplace:Location, since
-    // pszName might also be a "<WP_DESKTOP>" like thingy
-    pvData = wphQueryProfileData(hIniUser,
-                                 LOCATION,   // "PM_Workplace:Location" (<WP_DESKTOP> etc.)
-                                 pszName,
-                                 &cbLocation);
-    if (pvData)
+    TRY_LOUD(excpt1)
     {
-        // found there:
-        if (cbLocation >= sizeof(HOBJECT))
-            hObject = *(PULONG)pvData;
-        free(pvData);
-        // _Pmpf(("  object ID found, hObject: %lX", hObject));
-    }
-    if (hObject)
-        return (hObject);
+        // not found there: check the handles then
+        PSZ pszActiveHandles;
+        if (arc = wphQueryActiveHandles(hiniSystem, &pszActiveHandles))
+            _Pmpf((__FUNCTION__ ": wphQueryActiveHandles returned %d", arc));
+        else
+        {
+            PHANDLESBUF pHandlesBuf;
+            if (arc = wphLoadHandles(hiniUser,
+                                     hiniSystem,
+                                     pszActiveHandles,
+                                     &pHandlesBuf))
+                _Pmpf((__FUNCTION__ ": wphLoadHandles returned %d", arc));
+            else
+            {
+                USHORT      usObjID;
+                CHAR        szFullPath[2*CCHMAXPATH];
+                _fullpath(szFullPath, (PSZ)pcszName, sizeof(szFullPath));
 
-    // not found there: is pszName an existing pathname?
-    if (access(pszName, 0))  // check existence
+                // search that buffer
+                if (usObjID = wphSearchBufferForHandle(pHandlesBuf->pbData,
+                                                       pHandlesBuf->cbData,
+                                                       0,                  // usParent
+                                                       szFullPath))
+                    // found: OR 0x30000
+                    *phobj = usObjID | (pHandlesBuf->usHiwordFileSystem << 16);
+                else
+                    arc = ERROR_FILE_NOT_FOUND;
+
+                wphFreeHandles(&pHandlesBuf);
+            }
+
+            free(pszActiveHandles);
+        }
+    }
+    CATCH(excpt1)
     {
-        // == -1: file does not exist
-        // _Pmpf(("  path not found, returning -1"));
-        return (-1);
-    }
+        arc = ERROR_WPH_CRASHED;
+    } END_CATCH();
 
-    // else: make full path for pszName
-    _fullpath(szFullPath, pszName, sizeof(szFullPath));
-
-    // check if the HandlesBlock is valid
-    wphQueryActiveHandles(hIniSystem, szActiveHandles, sizeof(szActiveHandles));
-    // _Pmpf(("  szActiveHandles: %s", szActiveHandles));
-
-    // now load all the BLOCKs into a common buffer
-    if (!wphReadAllBlocks(hIniSystem,
-                           szActiveHandles,
-                           &pHandlesBuffer, &cbHandlesBuffer))
-        // error:
-        return (-2);
-
-    // and search that buffer
-    usObjID = wphSearchBufferForHandle(pHandlesBuffer,
-                                       cbHandlesBuffer,
-                                       0,                  // usParent
-                                       szFullPath);
-
-    if (usObjID)
-        // found: OR 0x30000
-        hObject = MakeDiskHandle(usObjID);
-
-    free(pHandlesBuffer);
-
-    return (hObject);
+    return (arc);
 }
 
 /* ******************************************************************
@@ -526,66 +741,117 @@ HOBJECT wphQueryHandleFromPath(HINI hIniUser,   // in: user ini file
  ********************************************************************/
 
 /*
- *@@ wphFindPartName:
- *      this searches pHandlesBuffer for usHandle and, if found,
- *      appends the object partname to pszFname.
- *      This function recurses, if neccessary.
+ *@@ ComposeThis:
+ *      helper for wphComposePath recursion.
  *
- *      This gets called by the one-shot function
- *      wphQueryPathFromHandle.
+ *@@added V0.9.16 (2001-10-02) [umoeller]
  */
 
-PNODE wphFindPartName(PBYTE pHandlesBuffer, // in: handles buffer
-                      ULONG ulBufSize,      // in: buffer size
-                      USHORT usHandle,      // in: handle to search for
-                      PSZ pszFname,         // out: object partname
-                      USHORT usMax)         // in: sizeof(pszFname)
+APIRET ComposeThis(PHANDLESBUF pHandlesBuf,
+                   USHORT usHandle,         // in: handle to search for
+                   PXSTRING pstrFilename,   // in/out: filename
+                   PNODE *ppNode)           // out: node found (ptr can be NULL)
 {
-    PDRIV pDriv;
+    APIRET arc = NO_ERROR;
     PNODE pNode;
-    PBYTE p, pEnd;
-    USHORT usSize;
-
-    pEnd = pHandlesBuffer + ulBufSize;
-    p = pHandlesBuffer + 4;
-    while (p < pEnd)
+    if (pNode = pHandlesBuf->NodeHashTable[usHandle])
     {
-        if (!memicmp(p, "DRIV", 4))
+        // handle exists:
+        if (pNode->usParentHandle)
         {
-            pDriv = (PDRIV)p;
-            p += sizeof(DRIV) + strlen(pDriv->szName);
-        }
-        else if (!memicmp(p, "NODE", 4))
-        {
-            pNode = (PNODE)p;
-            p += sizeof (NODE) + pNode->usNameSize;
-            if (pNode->usHandle == usHandle)
+            // node has parent:
+            // recurse first
+            if (arc = ComposeThis(pHandlesBuf,
+                                  pNode->usParentHandle,
+                                  pstrFilename,
+                                  ppNode))
             {
-                usSize = usMax - strlen(pszFname);
-                if (usSize > pNode->usNameSize)
-                    usSize = pNode->usNameSize;
-                if (pNode->usParentHandle)
-                {
-                    if (!wphFindPartName(pHandlesBuffer, ulBufSize,
-                                         pNode->usParentHandle,
-                                         pszFname,
-                                         usMax))
-                       return (NULL);
-                    strcat(pszFname, "\\");
-                    strncat(pszFname, pNode->szName, usSize);
-                    return pNode;
-                }
-                else
-                {
-                    strncpy(pszFname, pNode->szName, usSize);
-                    return pNode;
-                }
+                if (arc == ERROR_INVALID_HANDLE)
+                    // parent handle not found:
+                    arc = ERROR_WPH_INVALID_PARENT_HANDLE;
+                // else leave the APIRET, this might be dangerous
+            }
+            else
+            {
+                // no error:
+                xstrcatc(pstrFilename, '\\');
+                xstrcat(pstrFilename, pNode->szName, pNode->usNameSize);
             }
         }
         else
-           return (NULL);
+            // no parent:
+            xstrcpy(pstrFilename, pNode->szName, pNode->usNameSize);
     }
-    return (NULL);
+    else
+        arc = ERROR_INVALID_HANDLE;
+
+    if (!arc)
+        if (ppNode)
+            *ppNode = pNode;
+
+    return (arc);
+}
+
+/*
+ *@@ wphComposePath:
+ *      returns the fully qualified path name for the specified
+ *      file-system handle. This function is very fast because
+ *      it uses a hash table for all the handles internally.
+ *
+ *      Warning: This calls a helper, which recurses.
+ *
+ *      This returns:
+ *
+ *      --  NO_ERROR
+ *
+ *      --  ERROR_WPH_CORRUPT_HANDLES_DATA: buffer data cannot be parsed.
+ *
+ *      --  ERROR_WPH_INVALID_HANDLE: usHandle cannot be found.
+ *
+ *      --  ERROR_WPH_INVALID_PARENT_HANDLE: a handle was found
+ *          that has a broken parent handle.
+ *
+ *      --  ERROR_BUFFER_OVERFLOW: cbFilename is too small to
+ *          hold the full path that was composed.
+ *
+ *@@added V0.9.16 (2001-10-02) [umoeller]
+ */
+
+APIRET wphComposePath(PHANDLESBUF pHandlesBuf,
+                      USHORT usHandle,      // in: loword of handle to search for
+                      PSZ pszFilename,
+                      ULONG cbFilename,
+                      PNODE *ppNode)        // out: node found (ptr can be NULL)
+{
+    APIRET arc = NO_ERROR;
+
+    TRY_LOUD(excpt1)
+    {
+        if (!pHandlesBuf->fNodeHashTableValid)
+            arc = wphRebuildNodeHashTable(pHandlesBuf);
+
+        if (!arc)
+        {
+            XSTRING str;
+            xstrInit(&str, CCHMAXPATH);
+            if (!(arc = ComposeThis(pHandlesBuf,
+                                    usHandle,
+                                    &str,
+                                    ppNode)))
+                if (str.ulLength > cbFilename - 1)
+                    arc = ERROR_BUFFER_OVERFLOW;
+                else
+                    memcpy(pszFilename,
+                           str.psz,
+                           str.ulLength + 1);
+        }
+    }
+    CATCH(excpt1)
+    {
+        arc = ERROR_WPH_CRASHED;
+    } END_CATCH();
+
+    return (arc);
 }
 
 /*
@@ -595,185 +861,66 @@ PNODE wphFindPartName(PBYTE pHandlesBuffer, // in: handles buffer
  *      This is a one-shot function, using wphQueryActiveHandles,
  *      wphReadAllBlocks, and wphFindPartName.
  *
- *@@changed V0.9.4 (2000-08-03) [umoeller]: now returning BOOL
+ *      Returns:
+ *
+ *      --  NO_ERROR
+ *
+ *      --  ERROR_INVALID_HANDLE: hObject is invalid.
+ *
+ *@@changed V0.9.16 (2001-10-02) [umoeller]: rewritten
  */
 
-BOOL wphQueryPathFromHandle(HINI hIniSystem,    // in: HINI_SYSTEM or other INI handle
-                            HOBJECT hObject,    // in: five-digit object handle
-                            PSZ pszFname,       // out: filename, if found
-                            USHORT usMax)       // in: sizeof(*pszFname)
+APIRET wphQueryPathFromHandle(HINI hiniUser,      // in: HINI_USER or other INI handle
+                              HINI hiniSystem,    // in: HINI_SYSTEM or other INI handle
+                              HOBJECT hObject,    // in: 32-bit object handle
+                              PSZ pszFilename,    // out: filename, if found
+                              ULONG cbFilename)   // in: sizeof(*pszFilename)
 {
-    BOOL        brc = FALSE;
+    APIRET arc = NO_ERROR;
 
-    if (IsObjectDisk(hObject))
+    TRY_LOUD(excpt1)
     {
-        // use lower byte only
-        USHORT      usObjID = LOUSHORT(hObject);
-
-        PBYTE       pHandlesBuffer = NULL;
-        ULONG       cbHandlesBuffer = 0;
-
-        CHAR        szActiveHandles[100];
-        // PNODE       pReturnNode = 0;
-
-        wphQueryActiveHandles(hIniSystem, szActiveHandles, sizeof(szActiveHandles));
-
-        if (wphReadAllBlocks(hIniSystem,
-                             szActiveHandles,
-                             &pHandlesBuffer,
-                             &cbHandlesBuffer))
+        PSZ pszActiveHandles;
+        if (arc = wphQueryActiveHandles(hiniSystem, &pszActiveHandles))
+            _Pmpf((__FUNCTION__ ": wphQueryActiveHandles returned %d", arc));
+        else
         {
-            memset(pszFname, 0, usMax);
-            if (wphFindPartName(pHandlesBuffer,
-                                cbHandlesBuffer,
-                                usObjID,
-                                pszFname,
-                                usMax))
-                brc = TRUE;
-
-            free(pHandlesBuffer);
-        }
-    }
-
-    return (brc);
-}
-
-/* ******************************************************************
- *
- *   Manipulation functions
- *
- ********************************************************************/
-
-/*
- *@@ WriteAllBlocks:
- *      writes all blocks back to OS2SYS.INI.
- *
- *@@added V0.9.5 (2000-08-20) [umoeller]
- */
-
-BOOL WriteAllBlocks(HINI hini, PSZ pszHandles, PBYTE pBuffer, ULONG ulSize)
-{
-    PSZ     p,
-            pEnd;
-    BYTE    szBlockName[10];
-    INT     iCurBlock;
-    ULONG   ulCurSize;
-    PBYTE   pStart;
-    PDRIV   pDriv;
-    PNODE   pNode;
-
-    pStart    = pBuffer;
-    ulCurSize = 4;
-    p    = pBuffer + 4;
-    pEnd = pBuffer + ulSize;
-    iCurBlock = 1;
-    while (p < pEnd)
-    {
-        // ULONG   cbWrite = 0;
-        while (p < pEnd)
-        {
-            ULONG   ulPartSize = 0;
-            if (!memicmp(p, "DRIV", 4))
+            PHANDLESBUF pHandlesBuf;
+            if (arc = wphLoadHandles(hiniUser,
+                                     hiniSystem,
+                                     pszActiveHandles,
+                                     &pHandlesBuf))
+                _Pmpf((__FUNCTION__ ": wphLoadHandles returned %d", arc));
+            else
             {
-                pDriv = (PDRIV)p;
-                ulPartSize = sizeof(DRIV) + strlen(pDriv->szName);
-            }
-            else if (!memicmp(p, "NODE", 4))
-            {
-                pNode = (PNODE)p;
-                ulPartSize = sizeof (NODE) + pNode->usNameSize;
+                // is this really a file-system object?
+                if (HIUSHORT(hObject) == pHandlesBuf->usHiwordFileSystem)
+                {
+                    // use loword only
+                    USHORT      usObjID = LOUSHORT(hObject);
+
+                    memset(pszFilename, 0, cbFilename);
+                    arc = wphComposePath(pHandlesBuf,
+                                         usObjID,
+                                         pszFilename,
+                                         cbFilename,
+                                         NULL);
+
+                    _Pmpf((__FUNCTION__ ": wphFindPartName returned %d", arc));
+                }
+
+                wphFreeHandles(&pHandlesBuf);
             }
 
-            if (ulCurSize + ulPartSize > 0x0000FFFF)
-                break;
-
-            ulCurSize += ulPartSize;
-            p         += ulPartSize;
+            free(pszActiveHandles);
         }
-        sprintf(szBlockName, "BLOCK%d", iCurBlock++);
-
-        PrfWriteProfileData(hini,
-                            pszHandles,     // app
-                            szBlockName,    // key
-                            pStart,
-                            ulCurSize);
-        pStart    = p;
-        ulCurSize = 0;
     }
-
-    while (iCurBlock < 20)
+    CATCH(excpt1)
     {
-        ULONG ulBlockSize;
+        arc = ERROR_WPH_CRASHED;
+    } END_CATCH();
 
-        sprintf(szBlockName, "BLOCK%d", iCurBlock++);
-
-        if (PrfQueryProfileSize(hini,
-                                pszHandles,
-                                szBlockName,
-                                &ulBlockSize)
-                && ulBlockSize > 0)
-            // delete block:
-            PrfWriteProfileData(hini,
-                                pszHandles,
-                                szBlockName,
-                                NULL, 0);       // delete
-            // WriteProfileData(pszHandles, szBlockName, hini, NULL, 0);
-    }
-
-    return TRUE;
-}
-
-/*
- *@@ DeleteNode:
- *      deletes a NODE in the specified buffer.
- *
- *@@added V0.9.5 (2000-08-20) [umoeller]
- */
-
-ULONG DeleteNode(PBYTE pBuffer, PNODE pNode, ULONG ulSize)
-{
-    ULONG ulDelSize = sizeof (NODE) + pNode->usNameSize;
-    USHORT usID = pNode->usHandle; // pNode->usID;
-    ULONG ulMoveSize;
-
-    if (memcmp(pNode->chName, "NODE", 4))
-        return ulSize;
-
-    ulMoveSize = (pBuffer + ulSize) - ((PBYTE)pNode + ulDelSize);
-    ulSize -= ulDelSize;
-
-    memmove(pNode, (PBYTE)pNode + ulDelSize, ulMoveSize);
-
-    while (     (PBYTE)pNode < pBuffer + ulSize
-             && !memcmp(pNode->chName, "NODE", 4)
-             && pNode->usParentHandle == usID)
-        ulSize = DeleteNode(pBuffer, pNode, ulSize);
-
-    return ulSize;
- }
-
-/*
- *@@ DeleteDrive:
- *      delete all information about a drive.
- *      in the specified buffer.
- *
- *@@added V0.9.5 (2000-08-20) [umoeller]
- */
-
-ULONG DeleteDrive(PBYTE pBuffer, PDRIV pDriv, ULONG ulSize)
-{
-    ULONG ulDelSize;
-    ULONG ulMoveSize;
-
-    if (memcmp(pDriv->chName, "DRIV", 4))
-        return ulSize;
-
-    ulDelSize = sizeof (DRIV) + strlen(pDriv->szName);
-    ulMoveSize = (pBuffer + ulSize) - ((PBYTE)pDriv + ulDelSize);
-    ulSize -= ulDelSize;
-
-    memmove(pDriv, (PBYTE)pDriv + ulDelSize, ulMoveSize);
-    return ulSize;
+    return (arc);
 }
 
 

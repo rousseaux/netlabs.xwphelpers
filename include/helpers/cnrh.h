@@ -617,7 +617,11 @@ extern "C" {
                            PSZ   pszRMF,
                            USHORT usSupportedOps);
 
-    MRESULT cnrhOwnerDrawRecord(MPARAM mp2);
+    #define CODFL_DISABLEDTEXT          0x0001
+    #define CODFL_MINIICON              0x0002
+
+    MRESULT cnrhOwnerDrawRecord(MPARAM mp2,
+                                ULONG flFlags);
 
     BOOL cnrhDateTimeDos2Win(DATETIME* pdt,
                              CDATE* pcdate,

@@ -73,6 +73,8 @@ extern "C" {
 
     int TREEENTRY treeCompareKeys(unsigned long  ul1, unsigned long ul2);
 
+    int TREEENTRY treeCompareStrings(unsigned long  ul1, unsigned long ul2);
+
     int treeInsert(TREE **root,
                    TREE *x,
                    FNTREE_COMPARE *pfnCompare);

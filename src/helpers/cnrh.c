@@ -1961,104 +1961,147 @@ PDRAGINFO cnrhInitDrag(HWND hwndCnr,
  *      WM_DRAWITEM for owner-drawing container record
  *      cores.
  *
- *      Presently, this function supports drawing record
- *      cores in gray color if the record has the CRA_DISABLED
- *      style (which, AFAIK, PM ignores per default).
+ *      What this draws depends on flFlags:
+ *
+ *      --  If CODFL_DISABLEDTEXT is set, this function supports
+ *          drawing record cores in gray color if the record has
+ *          the CRA_DISABLED style (which, AFAIK, PM ignores per
+ *          default).
+ *
+ *      --  If CODFL_MINIICON is set, this function paints the
+ *          record's mini-icon properly. So far I have failed
+ *          to find out how to get a container to paint the
+ *          correct mini-icon if the CV_MINI style is set...
+ *          the container normally _does_ paint a small icon,
+ *          but it won't use the "real" mini icon data if that
+ *          is present.
+ *
+ *          For painting the mini-icon, WinDrawPointer is used
+ *          with DP_MINI set properly and the RECORDCORE's
+ *          hptrMiniIcon field.
  *
  *      This returns either TRUE or FALSE as an MPARAM, depending
  *      on whether we have drawn the item. This return value should
  *      also be the return value of your window procedure.
+ *
+ *@@changed V0.9.16 (2001-09-29) [umoeller]: added flFlags, icon draw support
  */
 
-MRESULT cnrhOwnerDrawRecord(MPARAM mp2) // in: mp2 of WM_DRAWITEM (POWNERITEM)
+MRESULT cnrhOwnerDrawRecord(MPARAM mp2,     // in: mp2 of WM_DRAWITEM (POWNERITEM)
+                            ULONG flFlags)  // in: CODFL_* flags
 {
-    MRESULT mrc = 0;
+    MRESULT mrc = (MPARAM)FALSE; // tell cnr to draw the item
 
     // get generic DRAWITEM structure
-    POWNERITEM poi = (POWNERITEM)mp2;
+    POWNERITEM poi;
 
-    // check if we're to draw the text
-    // (and not the icon)
-    if (poi->idItem == CMA_TEXT)
+    if (poi = (POWNERITEM)mp2)
     {
         // get container-specific draw-item struct
         PCNRDRAWITEMINFO pcdii = (PCNRDRAWITEMINFO)poi->hItem;
 
-        if (((pcdii->pRecord->flRecordAttr) & CRA_DISABLED) == 0)
+        // check if we're to draw the text
+        // (and not the icon)
+        if (    (poi->idItem == CMA_TEXT)
+             && (flFlags & CODFL_DISABLEDTEXT)
+           )
         {
-            /*
-            // not disabled == valid WPS class
-            if ((pcdii->pRecord->flRecordAttr) & CRA_SELECTED)
+            if (((pcdii->pRecord->flRecordAttr) & CRA_DISABLED) == 0)
             {
-                // not disabled, but selected:
-                lBackground = winhQueryPresColor(hwndDlg, PP_HILITEBACKGROUNDCOLOR, SYSCLR_HILITEBACKGROUND);
-                lForeground = winhQueryPresColor(hwndDlg, PP_HILITEFOREGROUNDCOLOR, SYSCLR_HILITEFOREGROUND);
+                /*
+                // not disabled == valid WPS class
+                if ((pcdii->pRecord->flRecordAttr) & CRA_SELECTED)
+                {
+                    // not disabled, but selected:
+                    lBackground = winhQueryPresColor(hwndDlg, PP_HILITEBACKGROUNDCOLOR, SYSCLR_HILITEBACKGROUND);
+                    lForeground = winhQueryPresColor(hwndDlg, PP_HILITEFOREGROUNDCOLOR, SYSCLR_HILITEFOREGROUND);
+                }
+                else
+                {
+                    // not disabled, not selected:
+                    lBackground = winhQueryPresColor(hwndDlg, PP_BACKGROUNDCOLOR, SYSCLR_BACKGROUND);
+                    lForeground = winhQueryPresColor(hwndDlg, PP_FOREGROUNDCOLOR, SYSCLR_WINDOWTEXT);
+                } */
+                mrc = FALSE;
+                    // let cnr draw the thing
             }
             else
             {
-                // not disabled, not selected:
-                lBackground = winhQueryPresColor(hwndDlg, PP_BACKGROUNDCOLOR, SYSCLR_BACKGROUND);
-                lForeground = winhQueryPresColor(hwndDlg, PP_FOREGROUNDCOLOR, SYSCLR_WINDOWTEXT);
-            } */
-            mrc = FALSE;
-                // let cnr draw the thing
+                // CRA_DISABLED:
+
+                ULONG flCmd = DT_LEFT | DT_TOP | DT_ERASERECT;
+                RECTL rcl2;
+
+                // set draw colors
+                LONG  lBackground,
+                      lForeground;
+
+                // switch to RGB
+                GpiCreateLogColorTable(poi->hps, 0, LCOLF_RGB, 0, 0, NULL);
+
+                if ((pcdii->pRecord->flRecordAttr) & CRA_SELECTED)
+                {
+                    // disabled and selected:
+                    lBackground = WinQuerySysColor(HWND_DESKTOP,
+                                                   SYSCLR_SHADOWTEXT, 0);
+                    lForeground = winhQueryPresColor(poi->hwnd,
+                                                     PP_BACKGROUNDCOLOR,
+                                                     FALSE, // no inherit
+                                                     SYSCLR_WINDOW);
+                }
+                else
+                {
+                    // disabled and not selected:
+                    lBackground = winhQueryPresColor(poi->hwnd,
+                                                     PP_BACKGROUNDCOLOR,
+                                                     FALSE,
+                                                     SYSCLR_WINDOW);
+                    lForeground = WinQuerySysColor(HWND_DESKTOP,
+                                                   SYSCLR_SHADOWTEXT, 0);
+                }
+
+                memcpy(&rcl2, &(poi->rclItem), sizeof(rcl2));
+                /* WinDrawText(poi->hps,
+                            strlen(pcdii->pRecord->pszText),
+                            pcdii->pRecord->pszText,
+                            &rcl2,
+                            lForeground,  // foreground
+                            lBackground,
+                            flCmd); */
+
+                GpiSetBackColor(poi->hps, lBackground);
+                GpiSetColor(poi->hps, lForeground);
+
+                winhDrawFormattedText(poi->hps,
+                                      &rcl2,
+                                      pcdii->pRecord->pszText,
+                                      flCmd);
+
+                mrc = (MPARAM)TRUE;     // tell cnr that we've drawn the item
+            }
         }
-        else
+        else if (    (poi->idItem == CMA_ICON)
+                  && (flFlags & CODFL_MINIICON)
+                )
         {
-            // CRA_DISABLED:
+            WinDrawPointer(poi->hps,
+                           // center the icon in the rectangle
+                           (   poi->rclItem.xLeft
+                             + (poi->rclItem.xRight - poi->rclItem.xLeft
+                                - WinQuerySysValue(HWND_DESKTOP, SV_CXICON) / 2
+                               ) / 2
+                           ),
+                           (   poi->rclItem.yBottom
+                             + (poi->rclItem.yTop - poi->rclItem.yBottom
+                                - WinQuerySysValue(HWND_DESKTOP, SV_CYICON) / 2
+                               ) / 2
+                           ),
+                           pcdii->pRecord->hptrMiniIcon,
+                           DP_MINI);
 
-            ULONG flCmd = DT_LEFT | DT_TOP | DT_ERASERECT;
-            RECTL rcl2;
-
-            // set draw colors
-            LONG  lBackground,
-                  lForeground;
-
-            // switch to RGB
-            GpiCreateLogColorTable(poi->hps, 0, LCOLF_RGB, 0, 0, NULL);
-
-            if ((pcdii->pRecord->flRecordAttr) & CRA_SELECTED)
-            {
-                // disabled and selected:
-                lBackground = WinQuerySysColor(HWND_DESKTOP,
-                                               SYSCLR_SHADOWTEXT, 0);
-                lForeground = winhQueryPresColor(poi->hwnd,
-                                                 PP_BACKGROUNDCOLOR,
-                                                 FALSE, // no inherit
-                                                 SYSCLR_WINDOW);
-            }
-            else
-            {
-                // disabled and not selected:
-                lBackground = winhQueryPresColor(poi->hwnd,
-                                                 PP_BACKGROUNDCOLOR,
-                                                 FALSE,
-                                                 SYSCLR_WINDOW);
-                lForeground = WinQuerySysColor(HWND_DESKTOP,
-                                               SYSCLR_SHADOWTEXT, 0);
-            }
-
-            memcpy(&rcl2, &(poi->rclItem), sizeof(rcl2));
-            /* WinDrawText(poi->hps,
-                        strlen(pcdii->pRecord->pszText),
-                        pcdii->pRecord->pszText,
-                        &rcl2,
-                        lForeground,  // foreground
-                        lBackground,
-                        flCmd); */
-
-            GpiSetBackColor(poi->hps, lBackground);
-            GpiSetColor(poi->hps, lForeground);
-
-            winhDrawFormattedText(poi->hps,
-                                  &rcl2,
-                                  pcdii->pRecord->pszText,
-                                  flCmd);
-
-            mrc = (MPARAM)TRUE; // tell cnr that we've drawn the item
+            mrc = (MPARAM)TRUE;         // tell cnr that we've drawn the item
         }
-    } else
-        mrc = (MPARAM)FALSE; // tell cnr to draw the item
+    }
 
     return (mrc);
 }

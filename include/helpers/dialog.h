@@ -179,41 +179,47 @@ extern "C" {
      *
      ********************************************************************/
 
+    #define COMMON_SPACING          3
+
     #define CONTROLDEF_GROUP(pcsz, id) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_GROUPBOX | DT_MNEMONIC, \
             id, CTL_COMMON_FONT, 0, { -1, -1 }, 0 }
 
     #define CONTROLDEF_TEXT(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_TEXT | DT_LEFT | DT_VCENTER | DT_MNEMONIC, \
-            id, CTL_COMMON_FONT,  0, {cx, cy}, 5 }
+            id, CTL_COMMON_FONT,  0, {cx, cy}, COMMON_SPACING }
 
     #define CONTROLDEF_DEFPUSHBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_DEFAULT, \
-            id, CTL_COMMON_FONT, 0, {cx, cy}, 5 }
+            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
 
     #define CONTROLDEF_PUSHBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, \
-            id, CTL_COMMON_FONT, 0, {cx, cy}, 5 }
+            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
+
+    #define CONTROLDEF_HELPPUSHBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
+            WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_HELP, \
+            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
 
     #define CONTROLDEF_AUTOCHECKBOX(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, \
-            id, CTL_COMMON_FONT, 0, { cx, cy }, 5 }
+            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
 
     #define CONTROLDEF_FIRST_AUTORADIO(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_AUTORADIOBUTTON | WS_GROUP, \
-            id, CTL_COMMON_FONT, 0, { cx, cy }, 5 }
+            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
 
     #define CONTROLDEF_NEXT_AUTORADIO(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_AUTORADIOBUTTON, \
-            id, CTL_COMMON_FONT, 0, { cx, cy }, 5 }
+            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
 
     #define CONTROLDEF_ENTRYFIELD(pcsz, id, cx, cy) { WC_ENTRYFIELD, pcsz, \
             WS_VISIBLE | WS_TABSTOP | ES_MARGIN, \
-            id, CTL_COMMON_FONT, 0, { cx, cy }, 5 }
+            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
 
     #define CONTROLDEF_SPINBUTTON(id, cx, cy) { WC_SPINBUTTON, NULL, \
             WS_VISIBLE | WS_TABSTOP | SPBS_MASTER | SPBS_NUMERICONLY | SPBS_JUSTCENTER | SPBS_FASTSPIN, \
-            id, CTL_COMMON_FONT, 0, {cx, cy}, 5 }
+            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
 
     /* ******************************************************************
      *
@@ -240,6 +246,15 @@ extern "C" {
                                           PVOID pCreateParams,
                                           const char *pcszControlsFont);
     typedef DLGHCREATEDLG *PDLGHCREATEDLG;
+
+    APIRET dlghFormatDlg(HWND hwndDlg,
+                         PDLGHITEM paDlgItems,
+                         ULONG cDlgItems,
+                         const char *pcszControlsFont,
+                         ULONG flFlags);
+
+    #define DFFL_RESIZEFRAME        0x0001
+    #define DFFL_CREATECONTROLS     0x0002
 
     /*
      *@@ MSGBOXSTRINGS:

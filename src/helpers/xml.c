@@ -2433,13 +2433,11 @@ APIRET xmlCreateDOM(ULONG flParserFlags,            // in: DF_* parser flags
                 TRUE);                 // auto-free
 
         // create the document node
-        arc = xmlCreateDomNode(NULL, // no parent
-                               DOMNODE_DOCUMENT,
-                               NULL,
-                               0,
-                               &pDocument);
-
-        if (arc == NO_ERROR)
+        if (!(arc = xmlCreateDomNode(NULL, // no parent
+                                     DOMNODE_DOCUMENT,
+                                     NULL,
+                                     0,
+                                     &pDocument)))
         {
             // store the document in the DOM
             pDom->pDocumentNode = (PDOMDOCUMENTNODE)pDocument;
@@ -2552,10 +2550,10 @@ APIRET xmlCreateDOM(ULONG flParserFlags,            // in: DF_* parser flags
  *@@added V0.9.9 (2001-02-14) [umoeller]
  */
 
-APIRET xmlParse(PXMLDOM pDom,
-                const char *pcszBuf,
-                ULONG cb,
-                BOOL fIsLast)
+APIRET xmlParse(PXMLDOM pDom,               // in: DOM created by xmlCreateDOM
+                const char *pcszBuf,        // in: chunk of XML document data (or full document)
+                ULONG cb,                   // in: size of that chunk (required)
+                BOOL fIsLast)               // in: set to TRUE if this is the last chunk
 {
     APIRET arc = NO_ERROR;
 

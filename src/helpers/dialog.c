@@ -1777,8 +1777,132 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
     if (arc)
     {
         CHAR szErr[300];
-        sprintf(szErr, "Error %d occured in dlghCreateDlg.", arc);
+        sprintf(szErr, "Error %d occured in " __FUNCTION__ ".", arc);
         winhDebugBox(hwndOwner,
+                     "Error in Dialog Manager",
+                     szErr);
+    }
+
+    return (arc);
+}
+
+/*
+ *@@ dlghFormatDlg:
+ *      similar to dlghCreateDlg in that this can
+ *      dynamically format dialog items.
+ *
+ *      The differences however are the following:
+ *
+ *      --  This assumes that hwndDlg already points
+ *          to a valid dialog frame and that this
+ *          dialog should be modified according to
+ *          flFlags.
+ *
+ *      flFlags can be any combination of the following:
+ *
+ *      --  DFFL_CREATECONTROLS: paDlgItems points to
+ *          an array of cDlgItems DLGHITEM structures
+ *          (see dlghCreateDlg) which is used for creating
+ *          subwindows in hwndDlg. By using this flag, the
+ *          function will essentially work like dlghCreateDlg,
+ *          except that the frame is already created.
+ *
+ *      --  DFFL_RESIZEFRAME: hwndDlg should be resized so
+ *          that it will properly surround the controls.
+ *
+ *          This can only be used in conjunction with
+ *          DFFL_RESIZEFRAME.
+ *
+ *@@added V0.9.16 (2001-09-29) [umoeller]
+ */
+
+APIRET dlghFormatDlg(HWND hwndDlg,              // in: dialog frame to work on
+                     PDLGHITEM paDlgItems,      // in: definition array
+                     ULONG cDlgItems,           // in: array item count (NOT array size)
+                     const char *pcszControlsFont, // in: font for ctls with CTL_COMMON_FONT
+                     ULONG flFlags)             // in: DFFL_* flags
+{
+    APIRET      arc = NO_ERROR;
+
+    ULONG       ul;
+
+    PDLGPRIVATE  pDlgData = NULL;
+
+    /*
+     *  1) parse the table and create structures from it
+     *
+     */
+
+    if (!(arc = Dlg0_Init(&pDlgData,
+                          pcszControlsFont)))
+    {
+        if (!(arc = Dlg1_ParseTables(pDlgData,
+                                     paDlgItems,
+                                     cDlgItems)))
+        {
+            /*
+             *  2) create empty dialog frame
+             *
+             */
+
+            HWND    hwndFocusItem = NULLHANDLE;
+            SIZEL   szlClient = {0};
+            RECTL   rclClient;
+
+            pDlgData->hwndDlg = hwndDlg;
+
+            /*
+             *  3) compute size of all controls
+             *
+             */
+
+            Dlg2_CalcSizes(pDlgData,
+                           &szlClient);
+
+            // WinSubclassWindow(hwndDlg, pfnwpDialogProc);
+
+            /*
+             *  4) compute size of dialog client from total
+             *     size of all controls
+             */
+
+            if (flFlags & DFFL_RESIZEFRAME)
+            {
+                // calculate the frame size from the client size
+                rclClient.xLeft = 10;
+                rclClient.yBottom = 10;
+                rclClient.xRight = szlClient.cx + 2 * SPACING;
+                rclClient.yTop = szlClient.cy + 2 * SPACING;
+                WinCalcFrameRect(hwndDlg,
+                                 &rclClient,
+                                 FALSE);            // frame from client
+
+                WinSetWindowPos(hwndDlg,
+                                0,
+                                10,
+                                10,
+                                rclClient.xRight,
+                                rclClient.yTop,
+                                SWP_MOVE | SWP_SIZE | SWP_NOADJUST);
+            }
+
+            if (flFlags & DFFL_CREATECONTROLS)
+            {
+                if (!(arc = Dlg3_PositionAndCreate(pDlgData,
+                                                   &szlClient,
+                                                   &hwndFocusItem)))
+                    WinSetFocus(HWND_DESKTOP, hwndFocusItem);
+            }
+        }
+
+        Dlg9_Cleanup(&pDlgData);
+    }
+
+    if (arc)
+    {
+        CHAR szErr[300];
+        sprintf(szErr, "Error %d occured in " __FUNCTION__ ".", arc);
+        winhDebugBox(NULLHANDLE,
                      "Error in Dialog Manager",
                      szErr);
     }

@@ -57,6 +57,7 @@
 #define INCL_WINPROGRAMLIST
 #define INCL_WINSWITCHLIST
 #define INCL_WINBUTTONS
+#define INCL_WINSTATICS
 #define INCL_WINMENUS
 #define INCL_WINSCROLLBARS
 #define INCL_WINLISTBOXES
@@ -83,6 +84,7 @@
 #include "helpers\winh.h"
 #include "helpers\prfh.h"
 #include "helpers\gpih.h"
+#include "helpers\standards.h"
 #include "helpers\stringh.h"
 #include "helpers\undoc.h"
 #include "helpers\xstring.h"            // extended string helpers
@@ -4271,6 +4273,218 @@ VOID winhSetNumLock(BOOL fState)
         DosClose(hKbd);
     }
     return;
+}
+
+/*
+ *@@category: Helpers\PM helpers\Extended frame windows
+ */
+
+/* ******************************************************************
+ *
+ *   Extended frame
+ *
+ ********************************************************************/
+
+/*
+ *@@ fnwpSubclExtFrame:
+ *      subclassed frame window proc.
+ *
+ *@@added V0.9.16 (2001-09-29) [umoeller]
+ */
+
+MRESULT EXPENTRY fnwpSubclExtFrame(HWND hwndFrame, ULONG msg, MPARAM mp1, MPARAM mp2)
+{
+    MRESULT mrc = 0;
+
+    PEXTFRAMEDATA pData = (PEXTFRAMEDATA)WinQueryWindowPtr(hwndFrame, QWL_USER);
+
+    switch (msg)
+    {
+        case WM_QUERYFRAMECTLCOUNT:
+        {
+            // query the standard frame controls count
+            ULONG ulrc = (ULONG)pData->pfnwpOrig(hwndFrame, msg, mp1, mp2);
+
+            // if we have a status bar, increment the count
+            ulrc++;
+
+            mrc = (MPARAM)ulrc;
+        }
+        break;
+
+        case WM_FORMATFRAME:
+        {
+            // query the number of standard frame controls
+            ULONG ulCount = (ULONG)pData->pfnwpOrig(hwndFrame, msg, mp1, mp2);
+
+            // we have a status bar:
+            // format the frame
+            ULONG       ul;
+            PSWP        swpArr = (PSWP)mp1;
+
+            for (ul = 0; ul < ulCount; ul++)
+            {
+                if (WinQueryWindowUShort( swpArr[ul].hwnd, QWS_ID ) == 0x8008 )
+                                                                 // FID_CLIENT
+                {
+                    POINTL      ptlBorderSizes;
+                    ULONG       ulStatusBarHeight = 20;
+                    WinSendMsg(hwndFrame,
+                               WM_QUERYBORDERSIZE,
+                               (MPARAM)&ptlBorderSizes,
+                               0);
+
+                    // first initialize the _new_ SWP for the status bar.
+                    // Since the SWP array for the std frame controls is
+                    // zero-based, and the standard frame controls occupy
+                    // indices 0 thru ulCount-1 (where ulCount is the total
+                    // count), we use ulCount for our static text control.
+                    swpArr[ulCount].fl = SWP_MOVE | SWP_SIZE | SWP_NOADJUST | SWP_ZORDER;
+                    swpArr[ulCount].x  = ptlBorderSizes.x;
+                    swpArr[ulCount].y  = ptlBorderSizes.y;
+                    swpArr[ulCount].cx = swpArr[ul].cx;  // same as cnr's width
+                    swpArr[ulCount].cy = ulStatusBarHeight;
+                    swpArr[ulCount].hwndInsertBehind = HWND_BOTTOM; // HWND_TOP;
+                    swpArr[ulCount].hwnd = WinWindowFromID(hwndFrame, FID_STATUSBAR);
+
+                    // adjust the origin and height of the container to
+                    // accomodate our static text control
+                    swpArr[ul].y  += swpArr[ulCount].cy;
+                    swpArr[ul].cy -= swpArr[ulCount].cy;
+                }
+            }
+
+            // increment the number of frame controls
+            // to include our status bar
+            mrc = (MRESULT)(ulCount + 1);
+        }
+        break;
+
+        case WM_CALCFRAMERECT:
+        {
+            mrc = pData->pfnwpOrig(hwndFrame, msg, mp1, mp2);
+
+            // we have a status bar: calculate its rectangle
+            // CalcFrameRect(mp1, mp2);
+        }
+        break;
+
+        case WM_DESTROY:
+            WinSubclassWindow(hwndFrame, pData->pfnwpOrig);
+            free(pData);
+            WinSetWindowPtr(hwndFrame, QWL_USER, NULL);
+        break;
+
+        default:
+            mrc = pData->pfnwpOrig(hwndFrame, msg, mp1, mp2);
+    }
+
+    return (mrc);
+}
+
+/*
+ *@@ winhCreateStatusBar:
+ *      creates a status bar for a frame window.
+ *
+ *      Normally there's no need to call this manually,
+ *      this gets called by winhCreateExtStdWindow
+ *      automatically.
+ *
+ *@@added V0.9.16 (2001-09-29) [umoeller]
+ */
+
+HWND winhCreateStatusBar(HWND hwndFrame,
+                         HWND hwndOwner,
+                         const char *pcszText,      // in: initial status bar text
+                         const char *pcszFont,      // in: font to use for status bar
+                         LONG lColor)               // in: foreground color for status bar
+{
+    // create status bar
+    HWND        hwndReturn = NULLHANDLE;
+    PPRESPARAMS ppp = NULL;
+    winhStorePresParam(&ppp, PP_FONTNAMESIZE, strlen(pcszFont)+1, (PVOID)pcszFont);
+    lColor = WinQuerySysColor(HWND_DESKTOP, SYSCLR_DIALOGBACKGROUND, 0);
+    winhStorePresParam(&ppp, PP_BACKGROUNDCOLOR, sizeof(lColor), &lColor);
+    lColor = CLR_BLACK;
+    winhStorePresParam(&ppp, PP_FOREGROUNDCOLOR, sizeof(lColor), &lColor);
+    hwndReturn = WinCreateWindow(hwndFrame,
+                                 WC_STATIC,
+                                 (PSZ)pcszText,
+                                 SS_TEXT | DT_VCENTER | WS_VISIBLE,
+                                 0, 0, 0, 0,
+                                 hwndOwner,
+                                 HWND_TOP,
+                                 FID_STATUSBAR,
+                                 NULL,
+                                 ppp);
+    free(ppp);
+    return (hwndReturn);
+}
+
+/*
+ *@@ winhCreateExtStdWindow:
+ *      creates an extended frame window.
+ *
+ *      pData must point to an EXTFRAMECDATA structure
+ *      which contains a copy of the parameters to be
+ *      passed to winhCreateStdWindow. In addition,
+ *      this contains the flExtFlags field, which allows
+ *      you to automatically create a status bar for
+ *      the window.
+ *
+ *      Note that we subclass the frame here and require
+ *      QWL_USER for that. The frame's QWL_USER points
+ *      to an EXTFRAMEDATA structure whose pUser parameter
+ *      you may use for additional data, if you want to
+ *      do further subclassing.
+ *
+ *@@added V0.9.16 (2001-09-29) [umoeller]
+ */
+
+HWND winhCreateExtStdWindow(PEXTFRAMECDATA pData,        // in: extended frame data
+                            PHWND phwndClient)          // out: created client wnd
+{
+    HWND hwndFrame;
+
+    if (hwndFrame = winhCreateStdWindow(HWND_DESKTOP,
+                                        pData->pswpFrame,
+                                        pData->flFrameCreateFlags,
+                                        pData->ulFrameStyle,
+                                        pData->pcszFrameTitle,
+                                        pData->ulResourcesID,
+                                        pData->pcszClassClient,
+                                        pData->flStyleClient,
+                                        pData->ulID,
+                                        pData->pClientCtlData,
+                                        phwndClient))
+    {
+        if (pData->flExtFlags & XFCF_STATUSBAR)
+        {
+            // create status bar as child of the frame
+            HWND hwndStatusBar = winhCreateStatusBar(hwndFrame,
+                                                     hwndFrame,
+                                                     NULL,
+                                                     "9.WarpSans",
+                                                     CLR_BLACK);
+
+            // subclass frame for supporting status bar and msgs
+            PEXTFRAMEDATA pFrameData;
+            if (pFrameData = NEW(EXTFRAMEDATA))
+            {
+                ZERO(pFrameData),
+                memcpy(&pFrameData->CData, pData, sizeof(pFrameData->CData));
+                if (pFrameData->pfnwpOrig = WinSubclassWindow(hwndFrame,
+                                                              fnwpSubclExtFrame))
+                {
+                    WinSetWindowPtr(hwndFrame, QWL_USER, pFrameData);
+                }
+                else
+                    free(pFrameData);
+            }
+        }
+    }
+
+    return (hwndFrame);
 }
 
 /*

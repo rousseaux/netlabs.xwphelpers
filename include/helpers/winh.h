@@ -847,6 +847,61 @@ extern "C" {
 
     /* ******************************************************************
      *
+     *   Extended frame
+     *
+     ********************************************************************/
+
+    #define XFCF_STATUSBAR          0x0001
+
+    #define FID_STATUSBAR           0x8100
+
+    /*
+     *@@ EXTFRAMECDATA:
+     *
+     *@@added V0.9.16 (2001-09-29) [umoeller]
+     */
+
+    typedef struct _EXTFRAMECDATA
+    {
+        PSWP        pswpFrame;            // in: frame wnd pos
+        ULONG       flFrameCreateFlags;  // in: FCF_* flags
+        ULONG       flExtFlags;          // in: XFCF_* flags
+        ULONG       ulFrameStyle;        // in: WS_* flags (e.g. WS_VISIBLE, WS_ANIMATE)
+        const char  *pcszFrameTitle; // in: frame title (title bar)
+        ULONG       ulResourcesID;       // in: according to FCF_* flags
+        const char  *pcszClassClient; // in: client class name
+        ULONG       flStyleClient;       // in: client style
+        ULONG       ulID;                // in: frame window ID
+        PVOID       pClientCtlData;      // in: pCtlData structure pointer for client
+    } EXTFRAMECDATA, *PEXTFRAMECDATA;
+
+    /*
+     *@@ EXTFRAMEDATA:
+     *
+     *@@added V0.9.16 (2001-09-29) [umoeller]
+     */
+
+    typedef struct _EXTFRAMEDATA
+    {
+        EXTFRAMECDATA   CData;
+
+        PFNWP           pfnwpOrig;      // original frame wnd proc from subclassing
+
+        PVOID           pvUser;         // more data for user (e.g. for additional subclassing)
+
+    } EXTFRAMEDATA, *PEXTFRAMEDATA;
+
+    HWND winhCreateStatusBar(HWND hwndFrame,
+                             HWND hwndOwner,
+                             const char *pcszText,
+                             const char *pcszFont,
+                             LONG lColor);
+
+    HWND winhCreateExtStdWindow(PEXTFRAMECDATA pData,
+                                PHWND phwndClient);
+
+    /* ******************************************************************
+     *
      *   WPS Class List helpers
      *
      ********************************************************************/

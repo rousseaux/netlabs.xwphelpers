@@ -307,6 +307,39 @@ int TREEENTRY treeCompareKeys(unsigned long  ul1, unsigned long ul2)
 }
 
 /*
+ *@@ treeCompareStrings:
+ *      standard comparison func if the TREE.ulKey
+ *      field really is a string pointer (PCSZ).
+ *
+ *      This runs strcmp internally, but can handle
+ *      NULL pointers without crashing.
+ *
+ *@@added V0.9.16 (2001-09-29) [umoeller]
+ */
+
+int TREEENTRY treeCompareStrings(unsigned long  ul1, unsigned long ul2)
+{
+    #define p1 (const char*)(ul1)
+    #define p2 (const char*)(ul2)
+
+    if (p1 && p2)
+    {
+        int i = strcmp(p1, p2);
+        if (i < 0) return (-1);
+        if (i > 0) return (+1);
+    }
+    else if (p1)
+        // but p2 is NULL: p1 greater than p2 then
+        return (+1);
+    else if (p2)
+        // but p1 is NULL: p1 less than p2 then
+        return (-1);
+
+    // return 0 if strcmp returned 0 above or both strings are NULL
+    return (0);
+}
+
+/*
  *@@ rotateLeft:
  *      private function during rebalancing.
  */
