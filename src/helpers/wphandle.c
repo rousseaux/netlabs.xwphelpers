@@ -195,7 +195,7 @@ APIRET wphQueryBaseClassesHiwords(HINI hiniUser,
  *@@added V0.9.16 (2001-10-19) [umoeller]
  */
 
-static VOID FreeChildrenTree(TREE **ppChildrenTree,
+STATIC VOID FreeChildrenTree(TREE **ppChildrenTree,
                              PLONG plCount)
 {
     LONG    cItems = *plCount;
@@ -228,7 +228,7 @@ static VOID FreeChildrenTree(TREE **ppChildrenTree,
  *@@added V0.9.16 (2001-10-19) [umoeller]
  */
 
-static APIRET NukeNameTrees(PHANDLESBUF pHandlesBuf)
+STATIC APIRET NukeNameTrees(PHANDLESBUF pHandlesBuf)
 {
     APIRET arc = NO_ERROR;
 
@@ -854,7 +854,7 @@ APIRET wphQueryHandleFromPath(HINI hiniUser,      // in: HINI_USER or other INI 
  *@@changed V0.9.19 (2002-04-14) [umoeller]: fixed wrong error for parent handles
  */
 
-static APIRET ComposeThis(PHANDLESBUF pHandlesBuf,
+STATIC APIRET ComposeThis(PHANDLESBUF pHandlesBuf,
                           USHORT usHandle,         // in: handle to search for
                           PXSTRING pstrFilename,   // in/out: filename
                           ULONG ulLevel,           // in: recursion level (initially 0)

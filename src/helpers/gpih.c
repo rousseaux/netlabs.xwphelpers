@@ -108,7 +108,7 @@ BOOL            G_fCapsQueried = FALSE;
  *
  ********************************************************************/
 
-static HMTX     G_hmtxLCIDs = NULLHANDLE;
+STATIC HMTX     G_hmtxLCIDs = NULLHANDLE;
 
 /* ******************************************************************
  *
@@ -210,7 +210,7 @@ ULONG gpihQueryDisplayCaps(ULONG ulIndex)
  *
  */
 
-static VOID HackColor(PBYTE pb, double dFactor)
+STATIC VOID HackColor(PBYTE pb, double dFactor)
 {
     ULONG ul = (ULONG)((double)(*pb) * dFactor);
     if (ul > 255)

@@ -124,7 +124,7 @@ typedef struct _COMBODATA
  *@@added V0.9.9 (2001-03-17) [umoeller]
  */
 
-static VOID PaintButtonBitmap(HWND hwnd,
+STATIC VOID PaintButtonBitmap(HWND hwnd,
                               PCOMBODATA pcd)
 {
     HPS hps;
@@ -156,7 +156,7 @@ static VOID PaintButtonBitmap(HWND hwnd,
  *@@added V0.9.9 (2001-03-17) [umoeller]
  */
 
-static MRESULT EXPENTRY fnwpSubclassedComboButton(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
+STATIC MRESULT EXPENTRY fnwpSubclassedComboButton(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT mrc = 0;
     PCOMBODATA pcd;
@@ -192,7 +192,7 @@ static MRESULT EXPENTRY fnwpSubclassedComboButton(HWND hwnd, ULONG msg, MPARAM m
  *@@added V0.9.9 (2001-03-17) [umoeller]
  */
 
-static VOID ShowListbox(HWND hwnd,      // in: subclassed entry field
+STATIC VOID ShowListbox(HWND hwnd,      // in: subclassed entry field
                         PCOMBODATA pcd,
                         BOOL fShow)    // in: TRUE == show, FALSE == hide
 {
@@ -260,7 +260,7 @@ static VOID ShowListbox(HWND hwnd,      // in: subclassed entry field
  *@@added V0.9.9 (2001-03-17) [umoeller]
  */
 
-static MRESULT EXPENTRY fnwpComboSubclass(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
+STATIC MRESULT EXPENTRY fnwpComboSubclass(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT     mrc = 0;
     PCOMBODATA  pcd;

@@ -271,7 +271,7 @@ PSZ         pszMemCnrTitle = NULL; */
  *@@added V0.9.3 (2000-04-10) [umoeller]
  */
 
-static VOID CreateRecords(HWND hwndCnr,
+STATIC VOID CreateRecords(HWND hwndCnr,
                           PULONG pulTotalItems,
                           PULONG pulAllocatedItems,
                           PULONG pulFreedItems,
@@ -410,7 +410,7 @@ static VOID CreateRecords(HWND hwndCnr,
  *@@added V0.9.1 (99-12-03) [umoeller]
  */
 
-static SHORT EXPENTRY mnu_fnCompareIndex(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
+STATIC SHORT EXPENTRY mnu_fnCompareIndex(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
 {
     pStorage = pStorage; // to keep the compiler happy
     if ((pmrc1) && (pmrc2))
@@ -428,7 +428,7 @@ static SHORT EXPENTRY mnu_fnCompareIndex(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PV
  *@@added V0.9.1 (99-12-03) [umoeller]
  */
 
-static SHORT EXPENTRY mnu_fnCompareSourceFile(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
+STATIC SHORT EXPENTRY mnu_fnCompareSourceFile(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
 {
     HAB habDesktop = WinQueryAnchorBlock(HWND_DESKTOP);
     pStorage = pStorage; // to keep the compiler happy
@@ -457,7 +457,7 @@ static SHORT EXPENTRY mnu_fnCompareSourceFile(PMEMRECORD pmrc1, PMEMRECORD  pmrc
  *@@added V0.9.6 (2000-11-12) [umoeller]
  */
 
-static SHORT EXPENTRY mnu_fnCompareSize(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
+STATIC SHORT EXPENTRY mnu_fnCompareSize(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
 {
     pStorage = pStorage; // to keep the compiler happy
     if ((pmrc1) && (pmrc2))
@@ -477,7 +477,7 @@ static SHORT EXPENTRY mnu_fnCompareSize(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVO
  *@@added V0.9.14 (2001-08-01) [umoeller]
  */
 
-static SHORT EXPENTRY mnu_fnCompareAddress(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
+STATIC SHORT EXPENTRY mnu_fnCompareAddress(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
 {
     pStorage = pStorage; // to keep the compiler happy
     if ((pmrc1) && (pmrc2))

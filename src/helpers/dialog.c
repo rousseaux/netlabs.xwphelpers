@@ -753,7 +753,7 @@ typedef struct _TABLEDEF
 
 #ifdef DEBUG_DIALOG_WINDOWS
 
-static PFNWP G_pfnwpDebugStaticOrig = NULL;
+STATIC PFNWP G_pfnwpDebugStaticOrig = NULL;
 
 /*
  *@@ fnwpDebugFrame:
@@ -769,7 +769,7 @@ static PFNWP G_pfnwpDebugStaticOrig = NULL;
  *@@added V0.9.21 (2002-08-16) [umoeller]
  */
 
-static MRESULT EXPENTRY fnwpDebugFrame(HWND hwndBox, ULONG msg, MPARAM mp1, MPARAM mp2)
+STATIC MRESULT EXPENTRY fnwpDebugFrame(HWND hwndBox, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT mrc = 0;
 
@@ -870,7 +870,7 @@ HWND CreateDebugFrame(HWND hwndParent,
 
 // forward declaration so we can recurse into tables from columns
 
-static APIRET ProcessTable(PTABLEDEF pTableDef,
+STATIC APIRET ProcessTable(PTABLEDEF pTableDef,
                            const CONTROLPOS *pcpTableBox,
                            enProcessMode ProcessMode,
                            PDLGPRIVATE pDlgData);
@@ -888,7 +888,7 @@ static APIRET ProcessTable(PTABLEDEF pTableDef,
  *@@added V0.9.16 (2001-10-11) [umoeller]
  */
 
-static VOID SetDlgFont(PCSZ pcszFontThis,
+STATIC VOID SetDlgFont(PCSZ pcszFontThis,
                        PDLGPRIVATE pDlgData)
 {
     LONG lPointSize = 0;
@@ -951,7 +951,7 @@ static VOID SetDlgFont(PCSZ pcszFontThis,
  *@@changed V0.9.21 (2002-08-18) [umoeller]: renamed; moved multi-line processing to CalcAutoSizeTextMulti
  */
 
-static APIRET CalcAutoSizeTextSingle(PCOLUMNDEF pColumn,
+STATIC APIRET CalcAutoSizeTextSingle(PCOLUMNDEF pColumn,
                                      PDLGPRIVATE pDlgData)
 {
     SetDlgFont(pColumn->pcszFont, pDlgData);
@@ -986,7 +986,7 @@ static APIRET CalcAutoSizeTextSingle(PCOLUMNDEF pColumn,
  *@@added V0.9.21 (2002-08-18) [umoeller]
  */
 
-static APIRET CalcAutoSizeTextMulti(PCOLUMNDEF pColumn,
+STATIC APIRET CalcAutoSizeTextMulti(PCOLUMNDEF pColumn,
                                     ULONG ulWidth,            // in: proposed width of control (req.)
                                     PDLGPRIVATE pDlgData)
 {
@@ -1032,7 +1032,7 @@ static APIRET CalcAutoSizeTextMulti(PCOLUMNDEF pColumn,
  *@@changed V0.9.21 (2002-08-18) [umoeller]: removed temp windows list
  */
 
-static APIRET CalcAutoSizeTextView(PCOLUMNDEF pColumn,
+STATIC APIRET CalcAutoSizeTextView(PCOLUMNDEF pColumn,
                                    ULONG ulWidth,            // in: proposed width of control (req.)
                                    PDLGPRIVATE pDlgData)
 {
@@ -1108,7 +1108,7 @@ static APIRET CalcAutoSizeTextView(PCOLUMNDEF pColumn,
  *@@changed V0.9.20 (2002-08-10) [umoeller]: added support for textview
  */
 
-static APIRET CalcAutoSize(PCOLUMNDEF pColumn,
+STATIC APIRET CalcAutoSize(PCOLUMNDEF pColumn,
                            ULONG ulWidth,            // in: proposed width of control
                            PDLGPRIVATE pDlgData)
 {
@@ -1226,7 +1226,7 @@ static APIRET CalcAutoSize(PCOLUMNDEF pColumn,
  *@@changed V0.9.21 (2002-08-16) [umoeller]: adjusted for new algorithm
  */
 
-static APIRET ColumnCalcPositions(PCOLUMNDEF pColumn,
+STATIC APIRET ColumnCalcPositions(PCOLUMNDEF pColumn,
                                   PROWDEF pOwningRow,          // in: current row from ProcessRow
                                   PLONG plX,                   // in/out: PROCESS_6_CALC_POSITIONS only
                                   PDLGPRIVATE pDlgData)
@@ -1293,7 +1293,7 @@ static APIRET ColumnCalcPositions(PCOLUMNDEF pColumn,
  *@@changed V0.9.21 (2002-08-18) [umoeller]: setting entry field length to CCHMAXPATH per default now
  */
 
-static APIRET ColumnCreateControl(PCOLUMNDEF pColumn,
+STATIC APIRET ColumnCreateControl(PCOLUMNDEF pColumn,
                                   PDLGPRIVATE pDlgData)
 {
     APIRET      arc = NO_ERROR;
@@ -1636,7 +1636,7 @@ static APIRET ColumnCreateControl(PCOLUMNDEF pColumn,
  *@@changed V0.9.21 (2002-08-16) [umoeller]: calc size rewritten for new algorithm
  */
 
-static APIRET ProcessColumn(PCOLUMNDEF pColumn,
+STATIC APIRET ProcessColumn(PCOLUMNDEF pColumn,
                             PROWDEF pOwningRow,          // in: current row from ProcessRow
                             enProcessMode ProcessMode,     // in: processing mode (see ProcessAll)
                             PLONG plX,                   // in/out: PROCESS_6_CALC_POSITIONS only
@@ -2103,7 +2103,7 @@ static APIRET ProcessColumn(PCOLUMNDEF pColumn,
  *@@changed V0.9.21 (2002-08-16) [umoeller]: adjusted for new algorithm
  */
 
-static APIRET ProcessRow(PROWDEF pRowDef,
+STATIC APIRET ProcessRow(PROWDEF pRowDef,
                          PTABLEDEF pOwningTable,     // in: current table from ProcessTable
                          enProcessMode ProcessMode,    // in: processing mode (see ProcessAll)
                          PLONG plY,                  // in/out: current y position (decremented)
@@ -2201,7 +2201,7 @@ static APIRET ProcessRow(PROWDEF pRowDef,
  *@@changed V0.9.21 (2002-08-16) [umoeller]: adjusted for new algorithm
  */
 
-static APIRET ProcessTable(PTABLEDEF pTableDef,
+STATIC APIRET ProcessTable(PTABLEDEF pTableDef,
                            const CONTROLPOS *pcpTableBox,   // in: table position with PROCESS_6_CALC_POSITIONS
                            enProcessMode ProcessMode,         // in: processing mode (see ProcessAll)
                            PDLGPRIVATE pDlgData)
@@ -2329,7 +2329,7 @@ static APIRET ProcessTable(PTABLEDEF pTableDef,
  *      the row).
  */
 
-static APIRET ProcessAll(PDLGPRIVATE pDlgData,
+STATIC APIRET ProcessAll(PDLGPRIVATE pDlgData,
                          enProcessMode ProcessMode)
 {
     APIRET arc = NO_ERROR;
@@ -2395,7 +2395,7 @@ static APIRET ProcessAll(PDLGPRIVATE pDlgData,
  *@@changed V0.9.21 (2002-08-18) [umoeller]: mostly rewritten for new algorithm
  */
 
-static APIRET CreateColumn(PDLGPRIVATE pDlgData,
+STATIC APIRET CreateColumn(PDLGPRIVATE pDlgData,
                            PROWDEF pCurrentRow,
                            PTABLEDEF pNestedTable,
                            const CONTROLDEF *pControlDef,
@@ -2511,7 +2511,7 @@ static APIRET CreateColumn(PDLGPRIVATE pDlgData,
  *@@added V0.9.14 (2001-08-01) [umoeller]
  */
 
-static VOID FreeTable(PTABLEDEF pTable)
+STATIC VOID FreeTable(PTABLEDEF pTable)
 {
     // for each table, clean up the rows
     PLISTNODE pRowNode;
@@ -2560,7 +2560,7 @@ typedef struct _STACKITEM
  *@@changed V0.9.19 (2002-04-24) [umoeller]: added resolution correlation
  */
 
-static APIRET Dlg0_Init(PDLGPRIVATE *ppDlgData,
+STATIC APIRET Dlg0_Init(PDLGPRIVATE *ppDlgData,
                         PCSZ pcszControlsFont,
                         PLINKLIST pllControls)
 {
@@ -2616,7 +2616,7 @@ static APIRET Dlg0_Init(PDLGPRIVATE *ppDlgData,
  *@@added V0.9.15 (2001-08-26) [umoeller]
  */
 
-static APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
+STATIC APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
                                PCDLGHITEM paDlgItems,      // in: definition array
                                ULONG cDlgItems)           // in: array item count (NOT array size)
 {
@@ -2806,7 +2806,7 @@ static APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
  *@@changed V0.9.21 (2002-08-16) [umoeller]: adjusted for new algorithm
  */
 
-static APIRET Dlg2_CalcSizes(PDLGPRIVATE pDlgData)
+STATIC APIRET Dlg2_CalcSizes(PDLGPRIVATE pDlgData)
 {
     APIRET arc;
 
@@ -2851,7 +2851,7 @@ static APIRET Dlg2_CalcSizes(PDLGPRIVATE pDlgData)
  *@@changed V0.9.20 (2002-08-10) [umoeller]: return code checking was missing, fixed
  */
 
-static APIRET Dlg3_PositionAndCreate(PDLGPRIVATE pDlgData,
+STATIC APIRET Dlg3_PositionAndCreate(PDLGPRIVATE pDlgData,
                                      HWND *phwndFocusItem)       // out: item to give focus to
 {
     APIRET arc = NO_ERROR;
@@ -2903,7 +2903,7 @@ static APIRET Dlg3_PositionAndCreate(PDLGPRIVATE pDlgData,
  *@@added V0.9.15 (2001-08-26) [umoeller]
  */
 
-static VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
+STATIC VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
 {
     PDLGPRIVATE pDlgData;
     if (    (ppDlgData)

@@ -132,7 +132,7 @@ PFNWP   G_pfnwpSepStatic = NULL;
  *@@added V0.9.20 (2002-08-10) [umoeller]
  */
 
-static MRESULT EXPENTRY fnwpSeparatorLine(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
+STATIC MRESULT EXPENTRY fnwpSeparatorLine(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT mrc = 0;
 
@@ -1073,7 +1073,7 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
  *@@added V0.9.16 (2001-10-15) [umoeller]
  */
 
-static PANIMATIONDATA CreateAnimationData(HAB hab,
+STATIC PANIMATIONDATA CreateAnimationData(HAB hab,
                                           HWND hwndStatic,
                                           USHORT cAnimations)
 {
@@ -1534,7 +1534,7 @@ BOOL ctlMakeHotkeyEntryField(HWND hwndHotkeyEntryField)
  *
  ********************************************************************/
 
-static PFNWP G_pfnwpOrigStatic = NULL;
+STATIC PFNWP G_pfnwpColorRectOrigStatic = NULL;
 
 /*
  *@@ ctl_fnwpSubclassedColorRect:
@@ -1556,7 +1556,7 @@ static PFNWP G_pfnwpOrigStatic = NULL;
  *@@changed V0.9.19 (2002-06-02) [umoeller]: moved this here from w_pulse.c
  */
 
-static MRESULT EXPENTRY ctl_fnwpSubclassedColorRect(HWND hwndStatic, ULONG msg, MPARAM mp1, MPARAM mp2)
+STATIC MRESULT EXPENTRY ctl_fnwpSubclassedColorRect(HWND hwndStatic, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT mrc = 0;
 
@@ -1637,7 +1637,7 @@ static MRESULT EXPENTRY ctl_fnwpSubclassedColorRect(HWND hwndStatic, ULONG msg, 
         break;
 
         default:
-            mrc = G_pfnwpOrigStatic(hwndStatic, msg, mp1, mp2);
+            mrc = G_pfnwpColorRectOrigStatic(hwndStatic, msg, mp1, mp2);
         break;
     }
 
@@ -1658,7 +1658,7 @@ BOOL ctlMakeColorRect(HWND hwndStatic)
     if (pfnwp = WinSubclassWindow(hwndStatic,
                                   ctl_fnwpSubclassedColorRect))
     {
-        G_pfnwpOrigStatic = pfnwp;
+        G_pfnwpColorRectOrigStatic = pfnwp;
         return TRUE;
     }
 

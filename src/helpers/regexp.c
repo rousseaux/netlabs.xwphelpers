@@ -61,12 +61,15 @@
 #include <string.h>
 #include <malloc.h>
 #include <memory.h>
+
+#include "setup.h"                      // code generation and debugging options
+
 #define ERE_C
 #include "helpers\regexp.h"
 
 #define isword(c) (isalnum(c)||(c)=='_')
 
-static int val_of_hex(char c)
+STATIC int val_of_hex(char c)
 {
     if (c >= '0' && c <= '9')
         return c - '0';
@@ -77,7 +80,7 @@ static int val_of_hex(char c)
     return 0;                   // Shouldn't get here
 }
 
-static int escaped(const char *s)
+STATIC int escaped(const char *s)
 {
     if (s[0] == 'x' && isxdigit(s[1]))
         // \x followed by 1 or 2 hex digits
@@ -108,7 +111,7 @@ static int escaped(const char *s)
         }
 }
 
-static const char *past_escaped(const char *s)
+STATIC const char *past_escaped(const char *s)
 {
     if (s[0] == 'x' && isxdigit(s[1]))
         return isxdigit(s[2]) ? s + 3 : s + 2;
@@ -118,14 +121,14 @@ static const char *past_escaped(const char *s)
 
 #define zero_cclass(cclass) memset(cclass, 0, 0x100 >> 3)
 
-static unsigned char bits[] =
+STATIC unsigned char bits[] =
 {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01};
 
 #define add_to_cclass(n, cclass) (cclass[(unsigned char)(n)>>3] |= bits[(unsigned char)(n) & 7])
 
 #define remove_from_cclass(n, cclass) (cclass[(unsigned char)(n)>>3] &= ~bits[(unsigned char)(n) & 7])
 
-static void invert_cclass(unsigned char *cclass)
+STATIC void invert_cclass(unsigned char *cclass)
 {
     int i;
 
@@ -147,47 +150,47 @@ static void invert_cclass(unsigned char *cclass)
 
 /* I use my own wrapper functions so I can take their addresses.
  * Remember, isalnum etc. can be implemented as macros... */
-static BOOLEAN my_isalnum(int ch)
+STATIC BOOLEAN my_isalnum(int ch)
 {
     return isalnum(ch);
 }
-static BOOLEAN my_isalpha(int ch)
+STATIC BOOLEAN my_isalpha(int ch)
 {
     return isalpha(ch);
 }
-static BOOLEAN my_isblank(int ch)
+STATIC BOOLEAN my_isblank(int ch)
 {
     return ch == ' ' || ch == '\t';
 }
-static BOOLEAN my_iscntrl(int ch)
+STATIC BOOLEAN my_iscntrl(int ch)
 {
     return iscntrl(ch);
 }
-static BOOLEAN my_isdigit(int ch)
+STATIC BOOLEAN my_isdigit(int ch)
 {
     return isdigit(ch);
 }
-static BOOLEAN my_islower(int ch)
+STATIC BOOLEAN my_islower(int ch)
 {
     return islower(ch);
 }
-static BOOLEAN my_isprint(int ch)
+STATIC BOOLEAN my_isprint(int ch)
 {
     return isprint(ch);
 }
-static BOOLEAN my_ispunct(int ch)
+STATIC BOOLEAN my_ispunct(int ch)
 {
     return ispunct(ch);
 }
-static BOOLEAN my_isspace(int ch)
+STATIC BOOLEAN my_isspace(int ch)
 {
     return isspace(ch);
 }
-static BOOLEAN my_isupper(int ch)
+STATIC BOOLEAN my_isupper(int ch)
 {
     return isupper(ch);
 }
-static BOOLEAN my_isxdigit(int ch)
+STATIC BOOLEAN my_isxdigit(int ch)
 {
     return isxdigit(ch);
 }
@@ -200,7 +203,7 @@ typedef struct
 }
 POSIX_CCLASS;
 
-static POSIX_CCLASS posix_cclass[] =
+STATIC POSIX_CCLASS posix_cclass[] =
 {
     5, "alnum", my_isalnum,
     5, "alpha", my_isalpha,
@@ -215,7 +218,7 @@ static POSIX_CCLASS posix_cclass[] =
     6, "xdigit", my_isxdigit,
 };
 
-static int find_posix(const char *str)
+STATIC int find_posix(const char *str)
 {
     int p;
 
@@ -235,7 +238,7 @@ static int find_posix(const char *str)
     return CHL_POSIX_CCLASS_BAD;
 }
 
-static int cclass_thisch(const char *str)
+STATIC int cclass_thisch(const char *str)
 {
     switch (str[0])
     {
@@ -254,7 +257,7 @@ static int cclass_thisch(const char *str)
     }
 }
 
-static const char *cclass_nextch(const char *str)
+STATIC const char *cclass_nextch(const char *str)
 {
     int p;
 
@@ -267,7 +270,7 @@ static const char *cclass_nextch(const char *str)
         return str + 1;
 }
 
-static unsigned char *compile_cclass(const char *str,
+STATIC unsigned char *compile_cclass(const char *str,
                                      const char **str_after,
                                      int erecf,
                                      int *rc)
@@ -423,12 +426,12 @@ struct match_struct
     u;
 };
 
-static MATCH null_match =
+STATIC MATCH null_match =
 {MTYPE_NULL};
 
 #define NULL_MATCH (&null_match)
 
-static void delete_match(MATCH * match)
+STATIC void delete_match(MATCH * match)
 {
     if (match == NULL_MATCH)
         return;
@@ -476,7 +479,7 @@ static void delete_match(MATCH * match)
  +          ---
  */
 
-static unsigned shortest_match(const MATCH * match)
+STATIC unsigned shortest_match(const MATCH * match)
 {
     unsigned a, b;
 
@@ -534,7 +537,7 @@ static unsigned shortest_match(const MATCH * match)
     return 0;                   // Should never happen
 }
 
-static BOOLEAN got_backrefs(MATCH * match)
+STATIC BOOLEAN got_backrefs(MATCH * match)
 {
     switch (match->mtype)
     {
@@ -554,7 +557,7 @@ static BOOLEAN got_backrefs(MATCH * match)
     return FALSE;
 }
 
-static MATCH *remove_subs(MATCH * match)
+STATIC MATCH *remove_subs(MATCH * match)
 {
     switch (match->mtype)
     {
@@ -583,7 +586,7 @@ static MATCH *remove_subs(MATCH * match)
     return match;
 }
 
-static int count_sub(const MATCH * match)
+STATIC int count_sub(const MATCH * match)
 {
     switch (match->mtype)
     {
@@ -651,7 +654,7 @@ static int count_sub(const MATCH * match)
 #define CH_BACK_BASE    (-2000)
 #define CH_BACK_END     (-2000+9)
 
-static int boring_string(const char *s)
+STATIC int boring_string(const char *s)
 {
     int n = 0;
 
@@ -665,7 +668,7 @@ static int boring_string(const char *s)
     return n;
 }
 
-static int thisch(const char *str)
+STATIC int thisch(const char *str)
 {
     int n;
 
@@ -738,7 +741,7 @@ static int thisch(const char *str)
         return CH_STRING_BASE + n - 1;
 }
 
-static const char *nextch(const char *str)
+STATIC const char *nextch(const char *str)
 {
     int n;
 
@@ -791,9 +794,9 @@ static const char *nextch(const char *str)
         return str + n - 1;
 }
 
-static MATCH *compile_match(const char *str, const char **str_after, int erecf, int *rc);
+STATIC MATCH *compile_match(const char *str, const char **str_after, int erecf, int *rc);
 
-static const char *scan_number(const char *str, unsigned *num)
+STATIC const char *scan_number(const char *str, unsigned *num)
 {
     if (!isdigit(*str))
         return NULL;
@@ -804,7 +807,7 @@ static const char *scan_number(const char *str, unsigned *num)
     return str;
 }
 
-static MATCH *create_match(int *rc)
+STATIC MATCH *create_match(int *rc)
 {
     MATCH *match;
 
@@ -816,7 +819,7 @@ static MATCH *create_match(int *rc)
     return match;
 }
 
-static MATCH *compile_term(const char *str, const char **str_after, int erecf, int *rc)
+STATIC MATCH *compile_term(const char *str, const char **str_after, int erecf, int *rc)
 {
     MATCH *match;
     int c;
@@ -994,7 +997,7 @@ static MATCH *compile_term(const char *str, const char **str_after, int erecf, i
     return match;
 }
 
-static MTYPE repeat_type_of(int c)
+STATIC MTYPE repeat_type_of(int c)
 {
     switch (c)
     {
@@ -1011,7 +1014,7 @@ static MTYPE repeat_type_of(int c)
     }
 }
 
-static MATCH *compile_factor(const char *str, const char **str_after, int erecf, int *rc)
+STATIC MATCH *compile_factor(const char *str, const char **str_after, int erecf, int *rc)
 {
     MATCH *match, *parent;
     MTYPE repeat_mtype;
@@ -1083,7 +1086,7 @@ static MATCH *compile_factor(const char *str, const char **str_after, int erecf,
     return match;
 }
 
-static MATCH *compile_factors(const char *str, const char **str_after, int erecf, int *rc)
+STATIC MATCH *compile_factors(const char *str, const char **str_after, int erecf, int *rc)
 {
     MATCH *match;
     int c;
@@ -1119,7 +1122,7 @@ static MATCH *compile_factors(const char *str, const char **str_after, int erecf
 }
 
 /*...scompile_match   \45\ factors\124\factors:0: */
-static MATCH *compile_match(const char *str, const char **str_after, int erecf, int *rc)
+STATIC MATCH *compile_match(const char *str, const char **str_after, int erecf, int *rc)
 {
     MATCH *match;
 
@@ -1157,13 +1160,13 @@ static MATCH *compile_match(const char *str, const char **str_after, int erecf, 
 #ifdef DEBUG
 /*...sprint_tree:0: */
 /*...sdo_indent:0: */
-static void do_indent(int indent)
+STATIC void do_indent(int indent)
 {
     while (indent--)
         putchar('\t');
 }
 
-static void print_tree(const MATCH * match, int indent)
+STATIC void print_tree(const MATCH * match, int indent)
 {
     do_indent(indent);
     switch (match->mtype)
@@ -1326,7 +1329,7 @@ typedef struct
 FSM;
 
 /*...screate_fsm:0: */
-static FSM *create_fsm(int *rc)
+STATIC FSM *create_fsm(int *rc)
 {
     FSM *fsm;
     int i;
@@ -1352,7 +1355,7 @@ static FSM *create_fsm(int *rc)
 #define delete_fsm(fsm) free(fsm)
 
 /*...smalloc_state:0: */
-static int malloc_state(FSM * fsm)
+STATIC int malloc_state(FSM * fsm)
 {
     if (fsm->n_states == MAX_STATES)
         return -1;
@@ -1364,7 +1367,7 @@ static int malloc_state(FSM * fsm)
  * If already exists then don't bother (duplicates waste search time).
  * Return TRUE if all went ok. */
 
-static BOOLEAN malloc_edge(int s, EDGE * edge, FSM * fsm)
+STATIC BOOLEAN malloc_edge(int s, EDGE * edge, FSM * fsm)
 {
     int edge_no, n_edges = fsm->n_edges++;
 
@@ -1430,7 +1433,7 @@ static BOOLEAN malloc_edge(int s, EDGE * edge, FSM * fsm)
 }
 /*...smake_fsm_from_match:0: */
 /*...sadd_edge_to_fsm_character:0: */
-static BOOLEAN add_edge_to_fsm_character(int s, int f, FSM * fsm, char character)
+STATIC BOOLEAN add_edge_to_fsm_character(int s, int f, FSM * fsm, char character)
 {
     EDGE edge;
 
@@ -1440,7 +1443,7 @@ static BOOLEAN add_edge_to_fsm_character(int s, int f, FSM * fsm, char character
     return malloc_edge(s, &edge, fsm);
 }
 /*...sadd_edge_to_fsm_ncharacter:0: */
-static BOOLEAN add_edge_to_fsm_ncharacter(int s, int f, FSM * fsm, char character)
+STATIC BOOLEAN add_edge_to_fsm_ncharacter(int s, int f, FSM * fsm, char character)
 {
     EDGE edge;
 
@@ -1450,7 +1453,7 @@ static BOOLEAN add_edge_to_fsm_ncharacter(int s, int f, FSM * fsm, char characte
     return malloc_edge(s, &edge, fsm);
 }
 /*...sadd_edge_to_fsm_string:0: */
-static BOOLEAN add_edge_to_fsm_string(int s, int f, FSM * fsm, char *string)
+STATIC BOOLEAN add_edge_to_fsm_string(int s, int f, FSM * fsm, char *string)
 {
     EDGE edge;
 
@@ -1460,7 +1463,7 @@ static BOOLEAN add_edge_to_fsm_string(int s, int f, FSM * fsm, char *string)
     return malloc_edge(s, &edge, fsm);
 }
 /*...sadd_edge_to_fsm_cclass:0: */
-static BOOLEAN add_edge_to_fsm_cclass(int s, int f, FSM * fsm, unsigned char *cclass)
+STATIC BOOLEAN add_edge_to_fsm_cclass(int s, int f, FSM * fsm, unsigned char *cclass)
 {
     EDGE edge;
 
@@ -1470,7 +1473,7 @@ static BOOLEAN add_edge_to_fsm_cclass(int s, int f, FSM * fsm, unsigned char *cc
     return malloc_edge(s, &edge, fsm);
 }
 /*...sadd_edge_to_fsm_dot:0: */
-static BOOLEAN add_edge_to_fsm_dot(int s, int f, FSM * fsm)
+STATIC BOOLEAN add_edge_to_fsm_dot(int s, int f, FSM * fsm)
 {
     EDGE edge;
 
@@ -1479,7 +1482,7 @@ static BOOLEAN add_edge_to_fsm_dot(int s, int f, FSM * fsm)
     return malloc_edge(s, &edge, fsm);
 }
 /*...sadd_edge_to_fsm_word:0: */
-static BOOLEAN add_edge_to_fsm_word(int s, int f, FSM * fsm)
+STATIC BOOLEAN add_edge_to_fsm_word(int s, int f, FSM * fsm)
 {
     EDGE edge;
 
@@ -1488,7 +1491,7 @@ static BOOLEAN add_edge_to_fsm_word(int s, int f, FSM * fsm)
     return malloc_edge(s, &edge, fsm);
 }
 /*...sadd_edge_to_fsm_nword:0: */
-static BOOLEAN add_edge_to_fsm_nword(int s, int f, FSM * fsm)
+STATIC BOOLEAN add_edge_to_fsm_nword(int s, int f, FSM * fsm)
 {
     EDGE edge;
 
@@ -1497,7 +1500,7 @@ static BOOLEAN add_edge_to_fsm_nword(int s, int f, FSM * fsm)
     return malloc_edge(s, &edge, fsm);
 }
 /*...sadd_edge_to_fsm_epsilon:0: */
-static BOOLEAN add_edge_to_fsm_epsilon(int s, int f, FSM * fsm)
+STATIC BOOLEAN add_edge_to_fsm_epsilon(int s, int f, FSM * fsm)
 {
     EDGE edge;
 
@@ -1506,7 +1509,7 @@ static BOOLEAN add_edge_to_fsm_epsilon(int s, int f, FSM * fsm)
     return malloc_edge(s, &edge, fsm);
 }
 /*...sadd_edge_to_fsm_special:0: */
-static BOOLEAN add_edge_to_fsm_special(int s, int f, FSM * fsm, ETYPE etype)
+STATIC BOOLEAN add_edge_to_fsm_special(int s, int f, FSM * fsm, ETYPE etype)
 {
     EDGE edge;
 
@@ -1516,7 +1519,7 @@ static BOOLEAN add_edge_to_fsm_special(int s, int f, FSM * fsm, ETYPE etype)
     return malloc_edge(s, &edge, fsm);
 }
 /*...sadd_edge_to_fsm_back:0: */
-static BOOLEAN add_edge_to_fsm_back(int s, int f, FSM * fsm, int n_span)
+STATIC BOOLEAN add_edge_to_fsm_back(int s, int f, FSM * fsm, int n_span)
 {
     EDGE edge;
 
@@ -1527,7 +1530,7 @@ static BOOLEAN add_edge_to_fsm_back(int s, int f, FSM * fsm, int n_span)
     return malloc_edge(s, &edge, fsm);
 }
 
-static BOOLEAN make_fsm_from_match(MATCH * match, FSM * fsm, int *s, int *f)
+STATIC BOOLEAN make_fsm_from_match(MATCH * match, FSM * fsm, int *s, int *f)
 {
     int n1, n2, n3, n4, i;
 
@@ -1849,7 +1852,7 @@ static BOOLEAN make_fsm_from_match(MATCH * match, FSM * fsm, int *s, int *f)
 /* When we recurse we mark the current state as visited to stop infinite
  * recursion on loops of epsilon moves. */
 
-static BOOLEAN is_finish_reachable(FSM * fsm, int state_no)
+STATIC BOOLEAN is_finish_reachable(FSM * fsm, int state_no)
 {
     int edge_no;
     BOOLEAN ok;
@@ -1879,7 +1882,7 @@ static BOOLEAN is_finish_reachable(FSM * fsm, int state_no)
 }
 
 
-static void finish_states(int f, FSM * fsm, FSM * fsm_without)
+STATIC void finish_states(int f, FSM * fsm, FSM * fsm_without)
 {
     int state_no;
 
@@ -1891,7 +1894,7 @@ static void finish_states(int f, FSM * fsm, FSM * fsm_without)
 }
 
 /*...sdetermine_reachable:0: */
-static void determine_reachable(int s, FSM * fsm, FSM * fsm_without)
+STATIC void determine_reachable(int s, FSM * fsm, FSM * fsm_without)
 {
     int edge_no, to_state;
 
@@ -1905,7 +1908,7 @@ static void determine_reachable(int s, FSM * fsm, FSM * fsm_without)
 }
 
 /*...scopy_non_epsilons:0: */
-static void copy_non_epsilons(FSM * fsm, FSM * fsm_without)
+STATIC void copy_non_epsilons(FSM * fsm, FSM * fsm_without)
 {
     int state_no, edge_no;
 
@@ -1929,7 +1932,7 @@ static void copy_non_epsilons(FSM * fsm, FSM * fsm_without)
  * A can reach whatever C can reach too (by recursion)
  */
 
-static BOOLEAN copy_edges_reachable(
+STATIC BOOLEAN copy_edges_reachable(
                                        FSM * fsm,
                                        FSM * fsm_without,
                                        int state_no_to,     /* AK: Bad identifier, might better be
@@ -1968,7 +1971,7 @@ static BOOLEAN copy_edges_reachable(
 }
 
 
-static BOOLEAN follow_epsilons(FSM * fsm, FSM * fsm_without)
+STATIC BOOLEAN follow_epsilons(FSM * fsm, FSM * fsm_without)
 {
     int state_no;
 
@@ -1980,7 +1983,7 @@ static BOOLEAN follow_epsilons(FSM * fsm, FSM * fsm_without)
 }
 
 
-static BOOLEAN remove_epsilons(int s, int f, FSM * fsm, FSM * fsm_without)
+STATIC BOOLEAN remove_epsilons(int s, int f, FSM * fsm, FSM * fsm_without)
 {
     // FSM with no epsilon moves will have the same number of states
 
@@ -2055,9 +2058,9 @@ CONTEXT;
 
 #define NR
 
-static void NR walk_fsm(const char *str, int state_no, CONTEXT * cx);
+STATIC void NR walk_fsm(const char *str, int state_no, CONTEXT * cx);
 
-static void NR walk_fsm_gated(const char *str, CONTEXT * cx, EDGE * e)
+STATIC void NR walk_fsm_gated(const char *str, CONTEXT * cx, EDGE * e)
 {
     if (e->gate != str)
         // Avoid looping via this edge
@@ -2070,7 +2073,7 @@ static void NR walk_fsm_gated(const char *str, CONTEXT * cx, EDGE * e)
     }
 }
 
-static void NR walk_fsm_ssub(const char *str, CONTEXT * cx, EDGE * e)
+STATIC void NR walk_fsm_ssub(const char *str, CONTEXT * cx, EDGE * e)
 {
     SUBS subs;
 
@@ -2084,7 +2087,7 @@ static void NR walk_fsm_ssub(const char *str, CONTEXT * cx, EDGE * e)
     cx->subs = subs.next;
 }
 
-static void NR walk_fsm_esub(const char *str, CONTEXT * cx, EDGE * e)
+STATIC void NR walk_fsm_esub(const char *str, CONTEXT * cx, EDGE * e)
 {
     SUBS *subs = cx->subs;
 
@@ -2101,7 +2104,7 @@ static void NR walk_fsm_esub(const char *str, CONTEXT * cx, EDGE * e)
     cx->subs = subs;
 }
 
-static void NR walk_fsm(const char *str, int state_no, CONTEXT * cx)
+STATIC void NR walk_fsm(const char *str, int state_no, CONTEXT * cx)
 {
     int edge_no;
 
@@ -2240,7 +2243,7 @@ static void NR walk_fsm(const char *str, int state_no, CONTEXT * cx)
     }
 }
 
-static const char *match_fsm(FSM * fsm,
+STATIC const char *match_fsm(FSM * fsm,
                              int eremf,
                              const char *str,
                              int posn,
@@ -2267,7 +2270,7 @@ static const char *match_fsm(FSM * fsm,
 
 #ifdef DEBUG
 /*...sprint_fsm:0: */
-static void print_fsm(FSM * fsm, int s, BOOLEAN not_just_reachable)
+STATIC void print_fsm(FSM * fsm, int s, BOOLEAN not_just_reachable)
 {
     int state_no, edge_no;
 

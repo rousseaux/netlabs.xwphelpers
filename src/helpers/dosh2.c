@@ -367,7 +367,7 @@ APIRET doshSetCurrentDir(const char *pcszDir)
  *@@added V0.9.16 (2001-10-08) [umoeller]
  */
 
-static APIRET CopyToBuffer(PSZ pszTarget,      // out: target buffer
+STATIC APIRET CopyToBuffer(PSZ pszTarget,      // out: target buffer
                            PCSZ pcszSource,    // in: source string
                            ULONG cbTarget)     // in: size of target buffer
 {
@@ -484,7 +484,7 @@ APIRET doshSearchPath(const char *pcszPath,     // in: path variable name (e.g. 
  *@@changed V0.9.16 (2001-10-08) [umoeller]: rewrote second half for DosSearchPath replacement, which returns directories too
  */
 
-static APIRET FindFile(const char *pcszCommand,      // in: command (e.g. "lvm")
+STATIC APIRET FindFile(const char *pcszCommand,      // in: command (e.g. "lvm")
                        PSZ pszExecutable,            // out: full path (e.g. "F:\os2\lvm.exe")
                        ULONG cbExecutable)           // in: sizeof (*pszExecutable)
 {
@@ -784,7 +784,7 @@ const char* doshType2FSName(unsigned char bFSType)  // in: FS type
  *@@changed V0.9.20 (2002-08-10) [umoeller]: fixed truncated LVM names
  */
 
-static APIRET AppendPartition(PARTITIONINFO **pppiFirst,
+STATIC APIRET AppendPartition(PARTITIONINFO **pppiFirst,
                               PARTITIONINFO **pppiThis,    // in/out: partition info; pointer will be advanced
                               PUSHORT posCount,            // in/out: partition count
                               BYTE bDisk,                  // in: disk of partition
@@ -915,7 +915,7 @@ APIRET doshReadSector(USHORT disk,      // in: physical disk no. (1, 2, 3, ...)
  *@@added V0.9.0 [umoeller]
  */
 
-static USHORT GetCyl(USHORT rBeginSecCyl)
+STATIC USHORT GetCyl(USHORT rBeginSecCyl)
 {
     return (   (rBeginSecCyl & 0x00C0) << 2)
              + ((rBeginSecCyl & 0xFF00) >> 8);
@@ -930,7 +930,7 @@ static USHORT GetCyl(USHORT rBeginSecCyl)
  *@@added V0.9.0 [umoeller]
  */
 
-static USHORT GetSec(USHORT rBeginSecCyl)
+STATIC USHORT GetSec(USHORT rBeginSecCyl)
 {
     return rBeginSecCyl & 0x003F;
 }
@@ -1017,7 +1017,7 @@ APIRET doshGetBootManager(USHORT   *pusDisk,    // out: if != NULL, boot manager
  *@@added V0.9.0 [umoeller]
  */
 
-static APIRET GetPrimaryPartitions(PARTITIONINFO **pppiFirst,
+STATIC APIRET GetPrimaryPartitions(PARTITIONINFO **pppiFirst,
                                    PARTITIONINFO **pppiThis,
                                    PUSHORT posCount,       // in/out: partition count
                                    PCHAR pcLetter,         // in/out: drive letter counter
@@ -1104,7 +1104,7 @@ static APIRET GetPrimaryPartitions(PARTITIONINFO **pppiFirst,
  *@@added V0.9.0 [umoeller]
  */
 
-static APIRET GetLogicalDrives(PARTITIONINFO **pppiFirst,
+STATIC APIRET GetLogicalDrives(PARTITIONINFO **pppiFirst,
                                PARTITIONINFO **pppiThis,
                                PUSHORT posCount,
                                PCHAR pcLetter,
@@ -1193,7 +1193,7 @@ static APIRET GetLogicalDrives(PARTITIONINFO **pppiFirst,
  *@@added V0.9.0 [umoeller]
  */
 
-static APIRET GetExtendedPartition(PARTITIONINFO **pppiFirst,
+STATIC APIRET GetExtendedPartition(PARTITIONINFO **pppiFirst,
                                    PARTITIONINFO **pppiThis,
                                    PUSHORT posCount,
                                    PCHAR pcLetter,
@@ -1238,7 +1238,7 @@ static APIRET GetExtendedPartition(PARTITIONINFO **pppiFirst,
  *@@added V0.9.16 (2001-10-08) [umoeller]
  */
 
-static APIRET ReadFDiskPartitions(PARTITIONINFO **ppPartitionInfos,
+STATIC APIRET ReadFDiskPartitions(PARTITIONINFO **ppPartitionInfos,
                                   USHORT *pcPartitions,
                                   PUSHORT pusContext)              // out: error context
 {
@@ -1311,7 +1311,7 @@ static APIRET ReadFDiskPartitions(PARTITIONINFO **ppPartitionInfos,
  *@@added V0.9.9 (2001-04-07) [umoeller]
  */
 
-static VOID CleanPartitionInfos(PPARTITIONINFO ppiThis)
+STATIC VOID CleanPartitionInfos(PPARTITIONINFO ppiThis)
 {
     while (ppiThis)
     {
@@ -2018,7 +2018,7 @@ VOID doshFreeLVMInfo(PLVMINFO pInfo)
  *      Note that this function is recursive.
  */
 
-static BOOL PerformMatch(PCSZ pMask,
+STATIC BOOL PerformMatch(PCSZ pMask,
                          PCSZ pName,
                          int fHasDot)
 {

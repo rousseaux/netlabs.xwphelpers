@@ -77,10 +77,10 @@
  *
  ********************************************************************/
 
-static HAB                 G_hab = NULLHANDLE;
-static HMODULE             G_hmod = NULLHANDLE;
-static PCSTRINGENTITY      G_paEntities = NULL;
-static ULONG               G_cEntities = 0;
+STATIC HAB                 G_hab = NULLHANDLE;
+STATIC HMODULE             G_hmod = NULLHANDLE;
+STATIC PCSTRINGENTITY      G_paEntities = NULL;
+STATIC ULONG               G_cEntities = 0;
 
 /*
  *@@ ReplaceEntities:
@@ -88,7 +88,7 @@ static ULONG               G_cEntities = 0;
  *@@added V0.9.16 (2001-09-29) [umoeller]
  */
 
-static ULONG ReplaceEntities(PXSTRING pstr)
+STATIC ULONG ReplaceEntities(PXSTRING pstr)
 {
     ULONG ul,
           rc = 0;
@@ -115,7 +115,7 @@ static ULONG ReplaceEntities(PXSTRING pstr)
  *@@added V0.9.18 (2002-03-08) [umoeller]
  */
 
-static void LoadString(ULONG ulID,
+STATIC void LoadString(ULONG ulID,
                        PSZ *ppsz,
                        PULONG pulLength)        // out: length of new string (ptr can be NULL)
 {
@@ -144,9 +144,9 @@ static void LoadString(ULONG ulID,
     // do not free string
 }
 
-static HMTX        G_hmtxStringsCache = NULLHANDLE;
-static TREE        *G_StringsCache;
-static LONG        G_cStringsInCache = 0;
+STATIC HMTX        G_hmtxStringsCache = NULLHANDLE;
+STATIC TREE        *G_StringsCache;
+STATIC LONG        G_cStringsInCache = 0;
 
 /*
  *@@ LockStrings:
@@ -154,7 +154,7 @@ static LONG        G_cStringsInCache = 0;
  *@@added V0.9.9 (2001-04-04) [umoeller]
  */
 
-static BOOL LockStrings(VOID)
+STATIC BOOL LockStrings(VOID)
 {
     BOOL brc = FALSE;
 
@@ -179,7 +179,7 @@ static BOOL LockStrings(VOID)
  *@@added V0.9.9 (2001-04-04) [umoeller]
  */
 
-static VOID UnlockStrings(VOID)
+STATIC VOID UnlockStrings(VOID)
 {
     DosReleaseMutexSem(G_hmtxStringsCache);
 }

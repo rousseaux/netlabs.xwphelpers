@@ -257,7 +257,7 @@ CONTROLDEF
 #define EF_HEIGHT           25
 #define HOTKEY_EF_WIDTH     50
 
-static const CONTROLDEF
+STATIC const CONTROLDEF
     TitleGroup = CONTROLDEF_GROUP("T~itle",
                             ID_XSDI_ICON_TITLE_TEXT,
                             SZL_AUTOSIZE,
@@ -449,7 +449,7 @@ DLGHITEM dlgTest[] =
 
 #define CX_INTRO   (CX_COL1 + CX_COLDATE + CX_COLTIME + CX_COLSIZE + 6 * COMMON_SPACING)
 
-static CONTROLDEF
+STATIC CONTROLDEF
     ClashIntro = CONTROLDEF_TEXT_WORDBREAK("An object with the title blah already exists in the folder blup.",
                 ID_XFDI_CLASH_TXT1, -100),
     ClashOldObject = CONTROLDEF_TEXT("old object", ID_XFDI_CLASH_OLDOBJECT, CX_COL1, SZL_AUTOSIZE),
@@ -467,7 +467,7 @@ static CONTROLDEF
     ClashRenameOldRadio = CONTROLDEF_NEXT_AUTORADIO("rename old", ID_XFDI_CLASH_RENAMEOLD, -60, SZL_AUTOSIZE),
     ClashRenameOldEF = CONTROLDEF_ENTRYFIELD("M", ID_XFDI_CLASH_RENAMEOLDTXT, -40, SZL_AUTOSIZE);
 
-static const DLGHITEM dlgTest[] =
+STATIC const DLGHITEM dlgTest[] =
     {
         START_TABLE,
             START_ROW(0),
@@ -540,9 +540,9 @@ typedef struct _XWPENTITY
 
 typedef const struct _XWPENTITY *PCXWPENTITY;
 
-static CHAR     G_szCopyright[5] = "";
+STATIC CHAR     G_szCopyright[5] = "";
 
-static PCSZ     G_pcszBldlevel = "BLDLEVEL_VERSION",
+STATIC PCSZ     G_pcszBldlevel = "BLDLEVEL_VERSION",
                 G_pcszBldDate = __DATE__,
                 G_pcszNewLine = "\n",
                 G_pcszNBSP = "\xFF",      // non-breaking space
@@ -552,9 +552,9 @@ static PCSZ     G_pcszBldlevel = "BLDLEVEL_VERSION",
                 G_pcszCopyright = G_szCopyright,
                 ENTITY_XWORKPLACE = "XWorkplace";
 
-static BOOL     G_fEntitiesHacked = FALSE;
+STATIC BOOL     G_fEntitiesHacked = FALSE;
 
-static const XWPENTITY G_aEntities[] =
+STATIC const XWPENTITY G_aEntities[] =
     {
         "&copy;", &G_pcszCopyright,
         "&xwp;", &ENTITY_XWORKPLACE,
@@ -566,7 +566,7 @@ static const XWPENTITY G_aEntities[] =
         "&contact-dev;", &G_pcszContactDev,
     };
 
-static PTMFMSGFILE      G_pXWPMsgFile = NULL;        // V0.9.16 (2001-10-08) [umoeller]
+STATIC PTMFMSGFILE      G_pXWPMsgFile = NULL;        // V0.9.16 (2001-10-08) [umoeller]
 
 /*
  *@@ cmnInitEntities:
@@ -609,7 +609,7 @@ VOID cmnInitEntities(HAB hab)
  *@@added V0.9.16 (2001-09-29) [umoeller]
  */
 
-static ULONG ReplaceEntities(PXSTRING pstr)
+STATIC ULONG ReplaceEntities(PXSTRING pstr)
 {
     ULONG ul,
           rc = 0;

@@ -65,7 +65,7 @@
  *
  ********************************************************************/
 
-static VOID FreeList(PLINKLIST *ppll);
+STATIC VOID FreeList(PLINKLIST *ppll);
 
 /* ******************************************************************
  *
@@ -78,7 +78,7 @@ static VOID FreeList(PLINKLIST *ppll);
  *
  */
 
-static VOID Translate(PXSTRING pstr,
+STATIC VOID Translate(PXSTRING pstr,
                       ULONG cpCurrent)
 {
     ULONG ul;
@@ -106,7 +106,7 @@ static VOID Translate(PXSTRING pstr,
  *@@added V0.9.16 (2002-02-02) [umoeller]
  */
 
-static APIRET DecodeStringList(PCSZ pStart,
+STATIC APIRET DecodeStringList(PCSZ pStart,
                                PCSZ pEnd,
                                PXSTRING *ppaStrings,
                                PULONG pcStrings,
@@ -298,7 +298,7 @@ static APIRET DecodeStringList(PCSZ pStart,
  *      --  X-*: extension
  */
 
-static APIRET Tokenize(ULONG ulLevel,
+STATIC APIRET Tokenize(ULONG ulLevel,
                        PSZ *ppszInput,
                        PLINKLIST pllParent,
                        ULONG cpCurrent)
@@ -472,7 +472,7 @@ static APIRET Tokenize(ULONG ulLevel,
  *
  */
 
-static PVCFPROPERTY FindValues(PLINKLIST pll,
+STATIC PVCFPROPERTY FindValues(PLINKLIST pll,
                                PCSZ pcszProperty,
                                PCSZ pcszParameter)
 {
@@ -501,7 +501,7 @@ static PVCFPROPERTY FindValues(PLINKLIST pll,
  *
  */
 
-static VOID CopyStrings(PVCFPROPERTY pProp,
+STATIC VOID CopyStrings(PVCFPROPERTY pProp,
                         PCSZ *papcszValues,
                         ULONG cValues)
 {
@@ -529,7 +529,7 @@ static VOID CopyStrings(PVCFPROPERTY pProp,
  *      My application to the "obfuscated C contest".
  */
 
-static ULONG GetFlagStrings(PXSTRING pastrParameters,
+STATIC ULONG GetFlagStrings(PXSTRING pastrParameters,
                             ULONG cParameters,
                             const PCSZ **apcsz,
                             const ULONG *afl,
@@ -557,7 +557,7 @@ static ULONG GetFlagStrings(PXSTRING pastrParameters,
     return fl;
 }
 
-static const PCSZ *apcszAddress[] =
+STATIC const PCSZ *apcszAddress[] =
     {
         &VCF_TYPE_ADR_DOM,
         &VCF_TYPE_ADR_INTL,
@@ -567,7 +567,7 @@ static const PCSZ *apcszAddress[] =
         &VCF_TYPE_ADR_WORK
     };
 
-static const ULONG aflAddress[] =
+STATIC const ULONG aflAddress[] =
     {
         VCF_ADDRFL_DOM,
         VCF_ADDRFL_INTL,
@@ -582,7 +582,7 @@ static const ULONG aflAddress[] =
  *
  */
 
-static VOID AppendAddress(PVCARD pvc,
+STATIC VOID AppendAddress(PVCARD pvc,
                           PVCFPROPERTY pProp)
 {
     if (pvc->paDeliveryAddresses = (PVCADDRESS)realloc(
@@ -609,7 +609,7 @@ static VOID AppendAddress(PVCARD pvc,
  *
  */
 
-static VOID AppendLabel(PVCARD pvc,
+STATIC VOID AppendLabel(PVCARD pvc,
                         PVCFPROPERTY pProp)
 {
     if (pvc->paLabels = (PVCLABEL)realloc(
@@ -631,7 +631,7 @@ static VOID AppendLabel(PVCARD pvc,
     }
 }
 
-static const PCSZ *apcszPhone[] =
+STATIC const PCSZ *apcszPhone[] =
     {
         &VCF_TYPE_TEL_PREF,
         &VCF_TYPE_TEL_WORK,
@@ -648,7 +648,7 @@ static const PCSZ *apcszPhone[] =
         &VCF_TYPE_TEL_VIDEO
     };
 
-static const ULONG aflPhone[] =
+STATIC const ULONG aflPhone[] =
     {
         VCF_PHONEFL_PREF,
         VCF_PHONEFL_WORK,
@@ -670,7 +670,7 @@ static const ULONG aflPhone[] =
  *
  */
 
-static VOID AppendTel(PVCARD pvc,
+STATIC VOID AppendTel(PVCARD pvc,
                       PVCFPROPERTY pProp)
 {
     if (pvc->paPhones = (PVCPHONE)realloc(pvc->paPhones,
@@ -814,7 +814,7 @@ APIRET vcfRead(PCSZ pcszFilename,
  *
  */
 
-static VOID FreeList(PLINKLIST *ppll)
+STATIC VOID FreeList(PLINKLIST *ppll)
 {
     PLISTNODE pNode = lstQueryFirstNode(*ppll);
     while (pNode)

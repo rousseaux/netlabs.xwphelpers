@@ -97,7 +97,7 @@
  *@@changed V0.9.21 (2002-08-24) [umoeller]: added SBCF_3DEXPLORERSTYLE
  */
 
-static VOID PaintSplitWindow(HWND hwndSplit)
+STATIC VOID PaintSplitWindow(HWND hwndSplit)
 {
     HPS hps;
 
@@ -275,7 +275,7 @@ MRESULT EXPENTRY ctl_fnwpSplitWindow(HWND hwndSplit, ULONG msg, MPARAM mp1, MPAR
  *@@added V0.9.1 (2000-02-05) [umoeller]
  */
 
-static VOID TrackSplitBar(HWND hwndBar,
+STATIC VOID TrackSplitBar(HWND hwndBar,
                           PSPLITBARDATA pData)
 {
     TRACKINFO   track;
@@ -424,7 +424,7 @@ static VOID TrackSplitBar(HWND hwndBar,
  *@@changed V0.9.1 (2000-02-05) [umoeller]: fixed paint errors with sunken 3D style
  */
 
-static VOID PaintSplitBar(HWND hwndBar,
+STATIC VOID PaintSplitBar(HWND hwndBar,
                           PSPLITBARDATA pData)
 {
     HPS     hps;

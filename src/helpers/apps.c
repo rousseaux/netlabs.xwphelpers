@@ -803,7 +803,7 @@ ULONG appIsWindowsApp(ULONG ulProgCategory)
  *@@changed V0.9.21 (2002-08-21) [umoeller]: now allowing for UNC
  */
 
-static APIRET CheckAndQualifyExecutable(PPROGDETAILS pDetails,          // in/out: program details
+STATIC APIRET CheckAndQualifyExecutable(PPROGDETAILS pDetails,          // in/out: program details
                                         PXSTRING pstrExecutablePatched) // in/out: buffer for q'fied exec (must be init'ed)
 {
     APIRET arc = NO_ERROR;
@@ -858,7 +858,7 @@ static APIRET CheckAndQualifyExecutable(PPROGDETAILS pDetails,          // in/ou
  *@@changed V0.9.21 (2002-08-12) [umoeller]: this didn't work for batch and cmd files that had "+" characters in their full path, fixed
  */
 
-static APIRET CallBatchCorrectly(PPROGDETAILS pProgDetails,
+STATIC APIRET CallBatchCorrectly(PPROGDETAILS pProgDetails,
                                  PXSTRING pstrExecutablePatched, // in/out: buffer for q'fied exec (must be init'ed)
                                  PXSTRING pstrParams,        // in/out: modified parameters (reallocated)
                                  const char *pcszEnvVar,     // in: env var spec'g command proc
@@ -978,83 +978,6 @@ APIRET appQueryDefaultWin31Environment(PSZ *ppsz)
 
     return arc;
 }
-
-#ifdef _PMPRINTF_
-
-static void DumpMemoryBlock(PBYTE pb,       // in: start address
-                     ULONG ulSize,   // in: size of block
-                     ULONG ulIndent) // in: how many spaces to put
-                                     //     before each output line
-{
-    TRY_QUIET(excpt1)
-    {
-        PBYTE   pbCurrent = pb;                 // current byte
-        ULONG   ulCount = 0,
-                ulCharsInLine = 0;              // if this grows > 7, a new line is started
-        CHAR    szTemp[1000];
-        CHAR    szLine[400] = "",
-                szAscii[30] = "         ";      // ASCII representation; filled for every line
-        PSZ     pszLine = szLine,
-                pszAscii = szAscii;
-
-        for (pbCurrent = pb;
-             ulCount < ulSize;
-             pbCurrent++, ulCount++)
-        {
-            if (ulCharsInLine == 0)
-            {
-                memset(szLine, ' ', ulIndent);
-                pszLine += ulIndent;
-            }
-            pszLine += sprintf(pszLine, "%02lX ", (ULONG)*pbCurrent);
-
-            if ( (*pbCurrent > 31) && (*pbCurrent < 127) )
-                // printable character:
-                *pszAscii = *pbCurrent;
-            else
-                *pszAscii = '.';
-            pszAscii++;
-
-            ulCharsInLine++;
-            if (    (ulCharsInLine > 7)         // 8 bytes added?
-                 || (ulCount == ulSize-1)       // end of buffer reached?
-               )
-            {
-                // if we haven't had eight bytes yet,
-                // fill buffer up to eight bytes with spaces
-                ULONG   ul2;
-                for (ul2 = ulCharsInLine;
-                     ul2 < 8;
-                     ul2++)
-                    pszLine += sprintf(pszLine, "   ");
-
-                sprintf(szTemp, "%04lX:  %s  %ss",
-                                (ulCount & 0xFFFFFFF8),  // offset in hex
-                                szLine,         // bytes string
-                                szAscii);       // ASCII string
-
-                _Pmpf(("%s", szTemp));
-
-                // restart line buffer
-                pszLine = szLine;
-
-                // clear ASCII buffer
-                strcpy(szAscii, "         ");
-                pszAscii = szAscii;
-
-                // reset line counter
-                ulCharsInLine = 0;
-            }
-        }
-
-    }
-    CATCH(excpt1)
-    {
-        _Pmpf(("Crash in " __FUNCTION__ ));
-    } END_CATCH();
-}
-
-#endif
 
 /*
  *@@ appBuildProgDetails:
@@ -1598,7 +1521,7 @@ APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem
  *@@added V0.9.18 (2002-03-27) [umoeller]
  */
 
-static APIRET CallDosStartSession(HAPP *phapp,
+STATIC APIRET CallDosStartSession(HAPP *phapp,
                                   const PROGDETAILS *pNewProgDetails, // in: program spec (req.)
                                   ULONG cbFailingName,
                                   PSZ pszFailingName)
@@ -1753,7 +1676,7 @@ static APIRET CallDosStartSession(HAPP *phapp,
  *@@changed V0.9.18 (2002-03-27) [umoeller]: made failing modules work
  */
 
-static APIRET CallWinStartApp(HAPP *phapp,            // out: application handle if NO_ERROR is returned
+STATIC APIRET CallWinStartApp(HAPP *phapp,            // out: application handle if NO_ERROR is returned
                               HWND hwndNotify,        // in: notify window or NULLHANDLE
                               const PROGDETAILS *pcProgDetails, // in: program spec (req.)
                               ULONG cbFailingName,

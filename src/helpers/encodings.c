@@ -153,7 +153,7 @@ typedef struct _ENCCASEFOLD
     unsigned long   aulFolds[1];
 } ENCCASEFOLD, *PENCCASEFOLD;
 
-static PENCCASEFOLD G_pFold = NULL;
+STATIC PENCCASEFOLD G_pFold = NULL;
 
 /*
  *@@ encGetTable:

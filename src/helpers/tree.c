@@ -268,7 +268,7 @@
 #include "helpers\tree.h"
 
 #define LEAF &sentinel           // all leafs are sentinels
-static TREE sentinel = { LEAF, LEAF, 0, BLACK};
+STATIC TREE sentinel = { LEAF, LEAF, 0, BLACK};
 
 /*
 A binary search tree is a red-black tree if:
@@ -358,7 +358,7 @@ int TREEENTRY treeCompareStrings(unsigned long  ul1, unsigned long ul2)
  *      private function during rebalancing.
  */
 
-static void rotateLeft(TREE **root,
+STATIC void rotateLeft(TREE **root,
                        TREE *x)
 {
     // rotate node x to left
@@ -395,7 +395,7 @@ static void rotateLeft(TREE **root,
  *      private function during rebalancing.
  */
 
-static void rotateRight(TREE **root,
+STATIC void rotateRight(TREE **root,
                         TREE *x)
 {
     // rotate node x to right
@@ -432,7 +432,7 @@ static void rotateRight(TREE **root,
  *      private function during rebalancing.
  */
 
-static void insertFixup(TREE **root,
+STATIC void insertFixup(TREE **root,
                         TREE *x)
 {
     // check Red-Black properties
@@ -582,7 +582,7 @@ int treeInsert(TREE **root,                     // in: root of the tree
  *
  */
 
-static void deleteFixup(TREE **root,
+STATIC void deleteFixup(TREE **root,
                         TREE *tree)
 {
     TREE    *s;

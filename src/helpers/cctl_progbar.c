@@ -100,7 +100,7 @@
  *@@changed V0.9.5 (2000-09-22) [umoeller]: fixed ypos of text
  */
 
-static VOID PaintProgress(PPROGRESSBARDATA pData,
+STATIC VOID PaintProgress(PPROGRESSBARDATA pData,
                           HWND hwndBar,
                           PRECTL prclWin,      // in: window rectangle (WinQueryWindowRect)
                           HPS hps)

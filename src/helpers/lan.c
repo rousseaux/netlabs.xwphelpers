@@ -98,7 +98,7 @@ RESOLVEFUNCTION NetResolves[] =
         "Net32ServerEnum2", (PFN*)&pNet32ServerEnum2
     };
 
-static ULONG    G_ulNetsResolved = -1;      // -1 == not init'd
+STATIC ULONG    G_ulNetsResolved = -1;      // -1 == not init'd
                                             // 0  == success
                                             // APIRET == failure
 

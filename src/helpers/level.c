@@ -482,7 +482,7 @@ APIRET lvlWriteLevelFileData(HFILE hFile,
  *
  */
 
-static APIRET _readsysleveldata(HFILE hFile,
+STATIC APIRET _readsysleveldata(HFILE hFile,
                                 PSYSLEVELDATA psld)
 {
     ULONG ulSize;
@@ -495,7 +495,7 @@ static APIRET _readsysleveldata(HFILE hFile,
  *
  */
 
-static APIRET _writesysleveldata(HFILE hFile,
+STATIC APIRET _writesysleveldata(HFILE hFile,
                                  PSYSLEVELDATA psld)
 {
     ULONG ulSize;
@@ -508,7 +508,7 @@ static APIRET _writesysleveldata(HFILE hFile,
  *
  */
 
-static APIRET _locatesysleveldata(HFILE hFile)
+STATIC APIRET _locatesysleveldata(HFILE hFile)
 {
     ULONG ulPos, ulData;
     APIRET rc = DosSetFilePtr(hFile,
@@ -526,7 +526,7 @@ static APIRET _locatesysleveldata(HFILE hFile)
  *
  */
 
-static PSYSLEVELDATA _allocsysleveldata(HFILE hFile)
+STATIC PSYSLEVELDATA _allocsysleveldata(HFILE hFile)
 {
     return (PSYSLEVELDATA) malloc(sizeof(SYSLEVELDATA));
 }
@@ -536,7 +536,7 @@ static PSYSLEVELDATA _allocsysleveldata(HFILE hFile)
  *
  */
 
-static VOID _freesysleveldata(PSYSLEVELDATA psld)
+STATIC VOID _freesysleveldata(PSYSLEVELDATA psld)
 {
     if (psld)
         free(psld);
@@ -547,7 +547,7 @@ static VOID _freesysleveldata(PSYSLEVELDATA psld)
  *
  */
 
-static APIRET _writesyslevelheader(HFILE hFile,
+STATIC APIRET _writesyslevelheader(HFILE hFile,
                                    PSYSLEVELHEADER pslh)
 {
     ULONG ulSize;
@@ -560,7 +560,7 @@ static APIRET _writesyslevelheader(HFILE hFile,
  *
  */
 
-static BOOL _isasyslevelfile(PSZ pszFile,
+STATIC BOOL _isasyslevelfile(PSZ pszFile,
                              PSZ pszCID)
 {
     HFILE hFile;
@@ -601,7 +601,7 @@ static BOOL _isasyslevelfile(PSZ pszFile,
  *
  */
 
-static APIRET _getfullname(PVOID pBuffer,
+STATIC APIRET _getfullname(PVOID pBuffer,
                            PSZ pszFileName)
 {
     ULONG ulDrive, ulDriveMap, ulBufSize = CCHMAXPATHCOMP;
@@ -621,7 +621,7 @@ static APIRET _getfullname(PVOID pBuffer,
  *
  */
 
-static APIRET _findsyslevelfile(PSZ pszName,
+STATIC APIRET _findsyslevelfile(PSZ pszName,
                                 PSZ pszCID,
                                 PVOID pBuffer)
 {
@@ -667,7 +667,7 @@ static APIRET _findsyslevelfile(PSZ pszName,
  *
  */
 
-static APIRET _findallsyslevelfiles(PSZ achFileName,
+STATIC APIRET _findallsyslevelfiles(PSZ achFileName,
                                     PSZ pszCID,
                                     PPVOID ppBuffer,
                                     PULONG pulBufSize)
@@ -758,7 +758,7 @@ static APIRET _findallsyslevelfiles(PSZ achFileName,
  *
  */
 
-static APIRET _searchsubdirs(PSZ pszName,
+STATIC APIRET _searchsubdirs(PSZ pszName,
                              PSZ pszCID,
                              PVOID pBuffer)
 {
@@ -810,7 +810,7 @@ static APIRET _searchsubdirs(PSZ pszName,
  *
  */
 
-static ULONG _firstdrive(ULONG ulDriveMap)
+STATIC ULONG _firstdrive(ULONG ulDriveMap)
 {
     return _nextdrive(ulDriveMap, 2);
 }
@@ -820,7 +820,7 @@ static ULONG _firstdrive(ULONG ulDriveMap)
  *
  */
 
-static ULONG _nextdrive(ULONG ulDriveMap,
+STATIC ULONG _nextdrive(ULONG ulDriveMap,
                         ULONG ulCurrent)
 {
     ULONG ulNext = ulCurrent + 1;

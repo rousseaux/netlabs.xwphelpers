@@ -192,7 +192,7 @@ BOOL ctlDrawCheckbox(HPS hps,               // in: paint PS
  *@@added V0.9.0 (99-11-28) [umoeller]
  */
 
-static VOID CnrCheckboxClicked(PCHECKBOXCNROWNER pcbco,
+STATIC VOID CnrCheckboxClicked(PCHECKBOXCNROWNER pcbco,
                                PCHECKBOXRECORDCORE precc,
                                BOOL fToggleAndNotify) // if TRUE, toggle state and notify owner (CN_RECORDCHECKED)
 {
@@ -358,7 +358,7 @@ MRESULT ctlDrawCheckBoxRecord(MPARAM mp2)
  *@@changed V0.9.18 (2002-03-03) [umoeller]: fixed bad orig win msg, other optimizations
  */
 
-static MRESULT EXPENTRY fnwpSubclCheckboxCnr(HWND hwndCnr, ULONG msg, MPARAM mp1, MPARAM mp2)
+STATIC MRESULT EXPENTRY fnwpSubclCheckboxCnr(HWND hwndCnr, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT             mrc = 0;
     PCHECKBOXCNROWNER   pcbco = 0;
@@ -592,7 +592,7 @@ static MRESULT EXPENTRY fnwpSubclCheckboxCnr(HWND hwndCnr, ULONG msg, MPARAM mp1
  *@@added V0.9.0 (99-11-28) [umoeller]
  */
 
-static MRESULT EXPENTRY fnwpSubclCheckboxCnrOwner(HWND hwndOwner, ULONG msg, MPARAM mp1, MPARAM mp2)
+STATIC MRESULT EXPENTRY fnwpSubclCheckboxCnrOwner(HWND hwndOwner, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT             mrc = 0;
     PCHECKBOXCNROWNER   pcbco = 0;
@@ -871,7 +871,7 @@ BOOL ctlMakeCheckboxContainer(HWND hwndCnrOwner,    // in: owner (and parent) of
  *@@added V0.9.0 (99-11-28) [umoeller]
  */
 
-static ULONG EXPENTRY fncbFindCheckRecord(HWND hwndCnr,             // in: container
+STATIC ULONG EXPENTRY fncbFindCheckRecord(HWND hwndCnr,             // in: container
                                           PRECORDCORE preccThis,    // in: current record (from cnrhForAllRecords)
                                           ULONG ulItemID,           // in: item ID to find
                                           ULONG ulppRecc)           // out: PRECORDCORE* if found

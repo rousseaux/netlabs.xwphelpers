@@ -278,7 +278,7 @@ VOID txvInitFormat(PXFORMATDATA pxfd)
  *@@added V0.9.3 (2000-05-06) [umoeller]
  */
 
-static VOID SetSubFont(HPS hps,
+STATIC VOID SetSubFont(HPS hps,
                        PXFMTFONT pFont,
                        ULONG ulPointSize,
                        PSZ pszFaceName,
@@ -343,7 +343,7 @@ static VOID SetSubFont(HPS hps,
  *@@added V0.9.3 (2000-05-06) [umoeller]
  */
 
-static VOID SetFormatFont(HPS hps,           // in: HPS to select default font into
+STATIC VOID SetFormatFont(HPS hps,           // in: HPS to select default font into
                           PXFMTCHARACTER pxfmtc, // in/out: format data
                           ULONG ulPointSize, // in: font point size (e.g. 12) or 0
                           PSZ pszFaceName)   // in: font face name (e.g. "Courier") or NULL
@@ -385,7 +385,7 @@ static VOID SetFormatFont(HPS hps,           // in: HPS to select default font i
  *@@added V0.9.3 (2000-05-07) [umoeller]
  */
 
-static VOID AppendCharNoCheck(char **ppszNew,
+STATIC VOID AppendCharNoCheck(char **ppszNew,
                               PULONG pcbNew,
                               char **ppTarget,
                               char c)
@@ -509,7 +509,7 @@ VOID txvStripLinefeeds(char **ppszText,
  *@added V0.9.3 (2000-05-06) [umoeller]
  */
 
-static PSZ strhFindEOL2(PSZ *ppszSearchIn,        // in: where to search
+STATIC PSZ strhFindEOL2(PSZ *ppszSearchIn,        // in: where to search
                         PULONG pulOffset)       // out: offset (ptr can be NULL)
 {
     PSZ     pThis = *ppszSearchIn,
@@ -632,7 +632,7 @@ typedef struct _FORMATLINEBUF
  *@@changed V0.9.20 (2002-08-10) [umoeller]: rewrote link implementation
  */
 
-static PTXVWORD CreateWord(HPS hps,
+STATIC PTXVWORD CreateWord(HPS hps,
                            PSZ *ppStartOfWord,
                            PFORMATLINEBUF pflbuf)
 {
@@ -764,7 +764,7 @@ static PTXVWORD CreateWord(HPS hps,
  *@@added V0.9.3 (2000-05-07) [umoeller]
  */
 
-static PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current position; initially points to esc char
+STATIC PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current position; initially points to esc char
                                PXFORMATDATA pxfd,         // in/out: formatting data
                                PFORMATLINEBUF pflbuf,     // in/out: formatting buffer
                                BOOL fWordsProcessed)      // FALSE during step 1 (words processing),
@@ -1439,7 +1439,7 @@ VOID txvFormatText(HPS hps,             // in: HPS whose font is used for
  *@@added V0.9.3 (2000-05-17) [umoeller]
  */
 
-static VOID DrawListMarker(HPS hps,
+STATIC VOID DrawListMarker(HPS hps,
                            PRECTL prclLine,        // current line rectangle
                            PTXVWORD pWordThis,    // current word
                            LONG lViewXOfs)         // in: x offset to paint; 0 means rightmost
@@ -1901,7 +1901,7 @@ typedef struct _TEXTVIEWWINDATA
  *      txvSetDefaultFormat in turn.
  */
 
-static VOID UpdateTextViewPresData(HWND hwndTextView,
+STATIC VOID UpdateTextViewPresData(HWND hwndTextView,
                                    PTEXTVIEWWINDATA ptxvd)
 {
     PSZ pszFont;
@@ -1956,7 +1956,7 @@ static VOID UpdateTextViewPresData(HWND hwndTextView,
  *         is rclViewPaint minus borders).
  */
 
-static VOID AdjustViewRects(HWND hwndTextView,
+STATIC VOID AdjustViewRects(HWND hwndTextView,
                             PTEXTVIEWWINDATA ptxvd)
 {
     ULONG ulScrollCX = WinQuerySysValue(HWND_DESKTOP, SV_CXVSCROLL),
@@ -2028,7 +2028,7 @@ static VOID AdjustViewRects(HWND hwndTextView,
  *@@changed V0.9.3 (2000-05-05) [umoeller]: fixed buggy vertical scroll bars
  */
 
-static VOID FormatText2Screen(HWND hwndTextView,
+STATIC VOID FormatText2Screen(HWND hwndTextView,
                               PTEXTVIEWWINDATA ptxvd,
                               BOOL fAlreadyRecursing,  // in: set this to FALSE when calling
                               BOOL fFullRecalc)
@@ -2185,7 +2185,7 @@ VOID SetWindowText(HWND hwndTextView,
  *      in turn and updates the view's scroll bars.
  */
 
-static VOID PaintViewText2Screen(PTEXTVIEWWINDATA ptxvd,
+STATIC VOID PaintViewText2Screen(PTEXTVIEWWINDATA ptxvd,
                                  PRECTL prcl2Paint)  // in: invalid rectangle, can be NULL == paint all
 {
     ULONG   ulLineIndex = 0;
@@ -2205,7 +2205,7 @@ static VOID PaintViewText2Screen(PTEXTVIEWWINDATA ptxvd,
  *      paint a focus rectangle.
  */
 
-static VOID PaintViewFocus(HPS hps,
+STATIC VOID PaintViewFocus(HPS hps,
                            PTEXTVIEWWINDATA ptxvd,
                            BOOL fFocus)
 {
@@ -2236,7 +2236,7 @@ static VOID PaintViewFocus(HPS hps,
  *@@added V0.9.3 (2000-05-18) [umoeller]
  */
 
-static VOID RepaintWord(PTEXTVIEWWINDATA ptxvd,
+STATIC VOID RepaintWord(PTEXTVIEWWINDATA ptxvd,
                         PTXVWORD pWordThis,
                         LONG lColor)
 {
@@ -2291,7 +2291,7 @@ static VOID RepaintWord(PTEXTVIEWWINDATA ptxvd,
  *@@added V0.9.3 (2000-05-18) [umoeller]
  */
 
-static VOID RepaintAnchor(PTEXTVIEWWINDATA ptxvd,
+STATIC VOID RepaintAnchor(PTEXTVIEWWINDATA ptxvd,
                           LONG lColor)
 {
     PLISTNODE   pNode = ptxvd->pWordNodeFirstInAnchor;
@@ -2321,7 +2321,7 @@ static VOID RepaintAnchor(PTEXTVIEWWINDATA ptxvd,
  *@@added V0.9.21 (2002-08-12) [umoeller]
  */
 
-static MRESULT ProcessCreate(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
+STATIC MRESULT ProcessCreate(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
 {
     PXTEXTVIEWCDATA     pcd = (PXTEXTVIEWCDATA)mp1;
                 // can be NULL
@@ -2467,7 +2467,7 @@ static MRESULT ProcessCreate(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
  *@@added V0.9.21 (2002-08-12) [umoeller]
  */
 
-static VOID ProcessPaint(HWND hwndTextView)
+STATIC VOID ProcessPaint(HWND hwndTextView)
 {
     PTEXTVIEWWINDATA    ptxvd;
     if (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
@@ -2561,7 +2561,7 @@ static VOID ProcessPaint(HWND hwndTextView)
  *@@added V0.9.21 (2002-08-12) [umoeller]
  */
 
-static VOID ProcessPresParamChanged(HWND hwndTextView, MPARAM mp1)
+STATIC VOID ProcessPresParamChanged(HWND hwndTextView, MPARAM mp1)
 {
     PTEXTVIEWWINDATA    ptxvd;
     if (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
@@ -2591,7 +2591,7 @@ static VOID ProcessPresParamChanged(HWND hwndTextView, MPARAM mp1)
  *@@added V0.9.21 (2002-08-12) [umoeller]
  */
 
-static VOID ProcessSetFocus(HWND hwndTextView, MPARAM mp2)
+STATIC VOID ProcessSetFocus(HWND hwndTextView, MPARAM mp2)
 {
     PTEXTVIEWWINDATA    ptxvd;
     if (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
@@ -2654,7 +2654,7 @@ static VOID ProcessSetFocus(HWND hwndTextView, MPARAM mp2)
  *@@added V0.9.21 (2002-08-12) [umoeller]
  */
 
-static MRESULT ProcessButton1Down(HWND hwndTextView, MPARAM mp1)
+STATIC MRESULT ProcessButton1Down(HWND hwndTextView, MPARAM mp1)
 {
     MRESULT             mrc = 0;
     PTEXTVIEWWINDATA    ptxvd;
@@ -2726,7 +2726,7 @@ static MRESULT ProcessButton1Down(HWND hwndTextView, MPARAM mp1)
  *@@added V0.9.21 (2002-08-12) [umoeller]
  */
 
-static MRESULT ProcessButton1Up(HWND hwndTextView, MPARAM mp1)
+STATIC MRESULT ProcessButton1Up(HWND hwndTextView, MPARAM mp1)
 {
     MRESULT             mrc = 0;
     PTEXTVIEWWINDATA    ptxvd;
@@ -2768,7 +2768,7 @@ static MRESULT ProcessButton1Up(HWND hwndTextView, MPARAM mp1)
  *@@added V0.9.21 (2002-08-12) [umoeller]
  */
 
-static MRESULT ProcessChar(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
+STATIC MRESULT ProcessChar(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
 {
     MRESULT             mrc = 0;
     PTEXTVIEWWINDATA    ptxvd;
@@ -2891,7 +2891,7 @@ static MRESULT ProcessChar(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
  *@@added V0.9.21 (2002-08-12) [umoeller]
  */
 
-static MRESULT ProcessJumpToAnchorName(HWND hwndTextView, MPARAM mp1)
+STATIC MRESULT ProcessJumpToAnchorName(HWND hwndTextView, MPARAM mp1)
 {
     MRESULT             mrc = 0;
     PTEXTVIEWWINDATA    ptxvd;
@@ -2947,7 +2947,7 @@ static MRESULT ProcessJumpToAnchorName(HWND hwndTextView, MPARAM mp1)
  *@@added V0.9.21 (2002-08-12) [umoeller]
  */
 
-static MRESULT ProcessDestroy(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
+STATIC MRESULT ProcessDestroy(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
 {
     PTEXTVIEWWINDATA    ptxvd;
 
@@ -3021,7 +3021,7 @@ static MRESULT ProcessDestroy(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
  *@@changed V0.9.21 (2002-08-12) [umoeller]: optimized locality by moving big chunks into subfuncs
  */
 
-static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM mp2)
+STATIC MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT             mrc = 0;
     PTEXTVIEWWINDATA    ptxvd;
@@ -3567,7 +3567,7 @@ HWND txvReplaceWithTextView(HWND hwndParentAndOwner,
  *      Use prthFreeBuf to free the returned buffer.
  */
 
-static PRQINFO3* prthEnumQueues(PULONG pulReturned)    // out: no. of queues found
+STATIC PRQINFO3* prthEnumQueues(PULONG pulReturned)    // out: no. of queues found
 {
     SPLERR  rc;
     ULONG   cTotal;
@@ -3609,7 +3609,7 @@ static PRQINFO3* prthEnumQueues(PULONG pulReturned)    // out: no. of queues fou
  *
  */
 
-static VOID prthFreeBuf(PVOID pprq3)
+STATIC VOID prthFreeBuf(PVOID pprq3)
 {
     if (pprq3)
         free(pprq3);
@@ -3631,7 +3631,7 @@ static VOID prthFreeBuf(PVOID pprq3)
  *      Based on print sample by Peter Fitzsimmons, Fri  95-09-29 02:47:16am.
  */
 
-static HDC prthCreatePrinterDC(HAB hab,
+STATIC HDC prthCreatePrinterDC(HAB hab,
                                PRQINFO3 *pprq3,
                                PLONG palRes)  // out: 2 longs holding horizontal and vertical
                                               // printer resolution in pels per inch
@@ -3677,7 +3677,7 @@ static HDC prthCreatePrinterDC(HAB hab,
  *      the returned info. See PMREF for details.
  */
 
-static HCINFO* prthQueryForms(HDC hdc,
+STATIC HCINFO* prthQueryForms(HDC hdc,
                               PULONG pulCount)
 {
     HCINFO  *pahci = NULL;
@@ -3709,7 +3709,7 @@ static HCINFO* prthQueryForms(HDC hdc,
  *      Based on print sample by Peter Fitzsimmons, Fri  95-09-29 02:47:16am.
  */
 
-static HPS prthCreatePS(HAB hab,       // in: anchor block
+STATIC HPS prthCreatePS(HAB hab,       // in: anchor block
                         HDC hdc,       // in: printer device context
                         ULONG ulUnits) // in: one of:
                                        // -- PU_PELS
@@ -3739,7 +3739,7 @@ static HPS prthCreatePS(HAB hab,       // in: anchor block
  *      pszDocTitle appears in the spooler.
  */
 
-static VOID prthStartDoc(HDC hdc,
+STATIC VOID prthStartDoc(HDC hdc,
                          PSZ pszDocTitle)
 {
     DevEscape(hdc,
@@ -3759,7 +3759,7 @@ static VOID prthStartDoc(HDC hdc,
  *      printer device to advance to a new page.
  */
 
-static VOID prthNextPage(HDC hdc)
+STATIC VOID prthNextPage(HDC hdc)
 {
     DevEscape(hdc,
               DEVESC_NEWFRAME,
@@ -3778,7 +3778,7 @@ static VOID prthNextPage(HDC hdc)
  +          DevCloseDC(hdc);
  */
 
-static VOID prthEndDoc(HDC hdc,
+STATIC VOID prthEndDoc(HDC hdc,
                        HPS hps)
 {
     DevEscape(hdc, DEVESC_ENDDOC, 0L, 0L, 0, NULL);

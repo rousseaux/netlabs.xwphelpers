@@ -121,7 +121,7 @@ typedef struct _MSGENTRY
 } MSGENTRY, *PMSGENTRY;
 
 // globals
-static PCSZ     G_pcszStartMarker = "\n<--",
+STATIC PCSZ     G_pcszStartMarker = "\n<--",
                 G_pcszEndMarker = "-->:";
 
 /* ******************************************************************
@@ -412,7 +412,7 @@ APIRET tmfOpenMessageFile(const char *pcszMessageFile, // in: fully q'fied .TMF 
  *@@added V0.9.18 (2002-03-24) [umoeller]
  */
 
-static VOID FreeInternalMem(PTMFMSGFILE pTmf)
+STATIC VOID FreeInternalMem(PTMFMSGFILE pTmf)
 {
     LONG   cItems;
     TREE**  papNodes;

@@ -280,7 +280,7 @@ typedef struct _CHARTCDATA
  *@@added V0.9.12 (2001-05-03) [umoeller]
  */
 
-static VOID DrawCenteredText(HPS hpsMem,
+STATIC VOID DrawCenteredText(HPS hpsMem,
                              PPOINTL pptlMiddlePoint,
                              const char *pcsz)
 {
@@ -353,7 +353,7 @@ static VOID DrawCenteredText(HPS hpsMem,
  *@@changed V0.9.12 (2001-05-03) [umoeller]: fixed another maaajor PM resource leak with regions
  */
 
-static VOID PaintBarChart(HPS hpsMem,
+STATIC VOID PaintBarChart(HPS hpsMem,
                           PRECTL prclWholeStatic,    // in: rectl to paint into
                           PCHARTDATA pChartData,     // in: chart data
                           PCHARTSTYLE pChartStyle,   // in: chart style
@@ -556,7 +556,7 @@ static VOID PaintBarChart(HPS hpsMem,
  *@@changed V0.9.12 (2001-05-03) [umoeller]: fixed rounding errors
  */
 
-static VOID PaintPieChart(HPS hpsMem,
+STATIC VOID PaintPieChart(HPS hpsMem,
                           PRECTL prclWholeStatic,    // in: rectl to paint into
                           PCHARTDATA pChartData,     // in: chart data
                           PCHARTSTYLE pChartStyle,   // in: chart style
@@ -1095,7 +1095,7 @@ HBITMAP ctlCreateChartBitmap(HPS hpsMem,                // in: memory PS to use 
  *@@changed V0.9.12 (2001-05-03) [umoeller]: fixed major PM resource leaks
  */
 
-static VOID CleanupBitmap(PCHARTCDATA pChtCData)
+STATIC VOID CleanupBitmap(PCHARTCDATA pChtCData)
 {
     if (pChtCData)
     {
@@ -1150,7 +1150,7 @@ static VOID CleanupBitmap(PCHARTCDATA pChtCData)
  *      function.
  */
 
-static VOID CleanupData(PCHARTCDATA pChtCData)
+STATIC VOID CleanupData(PCHARTCDATA pChtCData)
 {
     if (pChtCData)
         if (pChtCData->cd.cValues)
@@ -1202,7 +1202,7 @@ static VOID CleanupData(PCHARTCDATA pChtCData)
  *@@changed V0.9.12 (2001-05-03) [umoeller]: fixed trap if ptr to descriptions was null
  */
 
-static VOID SetChartData(HWND hwndChart,
+STATIC VOID SetChartData(HWND hwndChart,
                          PCHARTCDATA pChtCData,
                          PCHARTDATA pcdNew)
 {
@@ -1273,7 +1273,7 @@ static VOID SetChartData(HWND hwndChart,
  *@@changed V0.9.12 (2001-05-03) [umoeller]: fixed major PM resource leaks
  */
 
-static VOID PaintChart(HWND hwndChart,
+STATIC VOID PaintChart(HWND hwndChart,
                        PCHARTCDATA pChtCData,
                        HPS hps,
                        PRECTL prclPaint)
@@ -1450,7 +1450,7 @@ static VOID PaintChart(HWND hwndChart,
  *@@added V0.9.12 (2001-05-03) [umoeller]
  */
 
-static LONG FindItemFromPoint(PCHARTCDATA pChtCData,
+STATIC LONG FindItemFromPoint(PCHARTCDATA pChtCData,
                               LONG lx,
                               LONG ly)
 {
@@ -1489,7 +1489,7 @@ static LONG FindItemFromPoint(PCHARTCDATA pChtCData,
  *@@added V0.9.12 (2001-05-03) [umoeller]
  */
 
-static VOID SendWMControl(HWND hwndChart,
+STATIC VOID SendWMControl(HWND hwndChart,
                           MPARAM mp1Mouse,
                           USHORT usNotify,
                           ULONG ulEmphasis,            // 0 or 1
@@ -1521,7 +1521,7 @@ static VOID SendWMControl(HWND hwndChart,
  *@@added V0.9.12 (2001-05-03) [umoeller]
  */
 
-static BOOL SetEmphasis(HWND hwndChart,
+STATIC BOOL SetEmphasis(HWND hwndChart,
                         PCHARTCDATA pChtCData,
                         ULONG ulEmphasis,      // in: 0 == selection, 1 == source emphasis
                         MPARAM mp1,            // in: mp1 with mouse values or -1 if none

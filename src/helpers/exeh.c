@@ -564,7 +564,7 @@ APIRET exehOpen(const char* pcszExecutable,
  *@@changed V0.9.21 (2002-08-18) [umoeller]: fixed DANIS506 format when an extended field had only one character
  */
 
-static VOID ParseBldLevel(PEXECUTABLE pExec)
+STATIC VOID ParseBldLevel(PEXECUTABLE pExec)
 {
     PCSZ    pStartOfVendor,
             pStartOfInfo,
@@ -1111,7 +1111,7 @@ APIRET exehFreeImportedModules(PFSYSMODULE paModules)
  *@@changed V0.9.12 (2001-05-03) [umoeller]: adjusted for new NOSTUB support
  */
 
-static APIRET ScanLXEntryTable(PEXECUTABLE pExec,
+STATIC APIRET ScanLXEntryTable(PEXECUTABLE pExec,
                                PFSYSFUNCTION paFunctions,
                                PULONG pcEntries)        // out: entry table entry count; ptr can be NULL
 {
@@ -1352,7 +1352,7 @@ static APIRET ScanLXEntryTable(PEXECUTABLE pExec,
  *@@changed V0.9.12 (2001-05-03) [umoeller]: adjusted for new NOSTUB support
  */
 
-static APIRET ScanNEEntryTable(PEXECUTABLE pExec,
+STATIC APIRET ScanNEEntryTable(PEXECUTABLE pExec,
                                PFSYSFUNCTION paFunctions,
                                PULONG pcEntries)        // out: entry table entry count; ptr can be NULL
 {
@@ -1447,7 +1447,7 @@ static APIRET ScanNEEntryTable(PEXECUTABLE pExec,
  *@@changed V0.9.9 (2001-04-07) [umoeller]: added _Optlink, or this won't compile as C++
  */
 
-static int _Optlink Compare(const void *key,
+STATIC int _Optlink Compare(const void *key,
                             const void *element)
 {
     USHORT        usOrdinal = *((PUSHORT) key);
@@ -1476,7 +1476,7 @@ static int _Optlink Compare(const void *key,
  *@@changed V0.9.9 (2001-04-05) [lafaix]: rewritten error checking code
  */
 
-static APIRET ScanNameTable(PEXECUTABLE pExec,
+STATIC APIRET ScanNameTable(PEXECUTABLE pExec,
                             ULONG cFunctions,
                             PFSYSFUNCTION paFunctions)
 {
@@ -2233,7 +2233,7 @@ VOID exehFreeLXMaps(PEXECUTABLE pExec)
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-static APIRET ExpandIterdata1(char *pabTarget,         // out: page data (pagesize as in lx spec)
+STATIC APIRET ExpandIterdata1(char *pabTarget,         // out: page data (pagesize as in lx spec)
                               int cbTarget,            // in: sizeof *pabTarget (pagesize as in lx spec)
                               PCSZ pabSource,   // in: compressed source data in EXEPACK:1 format
                               int cbSource)            // in: sizeof *pabSource
@@ -2298,7 +2298,7 @@ static APIRET ExpandIterdata1(char *pabTarget,         // out: page data (pagesi
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-static void memcpyw(char *pch1, PCSZ pch2, size_t cch)
+STATIC void memcpyw(char *pch1, PCSZ pch2, size_t cch)
 {
     /*
      * Use memcpy if possible.
@@ -2332,7 +2332,7 @@ static void memcpyw(char *pch1, PCSZ pch2, size_t cch)
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-static void memcpyb(char *pch1, PCSZ pch2, size_t cch)
+STATIC void memcpyb(char *pch1, PCSZ pch2, size_t cch)
 {
     /*
      * Use memcpy if possible.
@@ -2367,7 +2367,7 @@ static void memcpyb(char *pch1, PCSZ pch2, size_t cch)
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-static APIRET ExpandIterdata2(char *pachPage,              // out: page data (pagesize as in lx spec)
+STATIC APIRET ExpandIterdata2(char *pachPage,              // out: page data (pagesize as in lx spec)
                               int cchPage,                 // in: sizeof *pachPage (pagesize as in lx spec)
                               PCSZ pachSrcPage,     // in: compressed source data in EXEPACK:1 format
                               int cchSrcPage)              // in: size of source buf
@@ -2582,7 +2582,7 @@ endloop:;
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-static APIRET GetOfsFromPageTableIndex(PEXECUTABLE pExec,   // in: executable from exehOpen
+STATIC APIRET GetOfsFromPageTableIndex(PEXECUTABLE pExec,   // in: executable from exehOpen
                                        ULONG ulObjPageTblIndexThis,  // in: object page table index to look for
                                        PULONG pulFlags,        // out: page flags
                                        PULONG pulSize,         // out: page size

@@ -134,7 +134,7 @@ BOOL ctlRegisterTooltip(HAB hab)
  *@@added V0.9.12 (2001-04-28) [umoeller]
  */
 
-static BOOL LockSubclassedTools(VOID)
+STATIC BOOL LockSubclassedTools(VOID)
 {
     if (!G_hmtxSubclassedTools)
     {
@@ -162,7 +162,7 @@ static BOOL LockSubclassedTools(VOID)
  *@@changed V0.9.12 (2001-05-03) [umoeller]: this did nothing... fixed
  */
 
-static VOID UnlockSubclassedTools(VOID)
+STATIC VOID UnlockSubclassedTools(VOID)
 {
     DosReleaseMutexSem(G_hmtxSubclassedTools);      // was missing V0.9.12 (2001-05-03) [umoeller]
 }
@@ -195,7 +195,7 @@ typedef struct _SUBCLASSEDTOOL
  *@@added V0.9.12 (2001-04-28) [umoeller]
  */
 
-static PSUBCLASSEDTOOL FindSubclassedTool(HWND hwndTool)
+STATIC PSUBCLASSEDTOOL FindSubclassedTool(HWND hwndTool)
 {
     PLISTNODE pNode = lstQueryFirstNode(&G_llSubclassedTools);
     while (pNode)
@@ -283,7 +283,7 @@ MRESULT EXPENTRY ctl_fnwpSubclassedTool(HWND hwndTool, ULONG msg, MPARAM mp1, MP
  *@@changed V0.9.12 (2001-04-28) [umoeller]: renamed from SubclassToolForToolInfo
  */
 
-static BOOL SubclassTool(HWND hwndTooltip,
+STATIC BOOL SubclassTool(HWND hwndTooltip,
                          HWND hwndTool)
 {
     BOOL    brc = FALSE;
@@ -323,7 +323,7 @@ static BOOL SubclassTool(HWND hwndTooltip,
  *@@added V0.9.12 (2001-04-28) [umoeller]
  */
 
-static BOOL UnSubclassTool(HWND hwndTool)
+STATIC BOOL UnSubclassTool(HWND hwndTool)
 {
     PSUBCLASSEDTOOL pst;
     if (pst = FindSubclassedTool(hwndTool))
@@ -404,7 +404,7 @@ typedef struct _TOOLTIPDATA
  *      to the control's presparams.
  */
 
-static VOID UpdateTooltipPresColors(HWND hwndTooltip)      // in: tooltip control
+STATIC VOID UpdateTooltipPresColors(HWND hwndTooltip)      // in: tooltip control
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
 
@@ -437,7 +437,7 @@ static VOID UpdateTooltipPresColors(HWND hwndTooltip)      // in: tooltip contro
  *@@added V0.9.13 (2001-06-21) [umoeller]
  */
 
-static MRESULT TtmCreate(HWND hwndTooltip,
+STATIC MRESULT TtmCreate(HWND hwndTooltip,
                          MPARAM mp2)
 {
     PTOOLTIPDATA pttd;
@@ -507,7 +507,7 @@ static MRESULT TtmCreate(HWND hwndTooltip,
  *@@added V0.9.13 (2001-06-21) [umoeller]
  */
 
-static BOOL TtmTimer(HWND hwndTooltip, MPARAM mp1)
+STATIC BOOL TtmTimer(HWND hwndTooltip, MPARAM mp1)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
     USHORT  usTimer = SHORT1FROMMP(mp1);
@@ -550,7 +550,7 @@ static BOOL TtmTimer(HWND hwndTooltip, MPARAM mp1)
  *@@added V0.9.1 (99-11-30) [umoeller]
  */
 
-static VOID TtmPaint(HWND hwndTooltip)
+STATIC VOID TtmPaint(HWND hwndTooltip)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
     HPS         hps = WinBeginPaint(hwndTooltip, NULLHANDLE, NULL);
@@ -642,7 +642,7 @@ static VOID TtmPaint(HWND hwndTooltip)
  *@@added V0.9.13 (2001-06-21) [umoeller]
  */
 
-static VOID TtmDestroy(HWND hwndTooltip)
+STATIC VOID TtmDestroy(HWND hwndTooltip)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
     // stop timers
@@ -688,7 +688,7 @@ static VOID TtmDestroy(HWND hwndTooltip)
  *@@added V0.9.13 (2001-06-21) [umoeller]
  */
 
-static MRESULT TtmAddTool(HWND hwndTooltip, MPARAM mp2)
+STATIC MRESULT TtmAddTool(HWND hwndTooltip, MPARAM mp2)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
     if (mp2)
@@ -729,7 +729,7 @@ static MRESULT TtmAddTool(HWND hwndTooltip, MPARAM mp2)
  *@@changed V0.9.13 (2001-06-21) [umoeller]: fixed endless loop
  */
 
-static VOID TtmDelTool(HWND hwndTooltip, MPARAM mp2)
+STATIC VOID TtmDelTool(HWND hwndTooltip, MPARAM mp2)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
     PTOOLINFO ptiSearch;
@@ -778,7 +778,7 @@ static VOID TtmDelTool(HWND hwndTooltip, MPARAM mp2)
  *@@changed V0.9.19 (2002-05-14) [umoeller]: fixed bad stop timer, thanks yuri
  */
 
-static VOID TtmRelayEvent(HWND hwndTooltip, MPARAM mp2)
+STATIC VOID TtmRelayEvent(HWND hwndTooltip, MPARAM mp2)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
     PQMSG pqmsg = (PQMSG)mp2;
@@ -855,7 +855,7 @@ static VOID TtmRelayEvent(HWND hwndTooltip, MPARAM mp2)
  *@@added V0.9.13 (2001-06-21) [umoeller]
  */
 
-static MRESULT TtmGetDelayTime(HWND hwndTooltip, MPARAM mp1)
+STATIC MRESULT TtmGetDelayTime(HWND hwndTooltip, MPARAM mp1)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
     switch ((ULONG)mp1)
@@ -880,7 +880,7 @@ static MRESULT TtmGetDelayTime(HWND hwndTooltip, MPARAM mp1)
  *@@added V0.9.13 (2001-06-21) [umoeller]
  */
 
-static VOID TtmSetDelayTime(HWND hwndTooltip, MPARAM mp1, MPARAM mp2)
+STATIC VOID TtmSetDelayTime(HWND hwndTooltip, MPARAM mp1, MPARAM mp2)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
     ULONG   iDelay = (ULONG)mp2;
@@ -913,7 +913,7 @@ static VOID TtmSetDelayTime(HWND hwndTooltip, MPARAM mp1, MPARAM mp2)
  *@@added V0.9.13 (2001-06-21) [umoeller]
  */
 
-static VOID TtmGetText(HWND hwndTooltip, MPARAM mp2)
+STATIC VOID TtmGetText(HWND hwndTooltip, MPARAM mp2)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
     PTOOLINFO pti = (PTOOLINFO)mp2;
@@ -956,7 +956,7 @@ static VOID TtmGetText(HWND hwndTooltip, MPARAM mp2)
  *@@added V0.9.13 (2001-06-21) [umoeller]
  */
 
-static MRESULT TtmEnumTools(HWND hwndTooltip, MPARAM mp1, MPARAM mp2)
+STATIC MRESULT TtmEnumTools(HWND hwndTooltip, MPARAM mp1, MPARAM mp2)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
     PTOOLINFO ptiTarget;
@@ -981,7 +981,7 @@ static MRESULT TtmEnumTools(HWND hwndTooltip, MPARAM mp1, MPARAM mp2)
  *@@added V0.9.13 (2001-06-21) [umoeller]
  */
 
-static MRESULT TtmGetCurrentTool(HWND hwndTooltip, MPARAM mp2)
+STATIC MRESULT TtmGetCurrentTool(HWND hwndTooltip, MPARAM mp2)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
     PTOOLINFO ptiTarget;
@@ -1004,7 +1004,7 @@ static MRESULT TtmGetCurrentTool(HWND hwndTooltip, MPARAM mp2)
  *@@added V0.9.13 (2001-06-21) [umoeller]
  */
 
-static MRESULT TtmGetToolInfo(HWND hwndTooltip, MPARAM mp2)
+STATIC MRESULT TtmGetToolInfo(HWND hwndTooltip, MPARAM mp2)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
     PTOOLINFO ptiSearch;
@@ -1043,7 +1043,7 @@ static MRESULT TtmGetToolInfo(HWND hwndTooltip, MPARAM mp2)
  *@@added V0.9.13 (2001-06-21) [umoeller]
  */
 
-static VOID FormatTooltip(HWND hwndTooltip,
+STATIC VOID FormatTooltip(HWND hwndTooltip,
                           PTOOLTIPDATA pttd,
                           PPOINTL pptlPointer)      // in: current pointer pos or NULL
 {
@@ -1163,7 +1163,7 @@ static VOID FormatTooltip(HWND hwndTooltip,
  *@@added V0.9.13 (2001-06-21) [umoeller]
  */
 
-static VOID TtmUpdateTipText(HWND hwndTooltip,
+STATIC VOID TtmUpdateTipText(HWND hwndTooltip,
                              const char *pcszNewText)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
@@ -1213,7 +1213,7 @@ static VOID TtmUpdateTipText(HWND hwndTooltip,
  *@@added V0.9.1 (2000-02-04) [umoeller]
  */
 
-static VOID TtmShowTooltip(HWND hwndTooltip,
+STATIC VOID TtmShowTooltip(HWND hwndTooltip,
                            BOOL fShow)  // if TRUE: show, else: HIDE
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);

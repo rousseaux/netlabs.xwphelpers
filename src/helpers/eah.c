@@ -116,16 +116,16 @@
 #define EA_LIST_NEXT(list) ((list)->next)
 
 // forward declarations to helper funcs at bottom
-static PEALIST      ReadEAList(ULONG, PVOID);
-static EABINDING *  ReadEAByIndex(ULONG, PVOID, ULONG);
-static EABINDING *  ReadEAByName(ULONG, PVOID, PSZ);
-static PDENA2       ReadDenaByIndex(ULONG, PVOID, ULONG);
-static PEABINDING   GetEAValue(ULONG, PVOID, PDENA2);
-static void         SetupQueryEAInfo(PDENA2, PEAOP2);
-static PEABINDING   ConvertFeal2Binding(PFEA2LIST);
-static APIRET       WriteEAList(ULONG, PVOID, PEALIST);
-static APIRET       WriteEA(ULONG, PVOID, PEABINDING);
-static PFEA2LIST    ConvertBinding2Feal(PEABINDING);
+STATIC PEALIST      ReadEAList(ULONG, PVOID);
+STATIC EABINDING *  ReadEAByIndex(ULONG, PVOID, ULONG);
+STATIC EABINDING *  ReadEAByName(ULONG, PVOID, PSZ);
+STATIC PDENA2       ReadDenaByIndex(ULONG, PVOID, ULONG);
+STATIC PEABINDING   GetEAValue(ULONG, PVOID, PDENA2);
+STATIC void         SetupQueryEAInfo(PDENA2, PEAOP2);
+STATIC PEABINDING   ConvertFeal2Binding(PFEA2LIST);
+STATIC APIRET       WriteEAList(ULONG, PVOID, PEALIST);
+STATIC APIRET       WriteEA(ULONG, PVOID, PEABINDING);
+STATIC PFEA2LIST    ConvertBinding2Feal(PEABINDING);
 
 /*
  *@@ eaFreeBinding:
@@ -951,7 +951,7 @@ PEABINDING eaCreateMVBindingFromPSZ(const char *pcszEAName,      // in: EA name 
  *
  */
 
-static PEALIST ReadEAList(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_REFTYPE_PATH
+STATIC PEALIST ReadEAList(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_REFTYPE_PATH
                           PVOID pfile)
 {
     ULONG index = 1;
@@ -983,7 +983,7 @@ static PEALIST ReadEAList(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_R
  *
  */
 
-static PEABINDING ReadEAByIndex(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_REFTYPE_PATH
+STATIC PEABINDING ReadEAByIndex(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_REFTYPE_PATH
                                 PVOID pfile,
                                 ULONG index)
 {
@@ -998,7 +998,7 @@ static PEABINDING ReadEAByIndex(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  EN
  *
  */
 
-static PEABINDING ReadEAByName(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_REFTYPE_PATH
+STATIC PEABINDING ReadEAByName(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_REFTYPE_PATH
                                PVOID pfile,
                                PSZ name)
 {
@@ -1038,7 +1038,7 @@ static PEABINDING ReadEAByName(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENU
  *@@changed V0.9.4 (2000-08-03) [umoeller]: added even more error checking; this fixed problems with swapper.dat and such
  */
 
-static PDENA2 ReadDenaByIndex(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_REFTYPE_PATH
+STATIC PDENA2 ReadDenaByIndex(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_REFTYPE_PATH
                               PVOID pfile, // in: file handle or name
                               ULONG index) // in: EA index (>= 1)
 {
@@ -1068,7 +1068,7 @@ static PDENA2 ReadDenaByIndex(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENUM
  *@@changed V0.9.1 (2000-01-30) [umoeller]: now returning NULL upon errors
  */
 
-static PEABINDING GetEAValue(ULONG type,  // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_REFTYPE_PATH
+STATIC PEABINDING GetEAValue(ULONG type,  // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_REFTYPE_PATH
                              PVOID pfile, // in: file handle or path
                              PDENA2 dena) // in: buffer allocated by ReadDenaByIndex
 {
@@ -1096,7 +1096,7 @@ static PEABINDING GetEAValue(ULONG type,  // in: ENUMEA_REFTYPE_FHANDLE or  ENUM
  *      This also frees dena, since it's no longer used.
  */
 
-static void SetupQueryEAInfo(PDENA2 dena,  // in: buffer allocated by ReadDenaByIndex
+STATIC void SetupQueryEAInfo(PDENA2 dena,  // in: buffer allocated by ReadDenaByIndex
                              PEAOP2 eaop)  // out: EAOP2 to fill
 {
     unsigned int geal_size = ((sizeof (GEA2LIST)) + (dena->cbName));
@@ -1124,7 +1124,7 @@ static void SetupQueryEAInfo(PDENA2 dena,  // in: buffer allocated by ReadDenaBy
  *@@changed V0.9.1 (2000-01-30) [umoeller]: now returning NULL upon errors
  */
 
-static PEABINDING ConvertFeal2Binding(PFEA2LIST feal)
+STATIC PEABINDING ConvertFeal2Binding(PFEA2LIST feal)
 {
     PFEA2 fea = (&((feal->list) [0]));
     PEABINDING binding = (PEABINDING)(malloc(sizeof (EABINDING)));
@@ -1150,7 +1150,7 @@ static PEABINDING ConvertFeal2Binding(PFEA2LIST feal)
  *@@changed V0.9.1 (2000-01-30) [umoeller]: now returning APIRET
  */
 
-static APIRET WriteEAList(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_REFTYPE_PATH
+STATIC APIRET WriteEAList(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_REFTYPE_PATH
                           PVOID pfile,
                           PEALIST list)
 {
@@ -1172,7 +1172,7 @@ static APIRET WriteEAList(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_R
  *@@changed V0.9.1 (2000-01-30) [umoeller]: now returning APIRET
  */
 
-static APIRET WriteEA(ULONG type,          // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_REFTYPE_PATH
+STATIC APIRET WriteEA(ULONG type,          // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_REFTYPE_PATH
                       PVOID pfile,
                       PEABINDING binding)
 {
@@ -1197,7 +1197,7 @@ static APIRET WriteEA(ULONG type,          // in: ENUMEA_REFTYPE_FHANDLE or  ENU
  *
  */
 
-static PFEA2LIST ConvertBinding2Feal(PEABINDING binding)
+STATIC PFEA2LIST ConvertBinding2Feal(PEABINDING binding)
 {
     unsigned int feal_size
               = ((sizeof (FEA2LIST))

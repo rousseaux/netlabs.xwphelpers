@@ -158,7 +158,7 @@ HMTX                G_hmtxTimers = NULLHANDLE;  // timers lock mutex
  *@@added V0.9.12 (2001-05-12) [umoeller]
  */
 
-static BOOL LockTimers(VOID)
+STATIC BOOL LockTimers(VOID)
 {
     if (!G_hmtxTimers)
         return (!DosCreateMutexSem(NULL,
@@ -175,7 +175,7 @@ static BOOL LockTimers(VOID)
  *@@added V0.9.12 (2001-05-12) [umoeller]
  */
 
-static VOID UnlockTimers(VOID)
+STATIC VOID UnlockTimers(VOID)
 {
     DosReleaseMutexSem(G_hmtxTimers);
 }
@@ -189,7 +189,7 @@ static VOID UnlockTimers(VOID)
  *      Internal function. Caller must hold the mutex.
  */
 
-static PXTIMER FindTimer(PXTIMERSET pSet,          // in: timer set (from tmrCreateSet)
+STATIC PXTIMER FindTimer(PXTIMERSET pSet,          // in: timer set (from tmrCreateSet)
                          HWND hwnd,                // in: timer target window
                          USHORT usTimerID)         // in: timer ID
 {
@@ -224,7 +224,7 @@ static PXTIMER FindTimer(PXTIMERSET pSet,          // in: timer set (from tmrCre
  *      Internal function. Caller must hold the mutex.
  */
 
-static VOID RemoveTimer(PXTIMERSET pSet,       // in: timer set (from tmrCreateSet)
+STATIC VOID RemoveTimer(PXTIMERSET pSet,       // in: timer set (from tmrCreateSet)
                         PXTIMER pTimer)        // in: timer to remove
 {
     PLINKLIST pllXTimers;
@@ -251,7 +251,7 @@ static VOID RemoveTimer(PXTIMERSET pSet,       // in: timer set (from tmrCreateS
  *@@changed V0.9.14 (2001-07-07) [umoeller]: added GCD optimizations
  */
 
-static VOID AdjustPMTimer(PXTIMERSET pSet)
+STATIC VOID AdjustPMTimer(PXTIMERSET pSet)
 {
     PLINKLIST pllXTimers = (PLINKLIST)pSet->pvllXTimers;
     ULONG   cTimers = lstCountItems(pllXTimers);

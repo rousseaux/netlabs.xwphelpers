@@ -222,7 +222,7 @@ VOID memdUnlock(VOID)
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-static VOID LogError(const char *pcszFormat,     // in: format string (like with printf)
+STATIC VOID LogError(const char *pcszFormat,     // in: format string (like with printf)
                      ...)                        // in: additional stuff (like with printf)
 {
     if (G_pMemdLogFunc)
@@ -243,7 +243,7 @@ static VOID LogError(const char *pcszFormat,     // in: format string (like with
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-static PHEAPITEM FindHeapItem(void *p)
+STATIC PHEAPITEM FindHeapItem(void *p)
 {
     return ((PHEAPITEM)treeFind(G_pHeapItemsRoot,
                                 (ULONG)p,
@@ -256,7 +256,7 @@ static PHEAPITEM FindHeapItem(void *p)
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-static VOID FillHeapItem(PHEAPITEM pHeapItem,
+STATIC VOID FillHeapItem(PHEAPITEM pHeapItem,
                          void *prc,
                          size_t stSize,
                          const char *pcszSourceFile, // in: source file name
@@ -286,7 +286,7 @@ static VOID FillHeapItem(PHEAPITEM pHeapItem,
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-static VOID CheckMagics(const char *pcszParentFunc,
+STATIC VOID CheckMagics(const char *pcszParentFunc,
                         PHEAPITEM pHeapItem,
                         PBYTE p,
                         const char *pcszSourceFile, // in: source file name

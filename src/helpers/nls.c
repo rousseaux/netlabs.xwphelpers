@@ -761,7 +761,7 @@ BOOL G_fUpperMapInited = FALSE;
  *@@added V0.9.20 (2002-07-25) [umoeller]
  */
 
-static VOID InitUpperMap(VOID)
+STATIC VOID InitUpperMap(VOID)
 {
     ULONG ul;
     COUNTRYCODE cc;

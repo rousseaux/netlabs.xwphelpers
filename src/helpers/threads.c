@@ -83,7 +83,7 @@ HMTX            G_hmtxThreadInfos = NULLHANDLE;
  *@@added V0.9.9 (2001-03-07) [umoeller]
  */
 
-static BOOL LockThreadInfos(VOID)
+STATIC BOOL LockThreadInfos(VOID)
 {
     APIRET arc = NO_ERROR;
 
@@ -109,7 +109,7 @@ static BOOL LockThreadInfos(VOID)
  *@@added V0.9.9 (2001-03-07) [umoeller]
  */
 
-static VOID UnlockThreadInfos(VOID)
+STATIC VOID UnlockThreadInfos(VOID)
 {
     DosReleaseMutexSem(G_hmtxThreadInfos);
 }
@@ -125,7 +125,7 @@ static VOID UnlockThreadInfos(VOID)
  *@@changed V0.9.21 (2002-08-21) [umoeller]: added WinCancelShutdown to avoid shutdown hangs
  */
 
-static VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
+STATIC VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
 {
     PTHREADINFO pti = (PTHREADINFO)ptiMyself;
 

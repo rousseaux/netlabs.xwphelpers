@@ -99,7 +99,7 @@
 
 // this specifies whether we're dealing with 32-bit code;
 // this gets changed whenever 16-bit count is detected
-static BOOL     f32bit = TRUE;
+STATIC BOOL     f32bit = TRUE;
 
 /*
  * Global variables for Read32PmDebug:
@@ -362,8 +362,8 @@ typedef struct _XDEBUGINFO
  *
  ********************************************************************/
 
-static int Read16CodeView(FILE *LogFile, PXDEBUGINFO pxdi, int fh, int TrapSeg, int TrapOff, CHAR *FileName);
-static int Read32PmDebug(FILE *LogFile, PXDEBUGINFO pxdi, int fh, int TrapSeg, int TrapOff, CHAR *FileName);
+STATIC int Read16CodeView(FILE *LogFile, PXDEBUGINFO pxdi, int fh, int TrapSeg, int TrapOff, CHAR *FileName);
+STATIC int Read32PmDebug(FILE *LogFile, PXDEBUGINFO pxdi, int fh, int TrapSeg, int TrapOff, CHAR *FileName);
 
 /*
  *@@ WriteAddressInfo:
@@ -384,7 +384,7 @@ static int Read32PmDebug(FILE *LogFile, PXDEBUGINFO pxdi, int fh, int TrapSeg, i
  *@@added V0.9.12 (2001-05-12) [umoeller]
  */
 
-static VOID WriteDebugInfo(FILE *LogFile,              // in: open log file
+STATIC VOID WriteDebugInfo(FILE *LogFile,              // in: open log file
                            PXDEBUGINFO pxdi)           // in: debug info
 {
     fprintf(LogFile,
@@ -617,7 +617,7 @@ struct one_pointer_rec
  *      Called from dbgPrintDebugInfo for 32-bit modules.
  */
 
-static int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
+STATIC int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
                          PXDEBUGINFO pxdi,
                          int ModuleFile,       // in: module file opened with sopen()
                          int TrapSeg,
@@ -1049,7 +1049,7 @@ static int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
  *      Called from dbgPrintDebugInfo for 16-bit modules.
  */
 
-static int Read16CodeView(FILE *LogFile,       // in: text log file to write to
+STATIC int Read16CodeView(FILE *LogFile,       // in: text log file to write to
                           PXDEBUGINFO pxdi,
                           int fh,
                           int TrapSeg,
@@ -1214,7 +1214,7 @@ static int Read16CodeView(FILE *LogFile,       // in: text log file to write to
  *@@changed V0.9.1 (2000-01-30) [umoeller]: changed prototype to use external buffer
  */
 
-static VOID var_value(void *varptr,        // in: address of the variable on the stack
+STATIC VOID var_value(void *varptr,        // in: address of the variable on the stack
                       char *pszBuf,        // out: information
                       BYTE type)           // in: type; if >= 32, we'll call DosQueryMem
 {
@@ -1298,7 +1298,7 @@ static VOID var_value(void *varptr,        // in: address of the variable on the
  *      Return TRUE if found.
  */
 
-static BOOL search_userdefs(FILE *LogFile,     // in: text log file to write to
+STATIC BOOL search_userdefs(FILE *LogFile,     // in: text log file to write to
                             ULONG stackofs,
                             USHORT var_no)
 {
@@ -1342,7 +1342,7 @@ static BOOL search_userdefs(FILE *LogFile,     // in: text log file to write to
  *
  */
 
-static BOOL search_pointers(FILE *LogFile,     // in: text log file to write to
+STATIC BOOL search_pointers(FILE *LogFile,     // in: text log file to write to
                             ULONG stackofs,
                             USHORT var_no)
 {
