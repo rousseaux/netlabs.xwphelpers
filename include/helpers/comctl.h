@@ -479,6 +479,10 @@ extern "C" {
 
     #define SBCF_PERCENTAGE          0x0002
     #define SBCF_3DSUNK              0x0100
+    #define SBCF_3DEXPLORERSTYLE     0x0200
+                // new with V0.9.21 (2002-08-21) [umoeller]
+                // this simulates the Warp 4 entry field margins around the
+                // right split window, but leaves the left window flat
     #define SBCF_MOVEABLE            0x1000
 
     /*
@@ -539,7 +543,6 @@ extern "C" {
     {
         SPLITBARCDATA   sbcd;
         PFNWP           OldStaticProc;
-        // RECTL           rclBar;
         HPOINTER        hptrOld,        // old pointer stored upon WM_MOUSEMOVE
                         hptrMove;       // PM move pointer, either vertical or horizontal
         BOOL            fCaptured;
@@ -551,6 +554,9 @@ extern "C" {
                             // the left/bottom window to link
                         hwndLinked2;
                             // the right/top window to link
+        LONG            lcol3DDark,
+                        lcol3DLight,
+                        lcolInactiveBorder;
     } SPLITBARDATA, *PSPLITBARDATA;
 
     #define ID_SPLITBAR  5000           // fixed ID of the split bar

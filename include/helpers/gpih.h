@@ -153,6 +153,18 @@ extern "C" {
     typedef VOID XWPENTRY GPIHDRAWTHICKFRAME(HPS hps, PRECTL prcl, ULONG ulWidth);
     typedef GPIHDRAWTHICKFRAME *PGPIHDRAWTHICKFRAME;
 
+    VOID XWPENTRY gpihDraw3DFrame2(HPS hps,
+                                   PRECTL prcl,
+                                   USHORT usWidth,
+                                   LONG lColorLeft,
+                                   LONG lColorRight);
+    typedef VOID XWPENTRY GPIHDRAW3DFRAME2(HPS hps,
+                                           PRECTL prcl,
+                                           USHORT usWidth,
+                                           LONG lColorLeft,
+                                           LONG lColorRight);
+    typedef GPIHDRAW3DFRAME2 *PGPIHDRAW3DFRAME2;
+
     VOID XWPENTRY gpihDraw3DFrame(HPS hps,
                                   PRECTL prcl,
                                   USHORT usWidth,

@@ -467,7 +467,7 @@ VOID gpihDrawThickFrame(HPS hps,              // in: presentation space for outp
 }
 
 /*
- *@@ gpihDraw3DFrame:
+ *@@ gpihDraw3DFrame2:
  *      this draws a rectangle in 3D style with a given line width
  *      and the given colors.
  *
@@ -480,17 +480,21 @@ VOID gpihDrawThickFrame(HPS hps,              // in: presentation space for outp
  *      the _center_ of the rectangle. prcl thus always specifies
  *      the bottom left and top right pixels to be drawn.
  *
+ *      Note: With V0.9.21, this now modifies prcl to be smaller towards
+ *      the center of the rectangle by usWidth so you can call this several
+ *      times with different colors.
+ *
  *@@changed V0.9.0 [umoeller]: changed function prototype to have colors specified
  *@@changed V0.9.7 (2000-12-20) [umoeller]: now really using inclusive rectangle...
+ *@@changed V0.9.21 (2002-08-24) [umoeller]: renamed, now modifying prcl on output
  */
 
-VOID gpihDraw3DFrame(HPS hps,
-                     PRECTL prcl,       // in: rectangle (inclusive)
-                     USHORT usWidth,    // in: line width (>= 1)
-                     LONG lColorLeft,   // in: color to use for left and top; e.g. SYSCLR_BUTTONLIGHT
-                     LONG lColorRight)  // in: color to use for right and bottom; e.g. SYSCLR_BUTTONDARK
+VOID gpihDraw3DFrame2(HPS hps,
+                      PRECTL prcl,       // in: rectangle (inclusive)
+                      USHORT usWidth,    // in: line width (>= 1)
+                      LONG lColorLeft,   // in: color to use for left and top; e.g. SYSCLR_BUTTONLIGHT
+                      LONG lColorRight)  // in: color to use for right and bottom; e.g. SYSCLR_BUTTONDARK
 {
-    RECTL rcl2 = *prcl;
     USHORT us;
     POINTL ptl1;
 
@@ -500,27 +504,46 @@ VOID gpihDraw3DFrame(HPS hps,
     {
         GpiSetColor(hps, lColorLeft);
         // draw left line
-        ptl1.x = rcl2.xLeft;
-        ptl1.y = rcl2.yBottom;
+        ptl1.x = prcl->xLeft;
+        ptl1.y = prcl->yBottom;
         GpiMove(hps, &ptl1);
-        ptl1.y = rcl2.yTop;     // V0.9.7 (2000-12-20) [umoeller]
+        ptl1.y = prcl->yTop;     // V0.9.7 (2000-12-20) [umoeller]
         GpiLine(hps, &ptl1);
         // go right -> draw top
-        ptl1.x = rcl2.xRight;   // V0.9.7 (2000-12-20) [umoeller]
+        ptl1.x = prcl->xRight;   // V0.9.7 (2000-12-20) [umoeller]
         GpiLine(hps, &ptl1);
         // go down -> draw right
         GpiSetColor(hps, lColorRight);
-        ptl1.y = rcl2.yBottom;
+        ptl1.y = prcl->yBottom;
         GpiLine(hps, &ptl1);
         // go left -> draw bottom
-        ptl1.x = rcl2.xLeft;
+        ptl1.x = prcl->xLeft;
         GpiLine(hps, &ptl1);
 
-        rcl2.xLeft++;
-        rcl2.yBottom++;
-        rcl2.xRight--;
-        rcl2.yTop--;
+        prcl->xLeft++;
+        prcl->yBottom++;
+        prcl->xRight--;
+        prcl->yTop--;
     }
+}
+
+/*
+ *@@ gpihDraw3DFrame:
+ *      compatibility function for those who used the
+ *      export. As opposed to gpihDraw3DFrame2, this
+ *      does not modify prcl.
+ *
+ *@@added V0.9.21 (2002-08-24) [umoeller]
+ */
+
+VOID gpihDraw3DFrame(HPS hps,
+                     PRECTL prcl,       // in: rectangle (inclusive)
+                     USHORT usWidth,    // in: line width (>= 1)
+                     LONG lColorLeft,   // in: color to use for left and top; e.g. SYSCLR_BUTTONLIGHT
+                     LONG lColorRight)  // in: color to use for right and bottom; e.g. SYSCLR_BUTTONDARK
+{
+    RECTL rcl2 = *prcl;
+    gpihDraw3DFrame2(hps, &rcl2, usWidth, lColorLeft, lColorRight);
 }
 
 /*

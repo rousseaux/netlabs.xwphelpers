@@ -94,60 +94,88 @@
  *      implementation for WM_PAINT in ctl_fnwpSplitWindow.
  *
  *@@added V0.9.1 (2000-02-05) [umoeller]
+ *@@changed V0.9.21 (2002-08-24) [umoeller]: added SBCF_3DEXPLORERSTYLE
  */
 
 static VOID PaintSplitWindow(HWND hwndSplit)
 {
-    HPS     hps = WinBeginPaint(hwndSplit, (HPS)0, NULL);
-    HWND    hwndSplitBar = WinWindowFromID(hwndSplit, ID_SPLITBAR);
-    PSPLITBARDATA pData = (PSPLITBARDATA)WinQueryWindowULong(hwndSplitBar,
-                                                             QWL_USER);
+    HPS hps;
 
-    if ((pData->hwndLinked1) && (pData->hwndLinked2))
+    if (hps = WinBeginPaint(hwndSplit, (HPS)0, NULL))
     {
-        // "3D-sunk" style?
-        if (pData->sbcd.ulCreateFlags & SBCF_3DSUNK)
+        HWND    hwndSplitBar = WinWindowFromID(hwndSplit, ID_SPLITBAR);
+        PSPLITBARDATA pData = (PSPLITBARDATA)WinQueryWindowULong(hwndSplitBar,
+                                                                 QWL_USER);
+
+        if ((pData->hwndLinked1) && (pData->hwndLinked2))
         {
-            // yes: draw sunk frame around split windows
-            POINTL  ptl1;
             SWP     swp;
 
             // switch to RGB mode
-            GpiCreateLogColorTable(hps, 0, LCOLF_RGB, 0, 0, NULL);
+            gpihSwitchToRGB(hps);
 
-            WinQueryWindowPos(pData->hwndLinked1, &swp);
-            GpiSetColor(hps, WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONDARK, 0));
-            ptl1.x = swp.x - 1;
-            ptl1.y = swp.y - 1;
-            GpiMove(hps, &ptl1);
-            ptl1.y = swp.y + swp.cy;
-            GpiLine(hps, &ptl1);
-            ptl1.x = swp.x + swp.cx;
-            GpiLine(hps, &ptl1);
-            GpiSetColor(hps, WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONLIGHT, 0));
-            ptl1.y = swp.y - 1;
-            GpiLine(hps, &ptl1);
-            ptl1.x = swp.x - 1;
-            GpiLine(hps, &ptl1);
+            // "3D-sunk" style?
+            if (pData->sbcd.ulCreateFlags & SBCF_3DEXPLORERSTYLE)
+            {
+                // this style is new with V0.9.21 (2002-08-24) [umoeller];
+                // simulate the Warp 4 entry field margins around the
+                // right control only, but leave the left control flat.
+                RECTL rcl;
+                WinQueryWindowPos(pData->hwndLinked2, &swp);
+                rcl.xLeft = swp.x - 2;
+                rcl.yBottom = swp.y - 2;
+                rcl.xRight = swp.x + swp.cx + 1;
+                rcl.yTop = swp.y + swp.cy + 1;
+                gpihDraw3DFrame2(hps,
+                                 &rcl,
+                                 1,
+                                 RGBCOL_BLACK,
+                                 pData->lcol3DLight);
+                gpihDraw3DFrame2(hps,
+                                 &rcl,
+                                 1,
+                                 RGBCOL_BLACK,
+                                 pData->lcolInactiveBorder);
+            }
+            else if (pData->sbcd.ulCreateFlags & SBCF_3DSUNK)
+            {
+                // yes: draw sunk frame around split windows
+                POINTL  ptl1;
 
-            WinQueryWindowPos(pData->hwndLinked2, &swp);
-            GpiSetColor(hps, WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONDARK, 0));
-            ptl1.x = swp.x - 1;
-            ptl1.y = swp.y - 1;
-            GpiMove(hps, &ptl1);
-            ptl1.y = swp.y + swp.cy;
-            GpiLine(hps, &ptl1);
-            ptl1.x = swp.x + swp.cx;
-            GpiLine(hps, &ptl1);
-            GpiSetColor(hps, WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONLIGHT, 0));
-            ptl1.y = swp.y - 1;
-            GpiLine(hps, &ptl1);
-            ptl1.x = swp.x - 1;
-            GpiLine(hps, &ptl1);
+                WinQueryWindowPos(pData->hwndLinked1, &swp);
+                GpiSetColor(hps, pData->lcol3DDark);
+                ptl1.x = swp.x - 1;
+                ptl1.y = swp.y - 1;
+                GpiMove(hps, &ptl1);
+                ptl1.y = swp.y + swp.cy;
+                GpiLine(hps, &ptl1);
+                ptl1.x = swp.x + swp.cx;
+                GpiLine(hps, &ptl1);
+                GpiSetColor(hps, pData->lcol3DLight);
+                ptl1.y = swp.y - 1;
+                GpiLine(hps, &ptl1);
+                ptl1.x = swp.x - 1;
+                GpiLine(hps, &ptl1);
+
+                WinQueryWindowPos(pData->hwndLinked2, &swp);
+                GpiSetColor(hps, pData->lcol3DDark);
+                ptl1.x = swp.x - 1;
+                ptl1.y = swp.y - 1;
+                GpiMove(hps, &ptl1);
+                ptl1.y = swp.y + swp.cy;
+                GpiLine(hps, &ptl1);
+                ptl1.x = swp.x + swp.cx;
+                GpiLine(hps, &ptl1);
+                GpiSetColor(hps, pData->lcol3DLight);
+                ptl1.y = swp.y - 1;
+                GpiLine(hps, &ptl1);
+                ptl1.x = swp.x - 1;
+                GpiLine(hps, &ptl1);
+            }
         }
-    }
 
-    WinEndPaint(hps);
+        WinEndPaint(hps);
+    }
 }
 
 /*
@@ -406,69 +434,58 @@ static VOID PaintSplitBar(HWND hwndBar,
     RECTL   rcl,
             rclBar;
     POINTL  ptl1;
-    hps = WinBeginPaint(hwndBar, NULLHANDLE, &rcl);
-    WinQueryWindowRect(hwndBar, &rclBar);
-    // switch to RGB mode
-    GpiCreateLogColorTable(hps, 0, LCOLF_RGB, 0, 0, NULL);
-
-    // inflate top and right, because WinFillRect
-    // considers this inclusive
-    /* rclBar.xRight++;
-    rclBar.yTop++; */
-
-    WinFillRect(hps,
-                &rclBar,
-                WinQuerySysColor(HWND_DESKTOP,
-                                 SYSCLR_INACTIVEBORDER,
-                                 0));
-
-    if ((pData->sbcd.ulCreateFlags & SBCF_3DSUNK) == 0)
+    if (hps = WinBeginPaint(hwndBar, NULLHANDLE, &rcl))
     {
-        GpiSetColor(hps,
-                    WinQuerySysColor(HWND_DESKTOP,
-                                     SYSCLR_BUTTONLIGHT,
-                                     0));
-        // draw left border (bottom to up)
-        ptl1.x = 0;
-        ptl1.y = 0;
-        GpiMove(hps, &ptl1);
-        ptl1.y = (rclBar.yTop - rclBar.yBottom) - 1;
-        if (pData->sbcd.ulCreateFlags & SBCF_VERTICAL)
-            // vertical:
-            GpiLine(hps, &ptl1);
-        else
-            GpiMove(hps, &ptl1);
+        WinQueryWindowRect(hwndBar, &rclBar);
+        // switch to RGB mode
+        GpiCreateLogColorTable(hps, 0, LCOLF_RGB, 0, 0, NULL);
 
-        // draw top border (to right)
-        ptl1.x = (rclBar.xRight - rclBar.xLeft) - 1;
-        if (pData->sbcd.ulCreateFlags & SBCF_VERTICAL)
-            // vertical:
-            GpiMove(hps, &ptl1);
-        else
-            GpiLine(hps, &ptl1);
+        WinFillRect(hps,
+                    &rclBar,
+                    pData->lcolInactiveBorder);
 
-        GpiSetColor(hps,
-                    WinQuerySysColor(HWND_DESKTOP,
-                                     SYSCLR_BUTTONDARK,
-                                     0));
-        // draw right border (to bottom)
-        ptl1.y = 0;
-        if (pData->sbcd.ulCreateFlags & SBCF_VERTICAL)
-            // vertical:
-            GpiLine(hps, &ptl1);
-        else
-            GpiMove(hps, &ptl1);
-
-        if (!(pData->sbcd.ulCreateFlags & SBCF_VERTICAL))
+        if ((pData->sbcd.ulCreateFlags & SBCF_3DSUNK) == 0)
         {
-            // horizontal:
-            // draw bottom border
+            GpiSetColor(hps, pData->lcol3DLight);
+            // draw left border (bottom to up)
             ptl1.x = 0;
-            GpiLine(hps, &ptl1);
-        }
-    }
+            ptl1.y = 0;
+            GpiMove(hps, &ptl1);
+            ptl1.y = (rclBar.yTop - rclBar.yBottom) - 1;
+            if (pData->sbcd.ulCreateFlags & SBCF_VERTICAL)
+                // vertical:
+                GpiLine(hps, &ptl1);
+            else
+                GpiMove(hps, &ptl1);
 
-    WinEndPaint(hps);
+            // draw top border (to right)
+            ptl1.x = (rclBar.xRight - rclBar.xLeft) - 1;
+            if (pData->sbcd.ulCreateFlags & SBCF_VERTICAL)
+                // vertical:
+                GpiMove(hps, &ptl1);
+            else
+                GpiLine(hps, &ptl1);
+
+            GpiSetColor(hps, pData->lcol3DDark);
+            // draw right border (to bottom)
+            ptl1.y = 0;
+            if (pData->sbcd.ulCreateFlags & SBCF_VERTICAL)
+                // vertical:
+                GpiLine(hps, &ptl1);
+            else
+                GpiMove(hps, &ptl1);
+
+            if (!(pData->sbcd.ulCreateFlags & SBCF_VERTICAL))
+            {
+                // horizontal:
+                // draw bottom border
+                ptl1.x = 0;
+                GpiLine(hps, &ptl1);
+            }
+        }
+
+        WinEndPaint(hps);
+    }
 }
 
 /*
@@ -768,10 +785,7 @@ HWND ctlCreateSplitWindow(HAB hab,
 
                 // copy control data
                 memcpy(&(pData->sbcd), psbcd, sizeof(SPLITBARCDATA));
-                // set other data
-                /* WinQueryWindowRect(hwndBar, &(pData->rclBar));
-                (pData->rclBar.xRight)--;
-                (pData->rclBar.yTop)--; */
+
                 // subclass static control to make it a split bar
                 pData->OldStaticProc = WinSubclassWindow(hwndBar, ctl_fnwpSplitBar);
                 pData->hptrOld = NULLHANDLE;
@@ -783,6 +797,11 @@ HWND ctlCreateSplitWindow(HAB hab,
                 pData->fCaptured = FALSE;
                 pData->hwndLinked1 =
                 pData->hwndLinked2 = NULLHANDLE;
+
+                // caching these colors now V0.9.21 (2002-08-21) [umoeller]
+                pData->lcol3DDark = WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONDARK, 0);
+                pData->lcol3DLight = WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONLIGHT, 0);
+                pData->lcolInactiveBorder = WinQuerySysColor(HWND_DESKTOP, SYSCLR_INACTIVEBORDER, 0);
 
                 WinSetWindowULong(hwndBar, QWL_USER, (ULONG)pData);
             }
@@ -805,171 +824,168 @@ HWND ctlCreateSplitWindow(HAB hab,
  *      a WinSetWindowPos on the split window instead.
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.21 (2002-08-24) [umoeller]: added support for SBCF_3DEXPLORERSTYLE
  */
 
 BOOL ctlUpdateSplitWindow(HWND hwndSplit)
 {
     BOOL    brc = FALSE;
-    HWND    hwndSplitBar = WinWindowFromID(hwndSplit, ID_SPLITBAR);
+    HWND    hwndSplitBar;
+    PSPLITBARDATA psbd;
 
-    if (hwndSplitBar)
+    if (    (hwndSplitBar = WinWindowFromID(hwndSplit, ID_SPLITBAR))
+         && (psbd = (PSPLITBARDATA)WinQueryWindowPtr(hwndSplitBar, QWL_USER))
+       )
     {
-        PSPLITBARDATA psbd = (PSPLITBARDATA)WinQueryWindowULong(hwndSplitBar, QWL_USER);
+        PSPLITBARCDATA  psbcd = &(psbd->sbcd);
+        RECTL           rclSplit,
+                        rclBar;
+        LONG            l3DOfsLink1 = 0,
+                        l3DOfsLink2 = 0;
 
-        if (psbd)
+        // _Pmpf(("Entering ctlUpdateSplitWindow for hwndSplit 0x%lX", hwndSplit));
+
+        // query the rectangle of the split window's parent;
+        // this is either the client or another split window
+        WinQueryWindowRect(hwndSplit, &rclSplit);
+
+        /* _Pmpf(("  rect: %d, %d, %d, %d",
+                        rclSplit.xLeft,
+                        rclSplit.yBottom,
+                        rclSplit.xRight - rclSplit.xLeft,
+                        rclSplit.yTop - rclSplit.yBottom)); */
+
+        // update split bar
+        if (psbcd->ulCreateFlags & SBCF_HORIZONTAL)
         {
-            PSPLITBARCDATA  psbcd = &(psbd->sbcd);
-            RECTL           rclSplit,
-                            rclBar;
-            ULONG           ul3DOfs = 0;
-
-            // _Pmpf(("Entering ctlUpdateSplitWindow for hwndSplit 0x%lX", hwndSplit));
-
-            // query the rectangle of the split window's parent;
-            // this is either the client or another split window
-            WinQueryWindowRect(hwndSplit, &rclSplit);
-
-            /* _Pmpf(("  rect: %d, %d, %d, %d",
-                            rclSplit.xLeft,
-                            rclSplit.yBottom,
-                            rclSplit.xRight - rclSplit.xLeft,
-                            rclSplit.yTop - rclSplit.yBottom)); */
-
-            // set anti-recursion flag;
-            // this is neccessary, because ctl_fnwpSplitWindow
-            // calls this func again when
-            // WM_WINDOWPOSCHANGED comes in
-            // psbd->fNoAdjust = TRUE;
-            // set split window to the same
-            /* WinSetWindowPos(hwndSplit, HWND_TOP,
-                            rclSplit.xLeft,
-                            rclSplit.yBottom,
-                            rclSplit.xRight - rclSplit.xLeft,
-                            rclSplit.yTop - rclSplit.yBottom,
-                            SWP_MOVE | SWP_SIZE); */
-            // psbd->fNoAdjust = FALSE;
-
-            // update split bar
-            if (psbcd->ulCreateFlags & SBCF_HORIZONTAL)
-            {
-                // _Pmpf(("  Calc horizontal"));
-                // horizontal split bar:
-                if (psbcd->ulCreateFlags & SBCF_PERCENTAGE)
-                    // take height of client and apply percentage
+            // _Pmpf(("  Calc horizontal"));
+            // horizontal split bar:
+            if (psbcd->ulCreateFlags & SBCF_PERCENTAGE)
+                // take height of client and apply percentage
+                rclBar.yBottom = (rclSplit.yTop - rclSplit.yBottom)
+                                * psbcd->lPos
+                                / 100;
+            else
+                if (psbcd->lPos > 0)
+                    // offset from bottom:
+                    rclBar.yBottom = psbcd->lPos;
+                else
+                    // offset from right:
                     rclBar.yBottom = (rclSplit.yTop - rclSplit.yBottom)
-                                    * psbcd->lPos
-                                    / 100;
-                else
-                    if (psbcd->lPos > 0)
-                        // offset from bottom:
-                        rclBar.yBottom = psbcd->lPos;
-                    else
-                        // offset from right:
-                        rclBar.yBottom = (rclSplit.yTop - rclSplit.yBottom)
-                                         + psbcd->lPos;  // which is negative
+                                     + psbcd->lPos;  // which is negative
 
-                rclBar.yTop = rclBar.yBottom + WinQuerySysValue(HWND_DESKTOP,
-                                                                SV_CXSIZEBORDER);
-                rclBar.xLeft = 0;
-                // take width of client
-                rclBar.xRight = (rclSplit.xRight - rclSplit.xLeft);
-            }
-            else
-            {
-                // _Pmpf(("  Calc vertical"));
-                // vertical split bar:
-                if (psbcd->ulCreateFlags & SBCF_PERCENTAGE)
-                    // take width of client and apply percentage
-                    rclBar.xLeft = (rclSplit.xRight - rclSplit.xLeft)
-                                    * psbcd->lPos
-                                    / 100;
-                else
-                    if (psbcd->lPos > 0)
-                        // offset from left:
-                        rclBar.xLeft = psbcd->lPos;
-                    else
-                        // offset from right:
-                        rclBar.xLeft = (rclSplit.xRight - rclSplit.xLeft)
-                                       + psbcd->lPos;  // which is negative
-
-                rclBar.xRight = rclBar.xLeft + WinQuerySysValue(HWND_DESKTOP,
-                                                                SV_CXSIZEBORDER);
-                rclBar.yBottom = 0;
-                // take height of client
-                rclBar.yTop = (rclSplit.yTop - rclSplit.yBottom);
-            }
-
-            // reposition split bar
-            brc = WinSetWindowPos(hwndSplitBar,
-                                  HWND_TOP,
-                                  rclBar.xLeft,
-                                  rclBar.yBottom,
-                                  rclBar.xRight - rclBar.xLeft,
-                                  rclBar.yTop - rclBar.yBottom,
-                                  SWP_MOVE | SWP_SIZE);
-
-            /* _Pmpf(("  Set splitbar hwnd %lX to %d, %d, %d, %d; rc: %d",
-                            hwndSplitBar,
-                            rclBar.xLeft,
-                            rclBar.yBottom,
-                            rclBar.xRight - rclBar.xLeft,
-                            rclBar.yTop - rclBar.yBottom,
-                            brc)); */
-
-            // reposition left/bottom window of split bar
-            if (psbcd->ulCreateFlags & SBCF_3DSUNK)
-                ul3DOfs = 1;
-            // else 0
-
-            // now reposition the linked windows
-            if (psbcd->ulCreateFlags & SBCF_HORIZONTAL)
-            {
-                // horizontal:
-                // reposition bottom window of split bar
-                WinSetWindowPos(psbd->hwndLinked1,
-                                HWND_TOP,
-                                ul3DOfs,
-                                ul3DOfs,
-                                rclBar.xRight - rclBar.xLeft - ul3DOfs*2,
-                                rclBar.yBottom - ul3DOfs*2,       // the window rect is non-inclusive
-                                SWP_MOVE | SWP_SIZE);
-
-                // reposition top window of split bar
-                WinSetWindowPos(psbd->hwndLinked2,
-                                HWND_TOP,
-                                ul3DOfs,
-                                rclBar.yTop + ul3DOfs,    // the window rect is non-inclusive
-                                rclBar.xRight - rclBar.xLeft - ul3DOfs*2,
-                                rclSplit.yTop - rclBar.yTop - ul3DOfs*2,
-                                SWP_MOVE | SWP_SIZE);
-            }
-            else
-            {
-                // vertical:
-                // reposition left window of split bar
-                WinSetWindowPos(psbd->hwndLinked1,
-                                HWND_TOP,
-                                ul3DOfs,
-                                ul3DOfs,
-                                rclBar.xLeft - ul3DOfs*2,       // the window rect is non-inclusive
-                                rclBar.yTop - rclBar.yBottom - ul3DOfs*2,
-                                SWP_MOVE | SWP_SIZE);
-
-                // reposition right window of split bar
-                WinSetWindowPos(psbd->hwndLinked2,
-                                HWND_TOP,
-                                rclBar.xRight + ul3DOfs,    // the window rect is non-inclusive
-                                ul3DOfs,
-                                rclSplit.xRight - rclBar.xRight - ul3DOfs*2,
-                                rclBar.yTop - rclBar.yBottom - ul3DOfs*2,
-                                SWP_MOVE | SWP_SIZE);
-            }
-
-            // repaint split window (3D frame)
-            WinInvalidateRect(hwndSplit,
-                              NULL,         // all
-                              FALSE);       // don't repaint children
+            rclBar.yTop = rclBar.yBottom + WinQuerySysValue(HWND_DESKTOP,
+                                                            SV_CXSIZEBORDER);
+            rclBar.xLeft = 0;
+            // take width of client
+            rclBar.xRight = (rclSplit.xRight - rclSplit.xLeft);
         }
+        else
+        {
+            // _Pmpf(("  Calc vertical"));
+            // vertical split bar:
+            if (psbcd->ulCreateFlags & SBCF_PERCENTAGE)
+                // take width of client and apply percentage
+                rclBar.xLeft = (rclSplit.xRight - rclSplit.xLeft)
+                                * psbcd->lPos
+                                / 100;
+            else
+                if (psbcd->lPos > 0)
+                    // offset from left:
+                    rclBar.xLeft = psbcd->lPos;
+                else
+                    // offset from right:
+                    rclBar.xLeft = (rclSplit.xRight - rclSplit.xLeft)
+                                   + psbcd->lPos;  // which is negative
+
+            rclBar.xRight = rclBar.xLeft + WinQuerySysValue(HWND_DESKTOP,
+                                                            SV_CXSIZEBORDER);
+            rclBar.yBottom = 0;
+            // take height of client
+            rclBar.yTop = (rclSplit.yTop - rclSplit.yBottom);
+        }
+
+        // reposition split bar
+        brc = WinSetWindowPos(hwndSplitBar,
+                              HWND_TOP,
+                              rclBar.xLeft,
+                              rclBar.yBottom,
+                              rclBar.xRight - rclBar.xLeft,
+                              rclBar.yTop - rclBar.yBottom,
+                              SWP_MOVE | SWP_SIZE);
+
+        /* _Pmpf(("  Set splitbar hwnd %lX to %d, %d, %d, %d; rc: %d",
+                        hwndSplitBar,
+                        rclBar.xLeft,
+                        rclBar.yBottom,
+                        rclBar.xRight - rclBar.xLeft,
+                        rclBar.yTop - rclBar.yBottom,
+                        brc)); */
+
+        // reposition left/bottom window of split bar
+        if (psbcd->ulCreateFlags & SBCF_3DEXPLORERSTYLE)
+        {
+            l3DOfsLink2 = 2;
+        }
+        else if (psbcd->ulCreateFlags & SBCF_3DSUNK)
+        {
+            l3DOfsLink1 = 1;
+            l3DOfsLink2 = 1;
+        }
+        // else 0
+
+        // now reposition the linked windows
+        if (psbcd->ulCreateFlags & SBCF_HORIZONTAL)
+        {
+            // horizontal:
+            // reposition bottom window of split bar
+            WinSetWindowPos(psbd->hwndLinked1,
+                            HWND_TOP,
+                            l3DOfsLink1,
+                            l3DOfsLink1,
+                            rclBar.xRight - rclBar.xLeft - 2 * l3DOfsLink1,
+                            rclBar.yBottom - 2 * l3DOfsLink1,
+                                    // the window rect is non-inclusive
+                            SWP_MOVE | SWP_SIZE);
+
+            // reposition top window of split bar
+            WinSetWindowPos(psbd->hwndLinked2,
+                            HWND_TOP,
+                            l3DOfsLink2,
+                            rclBar.yTop + l3DOfsLink2,
+                                    // the window rect is non-inclusive
+                            rclBar.xRight - rclBar.xLeft - 2 * l3DOfsLink2,
+                            rclSplit.yTop - rclBar.yTop - 2 * l3DOfsLink2,
+                            SWP_MOVE | SWP_SIZE);
+        }
+        else
+        {
+            // vertical:
+            // reposition left window of split bar
+            WinSetWindowPos(psbd->hwndLinked1,
+                            HWND_TOP,
+                            l3DOfsLink1,
+                            l3DOfsLink1,
+                            rclBar.xLeft - 2 * l3DOfsLink1,
+                                    // the window rect is non-inclusive
+                            rclBar.yTop - rclBar.yBottom - 2 * l3DOfsLink1,
+                            SWP_MOVE | SWP_SIZE);
+
+            // reposition right window of split bar
+            WinSetWindowPos(psbd->hwndLinked2,
+                            HWND_TOP,
+                            rclBar.xRight + l3DOfsLink2,
+                                    // the window rect is non-inclusive
+                            l3DOfsLink2,
+                            rclSplit.xRight - rclBar.xRight - 2 * l3DOfsLink2,
+                            rclBar.yTop - rclBar.yBottom - 2 * l3DOfsLink2,
+                            SWP_MOVE | SWP_SIZE);
+        }
+
+        // repaint split window (3D frame)
+        WinInvalidateRect(hwndSplit,
+                          NULL,         // all
+                          FALSE);       // don't repaint children
     }
 
     return brc;
