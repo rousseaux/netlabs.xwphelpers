@@ -49,6 +49,7 @@
 
 #include "setup.h"                      // code generation and debugging options
 
+#include "helpers\linklist.h"
 #include "helpers\threads.h"
 
 #pragma hdrstop
@@ -57,6 +58,62 @@
  *@@category: Helpers\Control program helpers\Thread management
  *      see threads.c.
  */
+
+/* ******************************************************************
+ *
+ *   Global variables
+ *
+ ********************************************************************/
+
+LINKLIST        G_llThreadInfos;
+            // linked list of all THREADINFOS ever created...
+            // no auto-free
+HMTX            G_hmtxThreadInfos = NULLHANDLE;
+
+/* ******************************************************************
+ *
+ *   Functions
+ *
+ ********************************************************************/
+
+/*
+ *@@ LockThreadInfos:
+ *
+ *@@added V0.9.9 (2001-03-07) [umoeller]
+ */
+
+BOOL LockThreadInfos(VOID)
+{
+    APIRET arc = NO_ERROR;
+
+    if (G_hmtxThreadInfos == NULLHANDLE)
+    {
+        // first call:
+        arc = DosCreateMutexSem(NULL,     // unnamed
+                                &G_hmtxThreadInfos,
+                                0,        // unshared
+                                TRUE);        // request!
+        lstInit(&G_llThreadInfos, FALSE);
+    }
+    else
+    {
+        arc = DosRequestMutexSem(G_hmtxThreadInfos,
+                                 SEM_INDEFINITE_WAIT);
+    }
+
+    return (arc == NO_ERROR);
+}
+
+/*
+ *@@ UnlockThreadInfos:
+ *
+ *@@added V0.9.9 (2001-03-07) [umoeller]
+ */
+
+VOID UnlockThreadInfos(VOID)
+{
+    DosReleaseMutexSem(G_hmtxThreadInfos);
+}
 
 /*
  *@@ thr_fntGeneric:
@@ -107,6 +164,14 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
             // "Wait" flag set: delete semaphore
             DosCloseEventSem(pti->hevRunning);
 
+        // V0.9.9 (2001-03-07) [umoeller]
+        // remove thread from global list
+        if (LockThreadInfos())
+        {
+            lstRemoveItem(&G_llThreadInfos, pti);
+            UnlockThreadInfos();
+        }
+
         // (2000-12-18) [lafaix] clean up pti if thread is transient.
         if (pti->flFlags & THRF_TRANSIENT)
             free(pti);
@@ -127,8 +192,8 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
 
 /*
  *@@ thrCreate:
- *      this function fills a THREADINFO structure in *pti
- *      and starts a new thread using _beginthread.
+ *      this function fills a THREADINFO structure and starts
+ *      a new thread using _beginthread.
  *
  *      You must pass the thread function in pfn, which will
  *      then be executed. The thread will be passed a pointer
@@ -143,11 +208,24 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
  *      You should manually specify _Optlink because if the
  *      function is prototyped somewhere, VAC will automatically
  *      modify the function's linkage, and you'll run into
- *      compiler warnings.
+ *      crashes.
  *
- *      ptiMyself is then a pointer to the THREADINFO structure.
+ *      The thread's ptiMyself is then a pointer to the
+ *      THREADINFO structure passed to this function.
  *      ulData may be obtained like this:
- +          ULONG ulData = ((PTHREADINFO)ptiMyself)->ulData;
+ *
+ +          ULONG ulData = ptiMyself->ulData;
+ *
+ *      The THREADINFO structure passed to this function must
+ *      be accessible all the time while the thread is running
+ *      because the thr* functions will use it for maintenance.
+ *
+ *      This function does NOT check whether a thread is
+ *      already running in *pti. Do not use the same THREADINFO
+ *      for several threads.
+ *
+ *      If you do not want to manage the structure yourself,
+ *      you can pass the THRF_TRANSIENT flag (see below).
  *
  *      thrCreate does not call your thread func directly,
  *      but only through the thr_fntGeneric wrapper to
@@ -155,11 +233,7 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
  *      in your own thread function, NEVER call _endthread
  *      explicitly, because this would skip the exit processing
  *      (cleanup) in thr_fntGeneric. Instead, just fall out of
- *      your thread function.
- *
- *      This function does NOT check whether a thread is
- *      already running in *pti. If it is, that information
- *      will be lost.
+ *      your thread function, or return().
  *
  *      flFlags can be any combination of the following:
  *
@@ -193,12 +267,14 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
  *@@changed V0.9.5 (2000-08-26) [umoeller]: now using PTHREADINFO
  *@@changed V0.9.7 (2000-12-18) [lafaix]: THRF_TRANSIENT support added
  *@@changed V0.9.9 (2001-02-06) [umoeller]: now returning TID
+ *@@changed V0.9.9 (2001-03-07) [umoeller]: added pcszThreadName
  */
 
 ULONG thrCreate(PTHREADINFO pti,     // out: THREADINFO data
                 PTHREADFUNC pfn,     // in: _Optlink thread function
                 PBOOL pfRunning,     // out: variable set to TRUE while thread is running;
                                      // ptr can be NULL
+                const char *pcszThreadName, // in: thread name (for identification)
                 ULONG flFlags,       // in: THRF_* flags
                 ULONG ulData)        // in: user data to be stored in THREADINFO
 {
@@ -208,19 +284,17 @@ ULONG thrCreate(PTHREADINFO pti,     // out: THREADINFO data
     if (flFlags & THRF_TRANSIENT)
     {
         if (pti == NULL)
-            pti = (PTHREADINFO) malloc(sizeof(THREADINFO));
+            pti = (PTHREADINFO)malloc(sizeof(THREADINFO));
+                    // cleaned up by thr_fntGeneric on exit
     }
 
     if (pti)
     {
-        // we arrive here if *ppti was NULL or (*ppti->tid == NULLHANDLE),
-        // i.e. the thread is not already running.
-        // _beginthread is contained both in the VAC++ and EMX
-        // C libraries with this syntax.
         memset(pti, 0, sizeof(THREADINFO));
         pti->cbStruct = sizeof(THREADINFO);
         pti->pThreadFunc = (PVOID)pfn;
         pti->pfRunning = pfRunning;
+        pti->pcszThreadName = pcszThreadName; // V0.9.9 (2001-03-07) [umoeller]
         pti->flFlags = flFlags;
         pti->ulData = ulData;
 
@@ -250,6 +324,13 @@ ULONG thrCreate(PTHREADINFO pti,     // out: THREADINFO data
             ulrc = pti->tid;
 
             if (ulrc)
+            {
+                if (LockThreadInfos())
+                {
+                    lstAppendItem(&G_llThreadInfos, pti);
+                    UnlockThreadInfos();
+                }
+
                 if (flFlags & THRF_WAIT)
                 {
                     // "Wait" flag set: wait on event semaphore
@@ -257,6 +338,7 @@ ULONG thrCreate(PTHREADINFO pti,     // out: THREADINFO data
                     DosWaitEventSem(pti->hevRunning,
                                     SEM_INDEFINITE_WAIT);
                 }
+            }
         }
     }
 
@@ -280,11 +362,13 @@ ULONG thrCreate(PTHREADINFO pti,     // out: THREADINFO data
  *      by this function.
  *
  *@@added V0.9.5 (2000-08-26) [umoeller]
+ *@@changed V0.9.9 (2001-03-07) [umoeller]: added pcszThreadName
  */
 
 ULONG thrRunSync(HAB hab,               // in: anchor block of calling thread
-                 PTHREADFUNC pfn,       // in: thread function
-                 ULONG ulData)          // in: data for thread function
+                 PTHREADFUNC pfn,       // in: passed to thrCreate
+                 const char *pcszThreadName, // in: passed to thrCreate
+                 ULONG ulData)          // in: passed to thrCreate
 {
     ULONG ulrc = 0;
     QMSG qmsg;
@@ -305,6 +389,7 @@ ULONG thrRunSync(HAB hab,               // in: anchor block of calling thread
         thrCreate(&ti,
                   pfn,
                   NULL,
+                  pcszThreadName,
                   THRF_PMMSGQUEUE,
                   ulData);
         ti.hwndNotify = hwndNotify;
@@ -335,6 +420,88 @@ ULONG thrRunSync(HAB hab,               // in: anchor block of calling thread
     }
 
     return (ulrc);
+}
+
+/*
+ *@@ thrListThreads:
+ *      returns an array of THREADINFO structures
+ *      for all threads that have been started using
+ *      thrCreate (or thrRunSync).
+ *
+ *      If no threads are running yet, this returns
+ *      NULL.
+ *
+ *      Otherwise, this returns the pointer to the
+ *      first array item, and *pcThreads receives
+ *      the array item count (NOT the total array
+ *      size). The array is a copied snapshot of all
+ *      current THREADINFO's and must be free()'d
+ *      by the caller.
+ *
+ *@@added V0.9.9 (2001-03-07) [umoeller]
+ */
+
+PTHREADINFO thrListThreads(PULONG pcThreads)
+{
+    PTHREADINFO pArray = 0;
+
+    if (LockThreadInfos())
+    {
+        PTHREADINFO pThis;
+        PLISTNODE pNode;
+        *pcThreads = lstCountItems(&G_llThreadInfos);
+        _Pmpf((__FUNCTION__ ": got %d threads", *pcThreads));
+        pArray = (PTHREADINFO)malloc(*pcThreads * sizeof(THREADINFO));
+        pThis = pArray;
+
+        pNode = lstQueryFirstNode(&G_llThreadInfos);
+        while (pNode)
+        {
+            memcpy(pThis,
+                   (PTHREADINFO)pNode->pItemData,
+                   sizeof(THREADINFO));
+            pThis++;
+            pNode = pNode->pNext;
+        }
+
+        UnlockThreadInfos();
+    }
+
+    return (pArray);
+}
+
+/*
+ *@@ thrFindThread:
+ *      attempts to find the thread with the specified
+ *      TID; if found, returns TRUE and copies its
+ *      THREADINFO into *pti.
+ *
+ *@@added V0.9.9 (2001-03-07) [umoeller]
+ */
+
+BOOL thrFindThread(PTHREADINFO pti,
+                   ULONG tid)
+{
+    BOOL brc = FALSE;
+    if (LockThreadInfos())
+    {
+        PLISTNODE pNode = lstQueryFirstNode(&G_llThreadInfos);
+        while (pNode)
+        {
+            PTHREADINFO ptiThis = (PTHREADINFO)pNode->pItemData;
+            if (ptiThis->tid == tid)
+            {
+                memcpy(pti, ptiThis, sizeof(THREADINFO));
+                brc = TRUE;
+                break;
+            }
+            pNode = pNode->pNext;
+        }
+
+        UnlockThreadInfos();
+    }
+
+    return (brc);
 }
 
 /*

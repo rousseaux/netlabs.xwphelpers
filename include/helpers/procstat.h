@@ -657,15 +657,15 @@ extern "C" {
      *
      ********************************************************************/
 
-    BOOL prc16QueryProcessInfo(USHORT usPID, PPRCPROCESS pprcp);
+    BOOL prc16QueryProcessInfo(PQPROCSTAT16 pps, USHORT usPID, PPRCPROCESS pprcp);
 
     ULONG prc16ForEachProcess(PFNWP pfnwpCallback, HWND hwnd, ULONG ulMsg, MPARAM mp1);
 
-    ULONG prc16QueryThreadCount(USHORT usPID);
+    ULONG prc16QueryThreadCount(PQPROCSTAT16 pps, USHORT usPID);
 
-    BOOL prc16QueryThreadInfo(USHORT usPID, USHORT usTID, PPRCTHREAD pprct);
+    BOOL prc16QueryThreadInfo(PQPROCSTAT16 pps, USHORT usPID, USHORT usTID, PPRCTHREAD pprct);
 
-    ULONG prc16QueryThreadPriority(USHORT usPID, USHORT usTID);
+    ULONG prc16QueryThreadPriority(PQPROCSTAT16 pps, USHORT usPID, USHORT usTID);
 
     /********************************************************************
      *

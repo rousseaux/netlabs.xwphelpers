@@ -42,6 +42,8 @@ extern "C" {
         HWND        hwndOwner;          // owner of XTimers (who has the PM timer)
         USHORT      idPMTimer;          // ID of main PM timer
         USHORT      idPMTimerRunning;   // if != 0, PM timer is running
+        ULONG       ulPMTimeout;        // current PM timeout; if 0, recalculation
+                                        // is needed.
         PVOID       pvllXTimers;        // linked list of current XTIMER structures, auto-free
     } XTIMERSET, *PXTIMERSET;
 

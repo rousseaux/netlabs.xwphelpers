@@ -113,7 +113,8 @@ PQPROCSTAT16 prc16GetInfo(APIRET *parc)     // out: error, ptr can be NULL
 
 VOID prc16FreeInfo(PQPROCSTAT16 pInfo)
 {
-    free(pInfo);
+    if (pInfo)
+        free(pInfo);
 }
 
 /*
@@ -132,29 +133,32 @@ PQPROCESS16 prc16FindProcessFromName(PQPROCSTAT16 pInfo,    // in: from prc16Get
 {
     PQPROCESS16 pProcess,
                 pReturn = NULL;
-    for ( pProcess = (PQPROCESS16)PTR(pInfo->ulProcesses, 0);
-          pProcess->ulType != 3;
-          pProcess = (PQPROCESS16)PTR(pProcess->ulThreadList,
-                                      pProcess->usThreads * sizeof(QTHREAD16))
-        )
+    if (pInfo)
     {
-        CHAR    szModuleName[CCHMAXPATH];
-        if (DosQueryModuleName(pProcess->usHModule,
-                               sizeof(szModuleName),
-                               szModuleName)
-                == NO_ERROR)
+        for ( pProcess = (PQPROCESS16)PTR(pInfo->ulProcesses, 0);
+              pProcess->ulType != 3;
+              pProcess = (PQPROCESS16)PTR(pProcess->ulThreadList,
+                                          pProcess->usThreads * sizeof(QTHREAD16))
+            )
         {
-            // the module name is fully qualified, so find the
-            // file name (after the last backslash)
-            PSZ pLastBackslash = strrchr(szModuleName, '\\');
-            if (pLastBackslash)
-                // found:
-                if (stricmp(pLastBackslash + 1, pcszName) == 0)
-                {
-                    // matches:
-                    pReturn = pProcess;
-                    break;
-                }
+            CHAR    szModuleName[CCHMAXPATH];
+            if (DosQueryModuleName(pProcess->usHModule,
+                                   sizeof(szModuleName),
+                                   szModuleName)
+                    == NO_ERROR)
+            {
+                // the module name is fully qualified, so find the
+                // file name (after the last backslash)
+                PSZ pLastBackslash = strrchr(szModuleName, '\\');
+                if (pLastBackslash)
+                    // found:
+                    if (stricmp(pLastBackslash + 1, pcszName) == 0)
+                    {
+                        // matches:
+                        pReturn = pProcess;
+                        break;
+                    }
+            }
         }
     }
 
@@ -177,16 +181,19 @@ PQPROCESS16 prc16FindProcessFromPID(PQPROCSTAT16 pInfo, // in: from prc16GetInfo
 {
     PQPROCESS16 pProcess,
                 pReturn = NULL;
-    for ( pProcess = (PQPROCESS16)PTR(pInfo->ulProcesses, 0);
-          pProcess->ulType != 3;
-          pProcess = (PQPROCESS16)PTR(pProcess->ulThreadList,
-                                      pProcess->usThreads * sizeof(QTHREAD16))
-        )
+    if (pInfo)
     {
-        if (pProcess->usPID == ulPID)
+        for ( pProcess = (PQPROCESS16)PTR(pInfo->ulProcesses, 0);
+              pProcess->ulType != 3;
+              pProcess = (PQPROCESS16)PTR(pProcess->ulThreadList,
+                                          pProcess->usThreads * sizeof(QTHREAD16))
+            )
         {
-            pReturn = pProcess;
-            break;
+            if (pProcess->usPID == ulPID)
+            {
+                pReturn = pProcess;
+                break;
+            }
         }
     }
 
@@ -206,31 +213,33 @@ PQPROCESS16 prc16FindProcessFromPID(PQPROCSTAT16 pInfo, // in: from prc16GetInfo
 
 VOID prcReport16(PQPROCESS16 pProcess, PPRCPROCESS pprcp)
 {
-    // USHORT usPriority = 0;
-    PQTHREAD16 pThread;
-    int i;
-
-    DosQueryModuleName(pProcess->usHModule,
-                       sizeof(pprcp->szModuleName),
-                       pprcp->szModuleName);
-    // DosGetPrty(PRTYS_PROCESS, &(pprcp->usPriority), pProcess->usPID);
-
-    // sum up CPU time for process
-    for (pprcp->ulCPU = 0,
-                i = 0,
-                pThread = (PQTHREAD16)PTR(pProcess->ulThreadList, 0);
-         i < pProcess->usThreads;
-         i++, pThread++ )
+    if (pProcess)
     {
-        pprcp->ulCPU += (pThread->ulSysTime + pThread->ulUserTime);
-    }
+        PQTHREAD16 pThread;
+        int i;
 
-    pprcp->usPID            = pProcess->usPID;
-    pprcp->usParentPID      = pProcess->usParentPID;
-    pprcp->usThreads        = pProcess->usThreads;
-    pprcp->ulSID            = pProcess->ulSID;
-    pprcp->ulSessionType    = pProcess->ulSessionType;
-    pprcp->ulStatus         = pProcess->ulStatus;
+        DosQueryModuleName(pProcess->usHModule,
+                           sizeof(pprcp->szModuleName),
+                           pprcp->szModuleName);
+        // DosGetPrty(PRTYS_PROCESS, &(pprcp->usPriority), pProcess->usPID);
+
+        // sum up CPU time for process
+        for (pprcp->ulCPU = 0,
+                    i = 0,
+                    pThread = (PQTHREAD16)PTR(pProcess->ulThreadList, 0);
+             i < pProcess->usThreads;
+             i++, pThread++ )
+        {
+            pprcp->ulCPU += (pThread->ulSysTime + pThread->ulUserTime);
+        }
+
+        pprcp->usPID            = pProcess->usPID;
+        pprcp->usParentPID      = pProcess->usParentPID;
+        pprcp->usThreads        = pProcess->usThreads;
+        pprcp->ulSID            = pProcess->ulSID;
+        pprcp->ulSessionType    = pProcess->ulSessionType;
+        pprcp->ulStatus         = pProcess->ulStatus;
+    }
 }
 
 /*
@@ -242,29 +251,30 @@ VOID prcReport16(PQPROCESS16 pProcess, PPRCPROCESS pprcp)
  *      of that ID is found.
  */
 
-BOOL prc16QueryProcessInfo(USHORT usPID,  // in: PID to query
-                           PPRCPROCESS pprcp) // out: process info
+BOOL prc16QueryProcessInfo(PQPROCSTAT16 pps,    // in: from prc16GetInfo
+                           USHORT usPID,        // in: PID to query
+                           PPRCPROCESS pprcp)   // out: process info
 {
     BOOL rc = FALSE;
-    PQPROCESS16 pProcess;
-    PQPROCSTAT16 pps = (PQPROCSTAT16)malloc(0x8000);
-    DosQProcStatus(pps, 0x8000);
-
-    for ( pProcess = (PQPROCESS16)PTR(pps->ulProcesses, 0);
-          pProcess->ulType != 3;
-          pProcess = (PQPROCESS16)PTR(pProcess->ulThreadList,
-                                      pProcess->usThreads * sizeof(QTHREAD16))
-        )
+    if (pps)
     {
-        if (pProcess->usPID == usPID)
+        PQPROCESS16 pProcess;
+
+        for ( pProcess = (PQPROCESS16)PTR(pps->ulProcesses, 0);
+              pProcess->ulType != 3;
+              pProcess = (PQPROCESS16)PTR(pProcess->ulThreadList,
+                                          pProcess->usThreads * sizeof(QTHREAD16))
+            )
         {
-            prcReport16(pProcess, pprcp);
-            rc = TRUE;
-            break;
+            if (pProcess->usPID == usPID)
+            {
+                prcReport16(pProcess, pprcp);
+                rc = TRUE;
+                break;
+            }
         }
     }
 
-    free(pps);
     return (rc);
 }
 
@@ -314,40 +324,43 @@ ULONG prc16ForEachProcess(PFNWP pfnwpCallback, HWND hwnd, ULONG ulMsg, MPARAM mp
  *      returns the total number of running threads
  *      in the given process. If pid == 0, the
  *      total thread count for the system is returned.
+ *
+ *@@changed V0.9.9 (2001-03-07) [umoeller]: added pps param
  */
 
-ULONG prc16QueryThreadCount(USHORT usPID)
+ULONG prc16QueryThreadCount(PQPROCSTAT16 pps, // in: from prc16GetInfo
+                            USHORT usPID)
 {
     ULONG       ulrc = 0;
-    PQPROCSTAT16  pps = (PQPROCSTAT16)malloc(0x8000);
-    DosQProcStatus(pps, 0x8000);
 
-    if (usPID)
+    if (pps)
     {
-        // process query:
-        PQPROCESS16 pProcess;
-        for ( pProcess = (PQPROCESS16)PTR(pps->ulProcesses, 0);
-              pProcess->ulType != 3;
-              pProcess = (PQPROCESS16)PTR(pProcess->ulThreadList,
-                                          pProcess->usThreads * sizeof(QTHREAD16))
-            )
+        if (usPID)
         {
-            if (pProcess->usPID == usPID)
+            // process query:
+            PQPROCESS16 pProcess;
+            for ( pProcess = (PQPROCESS16)PTR(pps->ulProcesses, 0);
+                  pProcess->ulType != 3;
+                  pProcess = (PQPROCESS16)PTR(pProcess->ulThreadList,
+                                              pProcess->usThreads * sizeof(QTHREAD16))
+                )
             {
-                ulrc = pProcess->usThreads;
-                break;
+                if (pProcess->usPID == usPID)
+                {
+                    ulrc = pProcess->usThreads;
+                    break;
+                }
             }
         }
-    }
-    else
-    {
-        // global query:
-        PQGLOBAL16   pg;
-        pg = (PQGLOBAL16)PTR(pps->ulGlobal, 0);
-        ulrc = pg->ulThreads;
+        else
+        {
+            // global query:
+            PQGLOBAL16   pg;
+            pg = (PQGLOBAL16)PTR(pps->ulGlobal, 0);
+            ulrc = pg->ulThreads;
+        }
     }
 
-    free(pps);
     return (ulrc);
 }
 
@@ -362,52 +375,57 @@ ULONG prc16QueryThreadCount(USHORT usPID)
  *      Note: This function loops thru all processes which
  *      are currently running and is therefore not terribly
  *      fast. Use economically.
+ *
+ *@@changed V0.9.9 (2001-03-07) [umoeller]: added pps param
  */
 
-BOOL prc16QueryThreadInfo(USHORT usPID, USHORT usTID, PPRCTHREAD pprct)
+BOOL prc16QueryThreadInfo(PQPROCSTAT16 pps, // in: from prc16GetInfo
+                          USHORT usPID,
+                          USHORT usTID,
+                          PPRCTHREAD pprct)
 {
     BOOL        brc = FALSE;
-    PQPROCSTAT16  pps = (PQPROCSTAT16)malloc(0x8000);
-    PQPROCESS16 pProcess;
-    DosQProcStatus(pps, 0x8000);
-
-    // find process:
-    for ( pProcess = (PQPROCESS16)PTR(pps->ulProcesses, 0);
-          pProcess->ulType != 3;
-          pProcess = (PQPROCESS16)PTR(pProcess->ulThreadList,
-                                      pProcess->usThreads * sizeof(QTHREAD16))
-        )
+    if (pps)
     {
-        if (pProcess->usPID == usPID)
+        PQPROCESS16 pProcess;
+
+        // find process:
+        for ( pProcess = (PQPROCESS16)PTR(pps->ulProcesses, 0);
+              pProcess->ulType != 3;
+              pProcess = (PQPROCESS16)PTR(pProcess->ulThreadList,
+                                          pProcess->usThreads * sizeof(QTHREAD16))
+            )
         {
-            PQTHREAD16 pThread;
-            int i;
-            // process found: find thread
-            for ( i = 0, pThread = (PQTHREAD16)PTR(pProcess->ulThreadList, 0);
-                  i < pProcess->usThreads;
-                  i++, pThread++ )
+            if (pProcess->usPID == usPID)
             {
-                if (pThread->usTID == usTID)
+                PQTHREAD16 pThread;
+                int i;
+                // process found: find thread
+                for ( i = 0, pThread = (PQTHREAD16)PTR(pProcess->ulThreadList, 0);
+                      i < pProcess->usThreads;
+                      i++, pThread++ )
                 {
-                    // thread found:
-                    pprct->usTID          = pThread->usTID;
-                    pprct->usThreadSlotID = pThread->usThreadSlotID;
-                    pprct->ulBlockID      = pThread->ulBlockID;
-                    pprct->ulPriority     = pThread->ulPriority;
-                    pprct->ulSysTime      = pThread->ulSysTime;
-                    pprct->ulUserTime     = pThread->ulUserTime;
-                    pprct->ucStatus       = pThread->ucStatus;
+                    if (pThread->usTID == usTID)
+                    {
+                        // thread found:
+                        pprct->usTID          = pThread->usTID;
+                        pprct->usThreadSlotID = pThread->usThreadSlotID;
+                        pprct->ulBlockID      = pThread->ulBlockID;
+                        pprct->ulPriority     = pThread->ulPriority;
+                        pprct->ulSysTime      = pThread->ulSysTime;
+                        pprct->ulUserTime     = pThread->ulUserTime;
+                        pprct->ucStatus       = pThread->ucStatus;
 
-                    brc = TRUE;
+                        brc = TRUE;
 
-                    break; // thread-for loop
-                }
-            } // end for thread
-            break; // process-for loop
-        }
-    } // end for process
+                        break; // thread-for loop
+                    }
+                } // end for thread
+                break; // process-for loop
+            }
+        } // end for process
+    }
 
-    free(pps);
     return (brc);
 }
 
@@ -420,14 +438,17 @@ BOOL prc16QueryThreadInfo(USHORT usPID, USHORT usTID, PPRCTHREAD pprct)
  *      Note: This function loops thru all processes which
  *      are currently running and is therefore not terribly
  *      fast. Use economically.
+ *
+ *@@changed V0.9.9 (2001-03-07) [umoeller]: added pps param
  */
 
-ULONG prc16QueryThreadPriority(USHORT usPID,
+ULONG prc16QueryThreadPriority(PQPROCSTAT16 pps, // in: from prc16GetInfo
+                               USHORT usPID,
                                USHORT usTID)
 {
     PRCTHREAD prct;
     ULONG ulrc = -1;
-    if (prc16QueryThreadInfo(usPID, usTID, &prct))
+    if (prc16QueryThreadInfo(pps, usPID, usTID, &prct))
         ulrc = prct.ulPriority;
     return (ulrc);
 }

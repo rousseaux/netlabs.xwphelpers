@@ -46,6 +46,7 @@ extern "C" {
             ULONG   cbStruct;
             void*   pThreadFunc;    // as passed to thrCreate, really a PTHREADFUNC
             PBOOL   pfRunning;      // as passed to thrCreate
+            const char *pcszThreadName; // as passed to thrCreate
             ULONG   flFlags;        // as passed to thrCreate
             ULONG   ulData;         // as passed to thrCreate
 
@@ -70,12 +71,19 @@ extern "C" {
     ULONG thrCreate(PTHREADINFO pti,
                     PTHREADFUNC pfn,
                     PBOOL pfRunning,
+                    const char *pcszThreadName,
                     ULONG flFlags,
                     ULONG ulData);
 
     ULONG thrRunSync(HAB hab,
                      PTHREADFUNC pfn,
+                     const char *pcszThreadName,
                      ULONG ulData);
+
+    PTHREADINFO thrListThreads(PULONG pcThreads);
+
+    BOOL thrFindThread(PTHREADINFO pti,
+                       ULONG tid);
 
     BOOL thrClose(PTHREADINFO pti);
 
