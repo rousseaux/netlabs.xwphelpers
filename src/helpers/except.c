@@ -500,6 +500,7 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
             }
 
     // make some noise
+#ifndef __NOEXCEPTIONBEEPS__        // V0.9.19 (2002-04-17) [umoeller]
     if (G_fBeepOnException)
     {
         DosBeep( 250, 30);
@@ -512,6 +513,7 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
         DosBeep( 500, 30);
         DosBeep( 250, 30);
     }
+#endif
 
     // generic exception info
     DosQuerySysInfo(QSV_VERSION_MAJOR,      // 11

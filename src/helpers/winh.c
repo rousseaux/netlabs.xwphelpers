@@ -1615,8 +1615,8 @@ ULONG winhLboxSelectAll(HWND hwndListBox,   // in: list box
 ULONG winhLboxFindItemFromHandle(HWND hwndListBox,
                                  ULONG ulHandle)
 {
-    LONG cItems = WinQueryLboxCount(hwndListBox);
-    if (cItems)
+    LONG cItems;
+    if (cItems = WinQueryLboxCount(hwndListBox))
     {
         ULONG ul;
         for (ul = 0;
