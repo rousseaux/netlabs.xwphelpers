@@ -649,6 +649,8 @@ VOID gpihUnlockLCIDs(VOID)
  *      WARNING: This function by itself is not thread-safe.
  *      See gpihLockLCIDs for how to serialize this.
  *
+ *      Code was extensively re-tested, works (V0.9.12 (2001-05-31) [umoeller]).
+ *
  *@@added V0.9.3 (2000-05-06) [umoeller]
  *@@changed V0.9.9 (2001-04-01) [umoeller]: removed all those sick sub-allocs
  */
@@ -663,9 +665,16 @@ LONG gpihQueryNextFontID(HPS hps)
                              //  therefore the maximum number
                              //  of objects for which information
                              //  can be returned
+
+    // _Pmpf((__FUNCTION__ ": Entering"));
+
     if (lCount == 0)
+    {
         // none in use yet:
-        lcidNext = 1;
+        lcidNext = 15;
+
+        // _Pmpf(("  no lcids in use"));
+    }
     else
     {
         // #define GQNCL_BLOCK_SIZE 400*sizeof(LONG)
@@ -687,7 +696,9 @@ LONG gpihQueryNextFontID(HPS hps)
             {
                 // FINALLY we have all the lcids in use.
                 BOOL    fContinue = TRUE;
-                lcidNext = 1;
+                lcidNext = 15;
+
+                // _Pmpf(("  %d fonts in use, browsing...", lCount));
 
                 // now, check if this lcid is in use already:
                 while (fContinue)
@@ -710,10 +721,15 @@ LONG gpihQueryNextFontID(HPS hps)
                     {
                         // lcid found:
                         // try next higher one
+
+                        // _Pmpf(("       %d is busy...", lcidNext));
+
                         lcidNext++;
                         fContinue = TRUE;
                     }
-                    // else: return that one
+                    // else
+                        // else: return that one
+                        // _Pmpf(("  %d is free", lcidNext));
                 }
             }
         }
@@ -814,6 +830,8 @@ LONG gpihQueryNextFontID(HPS hps)
         }
         */
     }
+
+    // _Pmpf((__FUNCTION__ ": Returning lcid %d", lcidNext));
 
     return (lcidNext);
 }
@@ -1188,6 +1206,8 @@ LONG gpihFindFont(HPS hps,               // in: HPS for font selection
         gpihUnlockLCIDs();
     }
 
+    _Pmpf((__FUNCTION__ ": returning lcid %d", lLCIDReturn));
+
     return (lLCIDReturn);
 }
 
@@ -1273,6 +1293,7 @@ LONG gpihFindPresFont(HWND hwnd,          // in: window to search for presparam 
                                  pFontMetrics));
         }
     }
+
     return (0);
 }
 

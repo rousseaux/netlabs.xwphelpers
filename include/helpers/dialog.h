@@ -71,6 +71,7 @@ extern "C" {
      *      with the TYPE_CONTROL_DEF type in
      *      DLGHITEM.
      *
+     *@@changed V0.9.12 (2001-05-31) [umoeller]: added control data
      */
 
     typedef struct _CONTROLDEF
@@ -106,6 +107,8 @@ extern "C" {
                 // with a START_NEW_TABLE type in _DLGHITEM.
 
         ULONG       ulSpacing;          // spacing around control
+
+        PVOID       pvCtlData;          // for WinCreateWindow
 
     } CONTROLDEF, *PCONTROLDEF;
 

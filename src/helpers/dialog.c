@@ -102,8 +102,8 @@ typedef struct _DLGPRIVATE
     const char  *pcszControlsFont;  // from dlghCreateDlg
 
     HPS         hps;
-    const char  *pcszFontLast;
-    LONG        lcidLast;
+    /* const char  *pcszFontLast;
+    LONG        lcidLast; */
 } DLGPRIVATE, *PDLGPRIVATE;
 
 typedef struct _COLUMNDEF *PCOLUMNDEF;
@@ -214,6 +214,8 @@ VOID ProcessTable(PTABLEDEF pTableDef,
 /*
  *@@ CalcAutoSizeText:
  *
+ *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed various things with statics
+ *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed broken fonts
  */
 
 VOID CalcAutoSizeText(PCONTROLDEF pControlDef,
@@ -221,8 +223,9 @@ VOID CalcAutoSizeText(PCONTROLDEF pControlDef,
                       PSIZEL pszlAuto,          // out: computed size
                       PDLGPRIVATE pDlgData)
 {
-    BOOL        fFind = TRUE;
+    BOOL        fFind = FALSE;
     RECTL       rclText;
+    LONG        lcid = 0;
 
     const char *pcszFontThis = pControlDef->pcszFont;
                     // can be NULL,
@@ -232,35 +235,21 @@ VOID CalcAutoSizeText(PCONTROLDEF pControlDef,
         pcszFontThis = pDlgData->pcszControlsFont;
 
     if (!pDlgData->hps)
-    {
-        // first call: get a PS
         pDlgData->hps = WinGetPS(pDlgData->hwndDlg);
-        fFind = TRUE;
-    }
-    else
-        if (strhcmp(pcszFontThis, pDlgData->pcszFontLast))
-            fFind = TRUE;
 
-    if (fFind)
+    if (pcszFontThis)
     {
         FONTMETRICS fm;
-        LONG lcid;
         LONG lPointSize = 0;
-        if (pDlgData->lcidLast)
-        {
-            // delete old font
-            GpiSetCharSet(pDlgData->hps, LCID_DEFAULT);
-            GpiDeleteSetId(pDlgData->hps, pDlgData->lcidLast);
-        }
 
         // create new font
-        pDlgData->lcidLast = gpihFindPresFont(NULLHANDLE,        // no window yet
-                                              FALSE,
-                                              pDlgData->hps,
-                                              pcszFontThis,
-                                              &fm,
-                                              &lPointSize);
-        GpiSetCharSet(pDlgData->hps, pDlgData->lcidLast);
+        lcid = gpihFindPresFont(NULLHANDLE,        // no window yet
+                                FALSE,
+                                pDlgData->hps,
+                                pcszFontThis,
+                                &fm,
+                                &lPointSize);
+        GpiSetCharSet(pDlgData->hps, lcid);
         if (fm.fsDefn & FM_DEFN_OUTLINE)
             gpihSetPointSize(pDlgData->hps, lPointSize);
 
@@ -274,7 +263,16 @@ VOID CalcAutoSizeText(PCONTROLDEF pControlDef,
         // do we have multiple lines?
         if (fMultiLine)
         {
-            RECTL rcl = {0, 0, 1000, 1000};
+            RECTL rcl = {0, 0, 0, 0};
+            if (pControlDef->szlControlProposed.cx != -1)
+                rcl.xRight = pControlDef->szlControlProposed.cx;   // V0.9.12 (2001-05-31) [umoeller]
+            else
+                rcl.xRight = winhQueryScreenCX() * 2 / 3;
+            if (pControlDef->szlControlProposed.cy != -1)
+                rcl.yTop = pControlDef->szlControlProposed.cy;   // V0.9.12 (2001-05-31) [umoeller]
+            else
+                rcl.yTop = winhQueryScreenCY() * 2 / 3;
+
             winhDrawFormattedText(pDlgData->hps,
                                   &rcl,
                                   pControlDef->pcszText,
@@ -293,11 +291,19 @@ VOID CalcAutoSizeText(PCONTROLDEF pControlDef,
             pszlAuto->cx = aptl[TXTBOX_TOPRIGHT].x - aptl[TXTBOX_BOTTOMLEFT].x;
         }
     }
+
+    /* if (lcid)
+    {
+        GpiSetCharSet(pDlgData->hps, LCID_DEFAULT);
+        GpiDeleteSetId(pDlgData->hps, lcid);
+    } */
+
 }
 
 /*
  *@@ CalcAutoSize:
  *
+ *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed various things with statics
  */
 
 VOID CalcAutoSize(PCONTROLDEF pControlDef,
@@ -335,12 +341,12 @@ VOID CalcAutoSize(PCONTROLDEF pControlDef,
         break;
 
         case 0xffff0005L: // WC_STATIC:
-            if (pControlDef->flStyle & SS_TEXT)
+            if ((pControlDef->flStyle & 0x0F) == SS_TEXT)
                 CalcAutoSizeText(pControlDef,
                                  ((pControlDef->flStyle & DT_WORDBREAK) != 0),
                                  pszlAuto,
                                  pDlgData);
-            else if (pControlDef->flStyle & SS_BITMAP)
+            else if ((pControlDef->flStyle & 0x0F) == SS_BITMAP)
             {
                 HBITMAP hbm = (HBITMAP)pControlDef->pcszText;
                 if (hbm)
@@ -355,6 +361,11 @@ VOID CalcAutoSize(PCONTROLDEF pControlDef,
                         pszlAuto->cy = bmih2.cy;
                     }
                 }
+            }
+            else if ((pControlDef->flStyle & 0x0F) == SS_ICON)
+            {
+                pszlAuto->cx = WinQuerySysValue(HWND_DESKTOP, SV_CXICON);
+                pszlAuto->cy = WinQuerySysValue(HWND_DESKTOP, SV_CYICON);
             }
         break;
     }
@@ -396,6 +407,8 @@ VOID CalcAutoSize(PCONTROLDEF pControlDef,
  *         a string assigned, this also produces a group box
  *         after the recursion.
  *
+ *@@changed V0.9.12 (2001-05-31) [umoeller]: added control data
+ *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed font problems
  */
 
 VOID ProcessColumn(PCOLUMNDEF pColumnDef,
@@ -558,6 +571,7 @@ VOID ProcessColumn(PCOLUMNDEF pColumnDef,
             const char  *pcszTitle = NULL;
             ULONG       flStyle = 0;
             LHANDLE     lHandleSet = NULLHANDLE;
+            ULONG       flOld = 0;
 
             if (pColumnDef->fIsNestedTable)
             {
@@ -593,12 +607,15 @@ VOID ProcessColumn(PCOLUMNDEF pColumnDef,
                 // change the title if this is a static with SS_BITMAP;
                 // we have used a HBITMAP in there!
                 if (    ((ULONG)pControlDef->pcszClass == 0xffff0005L) // WC_STATIC:
-                     && (flStyle & SS_BITMAP)
+                     && (    ((flStyle & 0x0F) == SS_BITMAP)
+                          || ((flStyle & 0x0F) == SS_ICON)
+                        )
                    )
                 {
-                    // change style flag to not use SS_BITMAP;
+                    // change style flag to not use SS_BITMAP nor SS_ICON;
                     // control creation fails otherwise (stupid, stupid PM)
-                    flStyle = ((flStyle & ~SS_BITMAP) | SS_FGNDFRAME);
+                    flOld = flStyle;
+                    flStyle = ((flStyle & ~0x0F) | SS_FGNDFRAME);
                     pcszTitle = "";
                     lHandleSet = (LHANDLE)pControlDef->pcszText;
                 }
@@ -607,18 +624,18 @@ VOID ProcessColumn(PCOLUMNDEF pColumnDef,
             if (pcp && pControlDef)
             {
                 // create something:
-                PPRESPARAMS ppp = NULL;
+                // PPRESPARAMS ppp = NULL;
 
                 const char  *pcszFont = pControlDef->pcszFont;
                                 // can be NULL, or CTL_COMMON_FONT
                 if (pcszFont == CTL_COMMON_FONT)
                     pcszFont = pDlgData->pcszControlsFont;
 
-                if (pcszFont)
+                /* if (pcszFont)
                     winhStorePresParam(&ppp,
                                        PP_FONTNAMESIZE,
                                        strlen(pcszFont),
-                                       (PVOID)pcszFont);
+                                       (PVOID)pcszFont); */
 
                 pColumnDef->hwndControl
                     = WinCreateWindow(pDlgData->hwndDlg,   // parent
@@ -634,23 +651,34 @@ VOID ProcessColumn(PCOLUMNDEF pColumnDef,
                                       pDlgData->hwndDlg,   // owner
                                       HWND_BOTTOM,
                                       pControlDef->usID,
-                                      NULL,             // @@todo control data
-                                      ppp);
+                                      pControlDef->pvCtlData,
+                                      NULL); // ppp);
 
-                if (pColumnDef->hwndControl && lHandleSet)
+                if ((pColumnDef->hwndControl) && (lHandleSet))
                 {
                     // subclass the damn static
-                    ctlPrepareStretchedBitmap(pColumnDef->hwndControl,
-                                              TRUE);
+                    if ((flOld & 0x0F) == SS_ICON)
+                        // this was a static:
+                        ctlPrepareStaticIcon(pColumnDef->hwndControl,
+                                             1);
+                    else
+                        // this was a bitmap:
+                        ctlPrepareStretchedBitmap(pColumnDef->hwndControl,
+                                                  TRUE);
 
                     WinSendMsg(pColumnDef->hwndControl,
                                SM_SETHANDLE,
                                (MPARAM)lHandleSet,
                                0);
                 }
-
-                if (ppp)
-                    free(ppp);
+                else
+                    if (pcszFont)
+                        // we must set the font explicitly here...
+                        // doesn't always work with WinCreateWindow
+                        // presparams parameter, for some reason
+                        // V0.9.12 (2001-05-31) [umoeller]
+                        winhSetWindowFont(pColumnDef->hwndControl,
+                                          pcszFont);
 
                 if (pColumnDef->hwndControl)
                 {
@@ -1322,22 +1350,28 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
          */
 
         FRAMECDATA      fcData = {0};
+        ULONG           flStyle = 0;
 
         #define FCF_DIALOGBOX   0x40000000L
 
         fcData.cb = sizeof(FRAMECDATA);
         fcData.flCreateFlags = flCreateFlags | FCF_DIALOGBOX;
 
+        if (flCreateFlags & FCF_SIZEBORDER)
+            // dialog has size border:
+            // add "clip siblings" style
+            flStyle |= WS_CLIPSIBLINGS;
+
         pDlgData->hwndDlg = WinCreateWindow(HWND_DESKTOP,
                                             WC_FRAME,
                                             (PSZ)pcszDlgTitle,
-                                            0,               // style; invisible for now
+                                            flStyle,        // style; invisible for now
                                             0, 0, 0, 0,
                                             hwndOwner,
                                             HWND_TOP,
-                                            0,               // ID
+                                            0,              // ID
                                             &fcData,
-                                            NULL);           // presparams
+                                            NULL);          // presparams
 
         if (!pDlgData->hwndDlg)
             arc = DLGERR_CANNOT_CREATE_FRAME;
@@ -1356,21 +1390,8 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                        &szlClient,
                        PROCESS_CALC_SIZES);
 
-            // this might have created a HPS and a font in dlgdata
-            // for auto-sizing controls
             if (pDlgData->hps)
-            {
-                if (pDlgData->lcidLast)
-                {
-                    // delete old font
-                    GpiSetCharSet(pDlgData->hps, LCID_DEFAULT);
-                    GpiDeleteSetId(pDlgData->hps, pDlgData->lcidLast);
-                    pDlgData->lcidLast = 0;
-                }
-
                 WinReleasePS(pDlgData->hps);
-                pDlgData->hps = NULLHANDLE;
-            }
 
             WinSubclassWindow(pDlgData->hwndDlg, pfnwpDialogProc);
 
@@ -1648,7 +1669,7 @@ HWND dlghProcessMnemonic(PVOID pvllWindows,
             // if this is a static, give focus to the next
             // control
 
-            _Pmpf((__FUNCTION__ ": hwnd 0x%lX", hwnd));
+            // _Pmpf((__FUNCTION__ ": hwnd 0x%lX", hwnd));
 
             // check if this is a focusable control
             if (WinQueryClassName(hwnd,
@@ -1701,12 +1722,12 @@ BOOL dlghEnter(PVOID pvllWindows)
         {
             if (!strcmp(szClass, "#3"))    // button
             {
-                _Pmpf((__FUNCTION__ ": found button"));
+                // _Pmpf((__FUNCTION__ ": found button"));
                 if (    (WinQueryWindowULong(hwnd, QWL_STYLE) & (BS_PUSHBUTTON | BS_DEFAULT))
                      == (BS_PUSHBUTTON | BS_DEFAULT)
                    )
                 {
-                    _Pmpf(("   is default!"));
+                    // _Pmpf(("   is default!"));
                     WinPostMsg(hwnd,
                                BM_CLICK,
                                (MPARAM)TRUE,        // upclick
