@@ -179,7 +179,7 @@ static APIRET LockGlobal(VOID)
                                   0,
                                   TRUE));      // request!
 
-    return (WinRequestMutexSem(G_hmtxGlobal, SEM_INDEFINITE_WAIT));
+    return DosRequestMutexSem(G_hmtxGlobal, SEM_INDEFINITE_WAIT);
 }
 
 /*

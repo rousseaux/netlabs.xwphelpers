@@ -151,7 +151,7 @@ static BOOL LockSubclassedTools(VOID)
                                    TRUE));      // request!
     }
 
-    return (!WinRequestMutexSem(G_hmtxSubclassedTools, SEM_INDEFINITE_WAIT));
+    return !DosRequestMutexSem(G_hmtxSubclassedTools, SEM_INDEFINITE_WAIT);
 }
 
 /*

@@ -540,7 +540,7 @@ unsigned long encDecodeUTF8(const char **ppch)
 }
 
 /*
- *@@ CreateCaseFold:
+ *@@ encInitCase:
  *      creates a casefold for later use with
  *      encToUpper.
  *

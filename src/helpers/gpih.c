@@ -1042,7 +1042,7 @@ BOOL gpihLockLCIDs(VOID)
                                    TRUE));     // request!
 
     // subsequent calls: request
-    return (!WinRequestMutexSem(G_hmtxLCIDs, SEM_INDEFINITE_WAIT));
+    return !DosRequestMutexSem(G_hmtxLCIDs, SEM_INDEFINITE_WAIT);
 }
 
 /*

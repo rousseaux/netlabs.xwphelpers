@@ -364,7 +364,7 @@ static MRESULT EXPENTRY fnwpSubclCheckboxCnr(HWND hwndCnr, ULONG msg, MPARAM mp1
     PCHECKBOXCNROWNER   pcbco = 0;
     PFNWP               pfnwpOrig = 0;
 
-    if (WinRequestMutexSem(G_hmtxCnrOwnersList, 5000) == NO_ERROR)
+    if (!DosRequestMutexSem(G_hmtxCnrOwnersList, 5000))
     {
         PLISTNODE   pNode = lstQueryFirstNode(G_pllCnrOwners);
         while (pNode)
@@ -554,7 +554,7 @@ static MRESULT EXPENTRY fnwpSubclCheckboxCnr(HWND hwndCnr, ULONG msg, MPARAM mp1
              */
 
             case WM_DESTROY:
-                if (WinRequestMutexSem(G_hmtxCnrOwnersList, 5000) == NO_ERROR)
+                if (!DosRequestMutexSem(G_hmtxCnrOwnersList, 5000))
                 {
                     if (WinIsWindow(pcbco->habCnr,
                                     pcbco->hwndOwner))
@@ -598,7 +598,7 @@ static MRESULT EXPENTRY fnwpSubclCheckboxCnrOwner(HWND hwndOwner, ULONG msg, MPA
     PCHECKBOXCNROWNER   pcbco = 0;
     PFNWP               pfnwpOrig = 0;
 
-    if (WinRequestMutexSem(G_hmtxCnrOwnersList, 5000) == NO_ERROR)
+    if (!DosRequestMutexSem(G_hmtxCnrOwnersList, 5000))
     {
         PLISTNODE   pNode = lstQueryFirstNode(G_pllCnrOwners);
         while (pNode)
@@ -843,7 +843,7 @@ BOOL ctlMakeCheckboxContainer(HWND hwndCnrOwner,    // in: owner (and parent) of
                 PCHECKBOXCNROWNER pcbco;
                 if (pcbco = ctlSubclassCheckboxContainer(hwndCnr))
                 {
-                    if (WinRequestMutexSem(G_hmtxCnrOwnersList, 5000) == NO_ERROR)
+                    if (!DosRequestMutexSem(G_hmtxCnrOwnersList, 5000))
                     {
                         lstAppendItem(G_pllCnrOwners, pcbco);
                         DosReleaseMutexSem(G_hmtxCnrOwnersList);

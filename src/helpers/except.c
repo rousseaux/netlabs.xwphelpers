@@ -116,11 +116,7 @@
  *      the system.
  *
  *      As a result, you should protect any section of code which
- *      requests a semaphore with the exception handlers. To protect
- *      yourself against thread termination, use must-complete
- *      sections as well (but be careful with those if your code
- *      takes a long time to execute... but then you shouldn't
- *      request a mutex in the first place).
+ *      requests a semaphore with the exception handlers.
  *
  *      So _whenever_ you request a mutex semaphore, enclose
  *      the block with TRY/CATCH in case the code crashes.
@@ -132,13 +128,10 @@
  +          int your_func(int)
  +          {
  +              BOOL    fSemOwned = FALSE;
- +              ULONG   ulNesting = 0;
  +
- +              DosEnterMustComplete(&ulNesting);
  +              TRY_QUIET(excpt1)           // or TRY_LOUD
  +              {
- +                  fSemOwned = !WinRequestMutexSem(hmtx, ...);
- +                  if (fSemOwned)
+ +                  if (fSemOwned = !DosRequestMutexSem(hmtx, ...))
  +                  {       ... // work on your protected data
  +                  }
  +                  // mutex gets released below
@@ -146,12 +139,8 @@
  +              CATCH(excpt1) { } END_CATCH();    // always needed!
  +
  +              if (fSemOwned)
- +              {
  +                  // this gets executed always, even if an exception occured
  +                  DosReleaseMutexSem(hmtx);
- +                  fSemOwned = FALSE;
- +              }
- +              DosExitMustComplete(&ulNesting);
  +          } // end of your_func
  *
  *      This way your mutex semaphore gets released in every

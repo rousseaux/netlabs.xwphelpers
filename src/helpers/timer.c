@@ -166,7 +166,7 @@ static BOOL LockTimers(VOID)
                                    0,
                                    TRUE));      // request!
     else
-        return (!WinRequestMutexSem(G_hmtxTimers, SEM_INDEFINITE_WAIT));
+        return !DosRequestMutexSem(G_hmtxTimers, SEM_INDEFINITE_WAIT);
 }
 
 /*
