@@ -480,7 +480,7 @@ extern "C" {
 
     typedef struct _NEHEADER
     {
-        CHAR      achNE[2];             // 00: NE
+        CHAR      achNE[2];             // 00: "NE" magic
         BYTE      bLinkerVersion;       // 02: linker version
         BYTE      bLinkerRevision;      // 03: linker revision
         USHORT    usEntryTblOfs;        // 04: ofs from this to entrytable
@@ -523,10 +523,12 @@ extern "C" {
 
     typedef struct _LXHEADER
     {
-        CHAR        achLX[2];           // 00: LX or LE
-            /* this is "LX" for 32-bit OS/2 programs, but
-               "LE" for MS-DOS progs which use this format
-               (e.g. WINDOWS\SMARTDRV.EXE) */
+        CHAR        achLX[2];           // 00: "LX" or "LE" magic
+            // this is "LX" for 32-bit OS/2 programs, but
+            // "LE" for MS-DOS progs which use this format
+            // (e.g. WINDOWS\SMARTDRV.EXE). IBM says the
+            // LE format was never released and superceded
+            // by LX... I am unsure what the differences are.
         BYTE      fByteBigEndian;       // 02: byte ordering (1 = big endian)
         BYTE      fWordBigEndian;       // 03: word ordering (1 = big endian)
         ULONG     ulFormatLevel;        // 04: format level
@@ -715,7 +717,11 @@ extern "C" {
         /* All the following fields are set by
            doshExecOpen if NO_ERROR is returned. */
 
-        // old DOS EXE header (always valid)
+        // old DOS EXE header;
+        // note: before 0.9.12, this was ALWAYS valid,
+        // but since we support NOSTUB executables now,
+        // there may be situations where this is NULL,
+        // but the other fields are valid! V0.9.12 (2001-05-03) [umoeller]
         PDOSEXEHEADER       pDosExeHeader;
         ULONG               cbDosExeHeader;
 
@@ -741,16 +747,18 @@ extern "C" {
                 // EXEFORMAT_TEXT_BATCH    5
                 // EXEFORMAT_TEXT_REXX     6
 
-        BOOL                fLibrary,
-                            f32Bits;
+        BOOL                fLibrary,           // TRUE if this is a DLL
+                            f32Bits;            // TRUE if this a 32-bits module
+
         ULONG               ulOS;
-                // one of:
+                // target operating system as flagged in one of
+                // the EXE headers; one of:
                 // EXEOS_DOS3              1
                 // EXEOS_DOS4              2       // there is a flag for this in NE
                 // EXEOS_OS2               3
                 // EXEOS_WIN16             4
                 // EXEOS_WIN386            5       // according to IBM, there are flags
-                //                                 // for this both in NE and LX
+                                                   // for this both in NE and LX
                 // EXEOS_WIN32             6
 
         /* The following fields are only set after
