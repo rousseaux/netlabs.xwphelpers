@@ -4044,6 +4044,7 @@ HWND winhCreateFakeDesktop(HWND hwndSibling)
  *
  *@@changed V0.9.16 (2002-02-02) [umoeller]: fixed entry fields
  *@@changed V0.9.19 (2002-04-24) [umoeller]: removed ulDownUnits
+ *@@changed V0.9.19 (2002-05-02) [umoeller]: fix for combobox
  */
 
 BOOL winhAssertWarp4Notebook(HWND hwndDlg,
@@ -4090,11 +4091,6 @@ BOOL winhAssertWarp4Notebook(HWND hwndDlg,
                     // no pushbutton to change:
                     CHAR szClass[10];
 
-                    // check lowest y
-                    WinQueryWindowPos(hwndItem, pswpThis);
-                    if (pswpThis->y < yLowest)
-                        yLowest = pswpThis->y ;
-
                     // special handling for entry fields
                     // V0.9.16 (2002-02-02) [umoeller]
                     WinQueryClassName(hwndItem, sizeof(szClass), szClass);
@@ -4103,6 +4099,15 @@ BOOL winhAssertWarp4Notebook(HWND hwndDlg,
                         pswpThis->x += 3 * WinQuerySysValue(HWND_DESKTOP, SV_CXBORDER);
                         pswpThis->y += 3 * WinQuerySysValue(HWND_DESKTOP, SV_CYBORDER);
                     }
+
+                    // check lowest y
+                    WinQueryWindowPos(hwndItem, pswpThis);
+                    if (    (pswpThis->y < yLowest)
+                         // ignore combobox, this will distort everything
+                         // AGAIN ... sigh V0.9.19 (2002-05-02) [umoeller]
+                         && (strcmp(szClass, "#2"))
+                       )
+                        yLowest = pswpThis->y ;
 
                     ++pswpThis;
                     if (++cWindows == 100)
