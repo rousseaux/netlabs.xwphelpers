@@ -36,7 +36,8 @@
  *      code was contributed by Christian Langanke, but this
  *      has been completely rewritten with V0.9.16 to use my
  *      fast string functions now. Also, tmfGetMessage now
- *      requires tmfOpenMessageFile to be called beforehand.
+ *      requires tmfOpenMessageFile to be called beforehand
+ *      and keeps all messages in memory for speed.
  *
  *      Usage: All OS/2 programs.
  *
@@ -80,6 +81,7 @@
 
 #include "setup.h"                      // code generation and debugging options
 
+#include "helpers\datetime.h"
 #include "helpers\dosh.h"
 #include "helpers\eah.h"
 #include "helpers\standards.h"
@@ -125,6 +127,177 @@ static PCSZ     G_pcszStartMarker = "\n<--",
  ********************************************************************/
 
 /*
+ *@@ LoadAndCompile:
+ *      loads and compiles the message file into the
+ *      given TMFMSGFILE struct.
+ *
+ *      This has been extracted from tmfOpenMessageFile
+ *      to allow for recompiling on the fly if the
+ *      message file's last-write date/time changed.
+ *
+ *      Preconditions:
+ *
+ *      --  pFile->pszFilename must have been set.
+ *
+ *      All other fields get initialized here.
+ *
+ *@@added V0.9.18 (2002-03-24) [umoeller]
+ */
+
+APIRET LoadAndCompile(PTMFMSGFILE pFile)
+{
+    APIRET arc;
+
+    PSZ pszContent = NULL;
+    if (!(arc = doshLoadTextFile(pFile->pszFilename,
+                                 &pszContent,
+                                 NULL)))
+    {
+        // file loaded:
+
+        PCSZ    pStartOfFile,
+                pStartOfMarker;
+
+        ULONG   ulStartMarkerLength = strlen(G_pcszStartMarker),
+                ulEndMarkerLength = strlen(G_pcszEndMarker);
+
+        // initialize TMFMSGFILE struct
+        treeInit(&pFile->IDsTreeRoot, NULL);
+
+        xstrInitSet(&pFile->strContent, pszContent);
+
+        // convert to plain C format
+        xstrConvertLineFormat(&pFile->strContent,
+                              CRLF2LF);
+
+        // kick out all the comments
+        while (pStartOfMarker = strstr(pFile->strContent.psz, "\n;"))
+        {
+            // copy the next line over this
+            PCSZ pEOL = strhFindEOL(pStartOfMarker + 2, NULL);
+            xstrrpl(&pFile->strContent,
+                    // ofs of first char to replace: "\n;"
+                    pStartOfMarker - pFile->strContent.psz,
+                    // no. of chars to replace:
+                    pEOL - pStartOfMarker,
+                    // string to replace chars with:
+                    NULL,
+                    // length of replacement string:
+                    0);
+        }
+
+        // free excessive memory
+        xstrShrink(&pFile->strContent);
+
+        pStartOfFile = pFile->strContent.psz;
+
+        // go build a tree of all message IDs...
+
+        // find first start message marker
+        pStartOfMarker = strstr(pStartOfFile,
+                                G_pcszStartMarker);     // start-of-line marker
+        while (    (pStartOfMarker)
+                && (!arc)
+              )
+        {
+            // start marker found:
+            PCSZ pStartOfMsgID = pStartOfMarker + ulStartMarkerLength;
+            // search next start marker
+            PCSZ pStartOfNextMarker = strstr(pStartOfMsgID + 1,
+                                             G_pcszStartMarker);
+            // and the end-marker
+            PCSZ pEndOfMarker = strstr(pStartOfMsgID + 1,
+                                       G_pcszEndMarker);
+
+            PMSGENTRY pNew;
+
+            // sanity checks...
+
+            if (    (pStartOfNextMarker)
+                 && (pStartOfNextMarker < pEndOfMarker)
+               )
+            {
+                // next start marker before end marker:
+                // that doesn't look correct, skip this entry
+                pStartOfMarker = pStartOfNextMarker;
+                continue;
+            }
+
+            if (!pEndOfMarker)
+                // no end marker found:
+                // that's invalid too, and there can't be any
+                // message left in the file then...
+                break;
+
+            // alright, this ID looks correct now
+            if (!(pNew = NEW(MSGENTRY)))
+                arc = ERROR_NOT_ENOUGH_MEMORY;
+            else
+            {
+                // length of the ID
+                ULONG ulIDLength = pEndOfMarker - pStartOfMsgID;
+                PCSZ pStartOfText = pEndOfMarker + ulEndMarkerLength;
+
+                ZERO(pNew);
+
+                // copy the string ID (between start and end markers)
+                xstrInit(&pNew->strID, 0);
+                xstrcpy(&pNew->strID,
+                        pStartOfMsgID,
+                        ulIDLength);
+                // make ulKey point to the string ID for tree sorting
+                pNew->Tree.ulKey = (ULONG)pNew->strID.psz;
+
+                // skip leading spaces
+                while (*pStartOfText == ' ')
+                    pStartOfText++;
+
+                // store start of text
+                pNew->ulOfsText = pStartOfText - pStartOfFile;
+
+                // check if there's a comment before the
+                // next item
+                /* if (pNextComment = strstr(pStartOfText, "\n;"))
+                {
+                    if (    (!pStartOfNextMarker)
+                         || (pNextComment < pStartOfNextMarker)
+                       )
+                        pEndOfText = pNextComment;
+                } */
+
+                if (pStartOfNextMarker)
+                    // other markers left:
+                    pNew->cbText =    // offset of next marker
+                                     (pStartOfNextMarker - pStartOfFile)
+                                   - pNew->ulOfsText;
+                else
+                    // this was the last message:
+                    pNew->cbText = strlen(pStartOfText);
+
+                // remove trailing newlines
+                while (    (pNew->cbText)
+                        && (pStartOfText[pNew->cbText-1] == '\n')
+                      )
+                    (pNew->cbText)--;
+
+                // store this thing
+                if (!treeInsert(&pFile->IDsTreeRoot,
+                                NULL,
+                                (TREE*)pNew,
+                                treeCompareStrings))
+                    // successfully inserted:
+                    (pFile->cIDs)++;
+            }
+
+            // go on with next start marker (can be NULL)
+            pStartOfMarker = pStartOfNextMarker;
+        } // end while (    (pStartOfMarker) ...
+    } // end else if (!(pFile = NEW(TMFMSGFILE)))
+
+    return (arc);
+}
+
+/*
  *@@ tmfOpenMessageFile:
  *      opens a .TMF message file for future use
  *      with tmfGetMessage.
@@ -150,179 +323,77 @@ APIRET tmfOpenMessageFile(const char *pcszMessageFile, // in: fully q'fied .TMF 
                           PTMFMSGFILE *ppMsgFile)     // out: TMFMSGFILE struct
 {
     APIRET arc;
-    PSZ pszContent = NULL;
 
-    if (!(arc = doshLoadTextFile(pcszMessageFile,
-                                 &pszContent,
-                                 NULL)))
+    FILESTATUS3 fs3;
+    if (!(arc = DosQueryPathInfo((PSZ)pcszMessageFile,
+                                 FIL_STANDARD,
+                                 &fs3,
+                                 sizeof(fs3))))
     {
-        // file loaded:
         // create a TMFMSGFILE entry
         PTMFMSGFILE pFile;
         if (!(pFile = NEW(TMFMSGFILE)))
-        {
             arc = ERROR_NOT_ENOUGH_MEMORY;
-            free(pszContent);
-        }
         else
         {
-            // TMFMSGFILE created:
-
-            PCSZ    pStartOfFile,
-                    pStartOfMarker;
-
-            ULONG   ulStartMarkerLength = strlen(G_pcszStartMarker),
-                    ulEndMarkerLength = strlen(G_pcszEndMarker);
-
-            // initialize TMFMSGFILE struct
             ZERO(pFile);
             pFile->pszFilename = strdup(pcszMessageFile);
-            treeInit(&pFile->IDsTreeRoot, NULL);
 
-            xstrInitSet(&pFile->strContent, pszContent);
-
-            // convert to plain C format
-            xstrConvertLineFormat(&pFile->strContent,
-                                  CRLF2LF);
-
-            // kick out all the comments
-            while (pStartOfMarker = strstr(pFile->strContent.psz, "\n;"))
+            // TMFMSGFILE created:
+            if (!(arc = LoadAndCompile(pFile)))
             {
-                // copy the next line over this
-                PCSZ pEOL = strhFindEOL(pStartOfMarker + 2, NULL);
-                /* printf("pStartOfMarker = %lX, pEOL = %lX\n",
-                        pStartOfMarker,
-                        pEOL); */
-                xstrrpl(&pFile->strContent,
-                        // ofs of first char to replace: "\n;"
-                        pStartOfMarker - pFile->strContent.psz,
-                        // no. of chars to replace:
-                        pEOL - pStartOfMarker,
-                        // string to replace chars with:
-                        NULL,
-                        // length of replacement string:
-                        0);
-            }
+                // set timestamp to that of the file
+                dtCreateFileTimeStamp(pFile->szTimestamp,
+                                      &fs3.fdateLastWrite,
+                                      &fs3.ftimeLastWrite);
 
-            // free excessive memory
-            xstrShrink(&pFile->strContent);
-
-            pStartOfFile = pFile->strContent.psz;
-
-            // go build a tree of all message IDs...
-
-            // find first start message marker
-            pStartOfMarker = strstr(pStartOfFile,
-                                    G_pcszStartMarker);     // start-of-line marker
-            while (    (pStartOfMarker)
-                    && (!arc)
-                  )
-            {
-                // start marker found:
-                PCSZ pStartOfMsgID = pStartOfMarker + ulStartMarkerLength;
-                // search next start marker
-                PCSZ pStartOfNextMarker = strstr(pStartOfMsgID + 1,
-                                                 G_pcszStartMarker);
-                // and the end-marker
-                PCSZ pEndOfMarker = strstr(pStartOfMsgID + 1,
-                                           G_pcszEndMarker);
-
-                PMSGENTRY pNew;
-
-                // sanity checks...
-
-                if (    (pStartOfNextMarker)
-                     && (pStartOfNextMarker < pEndOfMarker)
-                   )
-                {
-                    // next start marker before end marker:
-                    // that doesn't look correct, skip this entry
-                    pStartOfMarker = pStartOfNextMarker;
-                    continue;
-                }
-
-                if (!pEndOfMarker)
-                    // no end marker found:
-                    // that's invalid too, and there can't be any
-                    // message left in the file then...
-                    break;
-
-                // alright, this ID looks correct now
-                if (!(pNew = NEW(MSGENTRY)))
-                    arc = ERROR_NOT_ENOUGH_MEMORY;
-                else
-                {
-                    // length of the ID
-                    ULONG ulIDLength = pEndOfMarker - pStartOfMsgID;
-                    PCSZ pStartOfText = pEndOfMarker + ulEndMarkerLength;
-
-                    ZERO(pNew);
-
-                    // copy the string ID (between start and end markers)
-                    xstrInit(&pNew->strID, 0);
-                    xstrcpy(&pNew->strID,
-                            pStartOfMsgID,
-                            ulIDLength);
-                    // make ulKey point to the string ID for tree sorting
-                    pNew->Tree.ulKey = (ULONG)pNew->strID.psz;
-
-                    // skip leading spaces
-                    while (*pStartOfText == ' ')
-                        pStartOfText++;
-
-                    // store start of text
-                    pNew->ulOfsText = pStartOfText - pStartOfFile;
-
-                    // check if there's a comment before the
-                    // next item
-                    /* if (pNextComment = strstr(pStartOfText, "\n;"))
-                    {
-                        if (    (!pStartOfNextMarker)
-                             || (pNextComment < pStartOfNextMarker)
-                           )
-                            pEndOfText = pNextComment;
-                    } */
-
-                    if (pStartOfNextMarker)
-                        // other markers left:
-                        pNew->cbText =    // offset of next marker
-                                         (pStartOfNextMarker - pStartOfFile)
-                                       - pNew->ulOfsText;
-                    else
-                        // this was the last message:
-                        pNew->cbText = strlen(pStartOfText);
-
-                    // remove trailing newlines
-                    while (    (pNew->cbText)
-                            && (pStartOfText[pNew->cbText-1] == '\n')
-                          )
-                        (pNew->cbText)--;
-
-                    // store this thing
-                    if (!treeInsert(&pFile->IDsTreeRoot,
-                                    NULL,
-                                    (TREE*)pNew,
-                                    treeCompareStrings))
-                        // successfully inserted:
-                        (pFile->cIDs)++;
-                }
-
-                // go on with next start marker (can be NULL)
-                pStartOfMarker = pStartOfNextMarker;
-            } // end while (    (pStartOfMarker) ...
-
-            // done with IDs, or error occured:
-            if (!arc)
                 // output
                 *ppMsgFile = pFile;
+            }
             else
                 // error:
                 tmfCloseMessageFile(&pFile);
-
-        } // end else if (!(pFile = NEW(TMFMSGFILE)))
-    } // end if (!(arc = doshLoadTextFile(pcszMessageFile,
+        }
+    }
 
     return (arc);
+}
+
+/*
+ *@@ FreeInternalMem:
+ *      cleans out the internal message file compilation
+ *      and the content string. Used by both tmfCloseMessageFile
+ *      and tmfGetMessage to allow for recompiles when the
+ *      last-write date/time changed.
+ *
+ *@@added V0.9.18 (2002-03-24) [umoeller]
+ */
+
+static VOID FreeInternalMem(PTMFMSGFILE pFile)
+{
+    LONG   cItems;
+    TREE**  papNodes;
+
+    xstrClear(&pFile->strContent);
+
+    if (cItems = pFile->cIDs)
+    {
+        if (papNodes = treeBuildArray(pFile->IDsTreeRoot,
+                                      &cItems))
+        {
+            ULONG ul;
+            for (ul = 0; ul < cItems; ul++)
+            {
+                PMSGENTRY pNodeThis = (PMSGENTRY)(papNodes[ul]);
+
+                xstrClear(&pNodeThis->strID);
+
+                free(pNodeThis);
+            }
+
+            free(papNodes);
+        }
+    }
 }
 
 /*
@@ -339,31 +410,11 @@ APIRET tmfCloseMessageFile(PTMFMSGFILE *ppMsgFile)
     if (ppMsgFile && *ppMsgFile)
     {
         PTMFMSGFILE pFile = *ppMsgFile;
-        LONG   cItems;
-        TREE**  papNodes;
 
         if (pFile->pszFilename)
             free(pFile->pszFilename);
-        xstrClear(&pFile->strContent);
 
-        if (cItems = pFile->cIDs)
-        {
-            if (papNodes = treeBuildArray(pFile->IDsTreeRoot,
-                                          &cItems))
-            {
-                ULONG ul;
-                for (ul = 0; ul < cItems; ul++)
-                {
-                    PMSGENTRY pNodeThis = (PMSGENTRY)(papNodes[ul]);
-
-                    xstrClear(&pNodeThis->strID);
-
-                    free(pNodeThis);
-                }
-
-                free(papNodes);
-            }
-        }
+        FreeInternalMem(pFile);
 
         free(pFile);
         *ppMsgFile = NULL;
@@ -386,7 +437,7 @@ APIRET tmfCloseMessageFile(PTMFMSGFILE *ppMsgFile)
  *      buffer. In other words, the string must be initialized
  *      (see xstrInit), but will be replaced.
  *
- *      This does perform the same simple string replacements
+ *      This does perform the same brain-dead string replacements
  *      as DosGetMessage, that is, the string "%1" will be
  *      replaced with pTable[0], "%2" will be replaced with
  *      pTable[1], and so on.
@@ -400,6 +451,7 @@ APIRET tmfCloseMessageFile(PTMFMSGFILE *ppMsgFile)
  *      --  ERROR_MR_MID_NOT_FOUND
  *
  *@@added V0.9.16 (2001-10-08) [umoeller]
+ *@@changed V0.9.18 (2002-03-24) [umoeller]: now recompiling if last write date changed
  */
 
 APIRET tmfGetMessage(PTMFMSGFILE pMsgFile,      // in: msg file opened by tmfOpenMessageFile
@@ -414,39 +466,65 @@ APIRET tmfGetMessage(PTMFMSGFILE pMsgFile,      // in: msg file opened by tmfOpe
         arc = ERROR_INVALID_PARAMETER;
     else
     {
-        // go find the message in the tree
-        PMSGENTRY pEntry;
-        if (pEntry = (PMSGENTRY)treeFind(pMsgFile->IDsTreeRoot,
-                                         (ULONG)pcszMessageName,
-                                         treeCompareStrings))
+        // check if last-write date/time changed compared
+        // to the last time we opened the thing...
+        // V0.9.18 (2002-03-24) [umoeller]
+        FILESTATUS3 fs3;
+        if (!(arc = DosQueryPathInfo(pMsgFile->pszFilename,
+                                     FIL_STANDARD,
+                                     &fs3,
+                                     sizeof(fs3))))
         {
-            // copy the raw string to the output buffer
-            xstrcpy(pstr,
-                    pMsgFile->strContent.psz + pEntry->ulOfsText,
-                    pEntry->cbText);
-
-            // now replace strings from the table
-            if (cTableEntries && pTable)
+            CHAR szTemp[30];
+            dtCreateFileTimeStamp(szTemp,
+                                  &fs3.fdateLastWrite,
+                                  &fs3.ftimeLastWrite);
+            if (strcmp(szTemp, pMsgFile->szTimestamp))
             {
-                CHAR szFind[10] = "%0";
-                ULONG ul;
-                for (ul = 0;
-                     ul < cTableEntries;
-                     ul++)
-                {
-                    ULONG ulOfs = 0;
-
-                    _ultoa(ul + 1, szFind + 1, 10);
-                    while (xstrFindReplaceC(pstr,
-                                            &ulOfs,
-                                            szFind,
-                                            pTable[ul]))
-                        ;
-                }
+                // last write date changed:
+                _Pmpf((__FUNCTION__ ": timestamp changed, recompiling"));
+                FreeInternalMem(pMsgFile);
+                if (!(arc = LoadAndCompile(pMsgFile)))
+                    strcpy(pMsgFile->szTimestamp, szTemp);
             }
         }
-        else
-            arc = ERROR_MR_MID_NOT_FOUND;
+
+        if (!arc)
+        {
+            // go find the message in the tree
+            PMSGENTRY pEntry;
+            if (pEntry = (PMSGENTRY)treeFind(pMsgFile->IDsTreeRoot,
+                                             (ULONG)pcszMessageName,
+                                             treeCompareStrings))
+            {
+                // copy the raw string to the output buffer
+                xstrcpy(pstr,
+                        pMsgFile->strContent.psz + pEntry->ulOfsText,
+                        pEntry->cbText);
+
+                // now replace strings from the table
+                if (cTableEntries && pTable)
+                {
+                    CHAR szFind[10] = "%0";
+                    ULONG ul;
+                    for (ul = 0;
+                         ul < cTableEntries;
+                         ul++)
+                    {
+                        ULONG ulOfs = 0;
+
+                        _ultoa(ul + 1, szFind + 1, 10);
+                        while (xstrFindReplaceC(pstr,
+                                                &ulOfs,
+                                                szFind,
+                                                pTable[ul]))
+                            ;
+                    }
+                }
+            }
+            else
+                arc = ERROR_MR_MID_NOT_FOUND;
+        }
     }
 
     return (arc);

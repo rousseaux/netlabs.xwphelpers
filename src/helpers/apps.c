@@ -992,34 +992,36 @@ static APIRET CallWinStartApp(HAPP *phapp,            // out: application handle
                 pThis += cbEnvironment;
             }
 
-            _Pmpf((__FUNCTION__ ": progt.progc: %d", pNewProgDetails->progt.progc));
-            _Pmpf(("    progt.fbVisible: 0x%lX", pNewProgDetails->progt.fbVisible));
-            _Pmpf(("    progt.pszTitle: \"%s\"", (pNewProgDetails->pszTitle) ? pNewProgDetails->pszTitle : "NULL"));
-            _Pmpf(("    exec: \"%s\"", (pNewProgDetails->pszExecutable) ? pNewProgDetails->pszExecutable : "NULL"));
-            _Pmpf(("    params: \"%s\"", (pNewProgDetails->pszParameters) ? pNewProgDetails->pszParameters : "NULL"));
-            _Pmpf(("    startup: \"%s\"", (pNewProgDetails->pszStartupDir) ? pNewProgDetails->pszStartupDir : "NULL"));
-            _Pmpf(("    pszIcon: \"%s\"", (pNewProgDetails->pszIcon) ? pNewProgDetails->pszIcon : "NULL"));
-            _Pmpf(("    environment: "));
-            {
-                PSZ pszThis = pNewProgDetails->pszEnvironment;
-                while (pszThis && *pszThis)
+            #ifdef DEBUG_PROGRAMSTART
+                _Pmpf((__FUNCTION__ ": progt.progc: %d", pNewProgDetails->progt.progc));
+                _Pmpf(("    progt.fbVisible: 0x%lX", pNewProgDetails->progt.fbVisible));
+                _Pmpf(("    progt.pszTitle: \"%s\"", (pNewProgDetails->pszTitle) ? pNewProgDetails->pszTitle : "NULL"));
+                _Pmpf(("    exec: \"%s\"", (pNewProgDetails->pszExecutable) ? pNewProgDetails->pszExecutable : "NULL"));
+                _Pmpf(("    params: \"%s\"", (pNewProgDetails->pszParameters) ? pNewProgDetails->pszParameters : "NULL"));
+                _Pmpf(("    startup: \"%s\"", (pNewProgDetails->pszStartupDir) ? pNewProgDetails->pszStartupDir : "NULL"));
+                _Pmpf(("    pszIcon: \"%s\"", (pNewProgDetails->pszIcon) ? pNewProgDetails->pszIcon : "NULL"));
+                _Pmpf(("    environment: "));
                 {
-                    _Pmpf(("      \"%s\"", pszThis));
-                    pszThis += strlen(pszThis) + 1;
+                    PSZ pszThis = pNewProgDetails->pszEnvironment;
+                    while (pszThis && *pszThis)
+                    {
+                        _Pmpf(("      \"%s\"", pszThis));
+                        pszThis += strlen(pszThis) + 1;
+                    }
                 }
-            }
 
-            _Pmpf(("    swpInitial.fl = 0x%lX, x = %d, y = %d, cx = %d, cy = %d:",
-                        pNewProgDetails->swpInitial.fl,
-                        pNewProgDetails->swpInitial.x,
-                        pNewProgDetails->swpInitial.y,
-                        pNewProgDetails->swpInitial.cx,
-                        pNewProgDetails->swpInitial.cy));
-            _Pmpf(("    behind = %d, hwnd = %d, res1 = %d, res2 = %d",
-                        pNewProgDetails->swpInitial.hwndInsertBehind,
-                        pNewProgDetails->swpInitial.hwnd,
-                        pNewProgDetails->swpInitial.ulReserved1,
-                        pNewProgDetails->swpInitial.ulReserved2));
+                _Pmpf(("    swpInitial.fl = 0x%lX, x = %d, y = %d, cx = %d, cy = %d:",
+                            pNewProgDetails->swpInitial.fl,
+                            pNewProgDetails->swpInitial.x,
+                            pNewProgDetails->swpInitial.y,
+                            pNewProgDetails->swpInitial.cx,
+                            pNewProgDetails->swpInitial.cy));
+                _Pmpf(("    behind = %d, hwnd = %d, res1 = %d, res2 = %d",
+                            pNewProgDetails->swpInitial.hwndInsertBehind,
+                            pNewProgDetails->swpInitial.hwnd,
+                            pNewProgDetails->swpInitial.ulReserved1,
+                            pNewProgDetails->swpInitial.ulReserved2));
+            #endif
 
             if (!(*phapp = WinStartApp(hwndNotify,
                                                 // receives WM_APPTERMINATENOTIFY
@@ -1036,7 +1038,10 @@ static APIRET CallWinStartApp(HAPP *phapp,            // out: application handle
                                             // when the WPS terminates!
             {
                 // cannot start app:
-                // _Pmpf((__FUNCTION__ ": WinStartApp failed"));
+                #ifdef DEBUG_PROGRAMSTART
+                    _Pmpf((__FUNCTION__ ": WinStartApp failed"));
+                #endif
+
                 arc = ERROR_FILE_NOT_FOUND;
                 // unfortunately WinStartApp doesn't
                 // return meaningful codes like DosStartSession, so
@@ -1288,9 +1293,11 @@ APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
             // no old params:
             xstrInit(&strParamsPatched, 100);
 
-        // _Pmpf((__FUNCTION__ ": old progc: 0x%lX", pcProgDetails->progt.progc));
-        // _Pmpf(("  pszTitle: %s", (ProgDetails.pszTitle) ? ProgDetails.pszTitle : NULL));
-        // _Pmpf(("  pszIcon: %s", (ProgDetails.pszIcon) ? ProgDetails.pszIcon : NULL));
+        #ifdef DEBUG_PROGRAMSTART
+            _Pmpf((__FUNCTION__ ": old progc: 0x%lX", pcProgDetails->progt.progc));
+            _Pmpf(("  pszTitle: %s", (ProgDetails.pszTitle) ? ProgDetails.pszTitle : NULL));
+            _Pmpf(("  pszIcon: %s", (ProgDetails.pszIcon) ? ProgDetails.pszIcon : NULL));
+        #endif
 
         // program type fixups
         switch (ProgDetails.progt.progc)        // that's a ULONG
@@ -1522,7 +1529,9 @@ APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
             free(pszWinOS2Env);
     } // end if (ProgDetails.pszExecutable)
 
-    // _Pmpf((__FUNCTION__ ": returning %d", arc));
+    #ifdef DEBUG_PROGRAMSTART
+        _Pmpf((__FUNCTION__ ": returning %d", arc));
+    #endif
 
     return (arc);
 }

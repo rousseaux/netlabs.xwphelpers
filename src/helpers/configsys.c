@@ -546,6 +546,8 @@ BOOL csysDeleteLine(PSZ pszSearchIn,        // in: buffer to search
  *      -- This assumes that the line breaks are represented
  *         by \n ONLY. If *ppszContents has \r\n line breaks,
  *         they must be converted to pure \n first.
+ *
+ *@@changed V0.9.18 (2002-03-24) [umoeller]: fixed leftover duplicate ';' chars with CFGRPL_REMOVEPART
  */
 
 APIRET csysManipulate(PSZ *ppszContents,        // in/out: CONFIG.SYS text (reallocated)
@@ -813,14 +815,38 @@ APIRET csysManipulate(PSZ *ppszContents,        // in/out: CONFIG.SYS text (real
                 // find the subpart to look for
                 if ((pArgToDel = strhistr(pszDeletedLine, pszArgNew)))
                 {
-                    ULONG ulOfs = 0;
+                    // ULONG ulOfs = 0;
                     // pArgToDel now has the position of the
                     // part to be deleted in the old part
-                    pszLineToInsert = strdup(pszDeletedLine);
+                    /* pszLineToInsert = strdup(pszDeletedLine);
                     strhFindReplace(&pszLineToInsert,
                                     &ulOfs,
                                     pszArgNew,   // search string
                                     "");         // replacement string
+                    */
+
+                    // V0.9.18 (2002-03-24) [umoeller]
+                    // the above left duplicate ";" characters in the line
+                    ULONG ulArgNewLen = strlen(pszArgNew);
+                    ULONG cbFirst, cb;
+                    PSZ pAfter = pArgToDel + ulArgNewLen;
+                    while (*pAfter == ';')
+                        ++pAfter;
+
+                    // now recompose
+                    cbFirst = pArgToDel - pszDeletedLine;
+                    cb =   cbFirst                          // length up to pArgToDel
+                         + strlen(pAfter)                   // length of remainder
+                         + 1;                               // null terminator;
+                    if (pszLineToInsert = (PSZ)malloc(cb))
+                    {
+                        if (cbFirst)
+                            memcpy(pszLineToInsert, pszDeletedLine, cbFirst);
+                        strcpy(pszLineToInsert + cbFirst,
+                               pAfter);
+                    }
+                    else
+                        arc = ERROR_NOT_ENOUGH_MEMORY;
                 }
                 else
                     // subpart not found:
