@@ -872,16 +872,15 @@ BOOL strhGetWord(PSZ *ppszStart,        // in: start of search,
  *      it (i.e. *(p+cbSearch)) is in pcszEndChars.
  *
  *@@added V0.9.6 (2000-11-12) [umoeller]
+ *@@changed V0.9.18 (2002-02-23) [umoeller]: fixed end char check
  */
 
 BOOL strhIsWord(PCSZ pcszBuf,
                 PCSZ p,                 // in: start of word
-                ULONG cbSearch,                // in: length of word
+                ULONG cbSearch,         // in: length of word
                 PCSZ pcszBeginChars,    // suggestion: "\x0d\x0a ()/\\-,."
                 PCSZ pcszEndChars)      // suggestion: "\x0d\x0a ()/\\-,.:;"
 {
-    BOOL    fEndOK = FALSE;
-
     // check previous char
     if (    (p == pcszBuf)
          || (strchr(pcszBeginChars, *(p-1)))
@@ -889,24 +888,30 @@ BOOL strhIsWord(PCSZ pcszBuf,
     {
         // OK, valid begin char:
         // check end char
-        CHAR    cNextChar = *(p + cbSearch);
-        if (cNextChar == 0)
-            fEndOK = TRUE;
+        CHAR    cNextChar;
+        if (!(cNextChar = p[cbSearch]))
+            // null terminator:
+            return TRUE;
         else
         {
-            char *pc = strchr(pcszEndChars, cNextChar);
-            if (pc)
+            // not null terminator: check if char is
+            // in the list of valid end chars
+            if (strchr(pcszEndChars, cNextChar))
+            {
                 // OK, is end char: avoid doubles of that char,
                 // but allow spaces
-                if (    (cNextChar+1 != *pc)
-                     || (cNextChar+1 == ' ')
-                     || (cNextChar+1 == 0)
+                // fixed V0.9.18 (2002-02-23) [umoeller]
+                CHAR cNextNext = p[cbSearch + 1];
+                if (    (cNextNext != cNextChar)
+                     || (cNextNext == ' ')
+                     || (cNextNext == 0)
                    )
-                    fEndOK = TRUE;
+                    return TRUE;
+            }
         }
     }
 
-    return (fEndOK);
+    return FALSE;
 }
 
 /*

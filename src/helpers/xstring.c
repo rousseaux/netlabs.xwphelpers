@@ -15,6 +15,10 @@
  *      a char* pointer pointing to heap memory, which is managed
  *      automatically.
  *
+ *      Besides being convenient, these functions are highly
+ *      optimized to use as few strlen's and memcpy's as
+ *      possible.
+ *
  *      Using these functions has the following advantages:
  *
  *      -- Automatic memory management. For example, xstrcat will
@@ -84,7 +88,7 @@
  */
 
 /*
- *      Copyright (C) 1999-2001 Ulrich M”ller.
+ *      Copyright (C) 1999-2002 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -209,14 +213,14 @@ void xstrInit(PXSTRING pxstr,               // in/out: string
  *      Example:
  *
  +          XSTRING str;
- +          xstrInitSet(&str, strdup("blah"));
+ +          xstrInitSet(&str, strdup("blah"), 0);
  *
  *@@added V0.9.16 (2002-01-13) [umoeller]
  */
 
-void xstrInitSet2(PXSTRING pxstr,
-                  PSZ pszNew,
-                  ULONG ulNewLength)
+void xstrInitSet2(PXSTRING pxstr,           // in/out: string
+                  PSZ pszNew,               // in: malloc'd string to load pxstr with
+                  ULONG ulNewLength)        // in: length of pszNew or 0 to run strlen()
 {
     if (!pszNew)
         memset(pxstr, 0, sizeof(XSTRING));
@@ -325,9 +329,7 @@ void xstrInitCopy(PXSTRING pxstr,
 
         if (pcszSource)
         {
-            pxstr->ulLength = strlen(pcszSource);
-
-            if (pxstr->ulLength)
+            if (pxstr->ulLength = strlen(pcszSource))
             {
                 // we do have a source string:
                 pxstr->cbAllocated = pxstr->ulLength + 1 + ulExtraAllocate;
@@ -541,8 +543,7 @@ ULONG xstrset2(PXSTRING pxstr,              // in/out: string
         return (0);         // V0.9.9 (2001-02-14) [umoeller]
 
     xstrClear(pxstr);
-    pxstr->psz = pszNew;
-    if (pszNew)
+    if (pxstr->psz = pszNew)
     {
         if (!ulNewLength)
             ulNewLength = strlen(pszNew);
@@ -575,7 +576,7 @@ ULONG xstrset(PXSTRING pxstr,               // in/out: string
  *      copies pcszSource to pxstr, for which memory is allocated
  *      as necessary.
  *
- *      If pxstr contains something, its contents are destroyed.
+ *      If pxstr contains something, its contents are overwritten.
  *
  *      With ulSourceLength, specify the length of pcszSource
  *      or 0.
@@ -1009,11 +1010,9 @@ ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
 
             // now overwrite "found" in the middle
             if (cReplaceWithLen)
-            {
                 memcpy(pFound,
                        pcszReplaceWith,
                        cReplaceWithLen);        // no null terminator
-            }
 
             // that's it; adjust the string length now
             pxstr->ulLength = cbNeeded - 1;
