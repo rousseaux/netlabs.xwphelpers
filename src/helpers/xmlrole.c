@@ -1,6 +1,6 @@
 
 /*
- *@@sourcefile xmlrole.c
+ *sourcefile xmlrole.c
  *      part of the expat implementation. See xmlparse.c.
  *
  */

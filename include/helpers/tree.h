@@ -106,11 +106,11 @@ extern "C" {
     // --   0: t1 == t2
     // --  -1: t1 < t2
     // --  +1: t1 > t2
-    typedef int (FNTREE_COMPARE_NODES) (TREE *t1, TREE *t2);
-    typedef int (FNTREE_COMPARE_DATA) (TREE *t1, void *pData);
+    typedef int XWPENTRY FNTREE_COMPARE_NODES(TREE *t1, TREE *t2);
+    typedef int XWPENTRY FNTREE_COMPARE_DATA(TREE *t1, void *pData);
 
     //  Define a function type for use with the tree traversal function
-    typedef void (TREE_PROCESS) (TREE *t, void *pUser);
+    typedef void XWPENTRY TREE_PROCESS(TREE *t, void *pUser);
 
     //  Global variables
     extern TREE   TREE_EMPTY;

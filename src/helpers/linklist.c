@@ -372,9 +372,28 @@ long lstCountItems(PLINKLIST pList)
 
 PLISTNODE lstQueryFirstNode(PLINKLIST pList)
 {
-    if (pList)
-        if (pList->ulMagic == LINKLISTMAGIC)
-            return (pList->pFirst);
+    if (    (pList)
+         && (pList->ulMagic == LINKLISTMAGIC)
+       )
+        return (pList->pFirst);
+
+    return (0);
+}
+
+/*
+ *@@ lstQueryLastNode:
+ *      similar to lstQueryFirstNode, but this returns
+ *      the last node.
+ *
+ *@@added V0.9.9 (2001-02-14) [umoeller]
+ */
+
+PLISTNODE lstQueryLastNode(PLINKLIST pList)
+{
+    if (    (pList)
+         && (pList->ulMagic == LINKLISTMAGIC)
+       )
+        return (pList->pLast);
 
     return (0);
 }

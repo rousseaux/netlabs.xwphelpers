@@ -5,22 +5,6 @@
  *
  *      Usage: All PM programs.
  *
- *      A word about GPI rectangles: In general, graphics operations
- *      involving device coordinates (such as regions, bit maps and
- *      bit blts, and window management) use inclusive-exclusive
- *      rectangles.  All other graphics operations, such as GPI
- *      functions that define paths, use inclusive-inclusive rectangles.
- *
- *      This can be a problem with mixing Win and Gpi functions. For
- *      example, WinQueryWindowRect returns an inclusive-exclusive
- *      rectangle (so that the xRight value is the same as the window
- *      width -- tested V0.9.7 (2000-12-20) [umoeller]).
- *
- *      WinFillRect expects an inclusive-exclusive rectangle, so it
- *      will work with a rectangle from WinQueryWindowRect directly.
- *
- *      By contrast, the GpiBox expects an inclusive-inclusive rectangle.
- *
  *      Function prefixes (new with V0.81):
  *      --  gpih*   GPI helper functions
  *
@@ -84,6 +68,28 @@ BOOL            fCapsQueried = FALSE;
 
 /*
  *@@category: Helpers\PM helpers\GPI helpers\Devices
+ */
+
+/*
+ *@@gloss: GPI_rectangles GPI rectangles
+ *      OS/2 PM (and GPI) uses two types of rectangles. This is rarely
+ *      mentioned in the documentation, so a word is in order here.
+ *
+ *      In general, graphics operations
+ *      involving device coordinates (such as regions, bit maps and
+ *      bit blts, and window management) use inclusive-exclusive
+ *      rectangles.  All other graphics operations, such as GPI
+ *      functions that define paths, use inclusive-inclusive rectangles.
+ *
+ *      This can be a problem with mixing Win and Gpi functions. For
+ *      example, WinQueryWindowRect returns an inclusive-exclusive
+ *      rectangle (so that the xRight value is the same as the window
+ *      width -- tested V0.9.7 (2000-12-20) [umoeller]).
+ *
+ *      WinFillRect expects an inclusive-exclusive rectangle, so it
+ *      will work with a rectangle from WinQueryWindowRect directly.
+ *
+ *      By contrast, the GpiBox expects an inclusive-inclusive rectangle.
  */
 
 /* ******************************************************************
@@ -186,7 +192,8 @@ BOOL gpihSwitchToRGB(HPS hps)
  *      color (use GpiSetColor before calling this function).
  *
  *      The specified rectangle is inclusive, that is, the top
- *      right corner specifies the top right pixel to be drawn.
+ *      right corner specifies the top right pixel to be drawn
+ *      (see @GPI_rectangles).
  *
  *      This sets the current position to the bottom left corner
  *      of prcl.
@@ -222,7 +229,8 @@ VOID gpihDrawRect(HPS hps,      // in: presentation space for output
  *
  *      The specified rectangle is inclusive, that is, the top
  *      right corner specifies the top right pixel to be drawn.
- *      This is different from WinFillRect.
+ *      This is different from WinFillRect
+ *      (see @GPI_rectangles).
  *
  *      If (lColor != -1), the HPS's current foreground color
  *      is changed to that color.
@@ -293,7 +301,8 @@ VOID gpihMarker(HPS hps,
  *
  *      The specified rectangle is inclusive, that is, the top
  *      right corner specifies the top right pixel to be drawn.
- *      This is different from WinFillRect.
+ *      This is different from WinFillRect
+ *      (see @GPI_rectangles).
  *
  *      If usWidth > 1, the additional pixels will be drawn towards
  *      the _center_ of the rectangle. prcl thus always specifies
@@ -340,7 +349,8 @@ VOID gpihDrawThickFrame(HPS hps,              // in: presentation space for outp
  *
  *      The specified rectangle is inclusive, that is, the top
  *      right corner specifies the top right pixel to be drawn.
- *      This is different from WinFillRect.
+ *      This is different from WinFillRect
+ *      (see @GPI_rectangles).
  *
  *      If usWidth > 1, the additional pixels will be drawn towards
  *      the _center_ of the rectangle. prcl thus always specifies

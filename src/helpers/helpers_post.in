@@ -185,7 +185,7 @@ $(OUTPUTDIR)\wphandle.obj:  $(@B).c $(HLPINC)\$(@B).h \
 
 $(OUTPUTDIR)\xml.obj:      $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h \
-               $(HLPINC)\stringh.h
+               $(HLPINC)\linklist.h $(HLPINC)\stringh.h $(HLPINC)\tree.h $(HLPINC)\xstring.h
 
 $(OUTPUTDIR)\xprf.obj:  $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h \
@@ -204,11 +204,11 @@ XMLHEADERS = $(PROJECTINC)\setup.h \
 $(INC)\expat\ascii.h \
 $(INC)\expat\asciitab.h \
 $(INC)\expat\expat.h \
+$(INC)\expat\expat_setup.h \
 $(INC)\expat\iasciitab.h \
 $(INC)\expat\latin1tab.h \
 $(INC)\expat\nametab.h \
 $(INC)\expat\utf8tab.h \
-$(INC)\expat\winconfig.h \
 $(INC)\expat\xmlrole.h \
 $(INC)\expat\xmltok.h \
 $(INC)\expat\xmltok_impl.h

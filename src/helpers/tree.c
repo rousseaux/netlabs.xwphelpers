@@ -193,7 +193,7 @@ void treeInit(TREE **root)
 /*
  * fnCompareIDs:
  *
- *added V0.9.9 (2000-02-06) [umoeller]
+ *added V0.9.9 (2001-02-06) [umoeller]
  */
 
 int fnCompareIDs(unsigned long id1, unsigned long id2)
@@ -251,7 +251,7 @@ int fnCompareIDs(unsigned long id1, unsigned long id2)
  *          returned if a tree item with the specified ID already
  *          exists.
  *
- *@@changed V0.9.9 (2000-02-06) [umoeller]: removed comparison func
+ *@@changed V0.9.9 (2001-02-06) [umoeller]: removed comparison func
  */
 
 int treeInsertID(TREE **root,             // in: root of tree
@@ -926,7 +926,8 @@ void* treeFindEQData(TREE **root,
  *
  *      -- 1: current node first, then left node, then right node.
  *      -- 2: left node first, then right node, then current node.
- *      -- other: left node first, then current node, then right node.
+ *      -- 0 or other: left node first, then current node, then right node.
+ *           This is the sorted order.
  */
 
 void treeTraverse(TREE *tree,               // in: root of tree

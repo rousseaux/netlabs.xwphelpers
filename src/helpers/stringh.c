@@ -84,6 +84,38 @@ PSZ strhdup(const char *pszSource)
 }
 
 /*
+ *@@ strhcmp:
+ *      better strcmp. This doesn't crash if any of the
+ *      string pointers are NULL, but returns a proper
+ *      value then.
+ *
+ *      Besides, this is guaranteed to only return -1, 0,
+ *      or +1, while strcmp can return any positive or
+ *      negative value.
+ *
+ *@@added V0.9.9 (2001-02-16) [umoeller]
+ */
+
+int strhcmp(const char *p1, const char *p2)
+{
+    if (p1 && p2)
+    {
+        int i = strcmp(p1, p2);
+        if (i < 0) return (-1);
+        if (i > 0) return (+1);
+    }
+    else if (p1)
+        // but p2 is NULL: p1 greater than p2 then
+        return (+1);
+    else if (p2)
+        // but p1 is NULL: p1 less than p2 then
+        return (-1);
+
+    // return 0 if strcmp returned 0 above or both strings are NULL
+    return (0);
+}
+
+/*
  *@@ strhistr:
  *      like strstr, but case-insensitive.
  *

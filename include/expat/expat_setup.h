@@ -17,6 +17,9 @@
     #ifndef EXPATENTRY
         #define EXPATENTRY _Optlink
     #endif
+
+    #define XML_DTD 1
+
 #endif
 
 

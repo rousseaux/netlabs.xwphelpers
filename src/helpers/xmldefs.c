@@ -21,24 +21,56 @@
  */
 
 /*
- *@@category: Helpers\XML
- *      see xml.c.
+ *@@gloss: expat expat
+ *      Expat is one of the most well-known XML processors (parsers).
+ *      I (umoeller) have ported expat to the XWorkplace Helpers
+ *      library. See xmlparse.c for an introduction to expat. See
+ *      xml.c for an introduction to XML support in the XWorkplace
+ *      Helpers in general.
+ */
+
+
+/*
+ *@@gloss: XML XML
+ *      XML is the Extensible Markup Language, as defined by
+ *      the W3C. XML isn't really a language, but a meta-language
+ *      for describing markup languages. It is a simplified subset
+ *      of SGML.
+ *
+ *      You should be familiar with the following:
+ *
+ *      -- XML parsers operate on XML @documents.
+ *
+ *      -- Each XML document has both a physical and a logical
+ *         structure.
+ *
+ *         Physically, the document is composed of units called
+ *         @entities.
+ *
+ *         Logically, the document is composed of @markup and
+ *         @content. Among other things, markup separates the content
+ *         into @elements.
+ *
+ *      -- The logical and physical structures must nest properly (be
+ *         @well-formed) for each entity, which results in the entire
+ *         XML document being well-formed as well.
  */
 
 /*
  *@@gloss: entities entities
- *      An "entity" is an XML storage unit. In the simplest case, an
- *      XML document has only one entity, which is an XML file.
- *      Except for the document entity (which is nameless), all
- *      entities are identified by their names.
+ *      An "entity" is an XML storage unit. It's a very abstract
+ *      concept, and the term doesn't make much sense, but it was
+ *      in SGML already, and XML chose to inherit it.
  *
- *      Entities are marked as either parsed or unparsed.
- *
+ *      In the simplest case, an XML document has only one entity,
+ *      which is an XML file (or memory buffer from wherever).
  *      The document entity serves as the root of the entity tree
  *      and a starting-point for an XML processor. Unlike other
  *      entities, the document entity has no name and might well
  *      appear on a processor input stream without any identification
  *      at all.
+ *
+ *      Entities are defined to be either parsed or unparsed.
  *
  *      Other than that, there are @internal_entities,
  *      @external_entities, and @parameter_entities.
@@ -118,12 +150,12 @@
  *          ("&lt;", "&gt;") which normally introduce @elements.
  *          They must be escaped unless used in a @CDATA section.
  *
- *      --  To allow values in an @attribute to contain both single and double
+ *      --  To allow values in @attributes to contain both single and double
  *          quotes, the apostrophe or single-quote character (') may be
  *          represented as "&amp;apos;", and the double-quote character
  *          (") as "&amp;quot;".
  *
- *      In addition, a @character_reference is a special case of an entity reference.
+ *      A numeric @character_reference is a special case of an entity reference.
  *
  *      An internal entity is always parsed.
  *
@@ -209,8 +241,7 @@
  *      layout and logical structure.
  *
  *      Markup is either @elements, @entity_references, @comments, @CDATA
- *      section delimiters, @DTD's, and
- *      @processing_instructions.
+ *      section delimiters, @DTD's, or @processing_instructions.
  *
  *      XML "text" consists of markup and @content.
  */
@@ -225,7 +256,7 @@
  *      in @content (i.e. non-markup), an application may
  *      or may not be interested in white space. Whitespace
  *      handling can therefore be handled differently for each
- *      element with the use of the special "xml:space" @attribute.
+ *      element with the use of the special "xml:space" @attributes.
  */
 
 /*
@@ -290,7 +321,7 @@
  *
  +           <P /> <IMG align="left" src="http://www.w3.org/Icons/WWW/w3c_home" />
  *
- *      An @attribute contains additional an parameter to an element.
+ *      In addition, @attributes contains extra parameters to elements.
  *      If the element has attributes, they must be in the start-tag
  *      (or empty-element tag).
  *
@@ -310,7 +341,7 @@
  */
 
 /*
- *@@gloss: attribute attribute
+ *@@gloss: attributes attributes
  *      "Attributes" are name-value pairs that have been associated
  *      with @elements. Attributes can only appear in start-tags
  *      or empty-tags.
@@ -369,7 +400,7 @@
  *      places allowed by the grammar. They are not part of the
  *      document's @content; an XML processor may, but
  *      need not, make it possible for an application to retrieve
- *      the text of comments (expat has a handler for this).
+ *      the text of comments (@expat has a handler for this).
  *
  *      Comments may contain any text except "--" (double-hyphen).
  *
@@ -463,7 +494,9 @@
 /*
  *@@gloss: valid valid
  *      XML @documents are said to be "valid" if they have a @DTD
- *      associated and they confirm to it.
+ *      associated and they confirm to it. While XML documents
+ *      must always be @well-formed, validation and validity is up
+ *      to the implementation (i.e. at option to the application).
  *
  *      Validating processors must report violations of the constraints
  *      expressed by the declarations in the @DTD, and failures to
@@ -472,16 +505,17 @@
  *      process the entire DTD and all @external_parsed_entities
  *      referenced in the document.
  *
- *      Non-validating processors are required to check only the
- *      document entity (see @entitites), including the entire
- *      internal DTD subset, for whether it is @well-formed. While
- *      they are  not required to check the document for validity,
+ *      Non-validating processors (such as @expat) are required to
+ *      check only the document entity (see @entitites), including the
+ *      entire internal DTD subset, for whether it is @well-formed.
+ *
+ *      While they are  not required to check the document for validity,
  *      they are required to process all the declarations they
  *      read in the internal DTD subset and in any parameter entity
  *      that they read, up to the first reference to a parameter
  *      entity that they do not read; that is to say, they must
  *      use the information in those declarations to normalize
- *      @attribute values, include the replacement text of
+ *      values of @attributes, include the replacement text of
  *      @internal_entities, and supply default attribute values.
  *      They must not process entity declarations or attribute-list
  *      declarations encountered after a reference to a
@@ -491,25 +525,35 @@
 
 /*
  *@@gloss: encodings encodings
- *      In an encoding declaration, the values "UTF-8", "UTF-16",
- *      "ISO-10646-UCS-2", and "ISO-10646-UCS-4" should be used
- *      for the various encodings and transformations of Unicode /
- *      ISO/IEC 10646, the values "ISO-8859-1", "ISO-8859-2", ...
- *      "ISO-8859-9" should be used for the parts of ISO 8859, and
- *      the values "ISO-2022-JP", "Shift_JIS", and "EUC-JP" should
- *      be used for the various encoded forms of JIS X-0208-1997.
+ *      XML supports a wide variety of character encodings. These
+ *      must be specified in the XML @text_declaration.
+ *
+ *      There are too many character encodings on the planet to
+ *      be listed here. The most common ones are:
+ *
+ *      --  "UTF-8", "UTF-16", "ISO-10646-UCS-2", and "ISO-10646-UCS-4"
+ *          should be used for the various encodings and transformations
+ *          of Unicode / ISO/IEC 10646.
+ *
+ *      --  "ISO-8859-x" (with "x" being a number from 1 to 9) represent
+ *          the various ISO 8859 ("Latin") encodings.
+ *
+ *      --  "ISO-2022-JP", "Shift_JIS", and "EUC-JP" should be used for
+ *          the various encoded forms of JIS X-0208-1997.
+ *
+ *      Example of a @text_declaration:
+ *
+ +          <?xml version="1.0" encoding="ISO-8859-2"?>
  *
  *      All XML processors must be able to read @entities in either
- *      UTF-8 or UTF-16.
+ *      UTF-8 or UTF-16. See XML_SetUnknownEncodingHandler for additional
+ *      encodings directly supported by @expat.
  *
  *      Entities encoded in UTF-16 must begin with the ZERO WIDTH NO-BREAK
  *      SPACE character, #xFEFF). This is an encoding signature, not part
  *      of either the @markup or the @content of the XML @document.
  *      XML processors must be able to use this character to differentiate
  *      between UTF-8 and UTF-16 encoded documents.
- *
- *      See XML_ParserCreate for the encodings directly supported
- *      by expat.
  */
 
 /*
@@ -575,53 +619,132 @@
  *      Element declarations identify the @names of elements and the
  *      nature of their content. They look like this:
  +
- +          <!ELEMENT name contentmodel>
+ +          <!ELEMENT name contentspec>
  +
- *      The "name" of the element is obvious. The "contentmodel"
+ *      No element may be declared more than once.
+ *
+ *      The "name" of the element is obvious. The "contentspec"
  *      is not. This specifies what may appear in the element
- *      and can be a list of:
+ *      and can be one of the following:
  *
- *      --  "#PCDATA", meaning "parsed character data" -- in
- *          other words, @content.
+ *      --  "EMPTY" marks the element as being empty (i.e.
+ *          having no content at all).
  *
- *      --  Another element name with a specification about
- *          whether the element may or must appear once or
- *          more than once.
+ *      --  "ANY" does not impose any restrictions.
  *
- *      --  "EMPTY" marks the element as being empty (i.e. no
- *          start- and end-tags, but a single tag only).
+ *      --  (mixed): a "list" which declares the element to have
+ *          mixed content. See below.
  *
- *      The element specifyer can be:
+ *      --  (children): a "list" which declares the element to
+ *          have child elements only, but no content. See below.
  *
- *      --  None: the subelement _must_ appear exactly once.
+ *      <B>(mixed): content with elements</B>
  *
- *      --  "+": the subelement _must_ appear at _least_ once.
+ *      With the (mixed) contentspec, an element may either contain
+ *      @content only or @content with subelements.
  *
- *      --  "?": the subelement _may_ appear exactly once.
+ *      While the (children) contentspec allows you to define sequences
+ *      and orders, this is not possible with (mixed).
  *
- *      --  "*": the subelement _may_ appear once or more than
- *          once or not at all. Note that this must always be
- *          specified with "#PCDATA".
- *
- *      The list items can be separated with:
- *
- *      --  Commas (",") indicate that the elements must appear
- *          in the same order.
- *
- *      --  Vertical bars ("|") specify that the elements may
- *          occur alternatively.
+ *      "contentspec" must then be a pair of parentheses, optionally
+ *      followed by "*". In the brackets, there must be at least the
+ *      keyword "#PCDATA", optionally followed by "|" and element
+ *      names. Note that if no #PCDATA appears, the (children) model
+ *      is assumed (see below).
  *
  *      Examples:
- +
- +          <!ELEMENT oldjoke  (burns+, allen, applause?)>
- +          <!ELEMENT burns    (#PCDATA | quote)*>
- +          <!ELEMENT allen    (#PCDATA | quote)*>
- +          <!ELEMENT quote    (#PCDATA)*>
- +          <!ELEMENT applause EMPTY>
  *
- *      This defines that the element "oldjoke" must contain
- *      "burns" and "allen" and may contain "applause".
- *      Only "burns" may appear more than once.
+ +          <!ELEMENT name (#PCDATA)* >
+ +          <!ELEMENT name (#PCDATA | subname1 | subname2)* >
+ +          <!ELEMENT name (#PCDATA) >
+ *
+ *      Note that if you specify sub-element names, you must terminate
+ *      the contentspec with "*". Again, there's no way to specify
+ *      orders etc. with (mixed).
+ *
+ *      <B>(children): Element content only</B>
+ *
+ *      With the (children) contentspec, an element may contain
+ *      only other elements (and @whitespace), but no other @content.
+ *
+ *      This can become fairly complicated. "contentspec" then must be
+ *      a "list" followed by a "repeater".
+ *
+ *      A "repeater" can be:
+ *
+ *      --  Nothing: the preceding item _must_ appear exactly once.
+ *
+ *      --  "+": the preceding item _must_ appear at _least_ once.
+ *
+ *      --  "?": the preceding item _may_ appear exactly once.
+ *
+ *      --  "*": the preceding item _may_ appear once or more than
+ *          once or not at all.
+ *
+ *      Here's the most simple example (precluding that "SUBELEMENT"
+ *      is a valid "list" here):
+ *
+ +          <!ELEMENT name (SUBELEMENT)* >
+ *
+ *      In other words, in (children) mode, "contentspec" must always
+ *      be in brackets and is followed by a "repeater" (which can be
+ *      nothing).
+ *
+ *      About "lists"... since these declarations may nest, this is
+ *      where the recursive definition of a "content particle" comes
+ *      in:
+ *
+ *      --  A "content particle" is either a sub-element name or
+ *          a nested list, followed by a "repeater".
+ *
+ *      --  A "list" is defined as an enumeration of content particles,
+ *          enclosed in parentheses, where the content particles are
+ *          separated by list separators.
+ *
+ *      There are two types of list separators:
+ *
+ *      --  Commas (",") indicate that the elements must appear
+ *          in the specified order ("sequence").
+ *
+ *      --  Vertical bars ("|") specify that the elements may
+ *          occur alternatively ("choice").
+ *
+ *      The list separators cannot be mixed; the list must be
+ *      either completely "sequence" or "choice".
+ *
+ *      Examples of content particles:
+ *
+ +              SUBELEMENT+
+ +              list*
+ *
+ *      Examples of lists:
+ *
+ +          ( cp | cp | cp | cp )
+ +          ( cp , cp , cp , cp )
+ *
+ *      Full examples for (children):
+ *
+ +          <!ELEMENT oldjoke  ( burns+, allen, applause? ) >
+ +                             | |       +cp-+          | |
+ +                             | |                      | |
+ +                             | +------- list ---------+ |
+ +                             +-------contentspec--------+
+ *
+ *      This specifies a "seqlist" for the "oldjoke" element. The
+ *      list is not nested, so the content particles are element
+ *      names only.
+ *
+ *      Within "oldjoke", "burns" must appear first and can appear
+ *      once or several times.
+ *
+ *      Next must be "allen", exactly once (since there's no repeater).
+ *
+ *      Optionally ("?"), there can be "applause" at the end.
+ *
+ *      Now, a nested example:
+ *
+ +          <!ELEMENT WARPIN (REXX*, VARPROMPT*, MSG?, TITLE?, (GROUP | PCK)+), PAGE+) >
+ *
  */
 
 /*
@@ -753,3 +876,108 @@
  *      or a @notation_declaration. These declarations may be contained
  *      in whole or in part within @parameter_entities.
  */
+
+/*
+ *@@gloss: DOM DOM
+ *      DOM is the "Document Object Model", as defined by the W3C.
+ *
+ *      The DOM is a programming interface for @XML @documents.
+ *      (XML is a metalanguage and describes the documents
+ *      themselves. DOM is a programming interface -- an API --
+ *      to access XML documents.)
+ *
+ *      The W3C calls this "a platform- and language-neutral
+ *      interface that allows programs and scripts to dynamically
+ *      access and update the content, structure and style of
+ *      documents. The Document Object Model provides
+ *      a standard set of objects for representing HTML and XML
+ *      documents, a standard model of how these objects can
+ *      be combined, and a standard interface for accessing and
+ *      manipulating them. Vendors can support the DOM as an
+ *      interface to their proprietary data structures and APIs,
+ *      and content authors can write to the standard DOM
+ *      interfaces rather than product-specific APIs, thus
+ *      increasing interoperability on the Web."
+ *
+ *      In short, DOM specifies that an XML document is broken
+ *      up into a tree of "nodes", representing the various parts
+ *      of an XML document. Such nodes represent @documents,
+ *      @elements, @attributes, @processing_instructions,
+ *      @comments, @content, and more.
+ *
+ *      See xml.c for an introduction to XML and DOM support in
+ *      the XWorkplace helpers.
+ *
+ *      Example: Take this HTML table definition:
+ +
+ +          <TABLE>
+ +          <TBODY>
+ +          <TR>
+ +          <TD>Column 1-1</TD>
+ +          <TD>Column 1-2</TD>
+ +          </TR>
+ +          <TR>
+ +          <TD>Column 2-1</TD>
+ +          <TD>Column 2-2</TD>
+ +          </TR>
+ +          </TBODY>
+ +          </TABLE>
+ *
+ *      In the DOM, this would be represented by a tree as follows:
+ +
+ +                          ÚÄÄÄÄÄÄÄÄÄÄÄÄ¿
+ +                          ³   TABLE    ³        (only ELEMENT node in root DOCUMENT node)
+ +                          ÀÄÄÄÄÄÂÄÄÄÄÄÄÙ
+ +                                ³
+ +                          ÚÄÄÄÄÄÁÄÄÄÄÄÄ¿
+ +                          ³   TBODY    ³        (only ELEMENT node in root "TABLE" node)
+ +                          ÀÄÄÄÄÄÂÄÄÄÄÄÄÙ
+ +                    ÚÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄ¿
+ +              ÚÄÄÄÄÄÁÄÄÄÄÄÄ¿          ÚÄÄÄÄÄÁÄÄÄÄÄÄ¿
+ +              ³   TR       ³          ³   TR       ³
+ +              ÀÄÄÄÄÄÂÄÄÄÄÄÄÙ          ÀÄÄÄÄÄÂÄÄÄÄÄÄÙ
+ +                ÚÄÄÄÁÄÄÄÄÄÄ¿            ÚÄÄÄÁÄÄÄÄÄÄ¿
+ +            ÚÄÄÄÁÄ¿     ÚÄÄÁÄÄ¿     ÚÄÄÄÁÄ¿     ÚÄÄÁÄÄ¿
+ +            ³ TD  ³     ³ TD  ³     ³ TD  ³     ³ TD  ³
+ +            ÀÄÄÂÄÄÙ     ÀÄÄÂÄÄÙ     ÀÄÄÄÂÄÙ     ÀÄÄÂÄÄÙ
+ +         ÉÍÍÍÍÍÊÍÍÍÍ» ÉÍÍÍÍÊÍÍÍÍÍ» ÉÍÍÍÍÊÍÍÍÍÍ» ÉÍÍÊÍÍÍÍÍÍÍ»
+ +         ºColumn 1-1º ºColumn 1-2º ºColumn 2-1º ºColumn 2-2º    (one TEXT node in each parent node)
+ +         ÈÍÍÍÍÍÍÍÍÍÍ¼ ÈÍÍÍÍÍÍÍÍÍÍ¼ ÈÍÍÍÍÍÍÍÍÍÍ¼ ÈÍÍÍÍÍÍÍÍÍÍ¼
+ */
+
+/*
+ *@@gloss: DOM_DOCUMENT DOCUMENT
+ *      representation of XML @documents in the @DOM.
+ *
+ *      The xwphelpers implementation has the following differences
+ *      to the DOM specs:
+ *
+ *      -- The "doctype" member points to the documents @DTD, or is NULL.
+ *         In our implementation, this is the pvExtra pointer, which points
+ *         to a _DOMDTD.
+ *
+ *      -- The "implementation" member points to a DOMImplementation object.
+ *         This is not supported here.
+ *
+ *      -- The "documentElement" member is a convenience pointer to the
+ *         document's root element. We don't supply this field; instead,
+ *         the llChildren list only contains a single ELEMENT node for the
+ *         root element.
+ *
+ *      -- The "createElement" method is implemented by xmlCreateElementNode.
+ *
+ *      -- The "createAttribute" method is implemented by xmlCreateAttributeNode.
+ *
+ *      -- The "createTextNode" method is implemented by xmlCreateTextNode,
+ *         which has an extra parameter though.
+ *
+ *      -- The "createComment" method is implemented by xmlCreateCommentNode.
+ *
+ *      -- The "createProcessingInstruction" method is implemented by
+ *         xmlCreatePINode.
+ *
+ *      -- The "createDocumentFragment", "createCDATASection", and
+ *         "createEntityReference" methods are not supported.
+ */
+
+

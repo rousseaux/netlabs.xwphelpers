@@ -467,7 +467,7 @@ ULONG prfhCopyApp(HINI hiniSource,   // in: source profile (can be HINI_USER or 
  *
  *      --  PRFERR_WRITE: couldn't write data to target (PrfWriteProfileData error)
  *
- *@@added V0.9.9 (2000-02-06) [umoeller]
+ *@@added V0.9.9 (2001-02-06) [umoeller]
  */
 
 ULONG prfhRenameKey(HINI hini,

@@ -35,6 +35,8 @@ extern "C" {
 
     PSZ strhdup(const char *pszSource);
 
+    int strhcmp(const char *p1, const char *p2);
+
     PSZ strhistr(const char *string1, const char *string2);
 
     ULONG strhncpy0(PSZ pszTarget,

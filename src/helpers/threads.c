@@ -192,7 +192,7 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
  *@@changed V0.9.3 (2000-05-01) [umoeller]: added pbRunning and flFlags
  *@@changed V0.9.5 (2000-08-26) [umoeller]: now using PTHREADINFO
  *@@changed V0.9.7 (2000-12-18) [lafaix]: THRF_TRANSIENT support added
- *@@changed V0.9.9 (2000-02-06) [umoeller]: now returning TID
+ *@@changed V0.9.9 (2001-02-06) [umoeller]: now returning TID
  */
 
 ULONG thrCreate(PTHREADINFO pti,     // out: THREADINFO data
@@ -202,7 +202,7 @@ ULONG thrCreate(PTHREADINFO pti,     // out: THREADINFO data
                 ULONG flFlags,       // in: THRF_* flags
                 ULONG ulData)        // in: user data to be stored in THREADINFO
 {
-    ULONG ulrc = 0;     // V0.9.9 (2000-02-06) [umoeller]
+    ULONG ulrc = 0;     // V0.9.9 (2001-02-06) [umoeller]
 
     // (2000-12-18) [lafaix] TRANSIENT
     if (flFlags & THRF_TRANSIENT)

@@ -345,11 +345,15 @@ VOID xstrFree(PXSTRING pxstr)               // in/out: string
  *      is true if pszNew comes from strdup().
  *
  *@@added V0.9.6 (2000-11-01) [umoeller]
+ *@@changed V0.9.9 (2001-02-14) [umoeller]: fixed NULL target crash
  */
 
 ULONG xstrset(PXSTRING pxstr,               // in/out: string
               PSZ pszNew)                   // in: heap PSZ to use
 {
+    if (!pxstr)
+        return (0);         // V0.9.9 (2001-02-14) [umoeller]
+
     xstrClear(pxstr);
     pxstr->psz = pszNew;
     if (pszNew)
@@ -390,6 +394,7 @@ ULONG xstrset(PXSTRING pxstr,               // in/out: string
  *@@changed V0.9.6 (2000-11-01) [umoeller]: rewritten
  *@@changed V0.9.7 (2001-01-15) [umoeller]: added ulSourceLength
  *@@changed V0.9.9 (2001-01-28) [lafaix]: fixed memory leak and NULL source behavior
+ *@@changed V0.9.9 (2001-02-14) [umoeller]: fixed NULL target crash
  */
 
 ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
@@ -398,55 +403,71 @@ ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
 {
     // xstrClear(pxstr);        NOOOO! this frees the string, we want to keep the memory
 
-    if (pxstr)
+    if (!pxstr)
+        return (0);         // V0.9.9 (2001-02-14) [umoeller]
+
+    if (pcszSource)
     {
-        if (pcszSource)
-        {
-            // source specified:
-            if (ulSourceLength == 0)
-                // but not length:
-                ulSourceLength = strlen(pcszSource);
-        }
-        else
-            ulSourceLength = 0;
+        // source specified:
+        if (ulSourceLength == 0)
+            // but not length:
+            ulSourceLength = strlen(pcszSource);
+    }
+    else
+        ulSourceLength = 0;
 
-        if (ulSourceLength)
+    if (ulSourceLength)
+    {
+        // we do have a source string:
+        ULONG cbNeeded = ulSourceLength + 1;
+        if (cbNeeded > pxstr->cbAllocated)
         {
-            // we do have a source string:
-            ULONG cbNeeded = ulSourceLength + 1;
-            if (cbNeeded > pxstr->cbAllocated)
-            {
-                // we need more memory than we have previously
-                // allocated:
-                if (pxstr->psz)
-                    free(pxstr->psz); // V0.9.9 (2001-01-28) [lafaix]
-                pxstr->cbAllocated = cbNeeded;
-                pxstr->psz = (PSZ)malloc(cbNeeded);
-            }
-            // else: we have enough memory
-
-            // strcpy(pxstr->psz, pcszSource);
-            memcpy(pxstr->psz,
-                   pcszSource,
-                   ulSourceLength + 1); // V0.9.9 (2001-01-31) [umoeller]
+            // we need more memory than we have previously
+            // allocated:
+            if (pxstr->psz)
+                free(pxstr->psz); // V0.9.9 (2001-01-28) [lafaix]
+            pxstr->cbAllocated = cbNeeded;
+            pxstr->psz = (PSZ)malloc(cbNeeded);
         }
-        else
-        {
-            // no source specified or source is empty:
-            if (pxstr->cbAllocated)
-                // we did have a string: set to empty,
-                // but leave allocated memory intact
-                *(pxstr->psz) = 0;
-            // else
-                // we had no string previously: in that case
-                // psz and ulLength and cbAllocated are all still NULL
-        }
+        // else: we have enough memory
 
-        // in all cases, set new length
-        pxstr->ulLength = ulSourceLength;
+        // strcpy(pxstr->psz, pcszSource);
+        memcpy(pxstr->psz,
+               pcszSource,
+               ulSourceLength + 1); // V0.9.9 (2001-01-31) [umoeller]
+    }
+    else
+    {
+        // no source specified or source is empty:
+        if (pxstr->cbAllocated)
+            // we did have a string: set to empty,
+            // but leave allocated memory intact
+            *(pxstr->psz) = 0;
+        // else
+            // we had no string previously: in that case
+            // psz and ulLength and cbAllocated are all still NULL
     }
 
+    // in all cases, set new length
+    pxstr->ulLength = ulSourceLength;
+
     return (pxstr->ulLength);
+}
+
+/*
+ *@@ xstrcpys:
+ *      shortcut to xstrcpy if the source is an XSTRING also.
+ *
+ *@@added V0.9.9 (2001-02-14) [umoeller]
+ */
+
+ULONG xstrcpys(PXSTRING pxstr,
+               const XSTRING *pcstrSource)
+{
+    if (!pcstrSource)
+        return (0);
+
+    return (xstrcpy(pxstr, pcstrSource->psz, pcstrSource->ulLength));
 }
 
 /*
@@ -633,6 +654,22 @@ ULONG xstrcatc(PXSTRING pxstr,     // in/out: string
 }
 
 /*
+ *@@ xstrcats:
+ *      shortcut to xstrcat if the source is an XSTRING also.
+ *
+ *@@added V0.9.9 (2001-02-14) [umoeller]
+ */
+
+ULONG xstrcats(PXSTRING pxstr,
+               const XSTRING *pcstrSource)
+{
+    if (!pcstrSource)
+        return (0);
+
+    return (xstrcat(pxstr, pcstrSource->psz, pcstrSource->ulLength));
+}
+
+/*
  *@@ xstrrpl:
  *      replaces cReplLen characters in pxstr, starting
  *      at the position ulFirstReplPos, with the string
@@ -665,6 +702,7 @@ ULONG xstrcatc(PXSTRING pxstr,     // in/out: string
  *
  *@@added V0.9.7 (2001-01-15) [umoeller]
  *@@changed V0.9.9 (2001-01-29) [lafaix]: fixed unnecessary allocation when pxstr was big enough
+  *@@changed V0.9.9 (2001-02-14) [umoeller]: fixed NULL target crash
  */
 
 ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
@@ -675,7 +713,8 @@ ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
     ULONG   ulrc = 0;
 
     // security checks...
-    if (    (ulFirstReplOfs + cReplLen <= pxstr->ulLength)
+    if (    (pxstr)         // V0.9.9 (2001-02-14) [umoeller]
+         && (ulFirstReplOfs + cReplLen <= pxstr->ulLength)
          && (pstrReplaceWith)
          // && (pstrReplaceWith->ulLength)      no, this can be empty
        )
@@ -746,8 +785,8 @@ ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
             // calc length of string after "found"
             ULONG   cTailLength = pxstr->ulLength - ulFirstReplOfs - cReplLen;
 
-            // first, we move the end to its new location (memmove
-            // handles overlap if needed)
+            // first, we move the end to its new location
+            // (memmove handles overlap if needed)
             memmove(pFound + cReplaceLen,
                     pFound + cReplLen,
                     cTailLength + 1); // including null terminator
@@ -786,6 +825,7 @@ ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
  *      of the "word" in pxstr if found.
  *
  *@@added V0.9.6 (2000-11-12) [umoeller]
+ *@@changed V0.9.9 (2001-02-14) [umoeller]: fixed NULL string crashs
  */
 
 PSZ xstrFindWord(const XSTRING *pxstr,        // in: buffer to search ("haystack")
@@ -797,43 +837,47 @@ PSZ xstrFindWord(const XSTRING *pxstr,        // in: buffer to search ("haystack
                  const char *pcszEndChars)    // suggestion: "\x0d\x0a ()/\\-,.:;"
 {
     PSZ     pReturn = 0;
-    ULONG   ulFoundLen = pstrFind->ulLength;
 
-    if ((pxstr->ulLength) && (ulFoundLen))
+    if (pxstr && pstrFind)      // V0.9.9 (2001-02-14) [umoeller]
     {
-        const char *p = pxstr->psz + ulOfs;
+        ULONG   ulFoundLen = pstrFind->ulLength;
 
-        do  // while p
+        if ((pxstr->ulLength) && (ulFoundLen))
         {
-            // p = strstr(p, pstrFind->psz);
-            p = (PSZ)strhmemfind(p,         // in: haystack
-                                 pxstr->ulLength - (p - pxstr->psz),
-                                            // remaining length of haystack
-                                 pstrFind->psz,
-                                 ulFoundLen,
-                                 pShiftTable,
-                                 pfRepeatFind);
-            if (p)
+            const char *p = pxstr->psz + ulOfs;
+
+            do  // while p
             {
-                // string found:
-                // check if that's a word
-
-                if (strhIsWord(pxstr->psz,
-                               p,
-                               ulFoundLen,
-                               pcszBeginChars,
-                               pcszEndChars))
+                p = (PSZ)strhmemfind(p,         // in: haystack
+                                     pxstr->ulLength - (p - pxstr->psz),
+                                                // remaining length of haystack
+                                     pstrFind->psz,
+                                     ulFoundLen,
+                                     pShiftTable,
+                                     pfRepeatFind);
+                if (p)
                 {
-                    // valid end char:
-                    pReturn = (PSZ)p;
-                    break;
+                    // string found:
+                    // check if that's a word
+
+                    if (strhIsWord(pxstr->psz,
+                                   p,
+                                   ulFoundLen,
+                                   pcszBeginChars,
+                                   pcszEndChars))
+                    {
+                        // valid end char:
+                        pReturn = (PSZ)p;
+                        break;
+                    }
+
+                    p += ulFoundLen;
                 }
+            } while (p);
 
-                p += ulFoundLen;
-            }
-        } while (p);
-
+        }
     }
+
     return (pReturn);
 }
 

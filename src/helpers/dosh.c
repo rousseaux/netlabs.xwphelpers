@@ -1827,7 +1827,7 @@ APIRET doshPerfGet(PDOSHPERFSYS pPerfSys)
  *      frees all resources allocated by doshPerfOpen.
  *
  *@@added V0.9.7 (2000-12-02) [umoeller]
- *@@changed V0.9.9 (2000-02-06) [umoeller]: removed disable; this broke the WarpCenter
+ *@@changed V0.9.9 (2001-02-06) [umoeller]: removed disable; this broke the WarpCenter
  */
 
 APIRET doshPerfClose(PDOSHPERFSYS *ppPerfSys)

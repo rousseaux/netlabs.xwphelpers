@@ -85,6 +85,10 @@ extern "C" {
     typedef ULONG XWPENTRY XSTRCPY(PXSTRING pxstr, const char *pcszSource, ULONG ulSourceLength);
     typedef XSTRCPY *PXSTRCPY;
 
+    ULONG XWPENTRY xstrcpys(PXSTRING pxstr, const XSTRING *pcstrSource);
+    typedef ULONG XWPENTRY XSTRCPYS(PXSTRING pxstr, const XSTRING *pcstrSource);
+    typedef XSTRCPYS *PXSTRCPYS;
+
     ULONG XWPENTRY xstrcat(PXSTRING pxstr, const char *pcszSource, ULONG ulSourceLength);
     typedef ULONG XWPENTRY XSTRCAT(PXSTRING pxstr, const char *pcszSource, ULONG ulSourceLength);
     typedef XSTRCAT *PXSTRCAT;
@@ -92,6 +96,10 @@ extern "C" {
     ULONG XWPENTRY xstrcatc(PXSTRING pxstr, CHAR c);
     typedef ULONG XWPENTRY XSTRCATC(PXSTRING pxstr, CHAR c);
     typedef XSTRCATC *PXSTRCATC;
+
+    ULONG XWPENTRY xstrcats(PXSTRING pxstr, const XSTRING *pcstrSource);
+    typedef ULONG XWPENTRY XSTRCATS(PXSTRING pxstr, const XSTRING *pcstrSource);
+    typedef XSTRCATS *PXSTRCATS;
 
     /*
      *@@ xstrIsString:

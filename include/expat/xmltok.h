@@ -6,6 +6,10 @@ See the file COPYING for copying permission.
 #ifndef XmlTok_INCLUDED
 #define XmlTok_INCLUDED 1
 
+#include "expat\expat_setup.h"
+                        // V0.9.9 (2001-02-10) [umoeller]
+                        // to save the app from having to include this as well
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -153,9 +157,9 @@ struct encoding
                               const char *,
                               const char *);
   void (* EXPATENTRY updatePosition)(const ENCODING *,
-                         const char *ptr,
-                         const char *end,
-                         POSITION *);
+                                     const char *ptr,
+                                     const char *end,
+                                     POSITION *);
   int (* EXPATENTRY isPublicId)(const ENCODING *enc,
                     const char *ptr,
                     const char *end,

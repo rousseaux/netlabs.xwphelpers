@@ -30,49 +30,87 @@ typedef void *XML_Parser;
 typedef char XML_Char;
 typedef char XML_LChar;
 
-enum XML_Content_Type {
-  XML_CTYPE_EMPTY = 1,
-  XML_CTYPE_ANY,
-  XML_CTYPE_MIXED,
-  XML_CTYPE_NAME,
-  XML_CTYPE_CHOICE,
-  XML_CTYPE_SEQ
+enum XML_Content_Type
+{
+    XML_CTYPE_EMPTY = 1,
+    XML_CTYPE_ANY,
+    XML_CTYPE_MIXED,
+    XML_CTYPE_NAME,
+    XML_CTYPE_CHOICE,
+    XML_CTYPE_SEQ
 };
 
-enum XML_Content_Quant {
-  XML_CQUANT_NONE,
-  XML_CQUANT_OPT,
-  XML_CQUANT_REP,
-  XML_CQUANT_PLUS
+enum XML_Content_Quant
+{
+    XML_CQUANT_NONE,
+    XML_CQUANT_OPT,
+    XML_CQUANT_REP,
+    XML_CQUANT_PLUS
 };
 
-/* If type == XML_CTYPE_EMPTY or XML_CTYPE_ANY, then quant will be
-   XML_CQUANT_NONE, and the other fields will be zero or NULL.
-   If type == XML_CTYPE_MIXED, then quant will be NONE or REP and
-   numchildren will contain number of elements that may be mixed in
-   and children point to an array of XML_Content cells that will be
-   all of XML_CTYPE_NAME type with no quantification.
+/*
+ *@@ XMLCONTENT:
+ *      structure passed with the @expat "element declaration handler"
+ *      (see XML_SetElementDeclHandler).
+ *
+ *      The model argument is the root of a tree of XMLCONTENT
+ *      nodes. If type equals XML_CTYPE_EMPTY or XML_CTYPE_ANY,
+ *      then quant will be XML_CQUANT_NONE, and the other fields
+ *      will be zero or NULL.
+ *
+ *      If type is XML_CTYPE_MIXED:
+ *
+ *      --  "quant" will be XML_CQUANT_NONE or XML_CQUANT_REP.
+ *
+ *      --  "numchildren" will contain the number of elements that
+ *          are allowed to be mixed in.
+ *
+ *      --  "children" points to a sub-array of XMLCONTENT structures
+ *          that will all have type XML_CTYPE_NAME with no quantification.
+ *
+ *      Only the root node can be type XML_CTYPE_EMPTY, XML_CTYPE_ANY,
+ *      or XML_CTYPE_MIXED.
+ *
+ *      For type XML_CTYPE_NAME, the name field points to the
+ *      name and the numchildren and children fields will be
+ *      zero and NULL. The quant field will indicate any
+ *      quantifiers placed on the name.
+ *
+ *      Types XML_CTYPE_CHOICE and XML_CTYPE_SEQ indicate a
+ *      choice or sequence respectively. The numchildren field
+ *      indicates how many nodes in the choice or sequence and
+ *      children points to the nodes.
+ *
+ *@@added V0.9.9 (2001-02-14) [umoeller]
+ */
 
-   If type == XML_CTYPE_NAME, then the name points to the name, and
-   the numchildren field will be zero and children will be NULL. The
-   quant fields indicates any quantifiers placed on the name.
+typedef struct _XMLCONTENT
+{
+    enum XML_Content_Type       type;
+                    // one of:
+                    // -- XML_CTYPE_EMPTY   --> quant will be XML_CQUANT_NONE, rest is NULL
+                    // -- XML_CTYPE_ANY,    --> quant will be XML_CQUANT_NONE, rest is NULL
+                    // -- XML_CTYPE_MIXED,  --> (#PCDATA) gives us this
+                    // -- XML_CTYPE_CHOICE, --> choice ("|" list)
+                    // -- XML_CTYPE_SEQ     --> sequence (comma list)
 
-   CHOICE and SEQ will have name NULL, the number of children in
-   numchildren and children will point, recursively, to an array
-   of XML_Content cells.
+                    // -- XML_CTYPE_NAME: used for sub-content if content has CML_CTYPE_MIXED;
+                    //                    only "name" is valid for sub-content
 
-   The EMPTY, ANY, and MIXED types will only occur at top level.
-*/
+    enum XML_Content_Quant      quant;
+                    // one of:
+                    // -- XML_CQUANT_NONE   --> all fields below are NULL
+                    // -- XML_CQUANT_OPT,
+                    // -- XML_CQUANT_REP,
+                    // -- XML_CQUANT_PLUS
 
-typedef struct XML_cp XML_Content;
+    const XML_Char              *name;
 
-struct XML_cp {
-  enum XML_Content_Type     type;
-  enum XML_Content_Quant    quant;
-  const XML_Char *      name;
-  unsigned int          numchildren;
-  XML_Content *         children;
-};
+    unsigned int                numchildren;
+
+    struct _XMLCONTENT          *children;
+
+} XMLCONTENT, *PXMLCONTENT;
 
 
 /* This is called for an element declaration. See above for
@@ -81,8 +119,8 @@ struct XML_cp {
 */
 
 typedef void (* EXPATENTRY XML_ElementDeclHandler) (void *userData,
-                    const XML_Char *name,
-                    XML_Content *model);
+                                                    const XML_Char *name,
+                                                    XMLCONTENT *model);
 
 void XMLPARSEAPI XML_SetElementDeclHandler(XML_Parser parser,
               XML_ElementDeclHandler eldecl);
@@ -291,7 +329,7 @@ typedef void (* EXPATENTRY XML_EndNamespaceDeclHandler)(void *userData,
 external subset or a reference to a parameter entity, but does not
 have standalone="yes"). If this handler returns 0, then processing
 will not continue, and the parser will return a
-XML_ERROR_NOT_STANDALONE error. */
+ERROR_EXPAT_NOT_STANDALONE error. */
 
 typedef int (* EXPATENTRY XML_NotStandaloneHandler)(void *userData);
 
@@ -315,7 +353,7 @@ XML_ExternalEntityParserCreate; context is valid only until the handler
 returns, so if the referenced entity is to be parsed later, it must be copied.
 The handler should return 0 if processing should not continue because of
 a fatal error in the handling of the external entity.
-In this case the calling parser will return an XML_ERROR_EXTERNAL_ENTITY_HANDLING
+In this case the calling parser will return an ERROR_EXPAT_EXTERNAL_ENTITY_HANDLING
 error.
 Note that unlike other handlers the first argument is the parser, not userData. */
 
@@ -405,40 +443,29 @@ typedef struct _XML_Encoding
   void          (* EXPATENTRY release)(void *data);
 } XML_Encoding;
 
-/* This is called for an encoding that is unknown to the parser.
-The encodingHandlerData argument is that which was passed as the
-second argument to XML_SetUnknownEncodingHandler.
-The name argument gives the name of the encoding as specified in
-the encoding declaration.
-If the callback can provide information about the encoding,
-it must fill in the XML_Encoding structure, and return 1.
-Otherwise it must return 0.
-If info does not describe a suitable encoding,
-then the parser will return an XML_UNKNOWN_ENCODING error. */
-
 typedef int (* EXPATENTRY XML_UnknownEncodingHandler)(void *encodingHandlerData,
-                      const XML_Char *name,
-                      XML_Encoding *info);
+                                                      const XML_Char *name,
+                                                      XML_Encoding *info);
 
 void XMLPARSEAPI XML_SetElementHandler(XML_Parser parser,
-              XML_StartElementHandler start,
-              XML_EndElementHandler end);
+                                       XML_StartElementHandler start,
+                                       XML_EndElementHandler end);
 
 void XMLPARSEAPI XML_SetStartElementHandler(XML_Parser, XML_StartElementHandler);
 
 void XMLPARSEAPI XML_SetEndElementHandler(XML_Parser, XML_EndElementHandler);
 
 void XMLPARSEAPI XML_SetCharacterDataHandler(XML_Parser parser,
-                XML_CharacterDataHandler handler);
+                                             XML_CharacterDataHandler handler);
 
 void XMLPARSEAPI XML_SetProcessingInstructionHandler(XML_Parser parser,
-                    XML_ProcessingInstructionHandler handler);
+                                                     XML_ProcessingInstructionHandler handler);
 void XMLPARSEAPI XML_SetCommentHandler(XML_Parser parser,
-                      XML_CommentHandler handler);
+                                       XML_CommentHandler handler);
 
 void XMLPARSEAPI XML_SetCdataSectionHandler(XML_Parser parser,
-               XML_StartCdataSectionHandler start,
-               XML_EndCdataSectionHandler end);
+                                            XML_StartCdataSectionHandler start,
+                                            XML_EndCdataSectionHandler end);
 
 void XMLPARSEAPI XML_SetStartCdataSectionHandler(XML_Parser parser,
                                 XML_StartCdataSectionHandler start);
@@ -593,59 +620,48 @@ enum XML_ParamEntityParsing {
   XML_PARAM_ENTITY_PARSING_ALWAYS
 };
 
-/* Controls parsing of parameter entities (including the external DTD
-subset). If parsing of parameter entities is enabled, then references
-to external parameter entities (including the external DTD subset)
-will be passed to the handler set with
-XML_SetExternalEntityRefHandler.  The context passed will be 0.
-Unlike external general entities, external parameter entities can only
-be parsed synchronously.  If the external parameter entity is to be
-parsed, it must be parsed during the call to the external entity ref
-handler: the complete sequence of XML_ExternalEntityParserCreate,
-XML_Parse/XML_ParseBuffer and XML_ParserFree calls must be made during
-this call.  After XML_ExternalEntityParserCreate has been called to
-create the parser for the external parameter entity (context must be 0
-for this call), it is illegal to make any calls on the old parser
-until XML_ParserFree has been called on the newly created parser.  If
-the library has been compiled without support for parameter entity
-parsing (ie without XML_DTD being defined), then
-XML_SetParamEntityParsing will return 0 if parsing of parameter
-entities is requested; otherwise it will return non-zero. */
-
 int XMLPARSEAPI XML_SetParamEntityParsing(XML_Parser parser,
-              enum XML_ParamEntityParsing parsing);
+                                          enum XML_ParamEntityParsing parsing);
 
-enum XML_Error {
-  XML_ERROR_NONE,
-  XML_ERROR_NO_MEMORY,
-  XML_ERROR_SYNTAX,
-  XML_ERROR_NO_ELEMENTS,
-  XML_ERROR_INVALID_TOKEN,
-  XML_ERROR_UNCLOSED_TOKEN,
-  XML_ERROR_PARTIAL_CHAR,
-  XML_ERROR_TAG_MISMATCH,
-  XML_ERROR_DUPLICATE_ATTRIBUTE,
-  XML_ERROR_JUNK_AFTER_DOC_ELEMENT,
-  XML_ERROR_PARAM_ENTITY_REF,
-  XML_ERROR_UNDEFINED_ENTITY,
-  XML_ERROR_RECURSIVE_ENTITY_REF,
-  XML_ERROR_ASYNC_ENTITY,
-  XML_ERROR_BAD_CHAR_REF,
-  XML_ERROR_BINARY_ENTITY_REF,
-  XML_ERROR_ATTRIBUTE_EXTERNAL_ENTITY_REF,
-  XML_ERROR_MISPLACED_XML_PI,
-  XML_ERROR_UNKNOWN_ENCODING,
-  XML_ERROR_INCORRECT_ENCODING,
-  XML_ERROR_UNCLOSED_CDATA_SECTION,
-  XML_ERROR_EXTERNAL_ENTITY_HANDLING,
-  XML_ERROR_NOT_STANDALONE,
-  XML_ERROR_UNEXPECTED_STATE
-};
+#define ERROR_EXPAT_NONE        0   // explicitly added V0.9.9 (2001-02-14) [umoeller]
+
+#define ERROR_XML_FIRST         40000   // first error code used
+
+typedef enum _XMLERROR
+{
+    // ERROR_EXPAT_NONE,            // removed to adhere with APIRET V0.9.9 (2001-02-14) [umoeller]
+    ERROR_EXPAT_NO_MEMORY = ERROR_XML_FIRST,
+    ERROR_EXPAT_SYNTAX,
+    ERROR_EXPAT_NO_ELEMENTS,
+    ERROR_EXPAT_INVALID_TOKEN,
+    ERROR_EXPAT_UNCLOSED_TOKEN,
+    ERROR_EXPAT_PARTIAL_CHAR,
+    ERROR_EXPAT_TAG_MISMATCH,
+    ERROR_EXPAT_DUPLICATE_ATTRIBUTE,
+    ERROR_EXPAT_JUNK_AFTER_DOC_ELEMENT,
+    ERROR_EXPAT_PARAM_ENTITY_REF,
+    ERROR_EXPAT_UNDEFINED_ENTITY,
+    ERROR_EXPAT_RECURSIVE_ENTITY_REF,
+    ERROR_EXPAT_ASYNC_ENTITY,
+    ERROR_EXPAT_BAD_CHAR_REF,
+    ERROR_EXPAT_BINARY_ENTITY_REF,
+    ERROR_EXPAT_ATTRIBUTE_EXTERNAL_ENTITY_REF,
+    ERROR_EXPAT_MISPLACED_XML_PI,
+    ERROR_EXPAT_UNKNOWN_ENCODING,
+    ERROR_EXPAT_INCORRECT_ENCODING,
+    ERROR_EXPAT_UNCLOSED_CDATA_SECTION,
+    ERROR_EXPAT_EXTERNAL_ENTITY_HANDLING,
+    ERROR_EXPAT_NOT_STANDALONE,
+    ERROR_EXPAT_UNEXPECTED_STATE,
+
+    ERROR_EXPAT_AFTER_LAST      // added V0.9.9 (2001-02-14) [umoeller];
+                                // xml.h builds on this
+} XMLERROR;
 
 /* If XML_Parse or XML_ParseBuffer have returned 0, then XML_GetErrorCode
 returns information about the error. */
 
-enum XML_Error  XMLPARSEAPI XML_GetErrorCode(XML_Parser parser);
+XMLERROR  XMLPARSEAPI XML_GetErrorCode(XML_Parser parser);
 
 /* These functions return information about the current parse location.
 They may be called when XML_Parse or XML_ParseBuffer return 0;
@@ -686,7 +702,8 @@ const char XMLPARSEAPI * XML_GetInputContext(XML_Parser parser,
 void XMLPARSEAPI XML_ParserFree(XML_Parser parser);
 
 /* Returns a string describing the error. */
-const XML_LChar XMLPARSEAPI * XML_ErrorString(int code);
+// const XML_LChar XMLPARSEAPI * XML_ErrorString(int code);
+        // moved this to xml.c V0.9.9 (2001-02-16) [umoeller]
 
 /* Return a string containing the version number of this expat */
 const XML_LChar XMLPARSEAPI *XML_ExpatVersion(void);

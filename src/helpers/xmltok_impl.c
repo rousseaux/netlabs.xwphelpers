@@ -1,6 +1,6 @@
 
 /*
- *@@sourcefile xmltok_impl.c
+ *sourcefile xmltok_impl.c
  *      part of the expat implementation. See xmlparse.c.
  *
  *      NOTE: This file must not be compiled directly. It is
