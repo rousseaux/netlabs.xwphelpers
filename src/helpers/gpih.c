@@ -133,13 +133,11 @@ BOOL gpihIsPointInRect(PRECTL prcl,
                        LONG y)
 {
     if (prcl)
-    {
         return (    (x >= prcl->xLeft)
                  && (x <= prcl->xRight)
                  && (y >= prcl->yBottom)
                  && (y <= prcl->yTop)
                );
-    }
 
     return FALSE;
 }
@@ -162,6 +160,24 @@ VOID gpihInflateRect(PRECTL prcl,
         prcl->xRight += l;
         prcl->yTop += l;
     }
+}
+
+/*
+ *@@ gpihCopyRectIncl:
+ *      copies prclWin to prclGpi, making it
+ *      inclusive-inclusive for use with GPI
+ *      functions.
+ *
+ *@@added V1.0.1 (2002-11-30) [umoeller]
+ */
+
+VOID gpihCopyRectIncl(PRECTL prclGpi,       // out: GPI rectangle
+                      PRECTL prclWin)       // in: WIN rectangle
+{
+    prclGpi->xLeft = prclWin->xLeft;
+    prclGpi->yBottom = prclWin->yBottom;
+    prclGpi->xRight = prclWin->xRight - 1;
+    prclGpi->yTop = prclWin->yTop - 1;
 }
 
 /* ******************************************************************
@@ -1686,6 +1702,37 @@ HBITMAP gpihCreateBitmap(HPS hpsMem,        // in: memory DC
                              0);            // current screen bit count
 }
 
+static const BITMAPINFOHEADER2 G_bih2Template[] =
+    {
+        sizeof(BITMAPINFOHEADER2), // ULONG      cbFix;
+        0,                  // ULONG      cx;               // tbr
+        0,                  // ULONG      cy;               // tbr
+        0,                  // USHORT     cPlanes;          // tbr
+        0,                  // USHORT     cBitCount;        // tbr
+        BCA_UNCOMP,         // ULONG      ulCompression;
+        0,                  // ULONG      cbImage;
+        70,                 // ULONG      cxResolution;
+        70,                 // ULONG      cyResolution;
+        2,                  // ULONG      cclrUsed;
+        0,                  // ULONG      cclrImportant;
+        BRU_METRIC,         // USHORT     usUnits;
+                                    // measure units for cxResolution/cyResolution: pels per meter
+        0,                  // USHORT     usReserved;
+        BRA_BOTTOMUP,       // USHORT     usRecording;
+                                    // scan lines are bottom to top (default)
+
+        BRH_NOTHALFTONED,   // USHORT     usRendering;
+                                    // other algorithms aren't documented anyway
+        0,                  // ULONG      cSize1;
+                                    // parameter for halftoning (undocumented anyway)
+        0,                  // ULONG      cSize2;
+                                    // parameter for halftoning (undocumented anyway)
+        BCE_RGB,            // ULONG      ulColorEncoding;
+                                    // only possible value
+        0                   // ULONG      ulIdentifier;
+                                    // application-specific data
+    };
+
 /*
  *@@ gpihCreateBitmap2:
  *      creates a new bitmap for a given memory PS.
@@ -1702,6 +1749,7 @@ HBITMAP gpihCreateBitmap(HPS hpsMem,        // in: memory DC
  *      Returns the bitmap handle or NULLHANDLE upon errors.
  *
  *@@added V0.9.16 (2001-12-18) [umoeller]
+ *@@changed V1.0.1 (2002-11-30) [umoeller]: optimized
  */
 
 HBITMAP gpihCreateBitmap2(HPS hpsMem,        // in: memory DC
@@ -1710,51 +1758,63 @@ HBITMAP gpihCreateBitmap2(HPS hpsMem,        // in: memory DC
                           ULONG cPlanes,     // in: color planes (usually 1); if 0, current screen is used
                           ULONG cBitCount)   // in: either 1, 4, or 24; if 0, current screen value
 {
-    HBITMAP hbm = NULLHANDLE;
     LONG alData[2];
     BITMAPINFOHEADER2 bih2;
-    // PBITMAPINFO2 pbmi = NULL;
 
     // determine the device's plane/bit-count format;
     // alData[0] then has cPlanes,
     // alData[1] has cBitCount
     if (GpiQueryDeviceBitmapFormats(hpsMem, 2, alData))
     {
-        // set up the BITMAPINFOHEADER2 and BITMAPINFO2 structures
-        bih2.cbFix = (ULONG)sizeof(BITMAPINFOHEADER2);
+        // copy values from global template V1.0.1 (2002-11-30) [umoeller]
+        memcpy(&bih2, &G_bih2Template, sizeof(bih2));
+
+        // fix variable fields V1.0.1 (2002-11-30) [umoeller]
         bih2.cx = cx;
         bih2.cy = cy;
         bih2.cPlanes = (cPlanes) ? cPlanes : alData[0];
         bih2.cBitCount = (cBitCount) ? cBitCount : alData[1];
-        bih2.ulCompression = BCA_UNCOMP;
         bih2.cbImage = (    (   (bih2.cx
                                     * (1 << bih2.cPlanes)
                                     * (1 << bih2.cBitCount)
                                 ) + 31
                             ) / 32
                        ) * bih2.cy;
-        bih2.cxResolution = 70;
-        bih2.cyResolution = 70;
-        bih2.cclrUsed = 2;
-        bih2.cclrImportant = 0;
-        bih2.usUnits = BRU_METRIC;  // measure units for cxResolution/cyResolution: pels per meter
-        bih2.usReserved = 0;
-        bih2.usRecording = BRA_BOTTOMUP;        // scan lines are bottom to top (default)
-        bih2.usRendering = BRH_NOTHALFTONED;    // other algorithms aren't documented anyway
-        bih2.cSize1 = 0;            // parameter for halftoning (undocumented anyway)
-        bih2.cSize2 = 0;            // parameter for halftoning (undocumented anyway)
-        bih2.ulColorEncoding = BCE_RGB;     // only possible value
-        bih2.ulIdentifier = 0;              // application-specific data
 
         // create a bit map that is compatible with the display
-        hbm = GpiCreateBitmap(hpsMem,
-                              &bih2,
-                              0,            // do not initialize
-                              NULL,         // init data
-                              NULL);
+        return GpiCreateBitmap(hpsMem,
+                               &bih2,
+                               0,            // do not initialize
+                               NULL,         // init data
+                               NULL);
     }
 
-    return hbm;
+    return NULLHANDLE;
+}
+
+/*
+ *@@ gpihQueryBitmapSize:
+ *      returns the width and height of the given bitmap.
+ *
+ *@@added V1.0.1 (2002-11-30) [umoeller]
+ */
+
+BOOL gpihQueryBitmapSize(HBITMAP hbm,       // in: bitmap handle for query
+                         PSIZEL pszl)       // out: size (cx, cy) of bitmap
+{
+    BITMAPINFOHEADER2 bmi2;
+    // query bitmap info
+    bmi2.cbFix = sizeof(bmi2);
+    if (    (hbm)
+         && (GpiQueryBitmapInfoHeader(hbm, &bmi2))
+       )
+    {
+        pszl->cx = bmi2.cx;
+        pszl->cy = bmi2.cy;
+        return TRUE;
+    }
+
+    return FALSE;
 }
 
 /*
@@ -1775,6 +1835,7 @@ HBITMAP gpihCreateBitmap2(HPS hpsMem,        // in: memory DC
  *      This returns the new bitmap or NULLHANDLE upon errors.
  *
  *@added V0.9.0
+ *@@changed V1.0.1 (2002-11-30) [umoeller]: optimized
  */
 
 HBITMAP gpihCreateHalftonedBitmap(HAB hab,              // in: anchor block
@@ -1785,22 +1846,15 @@ HBITMAP gpihCreateHalftonedBitmap(HAB hab,              // in: anchor block
 
     HDC     hdcMem;
     HPS     hpsMem;
-    BITMAPINFOHEADER2 bmi;
+    SIZEL   szlPage;
 
-    if (hbmSource)
+    if (gpihQueryBitmapSize(hbmSource, &szlPage))       // V1.0.1 (2002-11-30) [umoeller]
     {
-        SIZEL szlPage;
-        // query bitmap info
-        bmi.cbFix = sizeof(bmi);
-        GpiQueryBitmapInfoHeader(hbmSource, &bmi);
-
-        szlPage.cx = bmi.cx;
-        szlPage.cy = bmi.cy;
         if (gpihCreateMemPS(hab, &szlPage, &hdcMem, &hpsMem))
         {
             if ((hbmReturn = gpihCreateBitmap(hpsMem,
-                                              bmi.cx,
-                                              bmi.cy)))
+                                              szlPage.cx,
+                                              szlPage.cy)))
             {
                 if (GpiSetBitmap(hpsMem, hbmReturn) != HBM_ERROR)
                 {
@@ -1810,13 +1864,13 @@ HBITMAP gpihCreateHalftonedBitmap(HAB hab,              // in: anchor block
                     memset(aptl, 0, sizeof(POINTL) * 4);
                     // aptl[0]: target bottom-left, is all 0
                     // aptl[1]: target top-right (inclusive!)
-                    aptl[1].x = bmi.cx - 1;
-                    aptl[1].y = bmi.cy - 1;
+                    aptl[1].x = szlPage.cx - 1;
+                    aptl[1].y = szlPage.cy - 1;
                     // aptl[2]: source bottom-left, is all 0
 
                     // aptl[3]: source top-right (exclusive!)
-                    aptl[3].x = bmi.cx;
-                    aptl[3].y = bmi.cy;
+                    aptl[3].x = szlPage.cx;
+                    aptl[3].y = szlPage.cy;
                     GpiWCBitBlt(hpsMem,     // target HPS (bmp selected)
                                 hbmSource,
                                 4L,             // must always be 4
@@ -1831,8 +1885,8 @@ HBITMAP gpihCreateHalftonedBitmap(HAB hab,              // in: anchor block
                     gpihSwitchToRGB(hpsMem);
 
                     GpiMove(hpsMem, &aptl[0]);  // still 0, 0
-                    aptl[0].x = bmi.cx - 1;
-                    aptl[0].y = bmi.cy - 1;
+                    aptl[0].x = szlPage.cx - 1;
+                    aptl[0].y = szlPage.cy - 1;
                     GpiSetColor(hpsMem, lColorGray);
                     GpiSetPattern(hpsMem, PATSYM_HALFTONE);
                     GpiBox(hpsMem,
@@ -2325,6 +2379,7 @@ APIRET gpihLoadBitmapFile(HBITMAP *phbm,        // out: bitmap if NO_ERROR
  *                     or no bitmap selected into hpsTarget)
  *
  *@added V0.9.0
+ *@@changed V1.0.1 (2002-11-30) [umoeller]: optimized
  */
 
 LONG gpihStretchBitmap(HPS hpsTarget,       // in: memory PS to copy bitmap to
@@ -2333,20 +2388,19 @@ LONG gpihStretchBitmap(HPS hpsTarget,       // in: memory PS to copy bitmap to
                        PRECTL prclTarget,   // in: target rectangle (req.)
                        BOOL fProportional)  // in: preserve proportions when stretching?
 {
-    BITMAPINFOHEADER2   bih2;
+    SIZEL               szlBmp;
     POINTL              aptl[4];
     BOOL                fCalculated = FALSE;
 
-    memset(aptl, 0, sizeof(POINTL) * 4);
+    if (!gpihQueryBitmapSize(hbmSource, &szlBmp))       // V1.0.1 (2002-11-30) [umoeller]
+        return GPI_ERROR;
 
-    bih2.cbFix = sizeof(bih2);
-    GpiQueryBitmapInfoHeader(hbmSource,
-                             &bih2);
+    memset(aptl, 0, sizeof(POINTL) * 4);
 
     // aptl[2]: source bottom-left, is all 0
     // aptl[3]: source top-right (exclusive!)
-    aptl[3].x = bih2.cx;
-    aptl[3].y = bih2.cy;
+    aptl[3].x = szlBmp.cx;
+    aptl[3].y = szlBmp.cy;
 
     if (fProportional)
     {
@@ -2355,8 +2409,8 @@ LONG gpihStretchBitmap(HPS hpsTarget,       // in: memory PS to copy bitmap to
         // 1) find out whether cx or cy is too
         // large
 
-        ULONG ulPropSource = (bih2.cx * 1000)
-                                    / bih2.cy;
+        ULONG ulPropSource = (szlBmp.cx * 1000)
+                                    / szlBmp.cy;
                 // e.g. if the bmp is 200 x 100, we now have 2000
         ULONG ulPropTarget = ((prclTarget->xRight - prclTarget->xLeft) * 1000)
                                     / (prclTarget->yTop - prclTarget->yBottom);
@@ -2429,119 +2483,6 @@ LONG gpihStretchBitmap(HPS hpsTarget,       // in: memory PS to copy bitmap to
 }
 
 /*
- * gpihIcon2Bitmap:
- *      this paints the given icon/pointer into
- *      a bitmap. Note that if the bitmap is
- *      larget than the system icon size, only
- *      the rectangle of the icon will be filled
- *      with lBkgndColor.
- *
- *      Returns FALSE upon errors.
- *
- *added V0.9.0 [umoeller]
- *changed V0.9.16 (2001-10-15) [umoeller]: added pptlLowerLeft
- *changed V0.9.16 (2001-10-15) [umoeller]: fixed inclusive/exclusive confusion (sigh...)
- *changed V0.9.19 (2002-06-13) [umoeller]: fixed funny colors when scaling
- *removed V0.9.19 (2002-06-18) [umoeller]
- */
-
-#if 0
-
-BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap selected into it
-                     HPOINTER hptr,      // in: source icon
-                     LONG lBkgndColor,   // in: background color for transparent areas
-                     PPOINTL pptlLowerLeft, // in: lower left corner of where to paint (ptr can be NULL)
-                     ULONG ulIconSize)   // in: icon size (should be the value of WinQuerySysValue(HWND_DESKTOP, SV_CXICON))
-{
-    BOOL        brc = FALSE;
-    POINTERINFO pi;
-
-    // Each icon consists of two (really three)
-    // bitmaps, which are stored in the POINTERINFO
-    // structure:
-    //   pi.hbmColor    is the actual bitmap to be
-    //                  drawn. The parts that are
-    //                  to be transparent or inverted
-    //                  are black in this image.
-    //   pi.hbmPointer  has twice the height of
-    //                  hbmColor. The upper bitmap
-    //                  contains an XOR mask (for
-    //                  inverting parts), the lower
-    //                  bitmap an AND mask (for
-    //                  transparent parts).
-    if (WinQueryPointerInfo(hptr, &pi))
-    {
-        POINTL  ptlLowerLeft = {0, 0};
-        POINTL  aptl[4];
-        memset(aptl, 0, sizeof(POINTL) * 4);
-
-        if (pptlLowerLeft)
-            // lower left specified: V0.9.16 (2001-10-15) [umoeller]
-            memcpy(&ptlLowerLeft, pptlLowerLeft, sizeof(POINTL));
-
-        // aptl[0]: target bottom-left, is all 0
-        aptl[0].x = ptlLowerLeft.x;
-        aptl[0].y = ptlLowerLeft.y;
-
-        // aptl[1]: target top-right (inclusive!)
-        // V0.9.16 (2001-10-15) [umoeller]: fixed rectangle confusion
-        aptl[1].x = ptlLowerLeft.x + ulIconSize - 1;
-        aptl[1].y = ptlLowerLeft.y + ulIconSize - 1;
-
-        // aptl[2]: source bottom-left, is all 0
-
-        // aptl[3]: source top-right (exclusive!)
-        // V0.9.16 (2001-10-15) [umoeller]: fixed rectangle confusion
-        aptl[3].x = ulIconSize; //  + 1;
-        aptl[3].y = ulIconSize; //  + 1;
-
-        GpiSetColor(hpsMem, CLR_WHITE);
-        GpiSetBackColor(hpsMem, CLR_BLACK);
-
-        // GpiErase(hpsMem);
-
-        // V0.9.19 (2002-06-13) [umoeller]:
-        // use BBO_IGNORE instead of BBO_OR or we get funny colors
-        // when scaling down
-
-        // work on the AND image
-        GpiWCBitBlt(hpsMem,     // target
-                    pi.hbmPointer,  // src bmp
-                    4L,         // must always be 4
-                    &aptl[0],   // point array
-                    ROP_SRCAND,   // source AND target
-                    BBO_IGNORE);        // V0.9.19 (2002-06-13) [umoeller]
-
-        // paint the real image
-        if (pi.hbmColor)
-            GpiWCBitBlt(hpsMem,
-                        pi.hbmColor,
-                        4L,         // must always be 4
-                        &aptl[0],   // point array
-                        ROP_SRCPAINT,    // source OR target
-                        BBO_IGNORE);        // V0.9.19 (2002-06-13) [umoeller]
-
-        GpiSetColor(hpsMem, lBkgndColor);
-        // work on the XOR image
-        aptl[2].y = ulIconSize;                 // exclusive
-        aptl[3].y = (ulIconSize * 2); //  /* + 1; */       // exclusive
-        // V0.9.16 (2001-10-15) [umoeller]: fixed rectangle confusion
-        GpiWCBitBlt(hpsMem,
-                    pi.hbmPointer,
-                    4L,         // must always be 4
-                    &aptl[0],   // point array
-                    ROP_SRCINVERT,
-                    BBO_IGNORE);        // V0.9.19 (2002-06-13) [umoeller]
-
-        brc = TRUE;
-    }
-
-    return brc;
-}
-
-#endif
-
-/*
  *@@ gpihDrawPointer:
  *      replacement for WinDrawPointer that can do clipping.
  *
@@ -2584,6 +2525,7 @@ BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap sel
  *@@added V0.9.19 (2002-06-18) [umoeller]
  *@@changed V0.9.20 (2002-07-31) [umoeller]: optimized, saved one GpiQueryBitmapInfoHeader
  *@@changed V0.9.20 (2002-08-04) [umoeller]: added DP_HALFTONED
+ *@@changed V1.0.1 (2002-11-30) [umoeller]: optimized
  */
 
 BOOL gpihDrawPointer(HPS hps,           // in: target presentation space
@@ -2603,8 +2545,8 @@ BOOL gpihDrawPointer(HPS hps,           // in: target presentation space
     {
         POINTL  aptl[4];
         HBITMAP hbmThis;
-        BITMAPINFOHEADER2 bmiAndXor,
-                          bmiColor;
+        SIZEL   szlAndXor,      // V1.0.1 (2002-11-30) [umoeller]
+                szlColor;
 
         // A HPOINTER really consists of two bitmaps,
         // one monochrome bitmap that has twice the icon
@@ -2715,22 +2657,21 @@ BOOL gpihDrawPointer(HPS hps,           // in: target presentation space
                  || (hbmThis = pi.hbmPointer)
                )
             {
-                bmiAndXor.cbFix = sizeof(bmiAndXor);
-                GpiQueryBitmapInfoHeader(hbmThis, &bmiAndXor);
+                gpihQueryBitmapSize(hbmThis, &szlAndXor);   // V1.0.1 (2002-11-30) [umoeller]
 
                 // use only half the bitmap height
-                cySrc = bmiAndXor.cy / 2;
+                cySrc = szlAndXor.cy / 2;
 
                 // aptl[2]: source bottom-left
                 aptl[2].x =   0
-                            + lClipLeft   * bmiAndXor.cx / cxIcon;
+                            + lClipLeft   * szlAndXor.cx / cxIcon;
                 aptl[2].y =   cySrc
                             + lClipBottom * cySrc / cyIcon;
 
                 // aptl[3]: source top-right (exclusive!)
-                aptl[3].x =   bmiAndXor.cx
-                            - lClipRight  * bmiAndXor.cx / cxIcon;
-                aptl[3].y =   bmiAndXor.cy
+                aptl[3].x =   szlAndXor.cx
+                            - lClipRight  * szlAndXor.cx / cxIcon;
+                aptl[3].y =   szlAndXor.cy
                             - lClipTop    * cySrc / cyIcon;
 
                 GpiWCBitBlt(hps,        // target
@@ -2752,20 +2693,19 @@ BOOL gpihDrawPointer(HPS hps,           // in: target presentation space
                  || (hbmThis = pi.hbmColor)
                )
             {
-                bmiColor.cbFix = sizeof(bmiColor);
-                GpiQueryBitmapInfoHeader(hbmThis, &bmiColor);
+                gpihQueryBitmapSize(hbmThis, &szlColor);        // V1.0.1 (2002-11-30) [umoeller]
 
                 // aptl[2]: source bottom-left
                 aptl[2].x =   0
-                            + lClipLeft   * bmiColor.cx / cxIcon;
+                            + lClipLeft   * szlColor.cx / cxIcon;
                 aptl[2].y =   0
-                            + lClipBottom * bmiColor.cy / cyIcon;
+                            + lClipBottom * szlColor.cy / cyIcon;
 
                 // aptl[3]: source top-right (exclusive!)
-                aptl[3].x =   bmiColor.cx
-                            - lClipRight  * bmiColor.cx / cxIcon;
-                aptl[3].y =   bmiColor.cy
-                            - lClipTop    * bmiColor.cy / cyIcon;
+                aptl[3].x =   szlColor.cx
+                            - lClipRight  * szlColor.cx / cxIcon;
+                aptl[3].y =   szlColor.cy
+                            - lClipTop    * szlColor.cy / cyIcon;
 
                 GpiWCBitBlt(hps,        // target
                             hbmThis,    // src bmp
@@ -2786,23 +2726,20 @@ BOOL gpihDrawPointer(HPS hps,           // in: target presentation space
                  || (hbmThis = pi.hbmPointer)
                )
             {
-                /*  we queried this one above V0.9.20 (2002-07-31) [umoeller]
-                bmiAndXor.cbFix = sizeof(bmiAndXor);
-                GpiQueryBitmapInfoHeader(hbmThis, &bmiAndXor);
-                */
+                // we queried the size of this one above V0.9.20 (2002-07-31) [umoeller]
 
                 // use only half the bitmap height
-                cySrc = bmiAndXor.cy / 2;
+                cySrc = szlAndXor.cy / 2;
 
                 // aptl[2]: source bottom-left
                 aptl[2].x =   0
-                            + lClipLeft   * bmiAndXor.cx / cxIcon;
+                            + lClipLeft   * szlAndXor.cx / cxIcon;
                 aptl[2].y =   0
                             + lClipBottom * cySrc / cyIcon;
 
                 // aptl[3]: source top-right (exclusive!)
-                aptl[3].x =   bmiAndXor.cx
-                            - lClipRight  * bmiAndXor.cx / cxIcon;
+                aptl[3].x =   szlAndXor.cx
+                            - lClipRight  * szlAndXor.cx / cxIcon;
                 aptl[3].y =   cySrc
                             - lClipTop    * cySrc / cyIcon;
 

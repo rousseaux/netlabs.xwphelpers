@@ -787,6 +787,9 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
  *      within excHandlerLoud (because excHandlerQuiet
  *      writes no trap logs).
  *
+ *      Registering hooks affects all threads that use
+ *      the exception handlers.
+ *
  *      The hooks are as follows:
  *
  *      --  pfnExcOpenFileNew gets called to open

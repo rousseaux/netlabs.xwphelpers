@@ -70,6 +70,13 @@ extern "C" {
     #define BM_CHECKED             1   // for checkboses: enabled
     #define BM_INDETERMINATE       2   // for tri-state checkboxes: indeterminate
 
+    // these undocumented msgs are posted whenever the mouse
+    // enters or leaves a window V1.0.1 (2002-11-30) [umoeller]
+    #ifndef WM_MOUSEENTER
+        #define WM_MOUSEENTER   0x041E
+        #define WM_MOUSELEAVE   0x041F
+    #endif
+
     /* ******************************************************************
      *
      *   Wrappers
@@ -171,6 +178,15 @@ extern "C" {
      *
      ********************************************************************/
 
+    extern LONG G_cxScreen,
+                G_cyScreen,
+                G_cxIcon,
+                G_cyIcon,
+                G_lcol3DDark,
+                G_lcol3DLight;
+
+    VOID XWPENTRY winhInitGlobals(VOID);
+
     ULONG XWPENTRY winhQueryWindowStyle(HWND hwnd);
 
     BOOL XWPENTRY winhEnableDlgItem(HWND hwndDlg, SHORT id, BOOL fEnable);
@@ -183,156 +199,178 @@ extern "C" {
      *
      ********************************************************************/
 
+    // now including all this only with INCL_WINMENUS
+    // V1.0.1 (2002-11-30) [umoeller]
     #ifdef INCL_WINMENUS
+
+        #ifndef MM_QUERYITEMBYPOS16
+            #define MM_QUERYITEMBYPOS16 0x01f3
+            // this undocumented message is sent to retrieve the definition
+            // of a menu item by its position.  This message will only query
+            // an item in the specified menu.
+            //
+            // Parameters:
+            //     SHORT1FROMMP(mp1) = position of item in the menu
+            //     SHORT2FROMMP(mp1) = reserved, set to 0
+            //     mp2 = (16 bit pointer) points to a MENUITEM structure
+            //           to be filled in.
+        #endif
+        #ifndef MAKE_16BIT_POINTER
+            #define MAKE_16BIT_POINTER(p) \
+                    ((PVOID)MAKEULONG(LOUSHORT(p),(HIUSHORT(p) << 3) | 7))
+            // converts a flat 32bit pointer to its 16bit offset/selector form
+        #endif
+
         BOOL XWPENTRY winhQueryMenuItem(HWND hwndMenu,
                                         USHORT usItemID,
                                         BOOL fSearchSubmenus,
                                         PMENUITEM pmi);
+
+        HWND XWPENTRY winhQuerySubmenu(HWND hMenu, SHORT sID);
+
+        /*
+         * winhCreateEmptyMenu:
+         *      this macro creates an empty menu, which can
+         *      be used with winhInsertMenuItem etc. later.
+         *      Useful for creating popup menus on the fly.
+         *      Note that even though HWND_DESKTOP is specified
+         *      here as both the parent and the owner, the
+         *      actual owner and parent are specified later
+         *      with WinPopupMenu.
+         */
+
+        #define winhCreateEmptyMenu()                                   \
+        WinCreateWindow(HWND_DESKTOP, WC_MENU, "", 0, 0, 0, 0, 0,       \
+                        HWND_DESKTOP, HWND_TOP, 0, 0, 0)
+
+        SHORT XWPENTRY winhInsertMenuItem(HWND hwndMenu,
+                                          SHORT iPosition,
+                                          SHORT sItemId,
+                                          const char *pcszItemTitle,
+                                          SHORT afStyle,
+                                          SHORT afAttr);
+        typedef SHORT XWPENTRY WINHINSERTMENUITEM(HWND hwndMenu,
+                                                  SHORT iPosition,
+                                                  SHORT sItemId,
+                                                  const char *pcszItemTitle,
+                                                  SHORT afStyle,
+                                                  SHORT afAttr);
+        typedef WINHINSERTMENUITEM *PWINHINSERTMENUITEM;
+
+        HWND XWPENTRY winhInsertSubmenu(HWND hwndMenu,
+                                        ULONG iPosition,
+                                        SHORT sMenuId,
+                                        const char *pcszSubmenuTitle,
+                                        USHORT afMenuStyle,
+                                        SHORT sItemId,
+                                        const char *pcszItemTitle,
+                                        USHORT afItemStyle,
+                                        USHORT afAttribute);
+        typedef HWND XWPENTRY WINHINSERTSUBMENU(HWND hwndMenu,
+                                                ULONG iPosition,
+                                                SHORT sMenuId,
+                                                const char *pcszSubmenuTitle,
+                                                USHORT afMenuStyle,
+                                                SHORT sItemId,
+                                                const char *pcszItemTitle,
+                                                USHORT afItemStyle,
+                                                USHORT afAttribute);
+        typedef WINHINSERTSUBMENU *PWINHINSERTSUBMENU;
+
+        BOOL XWPENTRY winhSetMenuCondCascade(HWND hwndMenu,
+                                             LONG lDefaultItem);
+
+        /*
+         *@@ winhRemoveMenuItem:
+         *      removes a menu item (SHORT) from the
+         *      given menu (HWND). Returns the no. of
+         *      remaining menu items (SHORT).
+         *
+         *      This works for whole submenus too.
+         */
+
+        #define winhRemoveMenuItem(hwndMenu, sItemID) \
+                SHORT1FROMMR(WinSendMsg(hwndMenu, MM_REMOVEITEM, MPFROM2SHORT(sItemID, FALSE), 0))
+
+        BOOL XWPENTRY winhRemoveMenuItems(HWND hwndMenu,
+                                          const SHORT *asItemIDs,
+                                          ULONG cItemIDs);
+
+        /*
+         *@@ winhDeleteMenuItem:
+         *      deleted a menu item (SHORT) from the
+         *      given menu (HWND). Returns the no. of
+         *      remaining menu items (SHORT).
+         *
+         *      As opposed to MM_REMOVEITEM, MM_DELETEITEM
+         *      frees submenus and bitmaps also.
+         *
+         *      This works for whole submenus too.
+         */
+
+        #define winhDeleteMenuItem(hwndMenu, sItemId) \
+                (SHORT)WinSendMsg(hwndMenu, MM_DELETEITEM, MPFROM2SHORT(sItemId, FALSE), 0)
+
+        SHORT XWPENTRY winhInsertMenuSeparator(HWND hMenu,
+                                               SHORT iPosition,
+                                               SHORT sId);
+
+        #define COPYFL_STRIPTABS            0x0001
+
+        BOOL XWPENTRY winhCopyMenuItem2(HWND hmenuTarget,
+                                        HWND hmenuSource,
+                                        USHORT usID,
+                                        SHORT sTargetPosition,
+                                        ULONG fl);
+
+        BOOL XWPENTRY winhCopyMenuItem(HWND hmenuTarget,
+                                       HWND hmenuSource,
+                                       USHORT usID,
+                                       SHORT sTargetPosition);
+        typedef BOOL XWPENTRY WINHCOPYMENUITEM(HWND hmenuTarget,
+                                       HWND hmenuSource,
+                                       USHORT usID,
+                                       SHORT sTargetPosition);
+        typedef WINHCOPYMENUITEM *PWINHCOPYMENUITEM;
+
+        HWND XWPENTRY winhMergeIntoSubMenu(HWND hmenuTarget,
+                                           SHORT sTargetPosition,
+                                           const char *pcszTitle,
+                                           SHORT sID,
+                                           HWND hmenuSource);
+        typedef HWND XWPENTRY WINHMERGEINTOSUBMENU(HWND hmenuTarget,
+                                           SHORT sTargetPosition,
+                                           const char *pcszTitle,
+                                           SHORT sID,
+                                           HWND hmenuSource);
+        typedef WINHMERGEINTOSUBMENU *PWINHMERGEINTOSUBMENU;
+
+        ULONG XWPENTRY winhMergeMenus(HWND hmenuTarget,
+                                      SHORT sTargetPosition,
+                                      HWND hmenuSource,
+                                      ULONG fl);
+        typedef ULONG XWPENTRY WINHMERGEMENUS(HWND hmenuTarget,
+                                              SHORT sTargetPosition,
+                                              HWND hmenuSource,
+                                              ULONG fl);
+        typedef WINHMERGEMENUS *PWINHMERGEMENUS;
+
+        ULONG XWPENTRY winhClearMenu(HWND hwndMenu);
+
+        PSZ XWPENTRY winhQueryMenuItemText(HWND hwndMenu,
+                                           USHORT usItemID);
+
+        BOOL XWPENTRY winhAppend2MenuItemText(HWND hwndMenu,
+                                              USHORT usItemID,
+                                              const char *pcszAppend,
+                                              BOOL fTab);
+
+        VOID XWPENTRY winhMenuRemoveEllipse(HWND hwndMenu,
+                                            USHORT usItemId);
+
+        SHORT XWPENTRY winhQueryItemUnderMouse(HWND hwndMenu, POINTL *pptlMouse, RECTL *prtlItem);
+
     #endif
-
-    HWND XWPENTRY winhQuerySubmenu(HWND hMenu, SHORT sID);
-
-    /*
-     * winhCreateEmptyMenu:
-     *      this macro creates an empty menu, which can
-     *      be used with winhInsertMenuItem etc. later.
-     *      Useful for creating popup menus on the fly.
-     *      Note that even though HWND_DESKTOP is specified
-     *      here as both the parent and the owner, the
-     *      actual owner and parent are specified later
-     *      with WinPopupMenu.
-     */
-
-    #define winhCreateEmptyMenu()                                   \
-    WinCreateWindow(HWND_DESKTOP, WC_MENU, "", 0, 0, 0, 0, 0,       \
-                    HWND_DESKTOP, HWND_TOP, 0, 0, 0)
-
-    SHORT XWPENTRY winhInsertMenuItem(HWND hwndMenu,
-                                      SHORT iPosition,
-                                      SHORT sItemId,
-                                      const char *pcszItemTitle,
-                                      SHORT afStyle,
-                                      SHORT afAttr);
-    typedef SHORT XWPENTRY WINHINSERTMENUITEM(HWND hwndMenu,
-                                              SHORT iPosition,
-                                              SHORT sItemId,
-                                              const char *pcszItemTitle,
-                                              SHORT afStyle,
-                                              SHORT afAttr);
-    typedef WINHINSERTMENUITEM *PWINHINSERTMENUITEM;
-
-    HWND XWPENTRY winhInsertSubmenu(HWND hwndMenu,
-                                    ULONG iPosition,
-                                    SHORT sMenuId,
-                                    const char *pcszSubmenuTitle,
-                                    USHORT afMenuStyle,
-                                    SHORT sItemId,
-                                    const char *pcszItemTitle,
-                                    USHORT afItemStyle,
-                                    USHORT afAttribute);
-    typedef HWND XWPENTRY WINHINSERTSUBMENU(HWND hwndMenu,
-                                            ULONG iPosition,
-                                            SHORT sMenuId,
-                                            const char *pcszSubmenuTitle,
-                                            USHORT afMenuStyle,
-                                            SHORT sItemId,
-                                            const char *pcszItemTitle,
-                                            USHORT afItemStyle,
-                                            USHORT afAttribute);
-    typedef WINHINSERTSUBMENU *PWINHINSERTSUBMENU;
-
-    BOOL XWPENTRY winhSetMenuCondCascade(HWND hwndMenu,
-                                         LONG lDefaultItem);
-
-    /*
-     *@@ winhRemoveMenuItem:
-     *      removes a menu item (SHORT) from the
-     *      given menu (HWND). Returns the no. of
-     *      remaining menu items (SHORT).
-     *
-     *      This works for whole submenus too.
-     */
-
-    #define winhRemoveMenuItem(hwndMenu, sItemID) \
-            SHORT1FROMMR(WinSendMsg(hwndMenu, MM_REMOVEITEM, MPFROM2SHORT(sItemID, FALSE), 0))
-
-    BOOL XWPENTRY winhRemoveMenuItems(HWND hwndMenu,
-                                      const SHORT *asItemIDs,
-                                      ULONG cItemIDs);
-
-    /*
-     *@@ winhDeleteMenuItem:
-     *      deleted a menu item (SHORT) from the
-     *      given menu (HWND). Returns the no. of
-     *      remaining menu items (SHORT).
-     *
-     *      As opposed to MM_REMOVEITEM, MM_DELETEITEM
-     *      frees submenus and bitmaps also.
-     *
-     *      This works for whole submenus too.
-     */
-
-    #define winhDeleteMenuItem(hwndMenu, sItemId) \
-            (SHORT)WinSendMsg(hwndMenu, MM_DELETEITEM, MPFROM2SHORT(sItemId, FALSE), 0)
-
-    SHORT XWPENTRY winhInsertMenuSeparator(HWND hMenu,
-                                           SHORT iPosition,
-                                           SHORT sId);
-
-    #define COPYFL_STRIPTABS            0x0001
-
-    BOOL XWPENTRY winhCopyMenuItem2(HWND hmenuTarget,
-                                    HWND hmenuSource,
-                                    USHORT usID,
-                                    SHORT sTargetPosition,
-                                    ULONG fl);
-
-    BOOL XWPENTRY winhCopyMenuItem(HWND hmenuTarget,
-                                   HWND hmenuSource,
-                                   USHORT usID,
-                                   SHORT sTargetPosition);
-    typedef BOOL XWPENTRY WINHCOPYMENUITEM(HWND hmenuTarget,
-                                   HWND hmenuSource,
-                                   USHORT usID,
-                                   SHORT sTargetPosition);
-    typedef WINHCOPYMENUITEM *PWINHCOPYMENUITEM;
-
-    HWND XWPENTRY winhMergeIntoSubMenu(HWND hmenuTarget,
-                                       SHORT sTargetPosition,
-                                       const char *pcszTitle,
-                                       SHORT sID,
-                                       HWND hmenuSource);
-    typedef HWND XWPENTRY WINHMERGEINTOSUBMENU(HWND hmenuTarget,
-                                       SHORT sTargetPosition,
-                                       const char *pcszTitle,
-                                       SHORT sID,
-                                       HWND hmenuSource);
-    typedef WINHMERGEINTOSUBMENU *PWINHMERGEINTOSUBMENU;
-
-    ULONG XWPENTRY winhMergeMenus(HWND hmenuTarget,
-                                  SHORT sTargetPosition,
-                                  HWND hmenuSource,
-                                  ULONG fl);
-    typedef ULONG XWPENTRY WINHMERGEMENUS(HWND hmenuTarget,
-                                          SHORT sTargetPosition,
-                                          HWND hmenuSource,
-                                          ULONG fl);
-    typedef WINHMERGEMENUS *PWINHMERGEMENUS;
-
-    ULONG XWPENTRY winhClearMenu(HWND hwndMenu);
-
-    PSZ XWPENTRY winhQueryMenuItemText(HWND hwndMenu,
-                                       USHORT usItemID);
-
-    BOOL XWPENTRY winhAppend2MenuItemText(HWND hwndMenu,
-                                          USHORT usItemID,
-                                          const char *pcszAppend,
-                                          BOOL fTab);
-
-    VOID XWPENTRY winhMenuRemoveEllipse(HWND hwndMenu,
-                                        USHORT usItemId);
-
-    SHORT XWPENTRY winhQueryItemUnderMouse(HWND hwndMenu, POINTL *pptlMouse, RECTL *prtlItem);
 
     /* ******************************************************************
      *
@@ -710,6 +748,8 @@ extern "C" {
     typedef PSZ XWPENTRY WINHQUERYWINDOWFONT(HWND hwnd);
     typedef WINHQUERYWINDOWFONT *PWINHQUERYWINDOWFONT;
 
+    PCSZ XWPENTRY winhQueryDefaultFont(VOID);
+
     BOOL XWPENTRY winhSetWindowFont(HWND hwnd, const char *pcszFont);
     typedef BOOL XWPENTRY WINHSETWINDOWFONT(HWND hwnd, const char *pcszFont);
     typedef WINHSETWINDOWFONT *PWINHSETWINDOWFONT;
@@ -734,6 +774,8 @@ extern "C" {
                                          ULONG ulAttrType,
                                          ULONG cbData,
                                          PVOID pData);
+
+        PPRESPARAMS XWPENTRY winhCreateDefaultPresparams(VOID);
     #endif
 
     LONG XWPENTRY winhQueryPresColor(HWND hwnd, ULONG ulPP, BOOL fInherit, LONG lSysColor);
@@ -787,9 +829,35 @@ extern "C" {
     typedef VOID XWPENTRY WINHFREE(PVOID p);
     typedef WINHFREE *PWINHFREE;
 
+    /*
+     *@@ winhMyAnchorBlock:
+     *      returns the HAB of the current thread.
+     *
+     *      Many Win* functions require an HAB to be
+     *      passed in. While many of them will work
+     *      when passing in NULLHANDLE, some (such as
+     *      WinGetMsg) won't. If you don't know the
+     *      anchor block of the calling thread, use
+     *      this function.
+     *
+     *      The HAB is simply a LONG whose hiword has
+     *      the current PID and the lowword has the
+     *      current TID. The previous function that
+     *      created a temporary window to figure this
+     *      out has been replaced with this macro, since
+     *      WinQueryAnchorBlock(HWND_DESKTOP) yields the
+     *      same result.
+     *
+     *@@added V1.0.1 (2002-11-30) [umoeller]
+     */
+
+    #define winhMyAnchorBlock() WinQueryAnchorBlock(HWND_DESKTOP)
+
+    /*
     HAB XWPENTRY winhMyAnchorBlock(VOID);
     typedef HAB XWPENTRY WINHMYANCHORBLOCK(VOID);
     typedef WINHMYANCHORBLOCK *PWINHMYANCHORBLOCK;
+    */
 
     VOID XWPENTRY winhSleep(ULONG ulSleep);
 
@@ -803,6 +871,8 @@ extern "C" {
                               HINI hini,
                               const char *pcszApplication,
                               const char *pcszKey);
+
+    HPOINTER XWPENTRY winhQueryWaitPointer(VOID);
 
     HPOINTER XWPENTRY winhSetWaitPointer(VOID);
 
@@ -901,79 +971,6 @@ extern "C" {
     BOOL XWPENTRY winhSetClipboardText(HAB hab,
                                        PCSZ pcsz,
                                        ULONG cbSize);
-
-    /*
-     *@@ winhQueryScreenCX:
-     *      helper macro for getting the screen width.
-     */
-
-    #define winhQueryScreenCX() (WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN))
-
-    /*
-     *@@ winhQueryScreenCY:
-     *      helper macro for getting the screen height.
-     */
-
-    #define winhQueryScreenCY() (WinQuerySysValue(HWND_DESKTOP, SV_CYSCREEN))
-
-    /* ******************************************************************
-     *
-     *   Extended frame
-     *
-     ********************************************************************/
-
-    #define XFCF_STATUSBAR          0x0001
-
-    #define FID_STATUSBAR           0x8100
-
-    VOID winhCalcExtFrameRect(MPARAM mp1,
-                              MPARAM mp2,
-                              LONG lStatusBarHeight);
-
-    /*
-     *@@ EXTFRAMECDATA:
-     *
-     *@@added V0.9.16 (2001-09-29) [umoeller]
-     */
-
-    typedef struct _EXTFRAMECDATA
-    {
-        PSWP        pswpFrame;          // in: frame wnd pos
-        ULONG       flFrameCreateFlags; // in: FCF_* flags
-        ULONG       flExtFlags;         // in: XFCF_* flags
-        ULONG       ulFrameStyle;       // in: WS_* flags (e.g. WS_VISIBLE, WS_ANIMATE)
-        const char  *pcszFrameTitle;    // in: frame title (title bar)
-        ULONG       ulResourcesID;      // in: according to FCF_* flags
-        const char  *pcszClassClient;   // in: client class name
-        ULONG       flStyleClient;      // in: client style
-        ULONG       ulID;               // in: frame window ID
-        PVOID       pClientCtlData;     // in: pCtlData structure pointer for client
-    } EXTFRAMECDATA, *PEXTFRAMECDATA;
-
-    /*
-     *@@ EXTFRAMEDATA:
-     *
-     *@@added V0.9.16 (2001-09-29) [umoeller]
-     */
-
-    typedef struct _EXTFRAMEDATA
-    {
-        EXTFRAMECDATA   CData;
-
-        PFNWP           pfnwpOrig;      // original frame wnd proc from subclassing
-
-        PVOID           pvUser;         // more data for user (e.g. for additional subclassing)
-
-    } EXTFRAMEDATA, *PEXTFRAMEDATA;
-
-    HWND winhCreateStatusBar(HWND hwndFrame,
-                             HWND hwndOwner,
-                             const char *pcszText,
-                             const char *pcszFont,
-                             LONG lColor);
-
-    HWND winhCreateExtStdWindow(PEXTFRAMECDATA pData,
-                                PHWND phwndClient);
 
     /* ******************************************************************
      *

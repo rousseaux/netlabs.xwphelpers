@@ -115,6 +115,16 @@
 
     #define STRINGORNULL(s) (s) ? (s) : "NULL"
 
+    /*
+     *@@ STOREIFMAX:
+     *      helpful macro to store a in b if it is
+     *      larger than b.
+     *
+     *@@added V1.0.1 (2002-11-30) [umoeller]
+     */
+
+    #define STOREIFMAX(a, b) if ((a) > (b)) { b = a; }
+
 #endif
 
 

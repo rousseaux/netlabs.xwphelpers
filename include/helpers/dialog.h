@@ -484,7 +484,7 @@ extern "C" {
             id, CTL_COMMON_FONT, {cx, cy}, COMMON_SPACING, pctldata }
 
     // the following require #include helpers\comctl.h
-    #define CONTROLDEF_SEPARATORLINE(id, cx, cy) { WC_SEPARATORLINE, NULL, \
+    #define CONTROLDEF_SEPARATORLINE(id, cx, cy) { WC_CCTL_SEPARATOR, NULL, \
             WS_VISIBLE, \
             id, NULL, {cx, cy}, COMMON_SPACING }
 

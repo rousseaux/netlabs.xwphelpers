@@ -2141,12 +2141,12 @@ MRESULT cnrhOwnerDrawRecord(MPARAM mp2,     // in: mp2 of WM_DRAWITEM (POWNERITE
                            // center the icon in the rectangle
                            (   poi->rclItem.xLeft
                              + (poi->rclItem.xRight - poi->rclItem.xLeft
-                                - WinQuerySysValue(HWND_DESKTOP, SV_CXICON) / 2
+                                - G_cxIcon / 2
                                ) / 2
                            ),
                            (   poi->rclItem.yBottom
                              + (poi->rclItem.yTop - poi->rclItem.yBottom
-                                - WinQuerySysValue(HWND_DESKTOP, SV_CYICON) / 2
+                                - G_cyIcon / 2
                                ) / 2
                            ),
                            pcdii->pRecord->hptrMiniIcon,

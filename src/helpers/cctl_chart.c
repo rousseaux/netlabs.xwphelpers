@@ -1495,24 +1495,16 @@ STATIC VOID SendWMControl(HWND hwndChart,
                           ULONG ulEmphasis,            // 0 or 1
                           LONG lIndex)
 {
-    HWND hwndOwner;
+    EMPHASISNOTIFY en;
+    en.hwndSource = hwndChart;
+    en.lIndex = lIndex;        // can be -1
+    en.ulEmphasis = ulEmphasis;
+    en.ptl.x = SHORT1FROMMP(mp1Mouse);
+    en.ptl.y = SHORT2FROMMP(mp1Mouse);
 
-    if (hwndOwner = WinQueryWindow(hwndChart, QW_OWNER))
-    {
-        EMPHASISNOTIFY en;
-        en.hwndSource = hwndChart;
-        en.lIndex = lIndex;        // can be -1
-        en.ulEmphasis = ulEmphasis;
-        en.ptl.x = SHORT1FROMMP(mp1Mouse);
-        en.ptl.y = SHORT2FROMMP(mp1Mouse);
-
-        WinSendMsg(hwndOwner,
-                   WM_CONTROL,
-                   MPFROM2SHORT(WinQueryWindowUShort(hwndChart,
-                                                     QWS_ID),
-                                usNotify),
-                   &en);
-    }
+    ctlSendWmControl(hwndChart,
+                     usNotify,
+                     &en);
 }
 
 /*

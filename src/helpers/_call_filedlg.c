@@ -10,6 +10,8 @@
 #define INCL_WINWINDOWMGR
 #define INCL_WINFRAMEMGR
 #define INCL_WINMENUS
+#define INCL_WINBUTTONS
+#define INCL_WINPOINTERS
 #define INCL_WINSTDFILE
 
 #include <os2.h>
@@ -23,7 +25,12 @@
 #include "..\..\..\xworkplace\include\xwpapi.h"
 
 #include "helpers\call_file_dlg.c"
+#include "helpers\comctl.h"
+#include "helpers\standards.h"
 #include "helpers\winh.h"
+#include "helpers\gpih.h"
+
+PCSZ    WC_CLIENT = "MyClient";
 
 /*
  *@@ NewWinFileDlg:
@@ -82,6 +89,37 @@ VOID ShowFileDlg(HWND hwndFrame)
 }
 
 /*
+ *@@ fnwpClient:
+ *
+ */
+
+MRESULT EXPENTRY fnwpClient(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
+{
+    MRESULT mrc = 0;
+
+    switch (msg)
+    {
+        case WM_PAINT:
+        {
+            HPS hps;
+            RECTL rcl;
+            if (hps = WinBeginPaint(hwnd, NULLHANDLE, &rcl))
+            {
+                gpihSwitchToRGB(hps);
+                WinFillRect(hps, &rcl, RGBCOL_GRAY);
+                WinEndPaint(hps);
+            }
+        }
+        break;
+
+        default:
+            mrc = WinDefWindowProc(hwnd, msg, mp1, mp2);
+    }
+
+    return mrc;
+}
+
+/*
  *@@ main:
  *
  */
@@ -91,16 +129,108 @@ int main(int argc, char *argv[])
     HAB             hab;
     HMQ             hmq;
 
-    ULONG           flFrame =     FCF_TITLEBAR
-                                | FCF_SYSMENU
-                                | FCF_MINMAX
-                                | FCF_SIZEBORDER
-                                | FCF_NOBYTEALIGN
-                                | FCF_SHELLPOSITION
-                                | FCF_TASKLIST;
+    #define TBBS_COMMON TBBS_AUTORESIZE | TBBS_FLAT | TBBS_HILITE | WS_VISIBLE
+
+    CHAR            szOpen[200],
+                    szExit[200];
+
+    TOOLBARCONTROL  aControls[] =
+        {
+            WC_CCTL_TBBUTTON,
+            szExit,
+            TBBS_COMMON | TBBS_BIGICON | TBBS_TEXT | TBBS_SYSCOMMAND,
+            SC_CLOSE,
+            10,
+            10,
+
+            WC_CCTL_TBBUTTON,
+            szExit,
+            TBBS_COMMON | TBBS_BIGICON /* TBBS_TEXT | */ ,
+            0,
+            10,
+            10,
+
+            WC_CCTL_TBBUTTON,
+            szExit,
+            TBBS_COMMON | TBBS_MINIICON /* TBBS_TEXT | */ ,
+            0,
+            10,
+            10,
+
+            WC_CCTL_TBBUTTON,
+            szOpen,
+            TBBS_COMMON | TBBS_MINIICON | TBBS_TEXT,
+            1000,
+            10,
+            10,
+
+            WC_CCTL_TBBUTTON,
+            "Toggle\ntest",
+            TBBS_COMMON | TBBS_TEXT | TBBS_CHECK,
+            1001,
+            10,
+            10,
+
+            WC_CCTL_SEPARATOR,
+            NULL,
+            WS_VISIBLE | SEPS_VERTICAL,
+            1002,
+            10,
+            10,
+
+            WC_CCTL_TBBUTTON,
+            "Group 1",
+            TBBS_COMMON | TBBS_TEXT | TBBS_CHECKGROUP | TBBS_CHECKINITIAL,
+            1101,
+            10,
+            10,
+
+            WC_CCTL_TBBUTTON,
+            "Group 2",
+            TBBS_COMMON | TBBS_TEXT | TBBS_CHECKGROUP,
+            1102,
+            10,
+            10,
+
+            WC_CCTL_TBBUTTON,
+            "Group 3",
+            TBBS_COMMON | TBBS_TEXT | TBBS_CHECKGROUP,
+            1103,
+            10,
+            10,
+
+        };
+
+    EXTFRAMECDATA   xfd =
+        {
+            NULL,                               // pswpFrame
+            FCF_TITLEBAR
+                  | FCF_SYSMENU
+                  | FCF_MINMAX
+                  | FCF_SIZEBORDER
+                  | FCF_NOBYTEALIGN
+                  | FCF_SHELLPOSITION
+                  | FCF_TASKLIST,
+            XFCF_TOOLBAR | XFCF_FORCETBOWNER | XFCF_STATUSBAR,
+            WS_VISIBLE,                         // ulFrameStyle
+            "Test File Dialog",                 // pcszFrameTitle
+            0,                                  // ulResourcesID
+            WC_CLIENT,                          // pcszClassClient
+            WS_VISIBLE,                         // flStyleClient
+            0,                                  // ulID
+            NULL,
+            HINI_USER,
+            "XWorkplace Test Apps",
+            "CallFileDlgPos",
+
+            ARRAYITEMCOUNT(aControls),
+            aControls
+        };
 
     HWND            hwndFrame,
                     hwndClient,
+                    hwndStatusBar,
+                    hwndToolBar,
                     hwndMenu,
                     hwndSubmenu;
     QMSG            qmsg;
@@ -108,15 +238,36 @@ int main(int argc, char *argv[])
     hab = WinInitialize(0);
     hmq = WinCreateMsgQueue(hab, 0);
 
-    hwndFrame = WinCreateStdWindow(HWND_DESKTOP,
-                                   WS_VISIBLE,
-                                   &flFrame,
-                                   NULL,
-                                   "Test File Dialog",
-                                   WS_VISIBLE,
-                                   0,
-                                   0,
-                                   &hwndClient);
+    winhInitGlobals();
+
+    ctlRegisterToolbar(hab);
+    ctlRegisterSeparatorLine(hab);
+
+    WinRegisterClass(hab,
+                     (PSZ)WC_CLIENT,
+                     fnwpClient,
+                     0,
+                     4);
+
+    sprintf(szOpen,
+            "#%d#Open",
+            WinQuerySysPointer(HWND_DESKTOP,
+                               SPTR_ICONINFORMATION,
+                               FALSE));
+
+    sprintf(szExit,
+            "#%d#Exit",
+            WinQuerySysPointer(HWND_DESKTOP,
+                               SPTR_ICONWARNING,
+                               FALSE));
+
+    hwndFrame = ctlCreateStdWindow(&xfd, &hwndClient);
+
+    hwndToolBar = WinWindowFromID(hwndFrame, FID_TOOLBAR);
+    hwndStatusBar = WinWindowFromID(hwndFrame, FID_STATUSBAR);
+
+    WinSetWindowText(hwndToolBar, "Tool bar");
+    WinSetWindowText(hwndStatusBar, "Status bar");
 
     hwndMenu = WinCreateMenu(hwndFrame,
                              NULL);
@@ -127,14 +278,14 @@ int main(int argc, char *argv[])
                                     "~File",
                                     MIS_TEXT | MIS_SUBMENU,
                                     1000,
-                                    "~Show dialog",
+                                    "Open...",
                                     MIS_TEXT,
                                     0);
 
     winhInsertMenuItem(hwndSubmenu,
                        MIT_END,
                        SC_CLOSE,
-                       "~Close",
+                       "~Quit",
                        MIS_SYSCOMMAND | MIS_TEXT,
                        0);
 

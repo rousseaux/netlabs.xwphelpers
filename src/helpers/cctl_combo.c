@@ -407,11 +407,9 @@ STATIC MRESULT EXPENTRY fnwpComboSubclass(HWND hwnd, ULONG msg, MPARAM mp1, MPAR
                     // forward list box notifications to
                     // our own owner, but replace the id
                     // with the combo box id
-                    WinPostMsg(WinQueryWindow(hwnd, QW_OWNER),
-                               WM_CONTROL,
-                               MPFROM2SHORT(WinQueryWindowUShort(hwnd, QWS_ID),
-                                            uscode),
-                               mp2);
+                    ctlPostWmControl(hwnd,
+                                     uscode,
+                                     mp2);
 
                     // do not call parent
                     break;

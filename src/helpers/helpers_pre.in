@@ -88,7 +88,9 @@ $(OUTPUTDIR)\cctl_checkcnr.obj\
 $(OUTPUTDIR)\cctl_combo.obj\
 $(OUTPUTDIR)\cctl_progbar.obj\
 $(OUTPUTDIR)\cctl_splitwin.obj\
+$(OUTPUTDIR)\cctl_toolbar.obj\
 $(OUTPUTDIR)\cctl_tooltip.obj\
+$(OUTPUTDIR)\cctl_xframe.obj\
 $(OUTPUTDIR)\comctl.obj\
 $(OUTPUTDIR)\configsys.obj\
 $(OUTPUTDIR)\cnrh.obj\

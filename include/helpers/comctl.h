@@ -38,53 +38,77 @@ extern "C" {
 
     /* ******************************************************************
      *
+     *   Shared stuff
+     *
+     ********************************************************************/
+
+    MRESULT ctlSendWmControl(HWND hwndControl,
+                             USHORT usCode,
+                             MPARAM mp2);
+
+    BOOL ctlPostWmControl(HWND hwndControl,
+                          USHORT usCode,
+                          MPARAM mp2);
+
+    /*
+     *@@ SYSCOLORSET:
+     *
+     *@@added V1.0.1 (2002-11-30) [umoeller]
+     */
+
+    typedef struct _SYSCOLORSET
+    {
+        BOOL    fInheritPP;
+
+        LONG    lBackIndex,
+                lForeIndex;
+    } SYSCOLORSET, *PSYSCOLORSET;
+
+    /*
+     *@@ DEFWINDOWDATA:
+     *
+     *@@added V1.0.1 (2002-11-30) [umoeller]
+     */
+
+    typedef struct _DEFWINDATA
+    {
+        HWND        hwnd;
+        HAB         hab;
+
+        PFNWP       pDefWindowProc;
+        const SYSCOLORSET *pSysColorSet;
+
+        LONG        lcolBackground,
+                    lcolForeground;
+
+        SIZEL       szlWin;             // current window dimensions
+
+        PSZ         pszText;            // window text or NULL
+
+    } DEFWINDATA, *PDEFWINDATA;
+
+    VOID ctlInitDWD(HWND hwnd,
+                    MPARAM mp2,
+                    PDEFWINDATA pdwd,
+                    PFNWP pDefWindowProc,
+                    const SYSCOLORSET *pSysColorSet);
+
+    VOID ctlRefreshColors(PDEFWINDATA pdwd);
+
+    MRESULT ctlDefWindowProc(PDEFWINDATA pdwd, ULONG msg, MPARAM mp1, MPARAM mp2);
+
+    /* ******************************************************************
+     *
      *   "Separator line" control
      *
      ********************************************************************/
 
-    #define WC_SEPARATORLINE        "XwpSeparatorLine"
+    #define WC_CCTL_SEPARATOR       "ComctlSeparator"
+
+    #define SEPS_HORIZONTAL         0x0000
+    #define SEPS_VERTICAL           0x0001
 
     BOOL ctlRegisterSeparatorLine(HAB hab);
-
-    /* ******************************************************************
-     *
-     *   "XButton" control
-     *
-     ********************************************************************/
-
-    /*
-     *@@ XBUTTONDATA:
-     *      paint data for ctlPaintXButton.
-     *
-     *@@added V0.9.13 (2001-06-21) [umoeller]
-     */
-
-    typedef struct _XBUTTONDATA
-    {
-        RECTL       rcl;                // size of button (in presentation space
-                                        // coordinates); exclusive!
-
-        ULONG       cxIconOrBitmap,     // icon size
-                    cyIconOrBitmap;
-
-        LONG        lcol3DDark,         // lo-3D color
-                    lcol3DLight,        // hi-3D color
-                    lMiddle;            // color for center (button background)
-
-        HPOINTER    hptr;               // icon to paint or NULLHANDLE
-
-    } XBUTTONDATA, *PXBUTTONDATA;
-
-    #define XBF_FLAT                0x00000001
-    #define XBF_BITMAP              0x00000002
-
-    #define XBF_PRESSED             0x00010000
-    #define XBF_BACKGROUND          0x00020000
-    #define XBF_INUSE               0x00040000
-
-    VOID ctlPaintXButton(HPS hps,
-                         ULONG fl,
-                         PXBUTTONDATA pxbd);
 
     /* ******************************************************************
      *
@@ -669,6 +693,9 @@ extern "C" {
      *
      ********************************************************************/
 
+    #define WC_CCTL_TOOLTIP         "ComctlTooltipClass"
+                    // define identifier changed V1.0.1 (2002-11-30) [umoeller]
+
     // addt'l tooltip window styles: use lower 16 bits
     #define TTS_ALWAYSTIP           0x0001
     #define TTS_NOPREFIX            0x0002
@@ -926,11 +953,263 @@ extern "C" {
 
     #define TTN_POP             1002
 
-    #define COMCTL_TOOLTIP_CLASS    "ComctlTooltipClass"
-
     BOOL ctlRegisterTooltip(HAB hab);
 
     MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2);
+
+    /* ******************************************************************
+     *
+     *   "Tool bar button" control
+     *
+     ********************************************************************/
+
+    #define WC_CCTL_TOOLBAR         "ComctlToolbarClass"
+
+    // toolbar button styles: use lower 16 bits
+    #define TBBS_BIGICON            0x0001
+    #define TBBS_MINIICON           0x0002
+    #define TBBS_BITMAP             0x0004
+    #define TBBS_TEXT               0x0008
+
+    #define TBBS_CHECK              0x0010
+    #define TBBS_RADIO              0x0020
+    #define TBBS_CHECKINITIAL       0x0040
+
+    #define TBBS_AUTORESIZE         0x0100
+    #define TBBS_HILITE             0x0200
+    #define TBBS_FLAT               0x0400
+    #define TBBS_DROPMNEMONIC       0x0800
+
+    #define TBBS_COMMAND            0x1000
+    #define TBBS_SYSCOMMAND         0x2000
+
+    // tool bar button messages
+
+    #define TBBM_CHECK              (WM_USER + 1)
+
+    #define TBBM_QUERYCHECK         (WM_USER + 2)
+
+    /*
+     *@@ XBUTTONDATA:
+     *      paint data for ctlPaintTBButton.
+     *
+     *@@added V0.9.13 (2001-06-21) [umoeller]
+     */
+
+    typedef struct _XBUTTONDATA
+    {
+        DEFWINDATA  dwd;              // color for center (button background)
+
+        SIZEL       szlIconOrBitmap;
+
+        HPOINTER    hptr;               // icon to paint or NULLHANDLE
+
+        // BOOL        fPaintButtonSunk;
+
+    } XBUTTONDATA, *PXBUTTONDATA;
+
+    /*
+     *@@ XBUTTONSTATE:
+     *
+     *@@added V1.0.1 (2002-11-30) [umoeller]
+     */
+
+    typedef struct _XBUTTONSTATE
+    {
+        BOOL        fMB1Pressed;            // if TRUE, mouse button is currently pressed
+        BOOL        fIgnoreMB1Up;
+        BOOL        fPaintButtonSunk;       // if TRUE, button control is to be painted "down"
+        BOOL        fMouseCaptured;         // if TRUE, mouse is currently captured
+        BOOL        fMouseOver;
+    } XBUTTONSTATE, *PXBUTTONSTATE;
+
+    // the following styles are only for painting and not stored
+    #define TBBS_BACKGROUND          0x00010000
+    #define TBBS_INUSE               0x00020000
+
+    VOID ctlPaintTBButton(HPS hps,
+                          ULONG fl,
+                          PXBUTTONDATA pbd,
+                          PXBUTTONSTATE pbs);
+
+    MRESULT EXPENTRY ctl_fnwpToolbarButton(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2);
+
+    /* ******************************************************************
+     *
+     *   "Tool bar" control
+     *
+     ********************************************************************/
+
+    #define WC_CCTL_TBBUTTON        "ComCtlToolbarButton"
+                    // define identifier changed V1.0.1 (2002-11-30) [umoeller]
+
+    // tool bar window styles: use lower 16 bits
+    #define TBS_TOOLTIPS            0x0001
+    #define TBS_AUTORESIZE          0x0002
+
+    /*
+     *@@ TOOLBARCONTROL:
+     *
+     *@@added V1.0.1 (2002-11-30) [umoeller]
+     */
+
+    typedef struct _TOOLBARCONTROL
+    {
+        PCSZ        pcszClass;
+        PCSZ        pcszTitle;
+        ULONG       flStyle;
+        ULONG       id;
+        LONG        cx,
+                    cy;
+    } TOOLBARCONTROL, *PTOOLBARCONTROL;
+
+    /*
+     *@@ TOOLBARCDATA:
+     *
+     *@@added V1.0.1 (2002-11-30) [umoeller]
+     */
+
+    typedef struct _TOOLBARCDATA
+    {
+        USHORT      cb;
+
+        HWND        hwndControlsOwner;
+
+        ULONG       cControls;
+        PTOOLBARCONTROL patbc;
+
+    } TOOLBARCDATA, *PTOOLBARCDATA;
+
+    #define TBM_ADDCONTROLS         (WM_USER + 1)
+
+    /*
+     *@@ TBN_RESIZED:
+     *      notification code posted with WM_CONTROL when
+     *      a tool bar has resized itself, e.g. because
+     *      controls were added or removed.
+     *
+     *      Parameters:
+     *
+     *      --  SHORT1FROMMP(mp1): ID of the tool bar control.
+     *
+     *      --  SHORT2FROMMP(mp1): TBN_RESIZED code.
+     *
+     *      --  mp2: unused.
+     *
+     *@@added V1.0.1 (2002-11-30) [umoeller]
+     */
+
+    #define TBN_RESIZED             1
+
+    MRESULT EXPENTRY ctl_fnwpToolbar(HWND hwndToolbar, ULONG msg, MPARAM mp1, MPARAM mp2);
+
+    BOOL ctlRegisterToolbar(HAB hab);
+
+    HWND ctlCreateToolBar(HWND hwndParent,
+                          HWND hwndOwner,
+                          ULONG flStyle,
+                          HWND hwndControlsOwner,
+                          ULONG cControls,
+                          PTOOLBARCONTROL patbc);
+
+    /* ******************************************************************
+     *
+     *   Extended frame
+     *
+     ********************************************************************/
+
+    #define FID_TOOLBAR             0x8101
+    #define FID_STATUSBAR           0x8100
+
+    /*
+     *@@ EXTFRAMECDATA:
+     *
+     *@@added V0.9.16 (2001-09-29) [umoeller]
+     */
+
+    typedef struct _EXTFRAMECDATA
+    {
+        PSWP        pswpFrame;          // in: frame wnd pos (can be NULL)
+        ULONG       flFrame;            // in: standard FCF_* flags
+        ULONG       flExtFrame;         // in: XFCF_* flags
+                #define XFCF_STATUSBAR          0x0001
+                            // create a status bar for the frame
+                #define XFCF_TOOLBAR            0x0002
+                            // create a tool bar for the frame
+                #define XFCF_FORCETBOWNER       0x0004
+                            // if set, we will enfore that all toolbar controls have
+                            // the main frame as their owner, otherwise they'll have
+                            // the frame's client, if one exists
+        ULONG       flStyleFrame;       // in: frame style (WS_* flags, e.g. WS_VISIBLE | WS_ANIMATE)
+        PCSZ        pcszFrameTitle;     // in: frame title (title bar)
+        ULONG       ulResourcesID;      // in: according to FCF_* flags
+
+        PCSZ        pcszClassClient;    // in: client class name or NULL for no client
+        ULONG       flStyleClient;      // in: client style (WS_* flags, e.g. WS_VISIBLE)
+
+        ULONG       ulID;               // in: frame window ID
+        PVOID       pClientCtlData;     // in: pCtlData structure pointer for client
+
+        HINI        hiniSaveWinPos;     // in: HINI for saving window position or NULLHANDLE
+        PCSZ        pcszIniApp,
+                    pcszIniKey;
+
+        ULONG       cTBControls;        // in: count of tool bar controls in paTBControls or 0
+        PTOOLBARCONTROL paTBControls;
+
+    } EXTFRAMECDATA, *PEXTFRAMECDATA;
+
+    /*
+     *@@ XFRAMECONTROLS:
+     *
+     *@@added V1.0.1 (2002-11-30) [umoeller]
+     */
+
+    typedef struct _XFRAMECONTROLS
+    {
+        PFNWP           pfnwpOrig;      // original frame wnd proc from subclassing
+
+        HWND            hwndToolBar,
+                        hwndStatusBar;
+
+        LONG            lToolBarHeight,
+                        lStatusBarHeight;
+
+    } XFRAMECONTROLS, *PXFRAMECONTROLS;
+
+    /*
+     *@@ EXTFRAMEDATA:
+     *
+     *@@added V0.9.16 (2001-09-29) [umoeller]
+     */
+
+    typedef struct _EXTFRAMEDATA
+    {
+        EXTFRAMECDATA   CData;
+
+        XFRAMECONTROLS  xfc;
+
+        PVOID           pvUser;         // more data for user (e.g. for additional subclassing)
+
+    } EXTFRAMEDATA, *PEXTFRAMEDATA;
+
+    MRESULT ctlFormatExtFrame(HWND hwndFrame,
+                              PXFRAMECONTROLS pxfc,
+                              MPARAM mp1,
+                              MPARAM mp2);
+
+    VOID ctlCalcExtFrameRect(MPARAM mp1,
+                             MPARAM mp2,
+                             LONG lStatusBarHeight);
+
+    HWND ctlCreateStatusBar(HWND hwndFrame,
+                            HWND hwndOwner,
+                            const char *pcszText,
+                            const char *pcszFont,
+                            LONG lColor);
+
+    HWND ctlCreateStdWindow(PEXTFRAMECDATA pData,
+                            PHWND phwndClient);
 
     /* ******************************************************************
      *

@@ -44,6 +44,9 @@ extern "C" {
     VOID gpihInflateRect(PRECTL prcl,
                          LONG l);
 
+    VOID gpihCopyRectIncl(PRECTL prclGpi,
+                          PRECTL prclWin);
+
     /* ******************************************************************
      *
      *   Device helpers

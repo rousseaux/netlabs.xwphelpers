@@ -270,9 +270,43 @@ VOID winhOffsetRect(PRECTL prcl,
 
 /* ******************************************************************
  *
+ *   Global variables
+ *
+ ********************************************************************/
+
+extern LONG G_cxScreen = 0,
+            G_cyScreen = 0,
+            G_cxIcon = 0,
+            G_cyIcon = 0,
+            G_lcol3DDark = 0,         // lo-3D color
+            G_lcol3DLight = 0;        // hi-3D color
+
+/* ******************************************************************
+ *
  *   Generics
  *
  ********************************************************************/
+
+/*
+ *@@ winhInitGlobals:
+ *      initializes a few global variables that are usually
+ *      used all the time in many applications and also
+ *      internally by many helper routines. You must call
+ *      this at the start of your application if you want
+ *      to use these.
+ *
+ *@@added V1.0.1 (2002-11-30) [umoeller]
+ */
+
+VOID winhInitGlobals(VOID)
+{
+    G_cxScreen = WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN);
+    G_cyScreen = WinQuerySysValue(HWND_DESKTOP, SV_CYSCREEN);
+    G_cxIcon = WinQuerySysValue(HWND_DESKTOP, SV_CXICON);
+    G_cyIcon = WinQuerySysValue(HWND_DESKTOP, SV_CYICON);
+    G_lcol3DDark = WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONDARK, 0);
+    G_lcol3DLight = WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONLIGHT, 0);
+}
 
 /*
  *@@ winhQueryWindowStyle:
@@ -2804,7 +2838,7 @@ BOOL winhPlaceBesides(HWND hwnd,
 
         // if (xNew + swpThis.cy > WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN))
                 // not cy, but cx V1.0.0 (2002-08-26) [umoeller]
-        if (xNew + swpThis.cx > WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN))
+        if (xNew + swpThis.cx > G_cxScreen)
         {
             // place left then
             xNew = ptlRel.x - swpThis.cx;
@@ -2901,6 +2935,20 @@ PSZ winhQueryWindowFont(HWND hwnd)
 }
 
 /*
+ *@@ winhQueryDefaultFont:
+ *
+ *@@added V1.0.1 (2002-11-30) [umoeller]
+ */
+
+PCSZ winhQueryDefaultFont(VOID)
+{
+    if (doshIsWarp4())
+        return "9.WarpSans";
+
+    return "8.Helv";
+}
+
+/*
  *@@ winhSetWindowFont:
  *      this sets a window's font by invoking
  *      WinSetPresParam on it.
@@ -2913,27 +2961,19 @@ PSZ winhQueryWindowFont(HWND hwnd)
  *      Returns TRUE if successful or FALSE otherwise.
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V1.0.1 (2002-11-30) [umoeller]: optimized
  */
 
 BOOL winhSetWindowFont(HWND hwnd,
                        const char *pcszFont)
 {
-    CHAR    szFont[256];
-
-    if (pcszFont == NULL)
-    {
-        if (doshIsWarp4())
-            strhncpy0(szFont, "9.WarpSans", sizeof(szFont));
-        else
-            strhncpy0(szFont, "8.Helv", sizeof(szFont));
-    }
-    else
-        strhncpy0(szFont, pcszFont, sizeof(szFont));
+    if (!pcszFont)
+        pcszFont = winhQueryDefaultFont();
 
     return WinSetPresParam(hwnd,
                            PP_FONTNAMESIZE,
-                           strlen(szFont)+1,
-                           szFont);
+                           strlen(pcszFont) + 1,
+                           (PSZ)pcszFont);
 }
 
 /*
@@ -3081,7 +3121,45 @@ BOOL winhStorePresParam(PPRESPARAMS *pppp,      // in: data pointer (modified)
             brc = TRUE;
         }
     }
+
     return brc;
+}
+
+/*
+ *@@ winhCreateDefaultPresparams:
+ *
+ *      Caller must free() the return value.
+ *
+ *@@added V1.0.1 (2002-11-30) [umoeller]
+ */
+
+PPRESPARAMS winhCreateDefaultPresparams(VOID)
+{
+    PPRESPARAMS ppp = NULL;
+
+    PCSZ    pcszFont = winhQueryDefaultFont();
+    LONG    lColor;
+
+    winhStorePresParam(&ppp,
+                       PP_FONTNAMESIZE,
+                       strlen(pcszFont) + 1,
+                       (PVOID)pcszFont);
+
+    lColor = WinQuerySysColor(HWND_DESKTOP,
+                              SYSCLR_DIALOGBACKGROUND,
+                              0);
+    winhStorePresParam(&ppp,
+                       PP_BACKGROUNDCOLOR,
+                       sizeof(lColor),
+                       &lColor);
+
+    lColor = RGBCOL_BLACK;
+    winhStorePresParam(&ppp,
+                       PP_FOREGROUNDCOLOR,
+                       sizeof(lColor),
+                       &lColor);
+
+    return ppp;
 }
 
 /*
@@ -3496,39 +3574,6 @@ HSWITCH winhAddToTasklist(HWND hwnd,       // in: window to add
  ********************************************************************/
 
 /*
- *@@ winhMyAnchorBlock:
- *      returns the proper anchor block (HAB)
- *      for the calling thread.
- *
- *      Many Win* functions require an HAB to be
- *      passed in. While many of them will work
- *      when passing in NULLHANDLE, some (such as
- *      WinGetMsg) won't. If you don't know the
- *      anchor block of the calling thread, use
- *      this function.
- *
- *      This creates a temporary object window to
- *      find out the anchor block. This is quite
- *      expensive so only use this if there's no
- *      other way to find out.
- *
- *@@added V0.9.11 (2001-04-20) [umoeller]
- */
-
-HAB winhMyAnchorBlock(VOID)
-{
-    HAB hab = NULLHANDLE;
-    HWND hwnd;
-    if (hwnd = winhCreateObjectWindow(WC_BUTTON, NULL))
-    {
-        hab = WinQueryAnchorBlock(hwnd);
-        WinDestroyWindow(hwnd);
-    }
-
-    return hab;
-}
-
-/*
  *@@ winhFree:
  *      frees a block of memory allocated by the
  *      winh* functions.
@@ -3727,6 +3772,20 @@ BOOL winhFileDlg(HWND hwndOwner,    // in: owner for file dlg
 }
 
 /*
+ *@@ winhQueryWaitPointer:
+ *      shortcut for getting the system "wait" pointer.
+ *
+ *@@added V1.0.1 (2002-11-30) [umoeller]
+ */
+
+HPOINTER winhQueryWaitPointer(VOID)
+{
+    return WinQuerySysPointer(HWND_DESKTOP,
+                              SPTR_WAIT,
+                              FALSE);   // no copy
+}
+
+/*
  *@@ winhSetWaitPointer:
  *      this sets the mouse pointer to "Wait".
  *      Returns the previous pointer (HPOINTER),
@@ -3741,9 +3800,7 @@ HPOINTER winhSetWaitPointer(VOID)
 {
     HPOINTER hptr = WinQueryPointer(HWND_DESKTOP);
     WinSetPointer(HWND_DESKTOP,
-                  WinQuerySysPointer(HWND_DESKTOP,
-                                     SPTR_WAIT,
-                                     FALSE));   // no copy
+                  winhQueryWaitPointer());
     return hptr;
 }
 
@@ -3759,15 +3816,15 @@ HPOINTER winhSetWaitPointer(VOID)
 PSZ winhQueryWindowText(HWND hwnd)
 {
     PSZ     pszText = NULL;
-    ULONG   cbText = WinQueryWindowTextLength(hwnd);
-                                    // additional null character
-    if (cbText)
+    ULONG   cbText;
+    if (cbText = WinQueryWindowTextLength(hwnd))
     {
-        if (pszText = (PSZ)malloc(cbText + 1))
+        if (pszText = (PSZ)malloc(cbText + 1))  // additional null character
             WinQueryWindowText(hwnd,
                                cbText + 1,
                                pszText);
     }
+
     return pszText;
 }
 
@@ -3820,8 +3877,9 @@ BOOL winhReplaceWindowText(HWND hwnd,           // in: window whose text is to b
                            const char *pcszReplaceWith)  // in: replacement string for pszSearch
 {
     BOOL    brc = FALSE;
-    PSZ     pszText = winhQueryWindowText(hwnd);
-    if (pszText)
+    PSZ     pszText;
+
+    if (pszText = winhQueryWindowText(hwnd))
     {
         ULONG ulOfs = 0;
         if (strhFindReplace(&pszText, &ulOfs, pcszSearch, pcszReplaceWith) > 0)
@@ -3829,8 +3887,10 @@ BOOL winhReplaceWindowText(HWND hwnd,           // in: window whose text is to b
             WinSetWindowText(hwnd, pszText);
             brc = TRUE;
         }
+
         free(pszText);
     }
+
     return brc;
 }
 
@@ -3938,6 +3998,7 @@ ULONG winhEnableControls2(HWND hwndDlg,             // in: dialog window
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.5 (2000-08-13) [umoeller]: flStyleClient never worked, fixed
  *@@changed V0.9.7 (2000-12-08) [umoeller]: fixed client calc for invisible window
+ *@@changed V1.0.1 (2002-11-30) [umoeller]: added support for NULL pcszClassClient
  */
 
 HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
@@ -3946,11 +4007,11 @@ HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
                          ULONG ulFrameStyle,        // in: WS_* flags (e.g. WS_VISIBLE, WS_ANIMATE)
                          const char *pcszFrameTitle, // in: frame title (title bar)
                          ULONG ulResourcesID,       // in: according to FCF_* flags
-                         const char *pcszClassClient, // in: client class name
+                         const char *pcszClassClient, // in: client class name (can be NULL for no client)
                          ULONG flStyleClient,       // in: client style
                          ULONG ulID,                // in: frame window ID
                          PVOID pClientCtlData,      // in: pCtlData structure pointer for client
-                         PHWND phwndClient)         // out: created client wnd
+                         PHWND phwndClient)         // out: created client wnd (required)
 {
     FRAMECDATA  fcdata;
     HWND        hwndFrame;
@@ -3961,30 +4022,30 @@ HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
     fcdata.hmodResources = (HMODULE)NULL;
     fcdata.idResources   = ulResourcesID;
 
-    /* Create the frame and client windows.  */
-    hwndFrame = WinCreateWindow(hwndFrameParent,
-                                WC_FRAME,
-                                (PSZ)pcszFrameTitle,
-                                ulFrameStyle,
-                                0,0,0,0,         // size and position = 0
-                                NULLHANDLE,      // no owner
-                                HWND_TOP,        // z-order
-                                ulID,            // frame window ID
-                                &fcdata,         // frame class data
-                                NULL);           // no presparams
-
-    if (hwndFrame)
+    // create the frame and client windows
+    if (hwndFrame = WinCreateWindow(hwndFrameParent,
+                                    WC_FRAME,
+                                    (PSZ)pcszFrameTitle,
+                                    ulFrameStyle,
+                                    0,0,0,0,
+                                    NULLHANDLE,
+                                    HWND_TOP,
+                                    ulID,
+                                    &fcdata,
+                                    NULL))
     {
-        if (*phwndClient = WinCreateWindow(hwndFrame,      // parent
-                                           (PSZ)pcszClassClient, // class
-                                           NULL,           // no title
-                                           flStyleClient,  // style
-                                           0,0,0,0,        // size and position = 0
-                                           hwndFrame,      // owner
-                                           HWND_BOTTOM,    // bottom z-order
-                                           FID_CLIENT,     // frame window ID
-                                           pClientCtlData, // class data
-                                           NULL))          // no presparams
+        if (    (!pcszClassClient)          // V1.0.1 (2002-11-30) [umoeller]
+             || (*phwndClient = WinCreateWindow(hwndFrame,      // parent
+                                                (PSZ)pcszClassClient, // class
+                                                NULL,           // no title
+                                                flStyleClient,  // style
+                                                0,0,0,0,        // size and position = 0
+                                                hwndFrame,      // owner
+                                                HWND_BOTTOM,    // bottom z-order
+                                                FID_CLIENT,     // frame window ID
+                                                pClientCtlData, // class data
+                                                NULL))          // no presparams
+           )
         {
             if (pswpFrame)
             {
@@ -3997,23 +4058,28 @@ HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
                                 pswpFrame->cy,
                                 pswpFrame->fl);
 
-                // position client
-                // WinQueryWindowRect(hwndFrame, &rclClient);
-                // doesn't work because it might be invisible V0.9.7 (2000-12-08) [umoeller]
-                rclClient.xLeft = 0;
-                rclClient.yBottom = 0;
-                rclClient.xRight = pswpFrame->cx;
-                rclClient.yTop = pswpFrame->cy;
-                WinCalcFrameRect(hwndFrame,
-                                 &rclClient,
-                                 TRUE);     // calc client from frame
-                WinSetWindowPos(*phwndClient,
-                                HWND_TOP,
-                                rclClient.xLeft,
-                                rclClient.yBottom,
-                                rclClient.xRight - rclClient.xLeft,
-                                rclClient.yTop - rclClient.yBottom,
-                                SWP_MOVE | SWP_SIZE | SWP_SHOW);
+                if (!pcszClassClient)
+                    *phwndClient = NULLHANDLE;
+                else
+                {
+                    // position client
+                    // WinQueryWindowRect(hwndFrame, &rclClient);
+                    // doesn't work because it might be invisible V0.9.7 (2000-12-08) [umoeller]
+                    rclClient.xLeft = 0;
+                    rclClient.yBottom = 0;
+                    rclClient.xRight = pswpFrame->cx;
+                    rclClient.yTop = pswpFrame->cy;
+                    WinCalcFrameRect(hwndFrame,
+                                     &rclClient,
+                                     TRUE);     // calc client from frame
+                    WinSetWindowPos(*phwndClient,
+                                    HWND_TOP,
+                                    rclClient.xLeft,
+                                    rclClient.yBottom,
+                                    rclClient.xRight - rclClient.xLeft,
+                                    rclClient.yTop - rclClient.yBottom,
+                                    SWP_MOVE | SWP_SIZE | SWP_SHOW);
+                }
             }
         }
     }
@@ -4118,7 +4184,7 @@ HMQ winhFindMsgQueue(PID pid,           // in: process ID
         CHAR    szClass[200];
         if (WinQueryClassName(hwndThis, sizeof(szClass), szClass))
         {
-            if (strcmp(szClass, "#32767") == 0)
+            if (!strcmp(szClass, "#32767"))
             {
                 // message queue window:
                 PID pidWin = 0;
@@ -4131,10 +4197,10 @@ HMQ winhFindMsgQueue(PID pid,           // in: process ID
                    )
                 {
                     // get HMQ from window words
-                    rc = WinQueryWindowULong(hwndThis, QWL_HMQ);
-                    if (rc)
+                    if (rc = WinQueryWindowULong(hwndThis, QWL_HMQ))
                         if (phab)
                             *phab = WinQueryAnchorBlock(hwndThis);
+
                     break;
                 }
             }
@@ -4177,7 +4243,7 @@ VOID winhFindPMErrorWindows(HWND *phwndHardError,  // out: hard error window
     WinQueryWindowProcess(WinQueryObjectWindow(HWND_DESKTOP), &pidObject, &tidObject);
     // enumerate all child windows of HWND_OBJECT
     henumObject = WinBeginEnumWindows(HWND_OBJECT);
-    while ((hwndObjectChild = WinGetNextWindow(henumObject)) != NULLHANDLE)
+    while ((hwndObjectChild = WinGetNextWindow(henumObject)))
     {
         // see if the current HWND_OBJECT child window runs in the
         // process of HWND_OBJECT (PM)
@@ -4271,8 +4337,8 @@ HWND winhCreateFakeDesktop(HWND hwndSibling)
                            "",            // window text
                            WS_VISIBLE,    // window style
                            0, 0,          // position and size
-                           WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN),
-                           WinQuerySysValue(HWND_DESKTOP, SV_CYSCREEN),
+                           G_cxScreen,
+                           G_cyScreen,
                            NULLHANDLE,    // owner window
                            hwndSibling,   // sibling window
                            1,             // window id
@@ -4425,14 +4491,20 @@ BOOL winhAssertWarp4Notebook(HWND hwndDlg,
  *         the text. This will be set to the longest line which
  *         was encountered.
  *
- *      You can specify DT_QUERYEXTENT with flDraw to only have
- *      these text boundaries calculated without actually drawing.
+ *      The following DT_* flags are supported:
+ *
+ *      --  DT_LEFT, DT_CENTER, DT_RIGHT all work.
+ *
+ *      --  Vertically however only DT_TOP is supported.
+ *
+ *      --  You can specify DT_QUERYEXTENT to only have
+ *          these text boundaries calculated without actually
+ *          drawing.
+ *
+ *      Note that DT_TEXTATTRS will always be added, so you
+ *      will want to call GpiSetColor before this.
  *
  *      This returns the number of lines drawn.
- *
- *      Note that this calls WinDrawText with DT_TEXTATTRS set,
- *      that is, the current text primitive attributes will be
- *      used (fonts and colors).
  *
  *@@changed V0.9.0 [umoeller]: prcl.xLeft and xRight are now updated too upon return
  */
@@ -4442,12 +4514,7 @@ ULONG winhDrawFormattedText(HPS hps,     // in: presentation space; its settings
                             PRECTL prcl, // in/out: rectangle to use for drawing
                                          // (modified)
                             const char *pcszText, // in: text to draw (zero-terminated)
-                            ULONG flCmd) // in: flags like in WinDrawText; I have
-                                         // only tested DT_TOP and DT_LEFT though.
-                                         // DT_WORDBREAK | DT_TEXTATTRS are always
-                                         // set.
-                                         // You can specify DT_QUERYEXTENT to only
-                                         // have prcl calculated without drawing.
+                            ULONG flCmd) // in: DT_* flags like in WinDrawText; see remarks
 {
     PSZ     p = (PSZ)pcszText;
     LONG    lDrawn = 1,
@@ -4471,10 +4538,11 @@ ULONG winhDrawFormattedText(HPS hps,     // in: presentation space; its settings
     {
         memcpy(&rcl2, prcl, sizeof(rcl2));
         lDrawn = WinDrawText(hps,
-                             ulTextLen-lTotalDrawn,
+                             ulTextLen - lTotalDrawn,
                              p,
                              &rcl2,
-                             0, 0,                       // colors
+                             0,
+                             0,                       // colors
                              flCmd2);
 
         // update char counters
@@ -4493,6 +4561,7 @@ ULONG winhDrawFormattedText(HPS hps,     // in: presentation space; its settings
         // increase line count
         lLineCount++;
     }
+
     prcl->xLeft = xLeftmost;
     prcl->xRight = xRightmost;
     prcl->yBottom = prcl->yTop;
@@ -4520,13 +4589,12 @@ ULONG winhDrawFormattedText(HPS hps,     // in: presentation space; its settings
 
 PSWBLOCK winhQuerySwitchList(HAB hab)
 {
-    ULONG   cItems = WinQuerySwitchList(hab, NULL, 0);
-    ULONG   ulBufSize = (cItems * sizeof(SWENTRY)) + sizeof(HSWITCH);
-    PSWBLOCK pSwBlock = (PSWBLOCK)malloc(ulBufSize);
-    if (pSwBlock)
+    ULONG       cItems = WinQuerySwitchList(hab, NULL, 0);
+    ULONG       ulBufSize = (cItems * sizeof(SWENTRY)) + sizeof(HSWITCH);
+    PSWBLOCK    pSwBlock;
+    if (pSwBlock = (PSWBLOCK)malloc(ulBufSize))
     {
-        cItems = WinQuerySwitchList(hab, pSwBlock, ulBufSize);
-        if (!cItems)
+        if (!(cItems = WinQuerySwitchList(hab, pSwBlock, ulBufSize)))
         {
             free(pSwBlock);
             pSwBlock = NULL;
@@ -4746,10 +4814,10 @@ VOID winhSetNumLock(BOOL fState)
         DosDevIOCtl(hKbd, IOCTL_KEYBOARD, KBD_SETSHIFTSTATE,
                     &ShiftState, DataLen, &DataLen,
                     NULL, 0L, NULL);
+
         // now close OS/2 keyboard driver
         DosClose(hKbd);
     }
-    return;
 }
 
 /*
@@ -4794,284 +4862,6 @@ BOOL winhSetClipboardText(HAB hab,
     }
 
     return fSuccess;
-}
-
-/*
- *@@category: Helpers\PM helpers\Extended frame windows
- */
-
-/* ******************************************************************
- *
- *   Extended frame
- *
- ********************************************************************/
-
-/*
- *@@ winhCalcExtFrameRect:
- *      implementation for WM_CALCFRAMERECT in fnwpSubclExtFrame.
- *      This is exported so it can be used independently
- *      (XWorkplace status bars).
- *
- *@@added V1.0.0 (2002-08-28) [umoeller]
- */
-
-VOID winhCalcExtFrameRect(MPARAM mp1,
-                          MPARAM mp2,
-                          LONG lStatusBarHeight)
-{
-    PRECTL prclPassed = (PRECTL)mp1;
-
-    // mp2 == TRUE:  Frame rectangle provided, calculate client
-    // mp2 == FALSE: Client area rectangle provided, calculate frame
-    if (mp2)
-    {
-        //  TRUE: calculate the rectl of the client;
-        //  call default window procedure to subtract child frame
-        //  controls from the rectangle's height
-        LONG lClientHeight;
-
-        //  position the static text frame extension below the client
-        lClientHeight = prclPassed->yTop - prclPassed->yBottom;
-        if (lStatusBarHeight > lClientHeight)
-            // extension is taller than client, so set client height to 0
-            prclPassed->yTop = prclPassed->yBottom;
-        else
-        {
-            //  set the origin of the client and shrink it based upon the
-            //  static text control's height
-            prclPassed->yBottom += lStatusBarHeight;
-            prclPassed->yTop -= lStatusBarHeight;
-        }
-    }
-    else
-    {
-        //  FALSE: calculate the rectl of the frame;
-        //  call default window procedure to subtract child frame
-        //  controls from the rectangle's height;
-        //  set the origin of the frame and increase it based upon the
-        //  static text control's height
-        prclPassed->yBottom -= lStatusBarHeight;
-        prclPassed->yTop += lStatusBarHeight;
-    }
-}
-
-#define STATUS_BAR_HEIGHT       20
-
-/*
- *@@ fnwpSubclExtFrame:
- *      subclassed frame window proc.
- *
- *@@added V0.9.16 (2001-09-29) [umoeller]
- */
-
-MRESULT EXPENTRY fnwpSubclExtFrame(HWND hwndFrame, ULONG msg, MPARAM mp1, MPARAM mp2)
-{
-    MRESULT mrc = 0;
-
-    PEXTFRAMEDATA pData = (PEXTFRAMEDATA)WinQueryWindowPtr(hwndFrame, QWL_USER);
-
-    switch (msg)
-    {
-        case WM_QUERYFRAMECTLCOUNT:
-        {
-            // query the standard frame controls count
-            ULONG ulrc = (ULONG)pData->pfnwpOrig(hwndFrame, msg, mp1, mp2);
-
-            // if we have a status bar, increment the count
-            ulrc++;
-
-            mrc = (MPARAM)ulrc;
-        }
-        break;
-
-        case WM_FORMATFRAME:
-        {
-            // query the number of standard frame controls
-            ULONG ulCount = (ULONG)pData->pfnwpOrig(hwndFrame, msg, mp1, mp2);
-
-            // we have a status bar:
-            // format the frame
-            ULONG       ul;
-            PSWP        swpArr = (PSWP)mp1;
-
-            for (ul = 0; ul < ulCount; ul++)
-            {
-                if (WinQueryWindowUShort(swpArr[ul].hwnd, QWS_ID) == 0x8008)
-                                                                 // FID_CLIENT
-                {
-                    POINTL      ptlBorderSizes;
-                    WinSendMsg(hwndFrame,
-                               WM_QUERYBORDERSIZE,
-                               (MPARAM)&ptlBorderSizes,
-                               0);
-
-                    // first initialize the _new_ SWP for the status bar.
-                    // Since the SWP array for the std frame controls is
-                    // zero-based, and the standard frame controls occupy
-                    // indices 0 thru ulCount-1 (where ulCount is the total
-                    // count), we use ulCount for our static text control.
-                    swpArr[ulCount].fl = SWP_MOVE | SWP_SIZE | SWP_NOADJUST | SWP_ZORDER;
-                    swpArr[ulCount].x  = ptlBorderSizes.x;
-                    swpArr[ulCount].y  = ptlBorderSizes.y;
-                    swpArr[ulCount].cx = swpArr[ul].cx;  // same as cnr's width
-                    swpArr[ulCount].cy = STATUS_BAR_HEIGHT;
-                    swpArr[ulCount].hwndInsertBehind = HWND_BOTTOM; // HWND_TOP;
-                    swpArr[ulCount].hwnd = WinWindowFromID(hwndFrame, FID_STATUSBAR);
-
-                    // adjust the origin and height of the container to
-                    // accomodate our static text control
-                    swpArr[ul].y  += swpArr[ulCount].cy;
-                    swpArr[ul].cy -= swpArr[ulCount].cy;
-                }
-            }
-
-            // increment the number of frame controls
-            // to include our status bar
-            mrc = (MRESULT)(ulCount + 1);
-        }
-        break;
-
-        case WM_CALCFRAMERECT:
-            mrc = pData->pfnwpOrig(hwndFrame, msg, mp1, mp2);
-
-            // we have a status bar: calculate its rectangle
-            winhCalcExtFrameRect(mp1,
-                                 mp2,
-                                 STATUS_BAR_HEIGHT);
-        break;
-
-        case WM_DESTROY:
-            WinSubclassWindow(hwndFrame, pData->pfnwpOrig);
-            free(pData);
-            WinSetWindowPtr(hwndFrame, QWL_USER, NULL);
-        break;
-
-        default:
-            mrc = pData->pfnwpOrig(hwndFrame, msg, mp1, mp2);
-    }
-
-    return mrc;
-}
-
-/*
- *@@ winhCreateStatusBar:
- *      creates a status bar for a frame window.
- *
- *      Normally there's no need to call this manually,
- *      this gets called by winhCreateExtStdWindow
- *      automatically.
- *
- *@@added V0.9.16 (2001-09-29) [umoeller]
- */
-
-HWND winhCreateStatusBar(HWND hwndFrame,
-                         HWND hwndOwner,
-                         const char *pcszText,      // in: initial status bar text
-                         const char *pcszFont,      // in: font to use for status bar
-                         LONG lColor)               // in: foreground color for status bar
-{
-    // create status bar
-    HWND        hwndReturn = NULLHANDLE;
-    PPRESPARAMS ppp = NULL;
-
-    winhStorePresParam(&ppp,
-                       PP_FONTNAMESIZE,
-                       strlen(pcszFont) + 1,
-                       (PVOID)pcszFont);
-
-    lColor = WinQuerySysColor(HWND_DESKTOP,
-                              SYSCLR_DIALOGBACKGROUND,
-                              0);
-    winhStorePresParam(&ppp,
-                       PP_BACKGROUNDCOLOR,
-                       sizeof(lColor),
-                       &lColor);
-
-    lColor = CLR_BLACK;
-    winhStorePresParam(&ppp,
-                       PP_FOREGROUNDCOLOR,
-                       sizeof(lColor),
-                       &lColor);
-
-    hwndReturn = WinCreateWindow(hwndFrame,
-                                 WC_STATIC,
-                                 (PSZ)pcszText,
-                                 SS_TEXT | DT_VCENTER | WS_VISIBLE,
-                                 0, 0, 0, 0,
-                                 hwndOwner,
-                                 HWND_TOP,
-                                 FID_STATUSBAR,
-                                 NULL,
-                                 ppp);
-    free(ppp);
-
-    return hwndReturn;
-}
-
-/*
- *@@ winhCreateExtStdWindow:
- *      creates an extended frame window.
- *
- *      pData must point to an EXTFRAMECDATA structure
- *      which contains a copy of the parameters to be
- *      passed to winhCreateStdWindow. In addition,
- *      this contains the flExtFlags field, which allows
- *      you to automatically create a status bar for
- *      the window.
- *
- *      Note that we subclass the frame here and require
- *      QWL_USER for that. The frame's QWL_USER points
- *      to an EXTFRAMEDATA structure whose pUser parameter
- *      you may use for additional data, if you want to
- *      do further subclassing.
- *
- *@@added V0.9.16 (2001-09-29) [umoeller]
- */
-
-HWND winhCreateExtStdWindow(PEXTFRAMECDATA pData,        // in: extended frame data
-                            PHWND phwndClient)          // out: created client wnd
-{
-    HWND hwndFrame;
-
-    if (hwndFrame = winhCreateStdWindow(HWND_DESKTOP,
-                                        pData->pswpFrame,
-                                        pData->flFrameCreateFlags,
-                                        pData->ulFrameStyle,
-                                        pData->pcszFrameTitle,
-                                        pData->ulResourcesID,
-                                        pData->pcszClassClient,
-                                        pData->flStyleClient,
-                                        pData->ulID,
-                                        pData->pClientCtlData,
-                                        phwndClient))
-    {
-        if (pData->flExtFlags & XFCF_STATUSBAR)
-        {
-            // create status bar as child of the frame
-            HWND hwndStatusBar = winhCreateStatusBar(hwndFrame,
-                                                     hwndFrame,
-                                                     "",
-                                                     "9.WarpSans",
-                                                     CLR_BLACK);
-
-            // subclass frame for supporting status bar and msgs
-            PEXTFRAMEDATA pFrameData;
-            if (pFrameData = NEW(EXTFRAMEDATA))
-            {
-                ZERO(pFrameData),
-                memcpy(&pFrameData->CData, pData, sizeof(pFrameData->CData));
-                if (pFrameData->pfnwpOrig = WinSubclassWindow(hwndFrame,
-                                                              fnwpSubclExtFrame))
-                {
-                    WinSetWindowPtr(hwndFrame, QWL_USER, pFrameData);
-                }
-                else
-                    free(pFrameData);
-            }
-        }
-    }
-
-    return hwndFrame;
 }
 
 /*
@@ -5155,11 +4945,12 @@ PBYTE winhQueryWPSClass(PBYTE pObjClass,  // in: buffer returned by
     // now go thru the WPS class list
     while (pocThis)
     {
-        if (strcmp(pocThis->pszClassName, pszClass) == 0)
+        if (!strcmp(pocThis->pszClassName, pszClass))
         {
             pbReturn = (PBYTE)pocThis;
             break;
         }
+
         // next class
         pocThis = pocThis->pNext;
     } // end while (pocThis)
@@ -5236,10 +5027,9 @@ APIRET winhRegisterClass(const char* pcszClassName, // in: e.g. "XFolder"
     {
         // failed: do more error checking then, try DosLoadModule
         HMODULE hmod = NULLHANDLE;
-        arc = DosLoadModule(pszBuf, cbBuf,
-                            (PSZ)pcszModule,
-                            &hmod);
-        if (arc == NO_ERROR)
+        if (!(arc = DosLoadModule(pszBuf, cbBuf,
+                                  (PSZ)pcszModule,
+                                  &hmod)))
         {
             // DosLoadModule succeeded:
             // some SOM error then
@@ -5265,11 +5055,13 @@ APIRET winhRegisterClass(const char* pcszClassName, // in: e.g. "XFolder"
 BOOL winhIsClassRegistered(const char *pcszClass)
 {
     BOOL    brc = FALSE;
-    PBYTE   pClassList = winhQueryWPSClassList();
-    if (pClassList)
+    PBYTE   pClassList;
+
+    if (pClassList = winhQueryWPSClassList())
     {
         if (winhQueryWPSClass(pClassList, pcszClass))
             brc = TRUE;
+
         free(pClassList);
     }
 
@@ -5330,3 +5122,4 @@ ULONG winhResetWPS(HAB hab)
 
     return ulrc;
 }
+

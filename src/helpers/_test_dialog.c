@@ -29,7 +29,7 @@
 
 #include "setup.h"                      // code generation and debugging options
 
-#include "R:\projects\R_cvs\xworkplace\include\dlgids.h"
+#include "K:\projects\cvs\xworkplace\include\dlgids.h"
 
 #include "helpers\comctl.h"
 #include "helpers\dialog.h"

@@ -57,10 +57,7 @@
 
 #include "setup.h"                      // code generation and debugging options
 
-// #include "helpers\animate.h"
-
-// #include "helpers\winh.h"
-// #include "helpers\gpih.h"
+#include "helpers\winh.h"
 
 /*
  *@@category: Helpers\PM helpers\Animation helpers
@@ -107,13 +104,8 @@ BOOL anmBlowUpBitmap(HPS hps,               // in: from WinGetScreenPS(HWND_DESK
                 ulSteps = 20;
         BITMAPINFOHEADER bih;
         GpiQueryBitmapParameters(hbm, &bih);
-        /* ptl.y = WinQuerySysValue(HWND_DESKTOP, SV_CYSCREEN)
-                        - BMPSPACING
-                        - bih.cy; */
-        ptl.x = (WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN)
-                        - bih.cx) / 2;
-        ptl.y = (WinQuerySysValue(HWND_DESKTOP, SV_CYSCREEN)
-                        - bih.cy) / 2;
+        ptl.x = (G_cxScreen - bih.cx) / 2;
+        ptl.y = (G_cyScreen - bih.cy) / 2;
 
         // we now use ul for the current animation step,
         // which is a pointer on a scale from 1 to ulAnimationTime;

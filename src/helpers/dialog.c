@@ -1000,7 +1000,7 @@ STATIC APIRET CalcAutoSizeTextMulti(PCOLUMNDEF pColumn,
         if (pColumn->szlProposed.cy > 0)
             rcl.yTop = pColumn->szlProposed.cy;
         else
-            rcl.yTop = winhQueryScreenCY() * 2 / 3;
+            rcl.yTop = G_cyScreen * 2 / 3;
 
         winhDrawFormattedText(pDlgData->hps,
                               &rcl,
@@ -1184,8 +1184,8 @@ STATIC APIRET CalcAutoSize(PCOLUMNDEF pColumn,
                 break;
 
                 case SS_ICON:
-                    pColumn->szlAuto.cx = WinQuerySysValue(HWND_DESKTOP, SV_CXICON);
-                    pColumn->szlAuto.cy = WinQuerySysValue(HWND_DESKTOP, SV_CYICON);
+                    pColumn->szlAuto.cx = G_cxIcon;
+                    pColumn->szlAuto.cy = G_cyIcon;
                 break;
             }
         break;

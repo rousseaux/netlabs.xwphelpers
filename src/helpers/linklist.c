@@ -731,11 +731,10 @@ PLISTNODE lstInsertItemBefore(PLINKLIST pList,
         else
         {
             // insert at a later position:
-            PLISTNODE pNodeInsertAfter = lstNodeFromIndex(
-                                    pList,
-                                    (ulIndex-1));
+            PLISTNODE pNodeInsertAfter;
 
-            if (pNodeInsertAfter)
+            if (pNodeInsertAfter = lstNodeFromIndex(pList,
+                                                    (ulIndex - 1)))
             {
                 // 1) set pointers for new node
                 pNewNode->pPrevious = pNodeInsertAfter;

@@ -89,6 +89,7 @@
 #define INCL_WINBUTTONS
 #define INCL_WINSTDCNR
 #define INCL_WINENTRYFIELDS
+#define INCL_WINSHELLDATA
 
 #define INCL_GPIPRIMITIVES
 #define INCL_GPILOGCOLORTABLE
@@ -111,10 +112,145 @@
 #include "helpers\gpih.h"
 #include "helpers\linklist.h"
 #include "helpers\winh.h"
+#include "helpers\standards.h"
 
 #include "helpers\comctl.h"
 
 #pragma hdrstop
+
+/* ******************************************************************
+ *
+ *   Shared stuff
+ *
+ ********************************************************************/
+
+/*
+ *@@ ctlSendWmControl:
+ *      little helper that post a WM_CONTROL message to
+ *      a control's owner.
+ *
+ *@@added V1.0.1 (2002-11-30) [umoeller]
+ */
+
+MRESULT ctlSendWmControl(HWND hwndControl,     // in: control who's posting
+                         USHORT usCode,        // in: code for SHORT2FROMMP(mp1)
+                         MPARAM mp2)           // in: mp2 from WM_CONTROL
+{
+    HWND hwndOwner;
+
+    if (hwndOwner = WinQueryWindow(hwndControl, QW_OWNER))
+        return WinSendMsg(hwndOwner,
+                          WM_CONTROL,
+                          MPFROM2SHORT(WinQueryWindowUShort(hwndControl, QWS_ID),
+                                       usCode),
+                          mp2);
+
+    return NULL;
+}
+
+/*
+ *@@ ctlPostWmControl:
+ *      little helper that post a WM_CONTROL message to
+ *      a control's owner.
+ *
+ *@@added V1.0.1 (2002-11-30) [umoeller]
+ */
+
+BOOL ctlPostWmControl(HWND hwndControl,     // in: control who's posting
+                      USHORT usCode,        // in: code for SHORT2FROMMP(mp1)
+                      MPARAM mp2)           // in: mp2 from WM_CONTROL
+{
+    HWND hwndOwner;
+
+    if (hwndOwner = WinQueryWindow(hwndControl, QW_OWNER))
+        return WinPostMsg(hwndOwner,
+                          WM_CONTROL,
+                          MPFROM2SHORT(WinQueryWindowUShort(hwndControl, QWS_ID),
+                                       usCode),
+                          mp2);
+
+    return FALSE;
+}
+
+/*
+ *@@ ctlInitDWD:
+ *      ininitializes the DEFWINDATA struct for the
+ *      given window. This must be called in WM_CREATE
+ *      of a window proc if it intends to use
+ *      ctlDefWindowProc as its default window procedure.
+ *
+ *@@added V1.0.1 (2002-11-30) [umoeller]
+ */
+
+VOID ctlInitDWD(HWND hwnd,
+                MPARAM mp2,
+                PDEFWINDATA pdwd,
+                PFNWP pDefWindowProc,
+                const SYSCOLORSET *pSysColorSet)
+{
+    pdwd->hwnd = hwnd;
+    pdwd->szlWin.cx = ((PCREATESTRUCT)mp2)->cx;
+    pdwd->szlWin.cy = ((PCREATESTRUCT)mp2)->cy;
+    pdwd->hab = WinQueryAnchorBlock(hwnd);
+    pdwd->pDefWindowProc = pDefWindowProc;
+    pdwd->pSysColorSet = pSysColorSet;
+
+    ctlRefreshColors(pdwd);
+}
+
+/*
+ *@@ ctlRefreshColors:
+ *
+ *@@added V1.0.1 (2002-11-30) [umoeller]
+ */
+
+VOID ctlRefreshColors(PDEFWINDATA pdwd)
+{
+    pdwd->lcolBackground = winhQueryPresColor2(pdwd->hwnd,
+                                               PP_BACKGROUNDCOLOR,
+                                               PP_BACKGROUNDCOLORINDEX,
+                                               pdwd->pSysColorSet->fInheritPP,
+                                               pdwd->pSysColorSet->lBackIndex);
+    pdwd->lcolForeground = winhQueryPresColor2(pdwd->hwnd,
+                                               PP_FOREGROUNDCOLOR,
+                                               PP_FOREGROUNDCOLORINDEX,
+                                               pdwd->pSysColorSet->fInheritPP,
+                                               pdwd->pSysColorSet->lForeIndex);
+}
+
+/*
+ *@@ ctlDefWindowProc:
+ *      replacement default window procedure for controls that
+ *      have a custom window class and do not inherit from
+ *      standard OS/2 controls.
+ *
+ *      If a window proc wishes to use this, it must allocate
+ *      its own private window data in WM_CREATE (preferrably in
+ *      QWL_USER + 1) and have room for a DEFWINDATA struct in
+ *      there. It must call ctlInitDWD in WM_CREATE also which
+ *      initializes that structure. It can then safely pass
+ *      messages to this function.
+ *
+ *@@added V1.0.1 (2002-11-30) [umoeller]
+ */
+
+MRESULT ctlDefWindowProc(PDEFWINDATA pdwd, ULONG msg, MPARAM mp1, MPARAM mp2)
+{
+    MRESULT mrc = 0;
+
+    switch (msg)
+    {
+        case WM_SYSCOLORCHANGE:
+        case WM_PRESPARAMCHANGED:
+            ctlRefreshColors(pdwd);
+        break;
+
+        default:
+            mrc = pdwd->pDefWindowProc(pdwd->hwnd, msg, mp1, mp2);
+    }
+
+    return mrc;
+}
 
 /* ******************************************************************
  *
@@ -130,6 +266,7 @@ PFNWP   G_pfnwpSepStatic = NULL;
  *      the "separator line" control.
  *
  *@@added V0.9.20 (2002-08-10) [umoeller]
+ *@@changed V1.0.1 (2002-11-30) [umoeller]: added SEPS_VERTICAL
  */
 
 STATIC MRESULT EXPENTRY fnwpSeparatorLine(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
@@ -149,21 +286,50 @@ STATIC MRESULT EXPENTRY fnwpSeparatorLine(HWND hwnd, ULONG msg, MPARAM mp1, MPAR
 
                 gpihSwitchToRGB(hps);
 
-                GpiSetColor(hps, WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONLIGHT, 0));
+                WinFillRect(hps,
+                            &rcl,
+                            winhQueryPresColor2(hwnd,
+                                                PP_BACKGROUNDCOLOR,
+                                                PP_BACKGROUNDCOLORINDEX,
+                                                TRUE,
+                                                SYSCLR_WINDOW));
 
-                ptl.x = rcl.xLeft;
-                ptl.y = (rcl.yTop - rcl.yBottom) / 2 - 1;
-                GpiMove(hps, &ptl);
-                ptl.x = rcl.xRight;
-                GpiLine(hps, &ptl);
+                if (WinQueryWindowULong(hwnd, QWL_STYLE) & SEPS_VERTICAL)
+                {
+                    GpiSetColor(hps, G_lcol3DDark);
 
-                GpiSetColor(hps, WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONDARK, 0));
+                    ptl.x = (rcl.xRight - rcl.xLeft) / 2 - 1;
+                    ptl.y = rcl.yBottom;
+                    GpiMove(hps, &ptl);
+                    ptl.y = rcl.yTop;
+                    GpiLine(hps, &ptl);
 
-                ptl.x = rcl.xLeft;
-                ++ptl.y;
-                GpiMove(hps, &ptl);
-                ptl.x = rcl.xRight;
-                GpiLine(hps, &ptl);
+                    GpiSetColor(hps, G_lcol3DLight);
+
+                    ptl.y = rcl.yBottom;
+                    ++ptl.x;
+                    GpiMove(hps, &ptl);
+                    ptl.y = rcl.yTop;
+                    GpiLine(hps, &ptl);
+                }
+                else
+                {
+                    GpiSetColor(hps, G_lcol3DLight);
+
+                    ptl.x = rcl.xLeft;
+                    ptl.y = (rcl.yTop - rcl.yBottom) / 2 - 1;
+                    GpiMove(hps, &ptl);
+                    ptl.x = rcl.xRight;
+                    GpiLine(hps, &ptl);
+
+                    GpiSetColor(hps, G_lcol3DDark);
+
+                    ptl.x = rcl.xLeft;
+                    ++ptl.y;
+                    GpiMove(hps, &ptl);
+                    ptl.x = rcl.xRight;
+                    GpiLine(hps, &ptl);
+                }
 
                 WinEndPaint(hps);
             }
@@ -178,8 +344,14 @@ STATIC MRESULT EXPENTRY fnwpSeparatorLine(HWND hwnd, ULONG msg, MPARAM mp1, MPAR
 }
 
 /*
- *@@ ctlMakeSeparatorLine:
- *      turns the given static control into a 3D separator line.
+ *@@ ctlRegisterSeparatorLine:
+ *      registers the separator line control, which is a dull
+ *      static displaying a 3D line for use as a separator
+ *      in dialogs.
+ *
+ *      In addition to the standard WS_* styles, the control
+ *      supports the SEPS_VERTICAL style bit. If set, the
+ *      separator is vertical; if not, it is horizontal.
  *
  *@@added V1.0.0 (2002-08-12) [umoeller]
  */
@@ -194,7 +366,7 @@ BOOL ctlRegisterSeparatorLine(HAB hab)
         G_pfnwpSepStatic = ciStatic.pfnWindowProc;
 
         return WinRegisterClass(hab,
-                                WC_SEPARATORLINE,
+                                WC_CCTL_SEPARATOR,
                                 fnwpSeparatorLine,
                                 (ciStatic.flClassStyle & ~CS_PUBLIC),
                                 ciStatic.cbWindowData);
@@ -202,158 +374,6 @@ BOOL ctlRegisterSeparatorLine(HAB hab)
     }
 
     return FALSE;
-}
-
-/* ******************************************************************
- *
- *   "XButton" control
- *
- ********************************************************************/
-
-/*
- *@@ ctlPaintXButton:
- *      paints an X-button control. Can be called externally
- *      for just painting a button even if this is not really
- *      a window.
- *
- *      WARNING: this is work in progress and will change into
- *      the future. Eventually this will turn into a full
- *      button control replacement.
- *
- *@@added V0.9.13 (2001-06-21) [umoeller]
- *@@changed V0.9.16 (2001-10-24) [umoeller]: fixed wrong hatch color and paint offset
- *@@changed V0.9.16 (2001-10-28) [umoeller]: added bitmap support, fixed bad clip rectangle
- *@@changed V0.9.20 (2002-08-04) [umoeller]: fixed button offset, depressed color
- */
-
-VOID ctlPaintXButton(HPS hps,               // in: presentation space (RGB mode)
-                     ULONG fl,              // in: XBF_* flags
-                     PXBUTTONDATA pxbd)     // in: button data
-{
-    ULONG   ulBorder = 0,
-            cx,
-            cy,
-            ulOfs = 0;
-    LONG    lLeft,
-            lRight,
-            lColorMiddle = pxbd->lMiddle;
-    RECTL   rclWin;
-
-    memcpy(&rclWin, &pxbd->rcl, sizeof(RECTL));
-
-    if (0 == (fl & XBF_FLAT))
-        ulBorder = 2;
-
-    gpihSwitchToRGB(hps);
-
-    if (fl & XBF_PRESSED)
-    {
-        // paint button "down":
-        lLeft = pxbd->lcol3DDark;
-        lRight = pxbd->lcol3DLight;
-        // add offset for icon painting at the bottom
-        ulOfs += 1;
-        if (ulBorder == 0)
-            ulBorder = 1;
-
-        // make the depressed color darker
-        // V0.9.20 (2002-07-31) [umoeller]
-        gpihManipulateRGB(&lColorMiddle,
-                          .95);
-    }
-    else
-    {
-        lLeft = pxbd->lcol3DLight;
-        lRight = pxbd->lcol3DDark;
-    }
-
-    if (ulBorder)
-    {
-        // button border:
-        // now paint button frame
-
-        // make rcl inclusive
-        rclWin.xRight--;
-        rclWin.yTop--;
-        gpihDraw3DFrame(hps,
-                        &rclWin,        // inclusive
-                        ulBorder,
-                        lLeft,
-                        lRight);
-
-        // now paint button middle
-        rclWin.xLeft += ulBorder;
-        rclWin.yBottom += ulBorder;
-        rclWin.xRight -= ulBorder - 1;  // make exclusive again
-        rclWin.yTop -= ulBorder - 1;    // make exclusive again
-    }
-
-    if (fl & XBF_BACKGROUND)
-        WinFillRect(hps,
-                    &rclWin,        // exclusive
-                    lColorMiddle);
-
-    // get icon
-    if (pxbd->hptr)
-    {
-        // calculate x and y to be centered in rectangle
-        POINTL  ptl;
-
-        cx = rclWin.xRight - rclWin.xLeft;
-        cy = rclWin.yTop - rclWin.yBottom;
-
-        ptl.x = rclWin.xLeft + ((cx - pxbd->cxIconOrBitmap) / 2);
-        ptl.y = rclWin.yBottom + ((cy - pxbd->cyIconOrBitmap) / 2);
-
-        if (fl & XBF_INUSE)
-        {
-            // caller wants in-use (hatched) emphasis:
-            // draw a box then
-            POINTL ptl2;
-            ptl2.x = ptl.x - 2;
-            ptl2.y = ptl.y - 2;
-            GpiMove(hps,
-                    &ptl2);     // &ptl
-                                // duh, typo V0.9.16 (2001-10-24) [umoeller]
-            GpiSetPattern(hps, PATSYM_DIAG1);
-            GpiSetColor(hps, RGBCOL_BLACK);     // V0.9.16 (2001-10-24) [umoeller]
-            ptl2.x = ptl.x + pxbd->cxIconOrBitmap + 1; // inclusive!
-            ptl2.y = ptl.y + pxbd->cyIconOrBitmap + 1; // inclusive!
-            GpiBox(hps,
-                   DRO_FILL,
-                   &ptl2,
-                   0,
-                   0);
-        }
-
-        // now paint icon
-
-        // make rcl inclusive           // V0.9.16 (2001-10-28) [umoeller]
-        rclWin.xRight--;
-        rclWin.yTop--;
-        GpiIntersectClipRectangle(hps,
-                                  &rclWin);    // inclusive!
-
-        // center this in remaining rectl
-        ptl.x += ulOfs;
-        ptl.y -= ulOfs;
-        if (fl & XBF_BITMAP)
-            // V0.9.16 (2001-10-28) [umoeller]
-            WinDrawBitmap(hps,
-                          pxbd->hptr,           // a bitmap really
-                          NULL,                 // entire bitmap
-                          &ptl,
-                          0,
-                          0,
-                          DBM_NORMAL);
-        else
-            WinDrawPointer(hps,
-                           // center this in remaining rectl
-                           ptl.x, //  + ulOfs,
-                           ptl.y, //  - ulOfs,
-                           pxbd->hptr,
-                           DP_MINI);
-    }
 }
 
 /*
@@ -1096,8 +1116,8 @@ STATIC PANIMATIONDATA CreateAnimationData(HAB hab,
             pa->hab = hab;
             WinQueryWindowRect(hwndStatic, &pa->rclIcon);
             pa->OldStaticProc = WinSubclassWindow(hwndStatic, ctl_fnwpBitmapStatic);
-            pa->szlIcon.cx = WinQuerySysValue(HWND_DESKTOP, SV_CXICON);
-            pa->szlIcon.cy = WinQuerySysValue(HWND_DESKTOP, SV_CYICON);
+            pa->szlIcon.cx = G_cxIcon;
+            pa->szlIcon.cy = G_cyIcon;
         }
     }
 
@@ -1627,11 +1647,9 @@ STATIC MRESULT EXPENTRY ctl_fnwpSubclassedColorRect(HWND hwndStatic, ULONG msg, 
                     // notify owner; since the static control
                     // doesn't send any notifications, we
                     // use EN_CHANGED
-                    WinSendMsg(WinQueryWindow(hwndStatic, QW_OWNER),
-                               WM_CONTROL,
-                               MPFROM2SHORT(WinQueryWindowUShort(hwndStatic, QWS_ID),
-                                            EN_CHANGE),
-                               (MPARAM)hwndStatic);
+                    ctlSendWmControl(hwndStatic,
+                                     EN_CHANGE,
+                                     (MPARAM)hwndStatic);
                 break;
             }
         break;

@@ -262,15 +262,20 @@ exeh.exe: $(EXEH_TEST_OBJS)
 
 # fdlg.exe
 FDLG_TEST_OBJS = \
+    $(TESTCASE_DIR)\comctl.obj \
+    $(TESTCASE_DIR)\cctl_toolbar.obj \
+    $(TESTCASE_DIR)\cctl_tooltip.obj \
+    $(TESTCASE_DIR)\cctl_xframe.obj \
     $(TESTCASE_DIR)\dosh.obj \
     $(TESTCASE_DIR)\gpih.obj \
+    $(TESTCASE_DIR)\linklist.obj \
     $(TESTCASE_DIR)\winh.obj \
     $(TESTCASE_DIR)\stringh.obj \
     $(TESTCASE_DIR)\xstring.obj \
     $(TESTCASE_DIR)\_call_filedlg.obj
 
 fdlg.exe: $(FDLG_TEST_OBJS)
-    ilink /debug /pmtype:pm $(FDLG_TEST_OBJS) /o:$@
+    ilink /debug /pmtype:pm $(FDLG_TEST_OBJS) pmprintf.lib /o:$@
 
 # xmap.exe
 MAP_TEST_OBJS = \

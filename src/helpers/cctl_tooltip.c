@@ -111,7 +111,7 @@ LINKLIST    G_llSubclassedTools;        // linked list of SUBCLASSEDTOOL items
 BOOL ctlRegisterTooltip(HAB hab)
 {
     return WinRegisterClass(hab,
-                            COMCTL_TOOLTIP_CLASS,
+                            WC_CCTL_TOOLTIP,
                             ctl_fnwpTooltip,
                             CS_HITTEST,     // class styles;
                                             // CS_FRAME not working,
@@ -294,12 +294,12 @@ STATIC BOOL SubclassTool(HWND hwndTooltip,
     // V0.9.12 (2001-04-28) [umoeller]
     if (!FindSubclassedTool(hwndTool))
     {
-        PFNWP   pfnwpOrig = WinSubclassWindow(hwndTool,
-                                              ctl_fnwpSubclassedTool);
-        if (pfnwpOrig)
+        PFNWP   pfnwpOrig;
+        if (pfnwpOrig = WinSubclassWindow(hwndTool,
+                                          ctl_fnwpSubclassedTool))
         {
-            PSUBCLASSEDTOOL pst = (PSUBCLASSEDTOOL)malloc(sizeof(SUBCLASSEDTOOL));
-            if (pst)
+            PSUBCLASSEDTOOL pst;
+            if (pst = (PSUBCLASSEDTOOL)malloc(sizeof(SUBCLASSEDTOOL)))
             {
                 pst->pfnwpOrig = pfnwpOrig;
                 pst->hwndTooltip = hwndTooltip;
@@ -360,9 +360,6 @@ typedef struct _TOOLTIPDATA
     HWND        hwndOwner;          // from WM_CREATE
     HAB         hab;                // from WM_CREATE
     USHORT      usTooltipID;        // from WM_CREATE
-
-    LONG        cxScreen,
-                cyScreen;
 
     BOOL        fIsActive;          // TRUE per default; changed by TTM_ACTIVATE
 
@@ -455,9 +452,6 @@ STATIC MRESULT TtmCreate(HWND hwndTooltip,
         pttd->hwndOwner = pcs->hwndOwner;
         pttd->hab = WinQueryAnchorBlock(hwndTooltip);
         pttd->usTooltipID = pcs->id;
-
-        pttd->cxScreen = WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN);
-        pttd->cyScreen = WinQuerySysValue(HWND_DESKTOP, SV_CYSCREEN);
 
         pttd->fIsActive = TRUE;
 
@@ -1132,10 +1126,10 @@ STATIC VOID FormatTooltip(HWND hwndTooltip,
         ptlTooltip.x = 0;
     if (ptlTooltip.y < 0)
         ptlTooltip.y = 0;
-    if (ptlTooltip.x + cx > pttd->cxScreen)
-        ptlTooltip.x = pttd->cxScreen-cx;
-    if (ptlTooltip.y + cy > pttd->cyScreen)
-        ptlTooltip.y = pttd->cyScreen-cy;
+    if (ptlTooltip.x + cx > G_cxScreen)
+        ptlTooltip.x = G_cxScreen - cx;
+    if (ptlTooltip.y + cy > G_cyScreen)
+        ptlTooltip.y = G_cyScreen - cy;
 
     // if shadow is enabled,
     // enlarge; the shadow might by
@@ -1349,7 +1343,7 @@ STATIC VOID TtmShowTooltip(HWND hwndTooltip,
  *      To create a tooltip control using comctl.c, use
  +          ctlRegisterTooltip(hab);
  +          hwndTooltip = WinCreateWindow(HWND_DESKTOP, // parent
- +                           COMCTL_TOOLTIP_CLASS, // wnd class (comctl.h)
+ +                           WC_CCTL_TOOLTIP, // wnd class (comctl.h)
  +                           NULL,          // window text
  +                           TTS_ALWAYSTIP, // window style, ignored except for TTS_* flags
  +                           0, 0, 0, 0,    // window pos and size, ignored
