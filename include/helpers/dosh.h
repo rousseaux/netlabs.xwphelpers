@@ -578,6 +578,14 @@ extern "C" {
     APIRET doshSetPathAttr(const char* pcszFile,
                            ULONG ulAttr);
 
+    PBYTE doshFindEAValue(PFEA2LIST pFEA2List2,
+                          PCSZ pcszEAName,
+                          PUSHORT pcbValue);
+
+    BOOL doshQueryLongname(PFEA2LIST pFEA2List2,
+                           PSZ pszLongname,
+                           PULONG pulNameLen);
+
     /* ******************************************************************
      *
      *   XFILEs

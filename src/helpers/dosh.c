@@ -2378,6 +2378,150 @@ APIRET doshSetPathAttr(const char* pcszFile,    // in: file or directory name
 }
 
 /*
+ *@@ FindEAValue:
+ *      returns the pointer to the EA value
+ *      if the EA with the given name exists
+ *      in the given FEA2LIST.
+ *
+ *      Within the FEA structure
+ *
+ +          typedef struct _FEA2 {
+ +              ULONG      oNextEntryOffset;  // Offset to next entry.
+ +              BYTE       fEA;               // Extended attributes flag.
+ +              BYTE       cbName;            // Length of szName, not including NULL.
+ +              USHORT     cbValue;           // Value length.
+ +              CHAR       szName[1];         // Extended attribute name.
+ +          } FEA2;
+ *
+ *      the EA value starts right after szName (plus its null
+ *      terminator). The first USHORT of the value should
+ *      normally signify the type of the EA, e.g. EAT_ASCII.
+ *      This returns a pointer to that type USHORT.
+ *
+ *@@added V0.9.16 (2001-10-25) [umoeller]
+ *@@changed V1.0.1 (2002-12-08) [umoeller]: moved this here from XWorkplace code, renamed from fsysFindEAValue
+ */
+
+PBYTE doshFindEAValue(PFEA2LIST pFEA2List2,      // in: file EA list
+                      PCSZ pcszEAName,           // in: EA name to search for (e.g. ".LONGNAME")
+                      PUSHORT pcbValue)          // out: length of value (ptr can be NULL)
+{
+    ULONG ulEANameLen;
+
+    /*
+    typedef struct _FEA2LIST {
+        ULONG     cbList;   // Total bytes of structure including full list.
+                            // Apparently, if EAs aren't supported, this
+                            // is == sizeof(ULONG).
+        FEA2      list[1];  // Variable-length FEA2 structures.
+    } FEA2LIST;
+
+    typedef struct _FEA2 {
+        ULONG      oNextEntryOffset;  // Offset to next entry.
+        BYTE       fEA;               // Extended attributes flag.
+        BYTE       cbName;            // Length of szName, not including NULL.
+        USHORT     cbValue;           // Value length.
+        CHAR       szName[1];         // Extended attribute name.
+    } FEA2;
+    */
+
+    if (!pFEA2List2)
+        return NULL;
+
+    if (    (pFEA2List2->cbList > sizeof(ULONG))
+                    // FAT32 and CDFS return 4 for anything here, so
+                    // we better not mess with anything else; I assume
+                    // any FS which doesn't support EAs will do so then
+         && (pcszEAName)
+         && (ulEANameLen = strlen(pcszEAName))
+       )
+    {
+        PFEA2 pThis = &pFEA2List2->list[0];
+        // maintain a current offset so we will never
+        // go beyond the end of the buffer accidentally...
+        // who knows what these stupid EA routines return!
+        ULONG ulOfsThis = sizeof(ULONG),
+              ul = 0;
+
+        while (ulOfsThis < pFEA2List2->cbList)
+        {
+            if (    (ulEANameLen == pThis->cbName)
+                 && (!memcmp(pThis->szName,
+                             pcszEAName,
+                             ulEANameLen))
+               )
+            {
+                if (pThis->cbValue)
+                {
+                    PBYTE pbValue =   (PBYTE)pThis
+                                    + sizeof(FEA2)
+                                    + pThis->cbName;
+                    if (pcbValue)
+                        *pcbValue = pThis->cbValue;
+                    return pbValue;
+                }
+                else
+                    // no value:
+                    return NULL;
+            }
+
+            if (!pThis->oNextEntryOffset)
+                // this was the last entry:
+                return NULL;
+
+            ulOfsThis += pThis->oNextEntryOffset;
+
+            pThis = (PFEA2)(((PBYTE)pThis) + pThis->oNextEntryOffset);
+            ul++;
+        } // end while
+    } // end if (    (pFEA2List2->cbList > sizeof(ULONG)) ...
+
+    return NULL;
+}
+
+/*
+ *@@ doshQueryLongname:
+ *      attempts to find the value of the .LONGNAME EA in the
+ *      given FEALIST and stores it in the pszLongname buffer,
+ *      which must be CCHMAXPATH in size.
+ *
+ *      Returns TRUE if a .LONGNAME was found and copied.
+ *
+ *@@added V0.9.16 (2001-10-25) [umoeller]
+ *@@changed V1.0.1 (2002-12-08) [umoeller]: moved this here from XWorkplace code, renamed from DecodeLongname
+ */
+
+BOOL doshQueryLongname(PFEA2LIST pFEA2List2,
+                       PSZ pszLongname,          // out: .LONGNAME if TRUE is returned
+                       PULONG pulNameLen)        // out: length of .LONGNAME string
+{
+    PBYTE pbValue;
+    if (pbValue = doshFindEAValue(pFEA2List2,
+                                  ".LONGNAME",
+                                  NULL))
+    {
+        PUSHORT pusType = (PUSHORT)pbValue;
+        if (*pusType == EAT_ASCII)
+        {
+            // CPREF: first word after EAT_ASCII specifies length
+            PUSHORT pusStringLength = pusType + 1;      // pbValue + 2
+            if (*pusStringLength)
+            {
+                ULONG cb = _min(*pusStringLength, CCHMAXPATH - 1);
+                memcpy(pszLongname,
+                       pbValue + 4,
+                       cb);
+                pszLongname[cb] = '\0';
+                *pulNameLen = cb;
+                return TRUE;
+            }
+        }
+    }
+
+    return FALSE;
+}
+
+/*
  *@@category: Helpers\Control program helpers\File management\XFILEs
  */
 
