@@ -77,7 +77,7 @@ ULONG G_ulDateScalarFirstCalled = 0;
  *      A ULONG can hold a max value of 4'294'967'295.
  *      So this overflows after 49.71... days.
  *
- *@@V0.9.7 (2000-12-08) [umoeller]: replaced, now using DosQuerySysInfo(QSV_MS_COUNT)
+ *@@changed V0.9.7 (2000-12-08) [umoeller]: replaced, now using DosQuerySysInfo(QSV_MS_COUNT)
  */
 
 ULONG dtGetULongTime(VOID)

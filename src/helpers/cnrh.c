@@ -1133,6 +1133,17 @@ ULONG cnrhScrollToRecord(HWND hwndCnr,       // in: container window
         }
     }
 
+    // V0.9.14 (2001-07-28) [umoeller]
+    // tried WinSendMsg (instead of post) because
+    // otherwise we can't get auto-edit on wpshCreateFromTemplate
+    // to work... but this causes two problems:
+    // --  for some reason, the WPS selects the recc under
+    //     the mouse then, which is very wrong in most situations;
+    // --  since the WPS expands the root record in tree views
+    //     after the root has been populated, this can cause
+    //     totally garbled display for complex trees.
+    // So I'm back to WinPostMsg... // @@todo
+
     if (lXOfs)
         // scroll horizontally
         WinPostMsg(hwndCnr,
