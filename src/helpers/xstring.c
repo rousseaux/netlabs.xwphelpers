@@ -898,7 +898,7 @@ ULONG xstrcats(PXSTRING pxstr,
 ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
               ULONG ulFirstReplOfs,             // in: ofs of first char to replace
               ULONG cReplLen,                   // in: no. of chars to replace
-              PCSZ pcszReplaceWith,      // in: string to replace chars with
+              PCSZ pcszReplaceWith,             // in: string to replace chars with
               ULONG cReplaceWithLen)            // in: length of replacement string
                                                 // (this MUST be specified; if 0, chars are removed only)
 {

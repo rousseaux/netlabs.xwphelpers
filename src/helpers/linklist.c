@@ -357,7 +357,7 @@ BOOL lstFree(PLINKLIST *ppList)
  *      or -1 if the list is invalid or corrupt.
  */
 
-long lstCountItems(PLINKLIST pList)
+long lstCountItems(const LINKLIST *pList)
 {
     long lCount = -1;
 
@@ -397,7 +397,7 @@ long lstCountItems(PLINKLIST pList)
  +          }
  */
 
-PLISTNODE lstQueryFirstNode(PLINKLIST pList)
+PLISTNODE lstQueryFirstNode(const LINKLIST *pList)
 {
     if (    (pList)
          && (pList->ulMagic == LINKLISTMAGIC)
@@ -415,7 +415,7 @@ PLISTNODE lstQueryFirstNode(PLINKLIST pList)
  *@@added V0.9.9 (2001-02-14) [umoeller]
  */
 
-PLISTNODE lstQueryLastNode(PLINKLIST pList)
+PLISTNODE lstQueryLastNode(const LINKLIST *pList)
 {
     if (    (pList)
          && (pList->ulMagic == LINKLISTMAGIC)
