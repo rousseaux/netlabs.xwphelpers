@@ -479,7 +479,7 @@ extern "C" {
                     //      added V0.9.1 (2000-02-04) [umoeller]
         HWND    hwndToolOwner;
                     // in: handle to the window that contains the tool. If
-                    // lpszText includes the LPSTR_TEXTCALLBACK value, this
+                    // lpszText includes the PSZ_TEXTCALLBACK value, this
                     // member identifies the window that receives TTN_NEEDTEXT
                     // notification messages.
         HWND    hwndTool;
@@ -590,42 +590,38 @@ extern "C" {
 
     /*
      *@@ TTN_NEEDTEXT:
-     *      control notification sent with the WM_NOTIFY (Win95)
-     *      and WM_CONTROL (OS/2) messages.
+     *      notification code used with WM_CONTROL when a tooltip
+     *      needs a tooltip text for a tool.
      *
-     *      Parameters (OS/2, incompatible with Win95):
-     *      -- mp1 USHORT usID;
-     *             USHORT usNotifyCode == TTN_NEEDTEXT
+     *      Parameters:
+     *
+     *      -- SHORT1FROMMP(mp1) usID: ID of the tooltip control).
+     *
+     *      -- SHORT2FROMMP(mp1) usNotifyCode: TTN_NEEDTEXT.
+     *
      *      -- PTOOLTIPTEXT mp2: pointer to a TOOLTIPTEXT structure.
-     *              The hdr member identifies the tool for which text is needed. The
-     *              receiving window can specify the string by taking one of the
-     *              following actions:
-     *              -- Copying the text to the buffer specified by the szText member.
-     *              -- Copying the address of the buffer that contains the text to the
-     *                 lpszText member.
-     *              -- Copying the identifier of a string resource to the lpszText
-     *                 member and copying the handle of the instance that contains
-     *                 the resource to the hinst member.
+     *              hwndTool identifies the tool for which text is needed.
      *
      *      This notification message is sent to the window specified
-     *      in the hwnd member of the TOOLINFO structure for the tool.
-     *      This notification is sent only if the LPSTR_TEXTCALLBACK
+     *      in the hwndToolOwner member of the TOOLINFO structure for the tool.
+     *      This notification is sent only if the PSZ_TEXTCALLBACK
      *      value is specified when the tool is added to a tooltip control.
      *
-     *      Windows 95 only: When a TTN_NEEDTEXT notification is received,
-     *      the application can set or clear the TTF_RTLREADING value
-     *      in the uFlags member of the TOOLTIPTEXT structure pointed to
-     *      by lpttt as required. This is the only flag that can be changed
-     *      during the notification callback.
+     *      To specify the text, the target window (hwndToolOwner) must:
      *
-     *      OS/2 only: Specifying LPSTR_TEXTCALLBACK in TOOLINFO.lpszText
-     *      with TTM_ADDTOOL is the only way under OS/2 to have strings
-     *      displayed which are longer than 256 characters, since string
-     *      resources are limited to 256 characters with OS/2. It is the
-     *      responsibility of the application to set the lpszText member
-     *      to a static string buffer which holds the string for the tool.
-     *      A common error would be to have that member point to some
-     *      variable which has only been allocated on the stack.
+     *      1.  Set TOOLTIPTEXT.ulFormat to one of the format flags.
+     *
+     *      2.  Fill the corresponding field(s) in TOOLTIPTEXT.
+     *
+     *      Specifying PSZ_TEXTCALLBACK in TOOLINFO.lpszText with
+     *      TTM_ADDTOOL is the only way under OS/2 to have strings
+     *      displayed which are longer than 256 characters, since
+     *      string resources are limited to 256 characters with OS/2.
+     *      It is the responsibility of the application to set the
+     *      pszText member to a _static_ string buffer which holds
+     *      the string for the tool. A common error would be to have
+     *      that member point to some variable which has only been
+     *      allocated on the stack... this will lead to problems.
      */
 
     #define TTN_NEEDTEXT        1000

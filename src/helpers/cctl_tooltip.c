@@ -1275,7 +1275,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              *
              *      Return value: 0 always.
              *
-             *      Additional note: On input, if TOOLINFO.lpszText == LPSTR_TEXTCALLBACK,
+             *      Additional note: On input, if TOOLINFO.lpszText == PSZ_TEXTCALLBACK,
              *      this sends the TTN_NEEDTEXT notification to TOOLINFO.hwnd.
              */
 
@@ -1288,7 +1288,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
                     // TTN_NEEDTEXT notification desired:
                     // compose values for that msg
                     TOOLTIPTEXT ttt = {0};
-                    _Pmpf(("TTM_GETTEXT: LPSTR_TEXTCALLBACK"));
+                    _Pmpf(("TTM_GETTEXT: PSZ_TEXTCALLBACK"));
                     ttt.hwndTooltip = hwndTooltip;
                     ttt.hwndTool = pti->hwndTool;
                     WinSendMsg(pti->hwndTool,

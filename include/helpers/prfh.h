@@ -76,7 +76,7 @@ extern "C" {
     /*
      *@@ COUNTRYSETTINGS:
      *      structure used for returning country settings
-     *      with prfQueryCountrySettings.
+     *      with prfhQueryCountrySettings.
      */
 
     typedef struct _COUNTRYSETTINGS

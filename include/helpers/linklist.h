@@ -57,9 +57,13 @@ extern "C" {
 
     /*
      *@@ LISTNODE:
-     *      new with V0.9.0. This now defines
-     *      one item in the list.
-     *      pItemData points to the actual data.
+     *      this defines one item in a LINKLIST.
+     *
+     *      pItemData points to the actual data,
+     *      whatever format this is in...
+     *
+     *      See linklist.c for more on how
+     *      to use these.
      *
      *@@added V0.9.0
      */
@@ -73,8 +77,10 @@ extern "C" {
 
     /*
      *@@ LINKLIST:
-     *      new with V0.9.0. This now defines
      *      the "root" of a linked list.
+     *
+     *      See linklist.c for more on how
+     *      to use these.
      *
      *@@added V0.9.0
      */
