@@ -12,7 +12,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2000 Ulrich M”ller.
+ *      Copyright (C) 1997-2001 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -39,64 +39,68 @@ extern "C" {
     /*
      *@@ THREADINFO:
      *      thread info structure passed to secondary threads.
+     *      See thrCreate.
      */
 
     typedef struct _THREADINFO
     {
-            // data maintained by thr* functions
-            ULONG   cbStruct;
-            void*   pThreadFunc;    // as passed to thrCreate, really a PTHREADFUNC
-            PULONG  ptidRunning;      // as passed to thrCreate V0.9.12 (2001-05-20) [umoeller]
-            const char *pcszThreadName; // as passed to thrCreate
-            ULONG   flFlags;        // as passed to thrCreate
-            ULONG   ulData;         // as passed to thrCreate
+        // data maintained by thr* functions
+        ULONG   cbStruct;
+        void*   pThreadFunc;    // as passed to thrCreate, really a PTHREADFUNC
+        PULONG  ptidRunning;      // as passed to thrCreate V0.9.12 (2001-05-20) [umoeller]
+        const char *pcszThreadName; // as passed to thrCreate
+        ULONG   flFlags;        // as passed to thrCreate
+        ULONG   ulData;         // as passed to thrCreate
 
-            TID     tid;
-            ULONG   hevRunning;     // this is a HEV really
+        TID     tid;
+        ULONG   hevRunning;     // this is a HEV really
 
-            // data maintained by thr_fntGeneric
-            HAB     hab;            // for PM threads
-            HMQ     hmq;            // for PM threads
-            BOOL    fExitComplete;
+        // data maintained by thr_fntGeneric
+        HAB     hab;            // for PM threads
+        HMQ     hmq;            // for PM threads
+        BOOL    fExitComplete;
 
-            // data to be maintained by application
-            BOOL    fExit;
-            ULONG   ulResult;
-            ULONG   ulFuncInfo;
-            HWND    hwndNotify;
+        // data to be maintained by application
+        BOOL    fExit;
+        ULONG   ulResult;
+        ULONG   ulFuncInfo;
+        HWND    hwndNotify;
     } THREADINFO, *PTHREADINFO;
 
     typedef void _Optlink THREADFUNC (PTHREADINFO);
     typedef THREADFUNC *PTHREADFUNC;
 
-    ULONG thrCreate(PTHREADINFO pti,
-                    PTHREADFUNC pfn,
-                    PBOOL pfRunning,
-                    const char *pcszThreadName,
-                    ULONG flFlags,
-                    ULONG ulData);
+    ULONG XWPENTRY thrCreate(PTHREADINFO pti,
+                             PTHREADFUNC pfn,
+                             PULONG pfRunning,
+                             const char *pcszThreadName,
+                             ULONG flFlags,
+                             ULONG ulData);
+    // this function is exported, so add definition here V0.9.13 (2001-06-13) [lafaix]
+    typedef BOOL XWPENTRY THRCREATE(PTHREADINFO, PTHREADFUNC, PULONG, const char *, ULONG, ULONG);
+    typedef THRCREATE *PTHRCREATE;
 
-    ULONG thrRunSync(HAB hab,
-                     PTHREADFUNC pfn,
-                     const char *pcszThreadName,
-                     ULONG ulData);
+    ULONG XWPENTRY thrRunSync(HAB hab,
+                              PTHREADFUNC pfn,
+                              const char *pcszThreadName,
+                              ULONG ulData);
 
-    PTHREADINFO thrListThreads(PULONG pcThreads);
+    PTHREADINFO XWPENTRY thrListThreads(PULONG pcThreads);
 
-    BOOL thrFindThread(PTHREADINFO pti,
-                       ULONG tid);
+    BOOL XWPENTRY thrFindThread(PTHREADINFO pti,
+                                ULONG tid);
 
-    BOOL thrClose(PTHREADINFO pti);
+    BOOL XWPENTRY thrClose(PTHREADINFO pti);
 
-    BOOL thrWait(PTHREADINFO pti);
+    BOOL XWPENTRY thrWait(PTHREADINFO pti);
 
-    BOOL thrFree(PTHREADINFO pti);
+    BOOL XWPENTRY thrFree(PTHREADINFO pti);
 
-    BOOL thrKill(PTHREADINFO pti);
+    BOOL XWPENTRY thrKill(PTHREADINFO pti);
 
-    TID thrQueryID(const THREADINFO* pti);
+    TID XWPENTRY thrQueryID(const THREADINFO* pti);
 
-    ULONG thrQueryPriority(VOID);
+    ULONG XWPENTRY thrQueryPriority(VOID);
 
 #endif
 

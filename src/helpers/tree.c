@@ -882,6 +882,7 @@ int treeDelete(TREE **root,         // in: root of the tree
 /*
  *@@ treeFind:
  *      finds the tree node with the specified key.
+ *      Returns NULL if none exists.
  */
 
 TREE* treeFind(TREE *root,                    // in: root of the tree

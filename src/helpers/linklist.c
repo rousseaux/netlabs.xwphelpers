@@ -262,7 +262,7 @@ PLINKLIST lstCreateDebug(BOOL fItemsFreeable,
     return (pNewList);
 }
 
-#endif      // __DEBUG_MALLOC_ENABLED__
+#else       // __DEBUG_MALLOC_ENABLED__
 
 /*
  *@@ lstCreate:
@@ -285,7 +285,7 @@ PLINKLIST lstCreateDebug(BOOL fItemsFreeable,
  +          lstFree(pllWhatever);
  */
 
-PLINKLIST (lstCreate)(BOOL fItemsFreeable)    // in: invoke free() on the data
+PLINKLIST lstCreate(BOOL fItemsFreeable)    // in: invoke free() on the data
                                             // item pointers upon destruction?
 {
     PLINKLIST pNewList = (PLINKLIST)malloc(sizeof(LINKLIST));
@@ -293,6 +293,8 @@ PLINKLIST (lstCreate)(BOOL fItemsFreeable)    // in: invoke free() on the data
         lstInit(pNewList, fItemsFreeable);
     return (pNewList);
 }
+
+#endif      // __DEBUG_MALLOC_ENABLED__
 
 /*
  *@@ lstFree:
@@ -613,7 +615,7 @@ PLISTNODE lstAppendItemDebug(PLINKLIST pList,
     return (pNewNode);
 }
 
-#endif // __DEBUG_MALLOC_ENABLED__
+#else  // __DEBUG_MALLOC_ENABLED__
 
 /*
  *@@ lstAppendItem:
@@ -625,7 +627,7 @@ PLISTNODE lstAppendItemDebug(PLINKLIST pList,
  *      or NULL upon errors.
  */
 
-PLISTNODE (lstAppendItem)(PLINKLIST pList,
+PLISTNODE lstAppendItem(PLINKLIST pList,
                         void* pNewItemData)     // in: data to store in list node
 {
     PLISTNODE pNewNode = 0;
@@ -667,6 +669,8 @@ PLISTNODE (lstAppendItem)(PLINKLIST pList,
     return (pNewNode);
 }
 
+#endif // __DEBUG_MALLOC_ENABLED__
+
 /*
  *@@ lstInsertItemBefore:
  *      this inserts a new node to the list. As opposed to
@@ -687,6 +691,8 @@ PLISTNODE (lstAppendItem)(PLINKLIST pList,
  *
  *      This returns the LISTNODE of the new list item,
  *      or NULL upon errors.
+ *
+ *@@changed V0.9.14 (2001-07-14) [umoeller]: this never worked on empty lists, fixed
  */
 
 PLISTNODE lstInsertItemBefore(PLINKLIST pList,
@@ -715,7 +721,11 @@ PLISTNODE lstInsertItemBefore(PLINKLIST pList,
 
                     pList->pFirst = pNewNode;
 
-                    pList->ulCount++;
+                    if (!pList->pLast)
+                        // the list was empty:
+                        pList->pLast = pNewNode;        // V0.9.14 (2001-07-14) [umoeller]
+
+                    (pList->ulCount)++;
                 }
                 else
                 {
@@ -743,7 +753,7 @@ PLISTNODE lstInsertItemBefore(PLINKLIST pList,
                         if (pList->pLast == pNodeInsertAfter)
                             pList->pLast = pNewNode;
 
-                        pList->ulCount++;
+                        (pList->ulCount)++;
                     }
                     else
                     {

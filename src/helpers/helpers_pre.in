@@ -41,6 +41,7 @@ OUTPUTDIR = $(HELPERS_OUTPUT_DIR)
 PLAINCOBJS = \
 $(OUTPUTDIR)\encodings.obj \
 $(OUTPUTDIR)\linklist.obj \
+$(OUTPUTDIR)\math.obj \
 $(OUTPUTDIR)\tree.obj \
 $(OUTPUTDIR)\xml.obj \
 

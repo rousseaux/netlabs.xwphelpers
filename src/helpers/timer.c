@@ -70,7 +70,7 @@
  */
 
 /*
- *      Copyright (C) 2000 Ulrich M”ller.
+ *      Copyright (C) 2000-2001 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -108,6 +108,7 @@
 #include "helpers\datetime.h"
 #include "helpers\except.h"
 #include "helpers\linklist.h"
+#include "helpers\math.h"
 #include "helpers\threads.h"
 #include "helpers\timer.h"
 
@@ -240,6 +241,7 @@ VOID RemoveTimer(PXTIMERSET pSet,       // in: timer set (from tmrCreateSet)
  *      Internal function. Caller must hold the mutex.
  *
  *@@added V0.9.9 (2001-03-07) [umoeller]
+ *@@changed V0.9.14 (2001-07-07) [umoeller]: added GCD optimizations
  */
 
 VOID AdjustPMTimer(PXTIMERSET pSet)
@@ -264,17 +266,54 @@ VOID AdjustPMTimer(PXTIMERSET pSet)
     else
     {
         // we have timers:
+
         ULONG ulOldPMTimeout = pSet->ulPMTimeout;
-        pSet->ulPMTimeout = 1000;
 
-        while (pNode)
+        if (!pNode->pNext)
         {
+            // only one timer:
+            // that's easy
             PXTIMER pTimer = (PXTIMER)pNode->pItemData;
+            pSet->ulPMTimeout = pTimer->ulTimeout;
+        }
+        else if (!pNode->pNext->pNext)
+        {
+            // exactly two timers:
+            // find the greatest common denominator
+            PXTIMER pTimer1 = (PXTIMER)pNode->pItemData,
+                    pTimer2 = (PXTIMER)pNode->pNext->pItemData;
 
-            if ( (pTimer->ulTimeout / 2) < pSet->ulPMTimeout )
-                pSet->ulPMTimeout = pTimer->ulTimeout / 2;
+            pSet->ulPMTimeout = mathGCD(pTimer1->ulTimeout,
+                                        pTimer2->ulTimeout);
+        }
+        else
+        {
+            // several timers:
+            // run through all timers and find the greatest
+            // common denominator of all frequencies...
 
-            pNode = pNode->pNext;
+            ULONG   cTimers = lstCountItems(pllXTimers);
+            int     *paInts = (int*)_alloca(sizeof(int) * cTimers),
+                    i = 0;
+
+            _Pmpf(("Recalculating, got %d timers %d", cTimers));
+
+            // fill an array of integers with the
+            // timer frequencies
+            while (pNode)
+            {
+                PXTIMER pTimer = (PXTIMER)pNode->pItemData;
+
+                _Pmpf(("  timeout %d is %d", i, pTimer->ulTimeout));
+
+                paInts[i++] = pTimer->ulTimeout;
+
+                pNode = pNode->pNext;
+            }
+
+            pSet->ulPMTimeout = mathGCDMulti(paInts,
+                                             cTimers);
+            _Pmpf(("--> GCD is %d", pSet->ulPMTimeout));
         }
 
         if (    (pSet->idPMTimerRunning == 0)       // timer not running?
@@ -517,8 +556,25 @@ VOID tmrTimerTick(PXTIMERSET pSet)      // in: timer set (from tmrCreateSet)
  *      The timer is _not_ stopped automatically
  *      when the window is destroyed.
  *
+ *      Note: Unless you own the timer set that
+ *      your timer runs on, it is strongly recommended
+ *      that your timer frequency is set to a multiple
+ *      of 125. The PM master timer behind the timer
+ *      set will be set to the greatest common divisor
+ *      of all frequencies, and if you set one timer
+ *      to 2000 and the other one to 2001, you will
+ *      cause quite a lot of overhead. This applies
+ *      especially to timers started by XCenter widgets.
+ *
+ *      For security, all timer frequencies will be
+ *      rounded to multiples of 25 anyway. Still,
+ *      running two timers at 1000 and 1025 will cause
+ *      the master timer to be set to 25, which is
+ *      overkill.
+ *
  *@@changed V0.9.7 (2000-12-08) [umoeller]: got rid of dtGetULongTime
  *@@changed V0.9.12 (2001-05-12) [umoeller]: added mutex protection
+ *@@changed V0.9.14 (2001-07-12) [umoeller]: now rounding freq's to multiples of 25
  */
 
 USHORT XWPENTRY tmrStartXTimer(PXTIMERSET pSet, // in: timer set (from tmrCreateSet)
@@ -539,6 +595,15 @@ USHORT XWPENTRY tmrStartXTimer(PXTIMERSET pSet, // in: timer set (from tmrCreate
             if ((pllXTimers) && (hwnd) && (ulTimeout))
             {
                 PXTIMER pTimer;
+
+                // fix the timeout... we allow only multiples of
+                // 20, and it must be at least 20 (otherwise our
+                // internal master timer calculations will fail)
+                // V0.9.14 (2001-07-07) [umoeller]
+                if (ulTimeout < 25)
+                    ulTimeout = 25;
+                else
+                    ulTimeout = (ulTimeout + 10) / 25 * 25;
 
                 // check if this timer exists already
                 pTimer = FindTimer(pSet,

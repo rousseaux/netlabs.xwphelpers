@@ -704,6 +704,8 @@ ULONG xstrcats(PXSTRING pxstr,
  *      at the position "ulFirstReplPos", with the first
  *      "cReplaceWithLen" characters from pcszReplaceWith.
  *
+ *      If cReplaceWithLen is 0, characters are removed only.
+ *
  *      Returns the new length of the string, excluding
  *      the null terminator, or 0 if the replacement failed
  *      (e.g. because the offsets were too large).
@@ -738,6 +740,7 @@ ULONG xstrcats(PXSTRING pxstr,
  *@@changed V0.9.9 (2001-02-14) [umoeller]: fixed NULL target crash
  *@@changed V0.9.9 (2001-03-09) [umoeller]: now using xstrReserve
  *@@changed V0.9.11 (2001-04-22) [umoeller]: replaced replacement XSTRING with PCSZ
+ *@@changed V0.9.14 (2001-07-07) [umoeller]: this did nothing if cReplaceWithLen == 0, fixed
  */
 
 ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
@@ -752,7 +755,9 @@ ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
     // security checks...
     if (    (pxstr)         // V0.9.9 (2001-02-14) [umoeller]
          && (ulFirstReplOfs + cReplLen <= pxstr->ulLength)
-         && (pcszReplaceWith)
+         && (    (pcszReplaceWith)
+              || (cReplaceWithLen == 0)     // fixed V0.9.14 (2001-07-07) [umoeller]
+            )
        )
     {
         // size of new buffer:

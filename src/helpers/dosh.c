@@ -2269,10 +2269,7 @@ APIRET doshPerfOpen(PDOSHPERFSYS *ppPerfSys)  // out: new DOSHPERFSYS structure
                                             arc = ERROR_NOT_ENOUGH_MEMORY;
                                         else
                                         {
-            // **patrick, this was missing...
-            // wonder if you ever tested this, this crashes in
-            // doshPerfGet otherwise ;-)
-            /*   -----------> */            pPerfSys->palIntrs = (PLONG)malloc(pPerfSys->cProcessors * sizeof(LONG));
+                                            pPerfSys->palIntrs = (PLONG)malloc(pPerfSys->cProcessors * sizeof(LONG));
                                             if (!pPerfSys->palIntrs)
                                                 arc = ERROR_NOT_ENOUGH_MEMORY;
                                             else
@@ -2283,7 +2280,7 @@ APIRET doshPerfOpen(PDOSHPERFSYS *ppPerfSys)  // out: new DOSHPERFSYS structure
                                                     pPerfSys->padTimePrev[ul] = 0.0;
                                                     pPerfSys->padIntrPrev[ul] = 0.0;
                                                     pPerfSys->palLoads[ul] = 0;
-            /* and this one too */                  pPerfSys->palIntrs[ul] = 0;
+                                                    pPerfSys->palIntrs[ul] = 0;
                                                 }
                                             }
                                         }

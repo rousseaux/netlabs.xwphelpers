@@ -1179,7 +1179,7 @@ typedef struct _STACKITEM
  +              WinDestroyWindow(hwndDlg);
  +          }
  *
- *
+ *@@changed V0.9.14 (2001-07-07) [umoeller]: fixed disabled mouse with hwndOwner == HWND_DESKTOP
  */
 
 APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
@@ -1380,6 +1380,13 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
             // dialog has size border:
             // add "clip siblings" style
             flStyle |= WS_CLIPSIBLINGS;
+
+        if (hwndOwner == HWND_DESKTOP)
+            // there's some dumb XWorkplace code left
+            // which uses this, and this disables the
+            // mouse for some reason
+            // V0.9.14 (2001-07-07) [umoeller]
+            hwndOwner = NULLHANDLE;
 
         pDlgData->hwndDlg = WinCreateWindow(HWND_DESKTOP,
                                             WC_FRAME,
