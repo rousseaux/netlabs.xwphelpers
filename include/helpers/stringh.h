@@ -133,6 +133,8 @@ extern "C" {
     PSZ XWPENTRY strhFindNextLine(PSZ pszSearchIn, PULONG pulOffset);
 
     ULONG XWPENTRY strhBeautifyTitle(PSZ psz);
+    typedef ULONG XWPENTRY STRHBEAUTIFYTITLE(PSZ psz);
+    typedef STRHBEAUTIFYTITLE *PSTRHBEAUTIFYTITLE;
 
     ULONG strhBeautifyTitle2(PSZ pszTarget,
                              PCSZ pcszSource);
