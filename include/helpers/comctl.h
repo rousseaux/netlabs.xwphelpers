@@ -703,6 +703,23 @@ extern "C" {
          *      extended record core structure used
          *      with checkbox containers. See
          *      ctlMakeCheckboxContainer for details.
+         *
+         *      The check box painting is determined
+         *      by the following flags:
+         *
+         *      -- Only if (ulStyle & WS_VISIBLE), the check
+         *         box is painted at all. Otherwise hptrIcon
+         *         is painted. (Is this true?)
+         *
+         *      -- In that case, usCheckState determines
+         *         whether the check box is painted checked,
+         *         unchecked, or indeterminate.
+         *
+         *      -- In addition, if RECORDCORE.flRecordAttr
+         *         has the CRA_DISABLED bit set, the check
+         *         box is painted disabled (halftoned).
+         *
+         *@@changed V0.9.9 (2001-03-27) [umoeller]: made item id a ULONG
          */
 
         typedef struct _CHECKBOXRECORDCORE
@@ -716,9 +733,10 @@ extern "C" {
                         //      BS_AUTOCHECKBOX, BS_AUTO3STATE, BS_3STATE
                         // Internally, we use BS_BITMAP to identify
                         // the depressed checkbox button.
-            USHORT          usItemID;
-                        // this identifies the record. Must be
-                        // unique within the container.
+            ULONG           ulItemID;
+                        // this identifies the record; must be
+                        // unique within the container
+                        // changed V0.9.9 (2001-03-27) [umoeller]: turned USHORT into ULONG
             USHORT          usCheckState;
                         // current check state as with checkboxes
                         // (0, 1, or 2 for tri-state).

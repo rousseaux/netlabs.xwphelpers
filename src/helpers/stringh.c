@@ -1120,34 +1120,41 @@ PSZ strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib)
     {
         CHAR c;
         p++;
-        c = *(p+cbAttrib);     // V0.9.3 (2000-05-19) [umoeller]
-        // now check whether the p+strlen(pszAttrib)
-        // is a valid end-of-tag character
-        if (    (memicmp(p, (PVOID)pszAttrib, cbAttrib) == 0)
-             && (   (c == ' ')
-                 || (c == '>')
-                 || (c == '=')
-                 || (c == '\r')
-                 || (c == '\n')
-                 || (c == 0)
-                )
-           )
+        if (strlen(p) >= cbAttrib)      // V0.9.9 (2001-03-27) [umoeller]
         {
-            // yes:
-            CHAR c2;
-            p2 = p + cbAttrib;
-            c2 = *p2;
-            while (     (   (c2 == ' ')
-                         || (c2 == '=')
-                         || (c2 == '\n')
-                         || (c2 == '\r')
-                        )
-                    &&  (c2 != 0)
-                  )
-                c2 = *++p2;
-            prc = p2;
-            break; // first while
+            c = *(p+cbAttrib);     // V0.9.3 (2000-05-19) [umoeller]
+            // now check whether the p+strlen(pszAttrib)
+            // is a valid end-of-tag character
+            if (    (memicmp(p, (PVOID)pszAttrib, cbAttrib) == 0)
+                 && (   (c == ' ')
+                     || (c == '>')
+                     || (c == '=')
+                     || (c == '\r')
+                     || (c == '\n')
+                     || (c == 0)
+                    )
+               )
+            {
+                // yes:
+                CHAR c2;
+                p2 = p + cbAttrib;
+                c2 = *p2;
+                while (     (   (c2 == ' ')
+                             || (c2 == '=')
+                             || (c2 == '\n')
+                             || (c2 == '\r')
+                            )
+                        &&  (c2 != 0)
+                      )
+                    c2 = *++p2;
+
+                prc = p2;
+                break; // first while
+            }
         }
+        else
+            break;
+
         pszSearchIn2++;
     }
     return (prc);

@@ -92,14 +92,12 @@ BOOL LockThreadInfos(VOID)
         arc = DosCreateMutexSem(NULL,     // unnamed
                                 &G_hmtxThreadInfos,
                                 0,        // unshared
-                                TRUE);        // request!
+                                TRUE);    // request!
         lstInit(&G_llThreadInfos, FALSE);
     }
     else
-    {
         arc = DosRequestMutexSem(G_hmtxThreadInfos,
                                  SEM_INDEFINITE_WAIT);
-    }
 
     return (arc == NO_ERROR);
 }
@@ -137,8 +135,9 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
 
         if (pti->flFlags & THRF_WAIT)
             // "Wait" flag set: thrCreate is then
-            // waiting on the wait event sem posted
-                    // do not post if THRF_WAIT_EXPLICIT!
+            // waiting on the wait event sem posted...
+            // note: we do not post if THRF_WAIT_EXPLICIT!
+            // thread must then post itself
             DosPostEventSem(pti->hevRunning);
 
         if (pti->flFlags & THRF_PMMSGQUEUE)
@@ -159,6 +158,7 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
         }
         else
             // no msgqueue:
+            // run thread func without msg queue
             ((PTHREADFUNC)pti->pThreadFunc)(pti);
 
         if (pti->flFlags & (THRF_WAIT | THRF_WAIT_EXPLICIT))    // V0.9.9 (2001-03-14) [umoeller]
@@ -173,22 +173,21 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
             UnlockThreadInfos();
         }
 
+        // for non-transient threads: set exit flags
+        // V0.9.7 (2000-12-20) [umoeller]
+        pti->fExitComplete = TRUE;
+        pti->tid = NULLHANDLE;
+
+        if (pti->pfRunning)
+            // clear "running" flag
+            *(pti->pfRunning) = FALSE;
+
         // (2000-12-18) [lafaix] clean up pti if thread is transient.
         if (pti->flFlags & THRF_TRANSIENT)
             free(pti);
-        else
-        {
-            // for non-transient threads: set exit flags
-            // V0.9.7 (2000-12-20) [umoeller]
-            // thread func returns:
-            pti->fExitComplete = TRUE;
-            pti->tid = NULLHANDLE;
-
-            if (pti->pfRunning)
-                // clear "running" flag
-                *(pti->pfRunning) = FALSE;
-        }
     }
+
+    // thread func exits
 }
 
 /*

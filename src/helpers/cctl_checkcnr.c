@@ -645,12 +645,7 @@ MRESULT EXPENTRY ctl_fnwpSubclCheckboxCnrOwner(HWND hwndOwner, ULONG msg, MPARAM
                             GpiSetColor(poi->hps, lForeground);
 
                             memcpy(&rcl2, &(poi->rclItem), sizeof(rcl2));
-                            /* WinDrawText(poi->hps,
-                                        strlen(precc->recc.pszTree),
-                                        precc->recc.pszTree,
-                                        &rcl2,
-                                        lForeground, lBackground,
-                                        DT_TEXTATTRS | DT_HALFTONE); */
+
                             winhDrawFormattedText(poi->hps,
                                                   &rcl2,
                                                   precc->recc.pszTree,
@@ -852,7 +847,7 @@ ULONG EXPENTRY fncbFindCheckRecord(HWND hwndCnr,             // in: container
     PCHECKBOXRECORDCORE precc = (PCHECKBOXRECORDCORE)preccThis;
     if (precc)
     {
-        if (precc->usItemID == ulItemID)
+        if (precc->ulItemID == ulItemID)
         {
             // found:
             PCHECKBOXRECORDCORE *pprecc = (PCHECKBOXRECORDCORE*)ulppRecc;

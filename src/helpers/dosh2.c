@@ -752,8 +752,10 @@ APIRET doshFreeEnvironment(PDOSENVIRONMENT pEnv)
 
 /*
  *@@category: Helpers\Control program helpers\Executable info
- *      these functions can retrieve BLDLEVEL information from
- *      any executable module. See doshExecOpen.
+ *      these functions can retrieve BLDLEVEL information,
+ *      imported modules information, exported functions information,
+ *      and resources information from any executable module. See
+ *      doshExecOpen.
  */
 
 /********************************************************************
@@ -1213,7 +1215,119 @@ APIRET doshExecQueryBldLevel(PEXECUTABLE pExec)
 PFSYSMODULE doshExecQueryImportedModules(PEXECUTABLE pExec,
                                          PULONG pcModules)
 {
-    return (NULL);
+    ULONG       cModules = 0;
+    PFSYSMODULE paModules = NULL;
+    int i;
+
+    if (pExec)
+    {
+        if (pExec->ulOS == EXEOS_OS2)
+        {
+            ULONG ulDummy;
+
+            if (pExec->ulExeFormat == EXEFORMAT_LX)
+            {
+                // It's a 32bit OS/2 executable
+                cModules = pExec->pLXHeader->ulImportModTblCnt;
+
+                if (cModules)
+                {
+                    BYTE bLen;
+
+                    paModules = (PFSYSMODULE)malloc(sizeof(FSYSMODULE) * cModules);
+
+                    DosSetFilePtr(pExec->hfExe,
+                                  pExec->pLXHeader->ulImportModTblOfs
+                                    + pExec->pDosExeHeader->ulNewHeaderOfs,
+                                  FILE_BEGIN,
+                                  &ulDummy);
+
+                    for (i = 0; i < cModules; i++)
+                    {
+                         // reading the length of the module name
+                         DosRead(pExec->hfExe,
+                                 &bLen,
+                                 1,
+                                 &ulDummy);
+
+                         // At most 127 bytes
+                         bLen &= 0x7F;
+
+                         // reading the module name
+                         DosRead(pExec->hfExe,
+                                 paModules[i].achModuleName,
+                                 bLen,
+                                 &ulDummy);
+
+                         // modules name are not null terminated, so we must
+                         // do it now
+                         paModules[i].achModuleName[bLen] = 0;
+                    }
+                }
+            }
+            else
+            if (pExec->ulExeFormat == EXEFORMAT_NE)
+            {
+                // It's a 16bit OS/2 executable
+                cModules = pExec->pNEHeader->usModuleTblEntries;
+
+                if (cModules)
+                {
+                    BYTE bLen;
+
+                    paModules = (PFSYSMODULE)malloc(sizeof(FSYSMODULE) * cModules);
+
+                    for (i = 0; i < cModules; i ++)
+                    {
+                        USHORT usOfs;
+
+                        // the module reference table contains offsets
+                        // relative to the import table; we hence read
+                        // the offset in the module reference table, and
+                        // then we read the name in the import table
+
+                        DosSetFilePtr(pExec->hfExe,
+                                      pExec->pNEHeader->usModRefTblOfs
+                                        + pExec->pDosExeHeader->ulNewHeaderOfs
+                                        + sizeof(usOfs) * i,
+                                      FILE_BEGIN,
+                                      &ulDummy);
+
+                        DosRead(pExec->hfExe,
+                                &usOfs,
+                                2,
+                                &ulDummy);
+
+                        DosSetFilePtr(pExec->hfExe,
+                                      pExec->pNEHeader->usImportTblOfs
+                                        + pExec->pDosExeHeader->ulNewHeaderOfs
+                                        + usOfs,
+                                      FILE_BEGIN,
+                                      &ulDummy);
+
+                        DosRead(pExec->hfExe,
+                                &bLen,
+                                1,
+                                &ulDummy);
+
+                        bLen &= 0x7F;
+
+                        DosRead(pExec->hfExe,
+                                paModules[i].achModuleName,
+                                bLen,
+                                &ulDummy);
+
+                        paModules[i].achModuleName[bLen] = 0;
+                    }
+
+                }
+            }
+
+            *pcModules = cModules;
+        }
+    }
+
+    return (paModules);
 }
 
 /*
@@ -1227,6 +1341,363 @@ APIRET doshExecFreeImportedModules(PFSYSMODULE paModules)
 {
     free(paModules);
     return (NO_ERROR);
+}
+
+/*
+ *@@ ScanLXEntryTable:
+ *      returns the number of exported entries in the entry table.
+ *
+ *      if paFunctions is not NULL, then successive entries are
+ *      filled with the found type and ordinal values.
+ *
+ *@@added V0.9.9 (2001-03-30) [lafaix]
+ */
+
+ULONG ScanLXEntryTable(PEXECUTABLE pExec,
+                       PFSYSFUNCTION paFunctions)
+{
+    USHORT usOrdinal = 1,
+           usCurrent = 0;
+    ULONG  ulDummy;
+    int    i;
+
+    DosSetFilePtr(pExec->hfExe,
+                  pExec->pLXHeader->ulEntryTblOfs
+                    + pExec->pDosExeHeader->ulNewHeaderOfs,
+                  FILE_BEGIN,
+                  &ulDummy);
+
+    while (TRUE)
+    {
+        BYTE   bCnt,
+               bType,
+               bFlag;
+
+        DosRead(pExec->hfExe,
+                &bCnt,
+                1,
+                &ulDummy);
+
+        if (bCnt == 0)
+            // end of the entry table
+            break;
+
+        DosRead(pExec->hfExe,
+                &bType,
+                1,
+                &ulDummy);
+
+        switch (bType & 0x7F)
+        {
+            /*
+             * unused entries
+             *
+             */
+
+            case 0:
+               usOrdinal += bCnt;
+            break;
+
+            /*
+             * 16-bit entries
+             *
+             * the bundle type is followed by the object number
+             * and by bCnt bFlag+usOffset entries
+             *
+             */
+
+            case 1:
+                DosSetFilePtr(pExec->hfExe,
+                              sizeof(USHORT),
+                              FILE_CURRENT,
+                              &ulDummy);
+
+                for (i = 0; i < bCnt; i ++)
+                {
+                    DosRead(pExec->hfExe,
+                            &bFlag,
+                            1,
+                            &ulDummy);
+
+                    if (bFlag & 0x01)
+                    {
+                        if (paFunctions)
+                        {
+                            paFunctions[usCurrent].ulOrdinal = usOrdinal;
+                            paFunctions[usCurrent].ulType = 1;
+                            paFunctions[usCurrent].achFunctionName[0] = 0;
+                        }
+                        usCurrent++;
+                    }
+
+                    usOrdinal++;
+
+                    DosSetFilePtr(pExec->hfExe,
+                                  sizeof(USHORT),
+                                  FILE_CURRENT,
+                                  &ulDummy);
+                }
+            break;
+
+            /*
+             * 286 call gate entries
+             *
+             * the bundle type is followed by the object number
+             * and by bCnt bFlag+usOffset+usCallGate entries
+             *
+             */
+
+            case 2:
+                DosSetFilePtr(pExec->hfExe,
+                              sizeof(USHORT),
+                              FILE_CURRENT,
+                              &ulDummy);
+
+                for (i = 0; i < bCnt; i ++)
+                {
+                    DosRead(pExec->hfExe,
+                            &bFlag,
+                            1,
+                            &ulDummy);
+
+                    if (bFlag & 0x01)
+                    {
+                        if (paFunctions)
+                        {
+                            paFunctions[usCurrent].ulOrdinal = usOrdinal;
+                            paFunctions[usCurrent].ulType = 2;
+                            paFunctions[usCurrent].achFunctionName[0] = 0;
+                        }
+                        usCurrent++;
+                    }
+
+                    usOrdinal++;
+
+                DosSetFilePtr(pExec->hfExe,
+                              sizeof(USHORT) + sizeof(USHORT),
+                              FILE_CURRENT,
+                              &ulDummy);
+                }
+            break;
+
+            /*
+             * 32-bit entries
+             *
+             * the bundle type is followed by the object number
+             * and by bCnt bFlag+ulOffset entries
+             *
+             */
+
+            case 3:
+                DosSetFilePtr(pExec->hfExe,
+                              sizeof(USHORT),
+                              FILE_CURRENT,
+                              &ulDummy);
+
+                for (i = 0; i < bCnt; i ++)
+                {
+                    DosRead(pExec->hfExe,
+                            &bFlag,
+                            1,
+                            &ulDummy);
+
+                    if (bFlag & 0x01)
+                    {
+                        if (paFunctions)
+                        {
+                            paFunctions[usCurrent].ulOrdinal = usOrdinal;
+                            paFunctions[usCurrent].ulType = 3;
+                            paFunctions[usCurrent].achFunctionName[0] = 0;
+                        }
+                        usCurrent++;
+                    }
+
+                    usOrdinal++;
+
+                    DosSetFilePtr(pExec->hfExe,
+                                  sizeof(ULONG),
+                                  FILE_CURRENT,
+                                  &ulDummy);
+                }
+            break;
+
+            /*
+             * forwarder entries
+             *
+             * the bundle type is followed by a reserved word
+             * and by bCnt bFlag+usModOrd+ulOffsOrdNum entries
+             *
+             */
+
+            case 4:
+                DosSetFilePtr(pExec->hfExe,
+                              sizeof(USHORT),
+                              FILE_CURRENT,
+                              &ulDummy);
+
+                for (i = 0; i < bCnt; i ++)
+                {
+                    DosSetFilePtr(pExec->hfExe,
+                                  sizeof(BYTE) + sizeof(USHORT) + sizeof(ULONG),
+                                  FILE_CURRENT,
+                                  &ulDummy);
+
+                    if (paFunctions)
+                    {
+                        paFunctions[usCurrent].ulOrdinal = usOrdinal;
+                        paFunctions[usCurrent].ulType = 4;
+                        paFunctions[usCurrent].achFunctionName[0] = 0;
+                    }
+                    usCurrent++;
+
+                    usOrdinal++;
+                }
+            break;
+        }
+    } // end while (TRUE)
+
+    return (usCurrent);
+}
+
+/*
+ *@@ ScanNEEntryTable:
+ *      returns the number of exported entries in the entry table.
+ *
+ *      if paFunctions is not NULL, then successive entries are
+ *      filled with the found type and ordinal values.
+ *
+ *@@added V0.9.9 (2001-03-30) [lafaix]
+ */
+
+ULONG ScanNEEntryTable(PEXECUTABLE pExec,
+                       PFSYSFUNCTION paFunctions)
+{
+    USHORT usOrdinal = 1,
+           usCurrent = 0;
+    ULONG  ulDummy;
+    int    i;
+
+    DosSetFilePtr(pExec->hfExe,
+                  pExec->pNEHeader->usEntryTblOfs
+                    + pExec->pDosExeHeader->ulNewHeaderOfs,
+                  FILE_BEGIN,
+                  &ulDummy);
+
+    while (TRUE)
+    {
+        BYTE bCnt,
+             bType,
+             bFlag;
+
+        DosRead(pExec->hfExe,
+                &bCnt,
+                1,
+                &ulDummy);
+
+        if (bCnt == 0)
+            // end of the entry table
+            break;
+
+        DosRead(pExec->hfExe,
+                &bType,
+                1,
+                &ulDummy);
+
+        for (i = 0; i < bCnt; i++)
+        {
+            DosRead(pExec->hfExe,
+                    &bFlag,
+                    1,
+                    &ulDummy);
+
+            if (bFlag & 0x01)
+            {
+                if (paFunctions)
+                {
+                    paFunctions[usCurrent].ulOrdinal = usOrdinal;
+                    paFunctions[usCurrent].ulType = 1; // 16-bit entry
+                    paFunctions[usCurrent].achFunctionName[0] = 0;
+                }
+                usCurrent++;
+            }
+
+            usOrdinal++;
+
+            if (bType == 0xFF)
+                // moveable segment
+                DosSetFilePtr(pExec->hfExe,
+                              5,
+                              FILE_CURRENT,
+                              &ulDummy);
+            else
+                // fixed segment
+                DosSetFilePtr(pExec->hfExe,
+                              2,
+                              FILE_CURRENT,
+                              &ulDummy);
+        }
+    } // end while (TRUE)
+
+    return (usCurrent);
+}
+
+/*
+ *@@ ScanNameTable:
+ *      scans a resident or non-resident name table, and fills the
+ *      appropriate paFunctions entries when it encounters exported
+ *      entries names.
+ *
+ *      This functions works for both NE and LX executables.
+ *
+ *@@added V0.9.9 (2001-03-30) [lafaix]
+ */
+
+VOID ScanNameTable(PEXECUTABLE pExec,
+                   ULONG cFunctions,
+                   PFSYSFUNCTION paFunctions)
+{
+    USHORT usOrdinal;
+    ULONG  ulDummy;
+
+    while (TRUE)
+    {
+        BYTE   bLen;
+        CHAR   achName[128];
+        int    i;
+
+        DosRead(pExec->hfExe,
+                &bLen,
+                1,
+                &ulDummy);
+
+        if (bLen == 0)
+            // end of the name table
+            break;
+
+        bLen &= 0x7F;
+
+        DosRead(pExec->hfExe,
+                &achName,
+                bLen,
+                &ulDummy);
+        achName[bLen] = 0;
+
+        DosRead(pExec->hfExe,
+                &usOrdinal,
+                sizeof(USHORT),
+                &ulDummy);
+
+        for (i = 0; i < cFunctions; i++)
+        {
+            if (paFunctions[i].ulOrdinal == usOrdinal)
+            {
+                memcpy(paFunctions[i].achFunctionName,
+                       achName,
+                       bLen+1);
+                break;
+            }
+        }
+    }
 }
 
 /*
@@ -1246,7 +1717,107 @@ APIRET doshExecFreeImportedModules(PFSYSMODULE paModules)
 PFSYSFUNCTION doshExecQueryExportedFunctions(PEXECUTABLE pExec,
                                              PULONG pcFunctions)
 {
-    return (NULL);
+    ULONG         cFunctions = 0;
+    PFSYSFUNCTION paFunctions = NULL;
+
+    if (pExec)
+    {
+        if (pExec->ulOS == EXEOS_OS2)
+        {
+            ULONG ulDummy;
+
+            if (pExec->ulExeFormat == EXEFORMAT_LX)
+            {
+                // It's a 32bit OS/2 executable
+
+                // the number of exported entry points is not stored
+                // in the executable header; we have to count them in
+                // the entry table
+
+                cFunctions = ScanLXEntryTable(pExec, NULL);
+
+                // we now have the number of exported entries; let us
+                // build them
+
+                if (cFunctions)
+                {
+                    paFunctions = (PFSYSFUNCTION)malloc(sizeof(FSYSFUNCTION) * cFunctions);
+
+                    // we rescan the entry table (the cost is not as bad
+                    // as it may seem, due to disk caching)
+
+                    ScanLXEntryTable(pExec, paFunctions);
+
+                    // we now scan the resident name table entries
+                    DosSetFilePtr(pExec->hfExe,
+                                  pExec->pLXHeader->ulResdNameTblOfs
+                                    + pExec->pDosExeHeader->ulNewHeaderOfs,
+                                  FILE_BEGIN,
+                                  &ulDummy);
+
+                    ScanNameTable(pExec, cFunctions, paFunctions);
+
+                    // we now scan the non-resident name table entries,
+                    // whose offset is _from the begining of the file_
+                    DosSetFilePtr(pExec->hfExe,
+                                  pExec->pLXHeader->ulNonResdNameTblOfs,
+                                  FILE_BEGIN,
+                                  &ulDummy);
+
+                    ScanNameTable(pExec, cFunctions, paFunctions);
+                } // end if (cFunctions)
+            }
+            else
+            if (pExec->ulExeFormat == EXEFORMAT_NE)
+            {
+                // It's a 16bit OS/2 executable
+
+                // here too the number of exported entry points
+                // is not stored in the executable header; we
+                // have to count them in the entry table
+
+                cFunctions = ScanNEEntryTable(pExec, NULL);
+
+                // we now have the number of exported entries; let us
+                // build them
+
+                if (cFunctions)
+                {
+                    USHORT usOrdinal = 1,
+                           usCurrent = 0;
+
+                    paFunctions = (PFSYSFUNCTION)malloc(sizeof(FSYSFUNCTION) * cFunctions);
+
+                    // we rescan the entry table (the cost is not as bad
+                    // as it may seem, due to disk caching)
+
+                    ScanNEEntryTable(pExec, paFunctions);
+
+                    // we now scan the resident name table entries
+                    DosSetFilePtr(pExec->hfExe,
+                                  pExec->pNEHeader->usResdNameTblOfs
+                                    + pExec->pDosExeHeader->ulNewHeaderOfs,
+                                  FILE_BEGIN,
+                                  &ulDummy);
+
+                    ScanNameTable(pExec, cFunctions, paFunctions);
+
+                    // we now scan the non-resident name table entries,
+                    // whose offset is _from the begining of the file_
+                    DosSetFilePtr(pExec->hfExe,
+                                  pExec->pNEHeader->ulNonResdTblOfs,
+                                  FILE_BEGIN,
+                                  &ulDummy);
+
+                    ScanNameTable(pExec, cFunctions, paFunctions);
+                }
+            }
+
+            *pcFunctions = cFunctions;
+        }
+    }
+
+    return (paFunctions);
 }
 
 /*

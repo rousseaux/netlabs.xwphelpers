@@ -2115,7 +2115,7 @@ APIRET doshQuickStartSession(const char *pcszPath,       // in: program to start
 {
     APIRET      arc;
     // queue stuff
-    const char  *pcszQueueName = "\\queues\\kfgstart.que";
+    const char  *pcszQueueName = "\\queues\\xwphlpsw.que";
     HQUEUE      hq = 0;
     PID         qpid = 0;
     STARTDATA   SData;
@@ -2143,7 +2143,7 @@ APIRET doshQuickStartSession(const char *pcszPath,       // in: program to start
     SData.PgmName = (PSZ)pcszPath;
     SData.PgmInputs = (PSZ)pcszParams;
 
-    SData.TermQ = (fWait) ? "\\queues\\kfgstart.que" : NULL;
+    SData.TermQ = (fWait) ? (PSZ)pcszQueueName : NULL;
     SData.Environment = 0;
     SData.InheritOpt = SSF_INHERTOPT_PARENT;
     SData.SessionType = SSF_TYPE_DEFAULT;
