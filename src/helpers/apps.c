@@ -828,26 +828,6 @@ static VOID CallBatchCorrectly(PPROGDETAILS pProgDetails,
 }
 
 /*
- *@@ strhSize:
- *      returns the size of the given string, which
- *      is the memory required to allocate a copy,
- *      including the null terminator.
- *
- *      Returns 0 if pcsz is NULL or points to a
- *      null character.
- *
- *@@added V0.9.18 (2002-02-13) [umoeller]
- */
-
-ULONG strhSize(PCSZ pcsz)
-{
-    if (pcsz && *pcsz)
-        return (strlen(pcsz) + 1);
-
-    return (0);
-}
-
-/*
  *@@ appQueryDefaultWin31Environment:
  *      returns the default Win-OS/2 3.1 environment
  *      from OS2.INI, which you can then merge with
