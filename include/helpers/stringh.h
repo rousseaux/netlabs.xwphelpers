@@ -71,6 +71,14 @@ extern "C" {
                              const char *pszSource,
                              ULONG cbSource);
 
+    size_t XWPENTRY strlcpy(char *dst,
+                            const char *src,
+                            size_t siz);
+
+    size_t strlcat(char *dst,
+                   const char *src,
+                   size_t siz);
+
     ULONG XWPENTRY strhlen(PCSZ pcsz);
 
     ULONG XWPENTRY strhSize(PCSZ pcsz);
@@ -142,6 +150,10 @@ extern "C" {
 
     ULONG strhBeautifyTitle2(PSZ pszTarget,
                              PCSZ pcszSource);
+
+    BOOL XWPENTRY strhKillChar(PSZ psz,
+                               CHAR c,
+                               PULONG pulLength);
 
     PSZ XWPENTRY strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib);
 

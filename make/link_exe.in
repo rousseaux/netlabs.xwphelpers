@@ -64,7 +64,9 @@ LINKOBJS = $(OBJS)
 
 $(MODULESDIR)\$(MODULESTEM).exe: $(LINKOBJS) $(MODULEDEF) $(DEPEND_RES)
     @echo   ### [$@]: Linking $(@F)
-    $(LINK) /OUT:$@ $(MODULEDEF) $(LINKOBJS) $(PMPRINTF_LIB)
+    $(LINK) @<<
+/OUT:$@ $(MODULEDEF) $(LINKOBJS) $(PMPRINTF_LIB)
+<<KEEP
 !ifdef DEPEND_RES
     @echo   ### [$@]: Appending $(@B).res
     $(RC) $(OUTPUTDIR)\$(@B).res $@

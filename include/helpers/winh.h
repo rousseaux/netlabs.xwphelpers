@@ -77,6 +77,25 @@ extern "C" {
         #define WM_MOUSELEAVE   0x041F
     #endif
 
+    #ifndef PP_FIELDBACKGROUNDCOLOR
+    #define PP_FIELDBACKGROUNDCOLOR                 57L
+    #endif
+
+    #ifndef PP_PAGEFOREGROUNDCOLOR
+    #define PP_PAGEFOREGROUNDCOLOR                  68L
+    #endif
+
+    #ifndef PP_PAGEBACKGROUNDCOLOR
+    #define PP_PAGEBACKGROUNDCOLOR                  69L
+    #endif
+
+    #ifndef CM_SETGRIDINFO
+    #define CM_SETGRIDINFO                0x0354
+    #define CM_QUERYGRIDINFO              0x0355
+    #define CM_SNAPTOGRID                 0x0356
+    #define CRA_LOCKED          0x00000400L /* record is locked.          */
+    #endif
+
     /* ******************************************************************
      *
      *   Wrappers

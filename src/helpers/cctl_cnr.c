@@ -485,8 +485,6 @@ STATIC VOID CnrSem2(PCNRDATA pData,
                 cy -= pData->scrw.cyScrollBar;
             }
 
-            _PmpfF(("cyColTitlesBox %d, new cy: %d", pData->cyColTitlesBox, cy));
-
             if (fl & DDFL_WINDOWSIZECHANGED)
                 WinSetWindowPos(pData->dwdContent.hwnd,
                                 HWND_TOP,
@@ -507,10 +505,6 @@ STATIC VOID CnrSem2(PCNRDATA pData,
                                 pData->scrw.cxScrollBar,
                                 cy,
                                 SWP_MOVE | SWP_SIZE);
-
-                _PmpfF(("updating VScroll, cy: %d, scrw.szlWorkarea.cy: %d",
-                        cy,
-                        pData->scrw.szlWorkarea.cy));
             }
 
             if (pData->scrw.hwndHScroll)
@@ -522,10 +516,6 @@ STATIC VOID CnrSem2(PCNRDATA pData,
                                 cx,
                                 pData->scrw.cyScrollBar,
                                 SWP_MOVE | SWP_SIZE);
-
-                _PmpfF(("updating HScroll, cx: %d, scrw.szlWorkarea.cx: %d",
-                        cx,
-                        pData->scrw.szlWorkarea.cx));
             }
 
             ctnrUpdateScrollbars(pData,

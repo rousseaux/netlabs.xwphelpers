@@ -1112,8 +1112,9 @@ PSZ xstrFindWord(const XSTRING *pxstr,        // in: buffer to search ("haystack
  *      This new version should be magnitudes faster,
  *      especially with large string bufffers.
  *
- *      None of the pointers can be NULL, but if pstrReplace
- *      is empty, this effectively erases pstrSearch in pxstr.
+ *      pxstr and pstrReplace may not be NULL, but if
+ *      pstrReplace is null or empty, this effectively
+ *      erases pstrSearch in pxstr.
  *
  *      Returns the length of the new string (exclusing the
  *      null terminator) or 0 if pszSearch was not found
@@ -1168,19 +1169,20 @@ PSZ xstrFindWord(const XSTRING *pxstr,        // in: buffer to search ("haystack
  *@@changed V0.9.6 (2000-11-01) [umoeller]: rewritten
  *@@changed V0.9.6 (2000-11-12) [umoeller]: now using strhmemfind
  *@@changed V0.9.7 (2001-01-15) [umoeller]: renamed from xstrrpl; extracted new xstrrpl
+ *@@changed V1.0.1 (2003-02-02) [umoeller]: now allowing for NULL pstrReplace
  */
 
 ULONG xstrFindReplace(PXSTRING pxstr,               // in/out: string
                       PULONG pulOfs,                // in: where to begin search (0 = start);
                                                     // out: ofs of first char after replacement string
                       const XSTRING *pstrSearch,    // in: search string; cannot be NULL
-                      const XSTRING *pstrReplace,   // in: replacement string; cannot be NULL
+                      const XSTRING *pstrReplace,   // in: replacement string or NULL
                       size_t *pShiftTable,          // in: shift table (see strhmemfind)
                       PBOOL pfRepeatFind)           // in: repeat find? (see strhmemfind)
 {
     ULONG    ulrc = 0;      // default: not found
 
-    if ((pxstr) && (pstrSearch) && (pstrReplace))
+    if ((pxstr) && (pstrSearch))
     {
         ULONG   cSearchLen = pstrSearch->ulLength;
 
@@ -1200,16 +1202,17 @@ ULONG xstrFindReplace(PXSTRING pxstr,               // in/out: string
                                            pfRepeatFind))
             {
                 ULONG ulFirstReplOfs = pFound - pxstr->psz;
+                ULONG   lenRepl = pstrReplace ? (pstrReplace->ulLength) : 0;
                 // found in buffer from ofs:
                 // replace pFound with pstrReplace
                 ulrc = xstrrpl(pxstr,
                                ulFirstReplOfs,              // where to start
                                cSearchLen,                  // chars to replace
-                               pstrReplace->psz,
-                               pstrReplace->ulLength);      // adjusted V0.9.11 (2001-04-22) [umoeller]
+                               pstrReplace ? (pstrReplace->psz) : NULL,
+                               lenRepl);      // adjusted V0.9.11 (2001-04-22) [umoeller]
 
                 // return new length
-                *pulOfs = ulFirstReplOfs + pstrReplace->ulLength;
+                *pulOfs = ulFirstReplOfs + lenRepl;
             } // end if (pFound)
         } // end if (    (*pulOfs < pxstr->ulLength) ...
     } // end if ((pxstr) && (pstrSearch) && (pstrReplace))

@@ -88,21 +88,6 @@
 # define $(OBJ), which contains all object targets
 !include helpers_pre.in
 
-# The main target:
-# If we're called from the main makefile, MAINMAKERUNNING is defined,
-# and we'll set $(OBJS) as our targets (which will go on).
-# Otherwise, we call the main makefile, which will again call ourselves later.
-
-all:   \
-!ifndef MAINMAKERUNNING
-    callmainmake
-    @echo ----- Leaving $(MAKEDIR)
-!else
-    $(OUTPUTDIR)\helpers.lib
-#$(OBJS)
-    @echo ----- Leaving $(MAKEDIR)
-!endif
-
 plainc:   \
 !ifndef MAINMAKERUNNING
     callmainmake
@@ -122,20 +107,6 @@ cp:   \
 #$(OBJS)
     @echo ----- Leaving $(MAKEDIR)
 !endif
-
-
-callmainmake:
-    @echo $(MAKEDIR)\makefile: Recursing to main makefile.
-    @cd $(PROJECT_BASE_DIR)
-    @nmake
-    @echo $(MAKEDIR)\makefile: Returned from main makefile. Done.
-
-# The "dep" target: run fastdep on the sources.
-# "nmake dep" gets called from src\makefile if nmake dep
-# is running on the main makefile.
-dep:
-    $(RUN_FASTDEP) *.c
-    @echo ----- Leaving $(MAKEDIR)
 
 # Define the main dependency between the output HELPERS.LIB and
 # all the object files.
@@ -180,6 +151,10 @@ $(OUTPUTDIR)\plainc.lib: $(PLAINCOBJS) makefile
 !endif
 
 !include helpers_post.in
+
+ALLTARGET = $(OUTPUTDIR)\helpers.lib
+
+!include ..\..\make\targets.in
 
 ###################################################
 #

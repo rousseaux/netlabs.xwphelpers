@@ -411,6 +411,109 @@ ULONG strhncpy0(PSZ pszTarget,
 }
 
 /*
+ *@@ strlcpy:
+ *      copies src to string dst of size siz.  At most siz-1 characters
+ *      will be copied.  Always NUL terminates, unless siz == 0.
+ *
+ *      Returns strlen(src); if retval >= siz, truncation occurred.
+ *
+ *      Taken from the OpenBSD sources at
+ *
+ +          ftp://ftp.openbsd.org/pub/OpenBSD/src/lib/libc/string/strlcpy.c
+ *
+ *      Copyright (c) 1998 Todd C. Miller <Todd.Miller@courtesan.com>
+ *      All rights reserved.
+ *
+ *      OpenBSD licence applies (see top of that file).
+ *
+ *@@added V1.0.1 (2003-01-29) [umoeller]
+ */
+
+size_t strlcpy(char *dst,
+               const char *src,
+               size_t siz)
+{
+    register char       *d = dst;
+    register const char *s = src;
+    register size_t     n = siz;
+
+    /* Copy as many bytes as will fit */
+    if (n != 0 && --n != 0)
+    {
+        do
+        {
+            if ((*d++ = *s++) == 0)
+                break;
+        } while (--n != 0);
+    }
+
+    /* Not enough room in dst, add NUL and traverse rest of src */
+    if (n == 0)
+    {
+        if (siz != 0)
+            *d = '\0';      /* NUL-terminate dst */
+        while (*s++)
+            ;
+    }
+
+    return (s - src - 1);    /* count does not include NUL */
+}
+
+/*
+ *@@ strlcat:
+ *      appends src to string dst of size siz. Unlike strncat,
+ *      siz is the full size of dst, not space left. At most
+ *      siz-1 characters will be copied.  Always NUL terminates,
+ *      unless siz <= strlen(dst).
+ *
+ *      Returns strlen(src) + MIN(siz, strlen(initial dst)),
+ *      in other words, strlen(dst) after the concatenation.
+ *      If retval >= siz, truncation occurred.
+ *
+ *      Taken from the OpenBSD sources at
+ *
+ +          ftp://ftp.openbsd.org/pub/OpenBSD/src/lib/libc/string/strlcat.c
+ *
+ *      Copyright (c) 1998 Todd C. Miller <Todd.Miller@courtesan.com>
+ *      All rights reserved.
+ *
+ *      OpenBSD licence applies (see top of that file).
+ *
+ *@@added V1.0.1 (2003-01-29) [umoeller]
+ */
+
+size_t strlcat(char *dst,
+               const char *src,
+               size_t siz)
+{
+    register char       *d = dst;
+    register const char *s = src;
+    register size_t     n = siz;
+    size_t              dlen;
+
+    /* Find the end of dst and adjust bytes left but don't go past end */
+    while (n-- != 0 && *d != '\0')
+        d++;
+    dlen = d - dst;
+    n = siz - dlen;
+
+    if (n == 0)
+        return(dlen + strlen(s));
+    while (*s != '\0')
+    {
+        if (n != 1)
+        {
+            *d++ = *s;
+            n--;
+        }
+        s++;
+    }
+    *d = '\0';
+
+    return (dlen + (s - src));   /* count does not include NUL */
+}
+
+/*
  *@@ strhlen:
  *      like strlen, but doesn't crash on
  *      null strings, but returns 0 also.
@@ -1159,6 +1262,45 @@ ULONG strhBeautifyTitle2(PSZ pszTarget,     // out: beautified string
     *pTarget = '\0';
 
     return (pTarget - pszTarget);
+}
+
+/*
+ *@@ strhKillChar:
+ *      removes the first occurence of c in psz
+ *      by overwriting it with the following characters.
+ *
+ *      For this to work, you _must_ pass in strlen(psz)
+ *      in the ULONG pointed to by ulLength. If
+ *
+ *      Returns TRUE only if c was actually found. In
+ *      that case, *pulLength is decremented.
+ *
+ *@@added V1.0.1 (2003-01-30) [umoeller]
+ */
+
+BOOL strhKillChar(PSZ psz,
+                  CHAR c,
+                  PULONG pulLength)
+{
+    PSZ p;
+    if (p = strchr(psz, c))
+    {
+        // "string~rest"
+        //  ÀÄÄÄÄÄÙ 6 chars (p - pszBuf)
+        //  ÀÄÄÄÄÄÄÄÄÄÄÙ 11 chars (ulLen)
+        //        ^ p (pszBuf + 6)
+        //  ^ pszBuf
+        memmove(p,                      // pszBuf + 6
+                p + 1,                  // pszBuf + 7
+                // include null byte
+                  *pulLength            // 11
+                - (p - psz));           // - 6 = 5
+        --(*pulLength);
+
+        return TRUE;
+    }
+
+    return FALSE;
 }
 
 /*
@@ -2031,6 +2173,8 @@ char* strhtxtfind (const char *string,            //  String containing data
                 return (char*)match_base;
           }
       }
+
     return NULL;                      //  Found nothing
 }
+
 

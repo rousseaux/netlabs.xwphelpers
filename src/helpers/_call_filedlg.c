@@ -399,6 +399,12 @@ int main(int argc, char *argv[])
         int i = 0;
         PGROUPRECORD preccFirst;
 
+        CHAR    szTest[12];
+        ULONG   len;
+
+        len = strlcpy(szTest, "~Group name", sizeof(szTest));
+        strhKillChar(szTest, '~', &len);
+
         // set up cnr details view
         xfi[i].ulFieldOffset = FIELDOFFSET(GROUPRECORD, gid);
         xfi[i].pszColumnTitle = "gid";
@@ -406,7 +412,7 @@ int main(int argc, char *argv[])
         xfi[i++].ulOrientation = CFA_RIGHT;
 
         xfi[i].ulFieldOffset = FIELDOFFSET(GROUPRECORD, recc.pszIcon);
-        xfi[i].pszColumnTitle = "Group name";   // @@todo localize
+        xfi[i].pszColumnTitle = szTest; // "Group name";   // @@todo localize
         xfi[i].ulDataType = CFA_STRING;
         xfi[i++].ulOrientation = CFA_CENTER;
 
