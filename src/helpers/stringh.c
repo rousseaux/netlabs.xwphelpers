@@ -1151,15 +1151,61 @@ BOOL strhBeautifyTitle(PSZ psz)
  *      respecting case.
  *
  *      <B>Example:</B>
- +          strhFindAttribValue("<PAGE BLAH="data">, "BLAH")
+ +          strhFindAttribValue("<PAGE BLAH=\"data\">", "BLAH")
  +
  +          returns ....................... ^ this address.
  *
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.3 (2000-05-19) [umoeller]: some speed optimizations
+ *@@changed V0.9.12 (2001-05-22) [umoeller]: fixed space bug, thanks Yuri Dario
  */
 
 PSZ strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib)
+{
+   PSZ    prc = 0;
+   PSZ    pszSearchIn2, p;
+   ULONG  cbAttrib = strlen(pszAttrib),
+          ulLength = strlen(pszSearchIn);
+
+   // use alloca(), so memory is freed on function exit
+   pszSearchIn2 = (PSZ)alloca(ulLength + 1);
+   memcpy(pszSearchIn2, pszSearchIn, ulLength + 1);
+
+   // 1) find token, (space char, \n, \r, \t)
+   p = strtok(pszSearchIn2, " \n\r\t");
+   while (p)
+   {
+        CHAR c2;
+        PSZ pOrig;
+
+        // check tag name
+        if (!strnicmp(p, pszAttrib, cbAttrib))
+        {
+            // position in original string
+            pOrig = (PSZ)pszSearchIn + (p - pszSearchIn2);
+
+            // yes:
+            prc = pOrig + cbAttrib;
+            c2 = *prc;
+            while (   (   (c2 == ' ')
+                       || (c2 == '=')
+                       || (c2 == '\n')
+                       || (c2 == '\r')
+                      )
+                    && (c2 != 0)
+                  )
+                c2 = *++prc;
+
+            break;
+        }
+
+        p = strtok(NULL, " \n\r\t");
+   }
+
+   return (prc);
+}
+
+/* PSZ strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib)
 {
     PSZ     prc = 0;
     PSZ     pszSearchIn2 = (PSZ)pszSearchIn,
@@ -1210,7 +1256,7 @@ PSZ strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib)
         pszSearchIn2++;
     }
     return (prc);
-}
+} */
 
 /*
  * strhGetNumAttribValue:

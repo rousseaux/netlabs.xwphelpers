@@ -2233,6 +2233,7 @@ APIRET doshExecVIO(const char *pcszExecWithArgs,
 
     if (strlen(pcszExecWithArgs) > 255)
         arc = ERROR_INSUFFICIENT_BUFFER;
+    else
     {
         CHAR szObj[CCHMAXPATH];
         RESULTCODES res = {0};

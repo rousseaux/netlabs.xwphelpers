@@ -204,6 +204,9 @@ extern "C" {
                                     USHORT afItemStyle,
                                     USHORT afAttribute);
 
+    BOOL XWPENTRY winhSetMenuCondCascade(HWND hwndMenu,
+                                         LONG lDefaultItem);
+
     /*
      *@@ winhRemoveMenuItem:
      *      removes a menu item (SHORT) from the

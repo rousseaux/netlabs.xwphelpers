@@ -450,6 +450,38 @@ HWND winhInsertSubmenu(HWND hwndMenu,       // in: menu to add submenu to
 }
 
 /*
+ *@@ winhSetMenuCondCascade:
+ *      sets the "conditional cascade" style
+ *      on the specified submenu.
+ *
+ *      This style must always be enabled manually
+ *      because the resource compiler won't handle it.
+ *
+ *      Note: Pass in the _submenu_ window handle,
+ *      not the one of the parent. With lDefaultItem,
+ *      specify the item ID in the submenu which is
+ *      to be checked as the default item.
+ *
+ *@@added V0.9.12 (2001-05-22) [umoeller]
+ */
+
+BOOL winhSetMenuCondCascade(HWND hwndMenu,          // in: submenu handle
+                            LONG lDefaultItem)      // in: item ID of new default item
+{
+    // stolen from the Warp Toolkit WPS Guide
+    ULONG ulStyle = WinQueryWindowULong(hwndMenu, QWL_STYLE);
+    ulStyle |= MS_CONDITIONALCASCADE;
+    WinSetWindowULong(hwndMenu, QWL_STYLE, ulStyle);
+
+    // make the first item in the subfolder
+    // the default of cascading submenu */
+    return (BOOL)(WinSendMsg(hwndMenu,
+                             MM_SETDEFAULTITEMID,
+                             (MPARAM)lDefaultItem,
+                             0));
+}
+
+/*
  *@@ winhInsertMenuSeparator:
  *      this inserts a separator into a given menu at
  *      the given position (which may be MIT_END);
