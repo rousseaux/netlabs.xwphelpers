@@ -615,6 +615,7 @@ APIRET ColumnCalcPositions(PCOLUMNDEF pColumnDef,
  *
  *@@added V0.9.15 (2001-08-26) [umoeller]
  *@@changed V0.9.16 (2001-10-15) [umoeller]: fixed ugly group table spacings
+ *@@changed V0.9.16 (2001-12-08) [umoeller]: fixed entry field ES_MARGIN positioning
  */
 
 APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
@@ -700,6 +701,19 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
         {
             y -= 100;
             cy += 100;
+        }
+        // the stupid entry field resizes itself if it has
+        // the ES_MARGIN style, so correlate that too... dammit
+        // V0.9.16 (2001-12-08) [umoeller]
+        else if (    ((ULONG)pControlDef->pcszClass == 0xffff0006L)
+                  && (flStyle & ES_MARGIN)
+                )
+        {
+            LONG cxMargin = 3 * WinQuerySysValue(HWND_DESKTOP, SV_CXBORDER);
+            LONG cyMargin = 3 * WinQuerySysValue(HWND_DESKTOP, SV_CYBORDER);
+
+            x += cxMargin;
+            y += cxMargin;
         }
     }
 
@@ -1727,6 +1741,7 @@ VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *@@changed V0.9.14 (2001-07-07) [umoeller]: fixed disabled mouse with hwndOwner == HWND_DESKTOP
  *@@changed V0.9.14 (2001-08-01) [umoeller]: fixed major memory leaks with nested tables
  *@@changed V0.9.14 (2001-08-21) [umoeller]: fixed default push button problems
+ *@@changed V0.9.16 (2001-12-06) [umoeller]: fixed bad owner if not direct desktop child
  */
 
 APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
@@ -1744,6 +1759,9 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
     ULONG       ul;
 
     PDLGPRIVATE  pDlgData = NULL;
+
+    HWND        hwndDesktop = WinQueryDesktopWindow(NULLHANDLE, NULLHANDLE);
+                                        // works with a null HAB
 
     /*
      *  1) parse the table and create structures from it
@@ -1764,6 +1782,7 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
 
             FRAMECDATA      fcData = {0};
             ULONG           flStyle = 0;
+            HWND            hwndOwnersParent;
 
             fcData.cb = sizeof(FRAMECDATA);
             fcData.flCreateFlags = flCreateFlags | 0x40000000L;
@@ -1779,6 +1798,16 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                 // mouse for some reason
                 // V0.9.14 (2001-07-07) [umoeller]
                 hwndOwner = NULLHANDLE;
+
+            // now, make sure the owner window is child of
+            // HWND_DESKTOP... if it is not, we'll only disable
+            // some dumb child window, which is not sufficient
+            // V0.9.16 (2001-12-06) [umoeller]
+            while (    (hwndOwner)
+                    && (hwndOwnersParent = WinQueryWindow(hwndOwner, QW_PARENT))
+                    && (hwndOwnersParent != hwndDesktop)
+                  )
+                hwndOwner = hwndOwnersParent;
 
             if (!(pDlgData->hwndDlg = WinCreateWindow(HWND_DESKTOP,
                                                       WC_FRAME,

@@ -1290,6 +1290,7 @@ PANIMATIONDATA ctlPrepareStretchedBitmap(HWND hwndStatic,
  *      will then be set to that description.
  *
  *@@added V0.9.1 (99-12-19) [umoeller]
+ *@@changed V0.9.16 (2001-12-08) [umoeller]: fixed empty entry field on tab key
  */
 
 MRESULT EXPENTRY ctl_fnwpObjectHotkeyEntryField(HWND hwndEdit, ULONG msg, MPARAM mp1, MPARAM mp2)
@@ -1372,13 +1373,15 @@ MRESULT EXPENTRY ctl_fnwpObjectHotkeyEntryField(HWND hwndEdit, ULONG msg, MPARAM
                                           (MPARAM)&hkn);
                 if (flReturned & HEFL_SETTEXT)
                     WinSetWindowText(hwndEdit, hkn.szDescription);
-                else
-                    WinSetWindowText(hwndEdit, "");
-
-                if (flReturned & HEFL_FORWARD2OWNER)
+                else if (flReturned & HEFL_FORWARD2OWNER)
                     WinPostMsg(hwndOwner,
                                WM_CHAR,
                                mp1, mp2);
+                else
+                    // fixed V0.9.16 (2001-12-06) [umoeller]:
+                    // do not clear the entry field if we had HEFL_FORWARD2OWNER
+                    WinSetWindowText(hwndEdit, "");
+
 
                 mrc = (MPARAM)TRUE; // WM_CHAR processed flag;
             }

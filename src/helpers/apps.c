@@ -781,7 +781,10 @@ PSZ appQueryDefaultWin31Environment(VOID)
  *         for OS/2, DOS, Win-OS/2);
  *
  *      -- starting ".CMD" and ".BAT" files as
- *         PROGDETAILS.pszExecutable.
+ *         PROGDETAILS.pszExecutable;
+ *
+ *      -- starting apps which are not fully qualified
+ *         and therefore assumed to be on the PATH.
  *
  *      Unless it is "*", PROGDETAILS.pszExecutable must
  *      be a proper file name. The full path may be omitted
@@ -813,8 +816,8 @@ PSZ appQueryDefaultWin31Environment(VOID)
  *
  *      -- To start a session minimized, set SWP_MINIMIZE.
  *
- *      -- To start a VIO session auto-close disabled, set
- *         the half-documented SWP_NOAUTOCLOSE flag (0x8000)
+ *      -- To start a VIO session with auto-close disabled,
+ *         set the half-documented SWP_NOAUTOCLOSE flag (0x8000)
  *         This flag is now in the newer toolkit headers.
  *
  *      In addition, this supports the following session
@@ -842,8 +845,8 @@ PSZ appQueryDefaultWin31Environment(VOID)
  *          Since this uses WinStartApp internally and
  *          WinStartApp completely hangs the session manager
  *          if a Win-OS/2 full-screen session is started from
- *          a thread that is NOT thread1, this will fail
- *          with an error for safety (V0.9.16).
+ *          a thread that is NOT thread 1, this will now fail
+ *          with this error for safety (V0.9.16).
  *
  *      --  ERROR_INVALID_PARAMETER: pcProgDetails or
  *          phapp is NULL; or PROGDETAILS.pszExecutable is NULL.
@@ -865,6 +868,7 @@ PSZ appQueryDefaultWin31Environment(VOID)
  *@@changed V0.9.14 (2001-08-23) [pr]: added session type options
  *@@changed V0.9.16 (2001-10-19) [umoeller]: added prototype to return APIRET
  *@@changed V0.9.16 (2001-10-19) [umoeller]: added thread-1 check
+ *@@changed V0.9.16 (2001-12-06) [umoeller]: now using doshSearchPath for finding pszExecutable if not qualified
  */
 
 APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
@@ -885,13 +889,17 @@ APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
 
     // all this only makes sense if this contains something...
     // besides, this crashed on string comparisons V0.9.9 (2001-01-27) [umoeller]
-    if (!ProgDetails.pszExecutable)
+    if (    (!ProgDetails.pszExecutable)
+         || (!(*(ProgDetails.pszExecutable)))
+       )
         arc = ERROR_INVALID_PARAMETER;
     else if (doshMyTID() != 1)          // V0.9.16 (2001-10-19) [umoeller]
         arc = ERROR_INVALID_THREADID;
     else
     {
         ULONG           ulIsWinApp;
+
+        CHAR            szFQExecutable[CCHMAXPATH];
 
         XSTRING         strParamsPatched;
         PSZ             pszWinOS2Env = 0;
@@ -1009,26 +1017,37 @@ APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
         } // end if (strcmp(pProgDetails->pszExecutable, "*") == 0)
         else
         {
-            // now check if the executable is valid
-            // V0.9.16 (2001-10-19) [umoeller]
-            ULONG ulAttr;
-            _Pmpf(("  %d now, checking %s", arc, ProgDetails.pszExecutable));
-            if (!(arc = doshQueryPathAttr(ProgDetails.pszExecutable,
-                                          &ulAttr)))
+            // check if the executable is fully qualified; if so,
+            // check if the executable file exists
+            if (    (ProgDetails.pszExecutable[1] == ':')
+                 && (strchr(ProgDetails.pszExecutable, '\\'))
+               )
             {
-                // make sure startup dir is really a directory
-                if (ProgDetails.pszStartupDir)
+                ULONG ulAttr;
+                if (!(arc = doshQueryPathAttr(ProgDetails.pszExecutable,
+                                              &ulAttr)))
                 {
-                    _Pmpf(("  checking %s", ProgDetails.pszStartupDir));
-                    if (!(arc = doshQueryPathAttr(ProgDetails.pszStartupDir,
-                                                  &ulAttr)))
-                        if (!(ulAttr & FILE_DIRECTORY))
-                            arc = ERROR_PATH_NOT_FOUND;
-                                        // @@todo
+                    // make sure startup dir is really a directory
+                    if (ProgDetails.pszStartupDir)
+                    {
+                        if (!(arc = doshQueryPathAttr(ProgDetails.pszStartupDir,
+                                                      &ulAttr)))
+                            if (!(ulAttr & FILE_DIRECTORY))
+                                arc = ERROR_PATH_NOT_FOUND;
+                    }
                 }
             }
-
-            _Pmpf(("  after checking %d", arc));
+            else
+            {
+                // _not_ fully qualified: look it up on the PATH then
+                // V0.9.16 (2001-12-06) [umoeller]
+                if (!(arc = doshSearchPath("PATH",
+                                           ProgDetails.pszExecutable,
+                                           szFQExecutable,
+                                           sizeof(szFQExecutable))))
+                    // alright, found it:
+                    ProgDetails.pszExecutable = szFQExecutable;
+            }
 
             if (!arc)
             {

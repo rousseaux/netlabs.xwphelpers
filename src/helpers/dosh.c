@@ -1836,6 +1836,7 @@ APIRET doshUnlockFile(PXFILE pFile)
  *
  *@@added V0.9.16 (2001-10-19) [umoeller]
  *@@changed V0.9.16 (2001-12-02) [umoeller]: added XOPEN_BINARY \r\n support
+ *@@changed V0.9.16 (2001-12-06) [umoeller]: added check for pFile != NULL
  */
 
 APIRET doshWrite(PXFILE pFile,
@@ -1843,7 +1844,7 @@ APIRET doshWrite(PXFILE pFile,
                  ULONG cb)
 {
     APIRET arc = NO_ERROR;
-    if (!pcsz)
+    if ((!pFile) || (!pcsz))
         arc = ERROR_INVALID_PARAMETER;
     else
     {
@@ -1929,41 +1930,49 @@ APIRET doshWrite(PXFILE pFile,
  *
  *      The internal string buffer is limited to 2000
  *      characters. Length checking is _not_ performed.
+ *
+ *@@added V0.9.16 (2001-10-19) [umoeller]
+ *@@changed V0.9.16 (2001-12-06) [umoeller]: added check for pFile != NULL
  */
 
 APIRET doshWriteLogEntry(PXFILE pFile,
                          const char* pcszFormat,
                          ...)
 {
-    APIRET arc;
+    APIRET arc = NO_ERROR;
 
-    DATETIME dt;
-    CHAR szTemp[2000];
-    ULONG   ulLength;
-
-    DosGetDateTime(&dt);
-    if (ulLength = sprintf(szTemp,
-                           "%04d-%02d-%02d %02d:%02d:%02d:%02d ",
-                           dt.year, dt.month, dt.day,
-                           dt.hours, dt.minutes, dt.seconds, dt.hundredths))
+    if ((!pFile) || (!pcszFormat))
+        arc = ERROR_INVALID_PARAMETER;
+    else
     {
-        if (!(arc = doshWrite(pFile,
-                              szTemp,
-                              ulLength)))
+        DATETIME dt;
+        CHAR szTemp[2000];
+        ULONG   ulLength;
+
+        DosGetDateTime(&dt);
+        if (ulLength = sprintf(szTemp,
+                               "%04d-%02d-%02d %02d:%02d:%02d:%02d ",
+                               dt.year, dt.month, dt.day,
+                               dt.hours, dt.minutes, dt.seconds, dt.hundredths))
         {
-            va_list arg_ptr;
-            va_start(arg_ptr, pcszFormat);
-            ulLength = vsprintf(szTemp, pcszFormat, arg_ptr);
-            va_end(arg_ptr);
+            if (!(arc = doshWrite(pFile,
+                                  szTemp,
+                                  ulLength)))
+            {
+                va_list arg_ptr;
+                va_start(arg_ptr, pcszFormat);
+                ulLength = vsprintf(szTemp, pcszFormat, arg_ptr);
+                va_end(arg_ptr);
 
-            if (pFile->flOpenMode & XOPEN_BINARY)
-                // if we're in binary mode, we need to add \r too
-                szTemp[ulLength++] = '\r';
-            szTemp[ulLength++] = '\n';
+                if (pFile->flOpenMode & XOPEN_BINARY)
+                    // if we're in binary mode, we need to add \r too
+                    szTemp[ulLength++] = '\r';
+                szTemp[ulLength++] = '\n';
 
-            arc = doshWrite(pFile,
-                            (PCSZ)szTemp,
-                            ulLength);
+                arc = doshWrite(pFile,
+                                (PCSZ)szTemp,
+                                ulLength);
+            }
         }
     }
 

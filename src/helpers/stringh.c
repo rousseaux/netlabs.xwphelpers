@@ -68,6 +68,45 @@
  */
 
 /*
+ *@@ strhStore:
+ *      stores a copy of the given string in the specified
+ *      buffer. Uses strdup internally.
+ *
+ *      If *ppszTarget != NULL, the previous string is freed
+ *      and set to NULL.
+ *      If pcszSource != NULL, a copy of it is stored in the
+ *      buffer.
+ *
+ *@@added V0.9.16 (2001-12-06) [umoeller]
+ */
+
+VOID strhStore(PSZ *ppszTarget,
+               PCSZ pcszSource,
+               PULONG pulLength)        // out: length of new string (ptr can be NULL)
+{
+    ULONG ulLength = 0;
+
+    if (ppszTarget)
+    {
+        if (*ppszTarget)
+            free(*ppszTarget);
+
+        if (    (pcszSource)
+             && (ulLength = strlen(pcszSource))
+           )
+        {
+            if (*ppszTarget = (PSZ)malloc(ulLength + 1))
+                memcpy(*ppszTarget, pcszSource, ulLength + 1);
+        }
+        else
+            *ppszTarget = NULL;
+    }
+
+    if (pulLength)
+        *pulLength = ulLength;
+}
+
+/*
  *@@ strhcpy:
  *      like strdup, but this one doesn't crash if string2 is NULL,
  *      but sets the first byte in string1 to \0 instead.
