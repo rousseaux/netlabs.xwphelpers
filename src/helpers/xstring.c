@@ -1082,6 +1082,43 @@ ULONG xstrFindReplaceC(PXSTRING pxstr,              // in/out: string
     return (xstrFindReplace(pxstr, pulOfs, &xstrFind, &xstrReplace, ShiftTable, &fRepeat));
 }
 
+// static encoding table for xstrEncode
+static PSZ apszEncoding[] =
+{
+    "%00", "%01", "%02", "%03", "%04", "%05", "%06", "%07",
+    "%08", "%09", "%0A", "%0B", "%0C", "%0D", "%0E", "%0F",
+    "%10", "%11", "%12", "%13", "%14", "%15", "%16", "%17",
+    "%18", "%19", "%1A", "%1B", "%1C", "%1D", "%1E", "%1F",
+    "%20", "%21", "%22", "%23", "%24", "%25", "%26", "%27",
+    "%28", "%29", "%2A", "%2B", "%2C", "%2D", "%2E", "%2F",
+    "%30", "%31", "%32", "%33", "%34", "%35", "%36", "%37",
+    "%38", "%39", "%3A", "%3B", "%3C", "%3D", "%3E", "%3F",
+    "%40", "%41", "%42", "%43", "%44", "%45", "%46", "%47",
+    "%48", "%49", "%4A", "%4B", "%4C", "%4D", "%4E", "%4F",
+    "%50", "%51", "%52", "%53", "%54", "%55", "%56", "%57",
+    "%58", "%59", "%5A", "%5B", "%5C", "%5D", "%5E", "%5F",
+    "%60", "%61", "%62", "%63", "%64", "%65", "%66", "%67",
+    "%68", "%69", "%6A", "%6B", "%6C", "%6D", "%6E", "%6F",
+    "%70", "%71", "%72", "%73", "%74", "%75", "%76", "%77",
+    "%78", "%79", "%7A", "%7B", "%7C", "%7D", "%7E", "%7F",
+    "%80", "%81", "%82", "%83", "%84", "%85", "%86", "%87",
+    "%88", "%89", "%8A", "%8B", "%8C", "%8D", "%8E", "%8F",
+    "%90", "%91", "%92", "%93", "%94", "%95", "%96", "%97",
+    "%98", "%99", "%9A", "%9B", "%9C", "%9D", "%9E", "%9F",
+    "%A0", "%A1", "%A2", "%A3", "%A4", "%A5", "%A6", "%A7",
+    "%A8", "%A9", "%AA", "%AB", "%AC", "%AD", "%AE", "%AF",
+    "%B0", "%B1", "%B2", "%B3", "%B4", "%B5", "%B6", "%B7",
+    "%B8", "%B9", "%BA", "%BB", "%BC", "%BD", "%BE", "%BF",
+    "%C0", "%C1", "%C2", "%C3", "%C4", "%C5", "%C6", "%C7",
+    "%C8", "%C9", "%CA", "%CB", "%CC", "%CD", "%CE", "%CF",
+    "%D0", "%D1", "%D2", "%D3", "%D4", "%D5", "%D6", "%D7",
+    "%D8", "%D9", "%DA", "%DB", "%DC", "%DD", "%DE", "%DF",
+    "%E0", "%E1", "%E2", "%E3", "%E4", "%E5", "%E6", "%E7",
+    "%E8", "%E9", "%EA", "%EB", "%EC", "%ED", "%EE", "%EF",
+    "%F0", "%F1", "%F2", "%F3", "%F4", "%F5", "%F6", "%F7",
+    "%F8", "%F9", "%FA", "%FB", "%FC", "%FD", "%FE", "%FF"
+};
+
 /*
  *@@ xstrEncode:
  *      encodes characters in a string.
@@ -1115,48 +1152,69 @@ ULONG xstrFindReplaceC(PXSTRING pxstr,              // in/out: string
  *
  +          S%61mple %63hara%63ters.
  *
- *      Memory cost: None, except for that of xstrFindReplace.
+ *      Memory cost: None, except for that of xstrcpy.
  *
  *@@added V0.9.9 (2001-02-28) [umoeller]
+ *@@changed V0.9.9 (2001-03-06) [lafaix]: rewritten.
  */
 
 ULONG xstrEncode(PXSTRING pxstr,            // in/out: string to convert
                  const char *pcszEncode)    // in: characters to encode (e.g. "%,();=")
 {
     ULONG ulrc = 0,
-          ul;
+          ul,
+          ulEncodeLength;
 
-    // now encode the widget setup string...
-    for (ul = 0;
-         ul < strlen(pcszEncode);
-         ul++)
+    if (    (pxstr)
+         && (pxstr->ulLength)
+         && (pcszEncode)
+         && (ulEncodeLength = strlen(pcszEncode)))
     {
-        CHAR        szFind[3] = "?",
-                    szReplace[10] = "%xx";
-        XSTRING     strFind,
-                    strReplace;
-        size_t      ShiftTable[256];
-        BOOL        fRepeat = FALSE;
-        ULONG       ulOfs = 0;
+        PSZ pszDest = (PSZ)malloc(pxstr->ulLength * 3
+                                  + 1),
+            pszDestCurr = pszDest;
 
-        // search string:
-        szFind[0] = pcszEncode[ul];
-        xstrInitSet(&strFind, szFind);
+        if (pszDest)
+        {
+            for (ul = 0;
+                 ul < pxstr->ulLength;
+                 ul++)
+            {
+                ULONG ulEncode;
 
-        // replace string: ASCII encoding
-        sprintf(szReplace, "%%%lX", pcszEncode[ul]);
-        xstrInitSet(&strReplace, szReplace);
+                for (ulEncode = 0;
+                     ulEncode < ulEncodeLength;
+                     ulEncode++)
+                {
+                    if (pxstr->psz[ul] == pcszEncode[ulEncode])
+                    {
+                        // use the static encoding table for speed
+                        memcpy(pszDestCurr,
+                               apszEncoding[(unsigned char)pcszEncode[ulEncode]],
+                               3);
+                        pszDestCurr += 3;
+                        ulrc++;
+                        goto iterate;
+                    }
+                }
 
-        // replace all occurences
-        while (xstrFindReplace(pxstr,
-                               &ulOfs,
-                               &strFind,
-                               &strReplace,
-                               ShiftTable,
-                               &fRepeat))
-                ulrc++;
+                *pszDestCurr++ = pxstr->psz[ul];
 
-    } // for ul; next encoding
+                iterate:
+                    ;
+            }
+        }
+
+        // something was encoded; update pxstr
+        if (ulrc)
+        {
+            *pszDestCurr = 0;
+
+            xstrcpy(pxstr, pszDest, pszDestCurr-pszDest);
+        }
+
+        free(pszDest);
+    }
 
     return (ulrc);
 }
@@ -1173,12 +1231,10 @@ ULONG xstrEncode(PXSTRING pxstr,            // in/out: string to convert
  *
  *      Returns the no. of encodings replaced.
  *
- *      Memory cost: Creates a temporary buffer with the
- *      length of pxstr and replaces pxstr with it, if any
- *      encodings were found. In other words, this is
- *      expensive for very large strings.
+ *      Memory cost: None.
  *
  *@@added V0.9.9 (2001-02-28) [umoeller]
+ *@@changed V0.9.9 (2001-03-06) [lafaix]: removed memory allocation
  */
 
 ULONG xstrDecode(PXSTRING pxstr)       // in/out: string to be decoded
@@ -1189,70 +1245,53 @@ ULONG xstrDecode(PXSTRING pxstr)       // in/out: string to be decoded
          && (pxstr->ulLength)
        )
     {
-        ULONG   cbAllocated = pxstr->ulLength + 1;
-            // decoded string cannot be longer than source
-        PSZ     pszDest = (PSZ)malloc(cbAllocated);
+        const char  *pSource = pxstr->psz;
+        PSZ         pszDest  = (PSZ)pSource,
+                    pDest    = (PSZ)pSource;
+        CHAR        c;
 
-        if (pszDest)
+        while ((c = *pSource++))
         {
-            const char  *pSource = pxstr->psz;
-            PSZ         pDest = pszDest;
+            // pSource points to next char now
 
-            CHAR    c;
-
-            while ((c = *pSource++))
+            if (c == '%')
             {
-                // pSource points to next char now
+                static char ach[] = "0123456789ABCDEF";
 
-                if (c == '%')
+                // convert two chars after '%'
+                CHAR        c2,         // first char after '%'     --> hi-nibble
+                            c3;         // second char after '%'    --> lo-nibble
+                const char  *p2,        // for first char: points into ach or is NULL
+                            *p3;        // for second char: points into ach or is NULL
+                if (    (c2 = *pSource)
+                     && (p2 = strchr(ach, c2))
+                     && (c3 = *(pSource + 1))
+                     && (p3 = strchr(ach, c3))
+                   )
                 {
-                    static char ach[] = "0123456789ABCDEF";
-
-                    // convert two chars after '%'
-                    CHAR        c2,         // first char after '%'     --> hi-nibble
-                                c3;         // second char after '%'    --> lo-nibble
-                    const char  *p2,        // for first char: points into ach or is NULL
-                                *p3;        // for second char: points into ach or is NULL
-                    if (    (c2 = *pSource)
-                         && (p2 = strchr(ach, c2))
-                         && (c3 = *(pSource + 1))
-                         && (p3 = strchr(ach, c3))
-                       )
-                    {
-                        // both chars after '%' were valid:
-                        *pDest++ =    // lo-nibble:
-                                      (p3 - ach) // 0 for '0', 10 for 'A', ...
-                                      // hi-nibble:
-                                    + ((p2 - ach) << 4);
-                        // go on after that
-                        pSource += 2;
-                        // raise return count
-                        ulrc++;
-                        // next in loop
-                        continue;
-                    }
+                    // both chars after '%' were valid:
+                    *pDest++ =    // lo-nibble:
+                                  (p3 - ach) // 0 for '0', 10 for 'A', ...
+                                  // hi-nibble:
+                                + ((p2 - ach) << 4);
+                    // go on after that
+                    pSource += 2;
+                    // raise return count
+                    ulrc++;
+                    // next in loop
+                    continue;
                 }
-
-                // not encoding, or null after '%', or invalid encoding:
-                // just copy this
-                *pDest++ = c;
-            } // while ((ch = *pSource++))
-
-            if (ulrc)
-            {
-                // any encodings found:
-                // terminate target
-                *pDest = 0;
-
-                // replace source with target
-                free(pxstr->psz);
-                pxstr->psz = pszDest;
-                pxstr->cbAllocated = cbAllocated;
-                pxstr->ulLength = (pDest - pszDest);
             }
-            else
-                // no encodings found:
-                free(pszDest);
+
+            // not encoding, or null after '%', or invalid encoding:
+            // just copy this
+            *pDest++ = c;
+        } // while ((ch = *pSource++))
+
+        if (ulrc)
+        {
+            *pDest = 0;
+            pxstr->ulLength = (pDest - pszDest);
         }
     }
 

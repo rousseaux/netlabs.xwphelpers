@@ -330,6 +330,12 @@ extern "C" {
      *
      ********************************************************************/
 
+    APIRET doshFindExecutable(const char *pcszCommand,
+                              PSZ pszExecutable,
+                              ULONG cbExecutable,
+                              const char **papcszExtensions,
+                              ULONG cExtensions);
+
     APIRET doshExecVIO(const char *pcszExecWithArgs,
                        PLONG plExitCode);
 

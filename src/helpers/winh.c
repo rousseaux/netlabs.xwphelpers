@@ -40,6 +40,7 @@
 #define INCL_DOSSEMAPHORES
 #define INCL_DOSDEVICES
 #define INCL_DOSDEVIOCTL
+#define INCL_DOSSESMGR
 #define INCL_DOSERRORS
 
 #define INCL_WINWINDOWMGR
@@ -2556,6 +2557,78 @@ VOID CallBatchCorrectly(PPROGDETAILS pProgDetails,
 }
 
 /*
+ *@@ winhQueryAppType:
+ *      returns the Control Program (Dos) and
+ *      Win* PROG_* application types for the
+ *      specified executable. Essentially, this
+ *      is a wrapper around DosQueryAppType.
+ *
+ *      pcszExecutable must be fully qualified.
+ *      You can use doshFindExecutable to qualify
+ *      it.
+ *
+ *      This returns the APIRET of DosQueryAppType.
+ *      If this is NO_ERROR; *pulDosAppType receives
+ *      the app type of DosQueryAppType. In addition,
+ *      *pulWinAppType is set to one of the following:
+ *
+ *      --  PROG_FULLSCREEN
+ *
+ *      --  PROG_PDD
+ *
+ *      --  PROG_VDD
+ *
+ *      --  PROG_XWP_DLL: new apptype defined in winh.h for
+ *          dynamic link libraries.
+ *
+ *      --  PROG_WINDOWEDVDM
+ *
+ *      --  PROG_PM
+ *
+ *      --  PROG_31_ENH
+ *
+ *      --  PROG_WINDOWABLEVIO
+ *
+ *@@added V0.9.9 (2001-03-07) [umoeller]
+ */
+
+APIRET winhQueryAppType(const char *pcszExecutable,
+                        PULONG pulDosAppType,
+                        PULONG pulWinAppType)
+{
+    APIRET arc = DosQueryAppType((PSZ)pcszExecutable, pulDosAppType);
+    if (arc == NO_ERROR)
+    {
+        ULONG _ulDosAppType = *pulDosAppType;
+
+        if (_ulDosAppType == 0)
+            *pulWinAppType = PROG_FULLSCREEN;
+        else if (_ulDosAppType & 0x40)
+            *pulWinAppType = PROG_PDD;
+        else if (_ulDosAppType & 0x80)
+            *pulWinAppType = PROG_VDD;
+        else if ((_ulDosAppType & 0xF0) == 0x10)
+            // DLL bit set
+            *pulWinAppType = PROG_XWP_DLL;
+        else if (_ulDosAppType & 0x20)
+            // DOS bit set?
+            *pulWinAppType = PROG_WINDOWEDVDM;
+        else if ((_ulDosAppType & 0x0003) == 0x0003) // "Window-API" == PM
+            *pulWinAppType = PROG_PM;
+        else if (   ((_ulDosAppType & 0xFFFF) == 0x1000) // windows program (?!?)
+                 || ((_ulDosAppType & 0xFFFF) == 0x0400) // windows program (?!?)
+                )
+            *pulWinAppType = PROG_31_ENH;
+        else if ((_ulDosAppType & 0x03) == 0x02)
+            *pulWinAppType = PROG_WINDOWABLEVIO;
+        else if ((_ulDosAppType & 0x03) == 0x01)
+            *pulWinAppType = PROG_FULLSCREEN;
+    }
+
+    return (arc);
+}
+
+/*
  *@@ winhStartApp:
  *      wrapper around WinStartApp which fixes the
  *      specified PROGDETAILS to (hopefully) work
@@ -2568,6 +2641,12 @@ VOID CallBatchCorrectly(PPROGDETAILS pProgDetails,
  *
  *      -- starting ".CMD" and ".BAT" files as
  *         PROGDETAILS.pszExecutable.
+ *
+ *      Unless it is "*", PROGDETAILS.pszExecutable must
+ *      be a proper file name. The full path may be omitted
+ *      if it is on the PATH, but the extension (.EXE etc.)
+ *      must be given. You can use doshFindExecutable to
+ *      find executables if you don't know the extension.
  *
  *      This also handles and merges special and default
  *      environments for the app to be started.
@@ -2801,21 +2880,6 @@ HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as wit
                 free(pszDefEnv);
             }
         }
-
-        // _Pmpf((__FUNCTION__ ": calling WinStartApp"));
-        // _Pmpf(("    exec: %s",
-        //             (ProgDetails.pszExecutable)
-                        // ? ProgDetails.pszExecutable
-                    // : "NULL"));
-        // _Pmpf(("    startupDir: %s",
-           //      (ProgDetails.pszStartupDir)
-              //       ? ProgDetails.pszStartupDir
-                 //    : "NULL"));
-        // _Pmpf(("    params: %s",
-           //      (pszParamsPatched)
-              //       ? pszParamsPatched
-                 //    : "NULL"));
-        // _Pmpf(("    new progc: 0x%lX", ProgDetails.progt.progc));
 
         ProgDetails.pszParameters = strParamsPatched.psz;
 
@@ -3281,10 +3345,10 @@ HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
                          PSWP pswpFrame,            // in: frame wnd pos
                          ULONG flFrameCreateFlags,  // in: FCF_* flags
                          ULONG ulFrameStyle,        // in: WS_* flags (e.g. WS_VISIBLE, WS_ANIMATE)
-                         const char *pcszFrameTitle,
+                         const char *pcszFrameTitle, // in: frame title (title bar)
                          ULONG ulResourcesID,       // in: according to FCF_* flags
-                         const char *pcszClassClient,
-                         ULONG flStyleClient,
+                         const char *pcszClassClient, // in: client class name
+                         ULONG flStyleClient,       // in: client style
                          ULONG ulID,                // in: frame window ID
                          PVOID pClientCtlData,      // in: pCtlData structure pointer for client
                          PHWND phwndClient)         // out: created client wnd

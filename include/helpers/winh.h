@@ -590,6 +590,13 @@ extern "C" {
      ********************************************************************/
 
     #ifdef INCL_WINPROGRAMLIST
+        // additional PROG_* flags for winhQueryAppType
+        #define PROG_XWP_DLL            998      // dynamic link library
+
+        APIRET winhQueryAppType(const char *pcszExecutable,
+                                PULONG pulDosAppType,
+                                PULONG pulWinAppType);
+
         HAPP XWPENTRY winhStartApp(HWND hwndNotify, const PROGDETAILS *pcProgDetails);
     #endif
 
