@@ -1,0 +1,22 @@
+#
+#   This is a sample implementation for a setup.in file
+#   which should reside in the directory pointed to by
+#   $(PROJECT_BASE_DIR).
+#
+
+# HELPERS_OUTPUT_DIR: where to put the *.obj and *.lib files;
+# this gets created if it doesn't exist
+HELPERS_OUTPUT_DIR = $(PROJECT_BASE_DIR)\bin
+
+# extend include path; this must include the helpers "include"
+# directory (the parent of include\helpers)
+INCLUDE = $(PROJECT_BASE_DIR)\include;$(INCLUDE)
+
+# COMPILER SETUP
+# --------------
+
+CC_WARNINGS  = /w3 /Wcmp+ /Wcnd- /Wcns+ /Wcnv+ /Wgen /Wcns /Wcpy /Wobs /Word- /Wpro /Wrea /Wret /Wtru
+
+CC_HELPERS = icc $(CC_WARNINGS) /c /q+ /se /ss
+
+
