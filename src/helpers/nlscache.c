@@ -77,14 +77,14 @@
  *
  ********************************************************************/
 
-STATIC HAB                 G_hab = NULLHANDLE;
-STATIC HMODULE             G_hmod = NULLHANDLE;
-STATIC PCSTRINGENTITY      G_paEntities = NULL;
-STATIC ULONG               G_cEntities = 0;
+static HAB                 G_hab = NULLHANDLE;
+static HMODULE             G_hmod = NULLHANDLE;
+static PCSTRINGENTITY      G_paEntities = NULL;
+static ULONG               G_cEntities = 0;
 
-STATIC HMTX        G_hmtxStringsCache = NULLHANDLE;
-STATIC TREE        *G_StringsCache;
-STATIC LONG        G_cStringsInCache = 0;
+static HMTX        G_hmtxStringsCache = NULLHANDLE;
+static TREE        *G_StringsCache;
+static LONG        G_cStringsInCache = 0;
 
 
 /*

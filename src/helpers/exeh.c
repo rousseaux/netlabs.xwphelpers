@@ -1454,11 +1454,11 @@ STATIC int _Optlink Compare(const void *key,
     PFSYSFUNCTION pFunction = (PFSYSFUNCTION)element;
 
     if (usOrdinal > pFunction->ulOrdinal)
-        return (1);
+        return 1;
     else if (usOrdinal < pFunction->ulOrdinal)
-        return (-1);
-    else
-        return (0);
+        return -1;
+
+    return 0;
 }
 
 /*
@@ -2444,7 +2444,6 @@ STATIC APIRET ExpandIterdata2(char *pachPage,              // out: page data (pa
                 return ERROR_BAD_FORMAT;
             }
 
-
             /*
              *  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
              *  type  |  |  |     |  |                       |
@@ -2511,7 +2510,6 @@ STATIC APIRET ExpandIterdata2(char *pachPage,              // out: page data (pa
                 }
                 return ERROR_BAD_FORMAT;
             }
-
 
             /*
              *  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23
@@ -2765,7 +2763,7 @@ APIRET exehLoadLXResource(PEXECUTABLE pExec,     // in: executable from exehOpen
             ulType, idResource)); */
 
     if (!(pLXHeader = pExec->pLXHeader))
-        return (ERROR_INVALID_EXE_SIGNATURE);
+        return ERROR_INVALID_EXE_SIGNATURE;
 
     if (pExec->pDosExeHeader)
         // executable has DOS stub: V0.9.12 (2001-05-03) [umoeller]
@@ -2773,7 +2771,7 @@ APIRET exehLoadLXResource(PEXECUTABLE pExec,     // in: executable from exehOpen
 
     if (!(cResources = pLXHeader->ulResTblCnt))
         // no resources at all:
-        return (ERROR_NO_DATA);
+        return ERROR_NO_DATA;
 
     if (!pExec->fLXMapsLoaded)
         arc = exehLoadLXMaps(pExec);
@@ -3036,7 +3034,7 @@ APIRET exehLoadOS2NEMaps(PEXECUTABLE pExec)
                  && (!(arc = doshReadAt(pFile,
                                         pNEHeader->usResTblOfs
                                           + ulNewHeaderOfs
-                                          - cb, // pNEHeader->usResSegmCount * sizeof(struct new_seg)
+                                          - cb,
                                         &cb,
                                         (PBYTE)pExec->paOS2NESegments,
                                         DRFL_FAILIFLESS)))
@@ -3121,7 +3119,7 @@ APIRET exehLoadOS2NEResource(PEXECUTABLE pExec,     // in: executable from exehO
     PNEHEADER       pNEHeader;
 
     if (!(pNEHeader = pExec->pNEHeader))
-        return (ERROR_INVALID_EXE_SIGNATURE);
+        return ERROR_INVALID_EXE_SIGNATURE;
 
     if (pExec->pDosExeHeader)
         // executable has DOS stub: V0.9.12 (2001-05-03) [umoeller]
@@ -3131,7 +3129,7 @@ APIRET exehLoadOS2NEResource(PEXECUTABLE pExec,     // in: executable from exehO
 
     if (!(cResources = pNEHeader->usResSegmCount))
         // no resources at all:
-        return (ERROR_NO_DATA);
+        return ERROR_NO_DATA;
 
     if (!pExec->fOS2NEMapsLoaded)
         arc = exehLoadOS2NEMaps(pExec);
