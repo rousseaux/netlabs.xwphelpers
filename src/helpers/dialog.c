@@ -3257,7 +3257,7 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
     if (arc)
     {
         CHAR szErr[300];
-        sprintf(szErr, "Error %d occured in " __FUNCTION__ ".", arc);
+        sprintf(szErr, "Error %d occurred in " __FUNCTION__ ".", arc);
         winhDebugBox(hwndOwner,
                      "Error in Dialog Manager",
                      szErr);
@@ -3380,7 +3380,7 @@ APIRET dlghFormatDlg(HWND hwndDlg,              // in: dialog frame to work on
     if (arc)
     {
         CHAR szErr[300];
-        sprintf(szErr, "Error %d occured in " __FUNCTION__ ".", arc);
+        sprintf(szErr, "Error %d occurred in " __FUNCTION__ ".", arc);
         winhDebugBox(NULLHANDLE,
                      "Error in Dialog Manager",
                      szErr);

@@ -523,7 +523,7 @@ extern "C" {
      *      this queries whether the entry field's contents
      *      have changed (EM_QUERYCHANGED message).
      *
-     *      This returns TRUE if changes have occured since
+     *      This returns TRUE if changes have occurred since
      *      the last time this message or WM_QUERYWINDOWPARAMS
      *      (WinQueryWindowText) was received.
      */

@@ -696,10 +696,10 @@ extern "C" {
 
         const char      *pcszErrorDescription;  // error description
         PXSTRING        pxstrSystemID;      // system ID of external entity
-                                            // where error occured, or NULL
+                                            // where error occurred, or NULL
                                             // if in main document
-        ULONG           ulErrorLine;        // line where error occured
-        ULONG           ulErrorColumn;      // column where error occured
+        ULONG           ulErrorLine;        // line where error occurred
+        ULONG           ulErrorColumn;      // column where error occurred
         PXSTRING        pxstrFailingNode;   // element or attribute name
                                             // or NULL
 

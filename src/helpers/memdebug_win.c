@@ -393,7 +393,7 @@ STATIC VOID CreateRecords(HWND hwndCnr,
         {
             CHAR        szMsg[1000];
             sprintf(szMsg,
-                    "Crash occured at object #%d out of %d",
+                    "Crash occurred at object #%d out of %d",
                     cHeapItems,
                     G_cHeapItems);
             G_pMemdLogFunc(szMsg);

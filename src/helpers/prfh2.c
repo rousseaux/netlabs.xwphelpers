@@ -98,7 +98,7 @@ ULONG prfhINIError(ULONG ulOptions,
 
     if (fLog)
     {
-        fprintf(fLog, "    Error occured: %s\n    Return code: %s (%lu)\n",
+        fprintf(fLog, "    Error occurred: %s\n    Return code: %s (%lu)\n",
                 pszErrorString,
                     (ulrc == MBID_ABORT) ? "MBID_ABORT"
                     : (ulrc == MBID_IGNORE) ? "MBID_IGNORE"
@@ -126,7 +126,7 @@ ULONG prfhINIError2(ULONG ulOptions,
                     PSZ pszErrorString)
 {
     CHAR szError2[2000];
-    sprintf(szError2, "An error occured copying the profile %s: \n%s",
+    sprintf(szError2, "An error occurred copying the profile %s: \n%s",
             pcszINI, pszErrorString);
     return prfhINIError(ulOptions, fLog, fncbError, szError2);
 }
@@ -329,7 +329,7 @@ BOOL prfhCopyProfile(HAB hab,               // in:  anchor block
                 pApp2 += strlen(pApp2)+1;
 
                 if (ulErrorStatus == MBID_IGNORE)
-                    // error occured, but user pressed "Ignore":
+                    // error occurred, but user pressed "Ignore":
                     // skip this app
                     ulErrorStatus = MBID_NOERROR;
 
@@ -342,7 +342,7 @@ BOOL prfhCopyProfile(HAB hab,               // in:  anchor block
                 fprintf(fLog, "    Done copying apps\n");
 
         } while (ulErrorStatus == MBID_RETRY);
-    } // end if (ulErrorOccured == MBID_NOERROR)
+    } // end if (ulErrorOccurred == MBID_NOERROR)
 
     if (fLog)
         fprintf(fLog, "    PrfCloseProfile %s\n", pszNew);
@@ -357,7 +357,7 @@ BOOL prfhCopyProfile(HAB hab,               // in:  anchor block
         fflush(fLog);
     }
 
-    return (ulErrorStatus == MBID_NOERROR); // FALSE if error occured
+    return (ulErrorStatus == MBID_NOERROR); // FALSE if error occurred
 }
 
 /*
@@ -390,10 +390,10 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
 
     // the following flag may be one of the following:
     //        MBID_NOERROR--- everything's fine, continue
-    //        MBID_IGNORE --- error occured, but ignore
-    //        MBID_RETRY  --- error occured, but retry
-    //        MBID_ABORT  --- error occured, abort saving
-    ULONG   ulErrorOccured = MBID_IGNORE;
+    //        MBID_IGNORE --- error occurred, but ignore
+    //        MBID_RETRY  --- error occurred, but retry
+    //        MBID_ABORT  --- error occurred, abort saving
+    ULONG   ulErrorOccurred = MBID_IGNORE;
 
     if (fLog)
         fprintf(fLog, "  Entering prfhSaveINIs...\n");
@@ -407,28 +407,28 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
     brc = PrfQueryProfile(hab, &Profiles);
 
     if (!brc)
-        ulErrorOccured = prfhINIError(MB_CANCEL, fLog, fncbError,
+        ulErrorOccurred = prfhINIError(MB_CANCEL, fLog, fncbError,
                                       "Error querying system profiles size.");
 
-    if (ulErrorOccured == MBID_IGNORE)
+    if (ulErrorOccurred == MBID_IGNORE)
     {
         Profiles.pszUserName  = (PSZ)malloc(Profiles.cchUserName);
         Profiles.pszSysName  = (PSZ)malloc(Profiles.cchSysName);
         if (    (Profiles.pszSysName == NULL)
              || (Profiles.pszUserName == NULL)
            )
-            ulErrorOccured = prfhINIError(MB_CANCEL, fLog, fncbError,
+            ulErrorOccurred = prfhINIError(MB_CANCEL, fLog, fncbError,
                     "Error allocating memory (1).");
     }
 
-    if (ulErrorOccured == MBID_IGNORE)
+    if (ulErrorOccurred == MBID_IGNORE)
     {
         if (!PrfQueryProfile(hab, &Profiles))
-            ulErrorOccured = prfhINIError(MB_CANCEL, fLog, fncbError,
+            ulErrorOccurred = prfhINIError(MB_CANCEL, fLog, fncbError,
                     "Error querying profiles (2).");
     }
 
-    if (ulErrorOccured == MBID_IGNORE)
+    if (ulErrorOccurred == MBID_IGNORE)
     {
         if (fLog)
             fprintf(fLog, "  System profiles are %s, %s\n",
@@ -462,11 +462,11 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
                              fncbError))
         {
             // abort, since prfhCopyProfile already has error handling
-            ulErrorOccured = MBID_ABORT;
+            ulErrorOccurred = MBID_ABORT;
         }
     }
 
-    if (ulErrorOccured == MBID_IGNORE)
+    if (ulErrorOccurred == MBID_IGNORE)
     {
         // create OS2.XFL
 
@@ -482,7 +482,7 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
                              fncbError))
         {
             // abort, since prfhCopyProfile already has error handling
-            ulErrorOccured = MBID_ABORT;
+            ulErrorOccurred = MBID_ABORT;
         }
     }
 
@@ -491,13 +491,13 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
      *
      */
 
-    if (ulErrorOccured == MBID_IGNORE)
+    if (ulErrorOccurred == MBID_IGNORE)
     {
         do
         {
-            ulErrorOccured = MBID_IGNORE; // if we have a retry in the do-while loop
+            ulErrorOccurred = MBID_IGNORE; // if we have a retry in the do-while loop
 
-            if (ulErrorOccured == MBID_IGNORE)
+            if (ulErrorOccurred == MBID_IGNORE)
             {
                 // attrib -r -s -h -a OS2SYS.BAK
                 if (fLog)
@@ -535,10 +535,10 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
                     fprintf(fLog, "    rc: %lu\n", arc);
 
                 if (arc)
-                    ulErrorOccured = prfhINIError(MB_ABORTRETRYIGNORE, fLog, fncbError, "Error moving original system profile to backup.");
+                    ulErrorOccurred = prfhINIError(MB_ABORTRETRYIGNORE, fLog, fncbError, "Error moving original system profile to backup.");
             }
 
-            if (ulErrorOccured == MBID_IGNORE)
+            if (ulErrorOccurred == MBID_IGNORE)
             {
                 if (fLog)
                     fprintf(fLog, "  MOVE %s %s\n",
@@ -547,9 +547,9 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
                 if (fLog)
                     fprintf(fLog, "    rc: %lu\n", arc);
                 if (arc)
-                    ulErrorOccured = prfhINIError(MB_ABORTRETRYIGNORE, fLog, fncbError, "Error moving newly created profile to system profile.");
+                    ulErrorOccurred = prfhINIError(MB_ABORTRETRYIGNORE, fLog, fncbError, "Error moving newly created profile to system profile.");
             }
-        } while (ulErrorOccured == MBID_RETRY);
+        } while (ulErrorOccurred == MBID_RETRY);
     }
 
     /*
@@ -557,13 +557,13 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
      *
      */
 
-    if (ulErrorOccured == MBID_IGNORE)
+    if (ulErrorOccurred == MBID_IGNORE)
     {
         do
         {
-            ulErrorOccured = MBID_IGNORE; // if we have a retry in the do-while loop
+            ulErrorOccurred = MBID_IGNORE; // if we have a retry in the do-while loop
 
-            if (ulErrorOccured == MBID_IGNORE)
+            if (ulErrorOccurred == MBID_IGNORE)
             {
                 // attrib -r -s -h -a OS2.BAK
                 if (fLog)
@@ -600,10 +600,10 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
                     fprintf(fLog, "    rc: %lu\n", arc);
 
                 if (arc)
-                    ulErrorOccured = prfhINIError(MB_ABORTRETRYIGNORE, fLog, fncbError, "Error moving original user profile to backup.");
+                    ulErrorOccurred = prfhINIError(MB_ABORTRETRYIGNORE, fLog, fncbError, "Error moving original user profile to backup.");
             }
 
-            if (ulErrorOccured == MBID_IGNORE)
+            if (ulErrorOccurred == MBID_IGNORE)
             {
                 // move OS2.XFL OS2.INI
                 if (fLog)
@@ -615,14 +615,14 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
                     fprintf(fLog, "    rc: %lu\n", arc);
 
                 if (arc)
-                    ulErrorOccured = prfhINIError(MB_ABORTRETRYIGNORE, fLog, fncbError, "Error moving newly created profile to user profile.");
+                    ulErrorOccurred = prfhINIError(MB_ABORTRETRYIGNORE, fLog, fncbError, "Error moving newly created profile to user profile.");
             }
-        } while (ulErrorOccured == MBID_RETRY);
+        } while (ulErrorOccurred == MBID_RETRY);
     }
 
     // DosExitCritSec();
 
-    if (ulErrorOccured != MBID_IGNORE)
+    if (ulErrorOccurred != MBID_IGNORE)
     {
         DosMove(szSysBackup, Profiles.pszSysName);
         DosMove(szUserBackup, Profiles.pszUserName);
@@ -636,7 +636,7 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
     if (fLog)
         fprintf(fLog, "  Done with prfhSaveINIs\n");
 
-    if (ulErrorOccured != MBID_IGNORE)
+    if (ulErrorOccurred != MBID_IGNORE)
         return 999;
     else
         return NO_ERROR;

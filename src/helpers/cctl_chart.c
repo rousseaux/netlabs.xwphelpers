@@ -996,7 +996,7 @@ STATIC VOID PaintPieChart(HPS hpsMem,
  *      If you're not interested in the regions, set
  *      paRegions to NULL.
  *
- *      This returns NULLHANDLE if an error occured.
+ *      This returns NULLHANDLE if an error occurred.
  *      This can mean the following:
  *
  *      --  The data is invalid, because the total is 0.

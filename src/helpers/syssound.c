@@ -388,7 +388,7 @@ BOOL sndWriteSoundData(HINI hiniMMPM,       // in: MMPM.INI handle (from sndOpen
  *@@ sndSetSystemSound:
  *      this sets a system sound in MMPM.INI by
  *      calling sndWriteSoundData.
- *      Returns FALSE if an error occured.
+ *      Returns FALSE if an error occurred.
  *
  *      See sndQuerySystemSound for the parameters.
  *

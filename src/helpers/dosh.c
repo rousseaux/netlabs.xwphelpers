@@ -3260,7 +3260,7 @@ APIRET doshReadText(PXFILE pFile,
  *      instead (V0.9.18).
  *
  *      This returns the APIRET of DosOpen and DosRead.
- *      If any error occured, no buffer was allocated.
+ *      If any error occurred, no buffer was allocated.
  *      Otherwise, you should free() the buffer when
  *      no longer needed.
  *

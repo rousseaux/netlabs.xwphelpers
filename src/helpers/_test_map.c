@@ -95,7 +95,7 @@ int main (int argc, char *argv[])
     }
     else
     {
-        printf("Error %d occured at line %d\n", rc, ulLineError);
+        printf("Error %d occurred at line %d\n", rc, ulLineError);
         printf("Line buf: \"%s\"", szLineBuf);
     }
 

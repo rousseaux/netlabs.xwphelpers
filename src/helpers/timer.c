@@ -635,7 +635,7 @@ VOID tmrTimerTick(PXTIMERSET pSet)      // in: timer set (from tmrCreateSet)
  *      existing timer (if usTimerID is already used
  *      with hwnd). Use tmrStopXTimer to stop the timer.
  *
- *      Returns 0 if an error occured. It is thus
+ *      Returns 0 if an error occurred. It is thus
  *      invalid to specify a timer ID of 0.
  *
  *      The timer is _not_ stopped automatically

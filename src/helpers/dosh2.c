@@ -326,7 +326,7 @@ BOOL doshMakeRealName(PSZ pszTarget,    // out: new real name
  *      one will change the current drive
  *      also, if one is specified.
  *
- *@@changed V0.9.9 (2001-04-04) [umoeller]: this returned an error even if none occured, fixed
+ *@@changed V0.9.9 (2001-04-04) [umoeller]: this returned an error even if none occurred, fixed
  */
 
 APIRET doshSetCurrentDir(const char *pcszDir)

@@ -3,7 +3,7 @@
  *@@ ImplCallFileDlg:
  *      this code contacts XFLDR.DLL to show the
  *      XWorkplace file dialog. This does not
- *      return until either an error occured
+ *      return until either an error occurred
  *      or XFLDR.DLL has dismissed the dialog,
  *      either because the user pressed "OK"
  *      or "Cancel".

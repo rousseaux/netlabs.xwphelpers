@@ -416,7 +416,7 @@ extern "C" {
      *      --  USHORT SHORT2FROMMP(mp1): CHTN_ENTER.
      *
      *      --  mp2: pointer to EMPHASISNOTIFY structure.
-     *          If the double click occured on a chart
+     *          If the double click occurred on a chart
      *          slice, lIndex has the index of the slice.
      *          Otherwise (e.g. whitespace), lIndex will
      *          be -1.
@@ -483,11 +483,11 @@ extern "C" {
                 // item for which emphasis has changed (counting
                 // from 0); if -1, a previous emphasis has been undone.
                 // With CHTN_CONTEXTMENU and CHTN_ENTER, index of the
-                // data item for which the request occured, or -1 for
+                // data item for which the request occurred, or -1 for
                 // a request on the control's whitespace.
         POINTL  ptl;
                 // exact window coordinates where mouse
-                // click occured (e.g. for context menu).
+                // click occurred (e.g. for context menu).
                 // This is undefined (-1) if the event was not
                 // caused by a mouse click.
     } EMPHASISNOTIFY, *PEMPHASISNOTIFY;

@@ -2546,7 +2546,7 @@ APIRET gpihLoadBitmapFile(HBITMAP *phbm,        // out: bitmap if NO_ERROR
  *      which can be:
  *      --  GPI_OK
  *      --  GPI_HITS: correlate hits
- *      --  GPI_ERROR: error occured (probably either hbmSource not free
+ *      --  GPI_ERROR: error occurred (probably either hbmSource not free
  *                     or no bitmap selected into hpsTarget)
  *
  *@added V0.9.0

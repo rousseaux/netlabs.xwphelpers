@@ -100,7 +100,7 @@ int main (int argc, char *argv[])
 
         if (arc)
         {
-            printf("exeh: Error %d occured with \"%s\".\n", arc, argv[1]);
+            printf("exeh: Error %d occurred with \"%s\".\n", arc, argv[1]);
         }
     }
 

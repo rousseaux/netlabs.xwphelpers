@@ -2618,7 +2618,7 @@ APIRET xmlCreateDOM(ULONG flParserFlags,            // in: DF_* parser flags
  *
  *      -- ERROR_INVALID_PARAMETER
  *
- *      -- ERROR_DOM_PARSING: an @expat parsing error occured.
+ *      -- ERROR_DOM_PARSING: an @expat parsing error occurred.
  *         This might also be memory problems.
  *         With this error code, you will find specific
  *         error information in the XMLDOM fields.

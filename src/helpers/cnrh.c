@@ -1187,7 +1187,7 @@ ULONG cnrhScrollToRecord(HWND hwndCnr,       // in: container window
  *      WM_MENUEND in the window procedure of hwndMenuOwner later
  *      to remove the source emphasis for preccSource again.
  *
- *      This function returns FALSE if an error occured.
+ *      This function returns FALSE if an error occurred.
  *
  *@@added V0.9.0 [umoeller]
  */
