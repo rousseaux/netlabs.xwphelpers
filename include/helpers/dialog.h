@@ -202,6 +202,8 @@ extern "C" {
      *
      ********************************************************************/
 
+    #define LOAD_STRING     ((PCSZ)-1)
+
     #define COMMON_SPACING              3
 
     #define PM_GROUP_SPACING_X          16
@@ -212,6 +214,8 @@ extern "C" {
     #define CONTROLDEF_GROUP(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_GROUPBOX | DT_MNEMONIC, \
             id, CTL_COMMON_FONT, 0, { cx, cy }, 0 }
+
+    #define CDEF_GROUP_AUTO(id) CONTROLDEF_GROUP(LOAD_STRING, id, -1, -1)
 
     #define CONTROLDEF_TEXT(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_TEXT | DT_LEFT | DT_VCENTER | DT_MNEMONIC, \
@@ -258,6 +262,8 @@ extern "C" {
     #define CONTROLDEF_AUTOCHECKBOX(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, \
             id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
+
+    #define CDEF_AUTOCB_AUTO(id) CONTROLDEF_AUTOCHECKBOX(LOAD_STRING, id, -1, -1)
 
     #define CONTROLDEF_FIRST_AUTORADIO(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_AUTORADIOBUTTON | WS_GROUP, \

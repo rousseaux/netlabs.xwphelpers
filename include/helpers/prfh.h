@@ -91,36 +91,39 @@ extern "C" {
      */
 
     // NLS settings section
-    DECLARE_PRFH_STRING(PMINIAPP_NATIONAL, "PM_National");
+    DECLARE_PRFH_STRING(PMINIAPP_NATIONAL,      "PM_National");
 
     // system font settings section
-    DECLARE_PRFH_STRING(PMINIAPP_SYSTEMFONTS, "PM_SystemFonts");
-    DECLARE_PRFH_STRING(PMINIKEY_DEFAULTFONT, "DefaultFont");
-    DECLARE_PRFH_STRING(PMINIKEY_ICONTEXTFONT, "IconText");
-    DECLARE_PRFH_STRING(PMINIKEY_MENUSFONT, "Menus");
+    DECLARE_PRFH_STRING(PMINIAPP_SYSTEMFONTS,   "PM_SystemFonts");
+    DECLARE_PRFH_STRING(PMINIKEY_DEFAULTFONT,   "DefaultFont");
+    DECLARE_PRFH_STRING(PMINIKEY_ICONTEXTFONT,  "IconText");
+    DECLARE_PRFH_STRING(PMINIKEY_MENUSFONT,     "Menus");
 
     // installed fonts secsion
-    DECLARE_PRFH_STRING(PMINIAPP_FONTS, "PM_Fonts");
+    DECLARE_PRFH_STRING(PMINIAPP_FONTS,         "PM_Fonts");
 
     // general WPS settings
-    DECLARE_PRFH_STRING(WPINIAPP_WORKPLACE, "PM_Workplace");
-    DECLARE_PRFH_STRING(WPINIKEY_MENUBAR, "FolderMenuBar");
+    DECLARE_PRFH_STRING(WPINIAPP_WORKPLACE,     "PM_Workplace");
+    DECLARE_PRFH_STRING(WPINIKEY_MENUBAR,       "FolderMenuBar");
+
+    DECLARE_PRFH_STRING(WPINIKEY_SHORTMENUS,    "FolderMenus");
+            // V0.9.19 (2002-04-17) [umoeller]
 
     // abstract objects per folder handle
-    DECLARE_PRFH_STRING(WPINIAPP_FDRCONTENT, "PM_Abstract:FldrContent");
+    DECLARE_PRFH_STRING(WPINIAPP_FDRCONTENT,    "PM_Abstract:FldrContent");
     // all defined abstract objects on the system
-    DECLARE_PRFH_STRING(WPINIAPP_OBJECTS, "PM_Abstract:Objects");
+    DECLARE_PRFH_STRING(WPINIAPP_OBJECTS,       "PM_Abstract:Objects");
     // their icons, if set individually
-    DECLARE_PRFH_STRING(WPINIAPP_ICONS, "PM_Abstract:Icons");
+    DECLARE_PRFH_STRING(WPINIAPP_ICONS,         "PM_Abstract:Icons");
 
     // object ID's (<WP_DESKTOP> etc.)
-    DECLARE_PRFH_STRING(WPINIAPP_LOCATION, "PM_Workplace:Location");
+    DECLARE_PRFH_STRING(WPINIAPP_LOCATION,      "PM_Workplace:Location");
 
     // folder positions
-    DECLARE_PRFH_STRING(WPINIAPP_FOLDERPOS, "PM_Workplace:FolderPos");
+    DECLARE_PRFH_STRING(WPINIAPP_FOLDERPOS,     "PM_Workplace:FolderPos");
 
     // palette positions
-    DECLARE_PRFH_STRING(WPINIAPP_PALETTEPOS, "PM_Workplace:PalettePos");
+    DECLARE_PRFH_STRING(WPINIAPP_PALETTEPOS,    "PM_Workplace:PalettePos");
     // ???
     DECLARE_PRFH_STRING(WPINIAPP_STATUSPOS, "PM_Workplace:StatusPos");
     // startup folders
