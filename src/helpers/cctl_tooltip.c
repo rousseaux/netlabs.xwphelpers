@@ -777,6 +777,7 @@ static VOID TtmDelTool(HWND hwndTooltip, MPARAM mp2)
  *      implementation for TTM_RELAYEVENT in ctl_fnwpTooltip.
  *
  *@@added V0.9.13 (2001-06-21) [umoeller]
+ *@@changed V0.9.19 (2002-05-14) [umoeller]: fixed bad stop timer, thanks yuri
  */
 
 static VOID TtmRelayEvent(HWND hwndTooltip, MPARAM mp2)
@@ -788,14 +789,7 @@ static VOID TtmRelayEvent(HWND hwndTooltip, MPARAM mp2)
         POINTL      ptlPointer;
         PLISTNODE   pToolNode;
 
-        if (pttd->idTimerInitial)
-        {
-            // _Pmpf(("TTM_RELAYEVENT: Stopping timer: %d", pttd->idTimerInitial));
-            WinStopTimer(pttd->hab,
-                         hwndTooltip,
-                         TOOLTIP_ID_TIMER_INITIAL);
-            pttd->idTimerInitial = 0;
-        }
+        // moved stop timer down V0.9.19 (2002-05-14) [umoeller]
 
         WinQueryPointerPos(HWND_DESKTOP, &ptlPointer);
 
@@ -822,6 +816,16 @@ static VOID TtmRelayEvent(HWND hwndTooltip, MPARAM mp2)
            )
         {
             // mouse pos changed:
+            // moved stop timer here V0.9.19 (2002-05-14) [umoeller]
+            if (pttd->idTimerInitial)
+            {
+                // _Pmpf(("TTM_RELAYEVENT: Stopping timer: %d", pttd->idTimerInitial));
+                WinStopTimer(pttd->hab,
+                             hwndTooltip,
+                             TOOLTIP_ID_TIMER_INITIAL);
+                pttd->idTimerInitial = 0;
+            }
+
             // hide tooltip
             WinPostMsg(hwndTooltip,
                        TTM_SHOWTOOLTIPNOW,

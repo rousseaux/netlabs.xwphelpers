@@ -129,11 +129,11 @@ extern "C" {
                 // the automatic formatting). Note that the dialog
                 // adds extra spacing to this size:
                 // -- the group control's cx will be
-                //      2 * szlControlProposed.cx
+                //      szlControlProposed.cx
                 //    + 2 * ulSpacing
                 //    + 2 * GROUP_INNER_SPACING_X
                 // -- the group control's cy will be
-                //      2 * szlControlProposed.cy
+                //      szlControlProposed.cy
                 //    + 2 * ulSpacing
                 //    + GROUP_INNER_SPACING_Y
                 //    + GROUP_INNER_SPACING_TOP
@@ -325,6 +325,8 @@ extern "C" {
     #define CONTROLDEF_NOFOCUSBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_NOPOINTERFOCUS, \
             id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
+
+    #define LOADDEF_NOFOCUSBUTTON(id) CONTROLDEF_NOFOCUSBUTTON(LOAD_STRING, id, STD_BUTTON_WIDTH, STD_BUTTON_HEIGHT)
 
     #define CONTROLDEF_HELPPUSHBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_HELP | BS_NOPOINTERFOCUS, \

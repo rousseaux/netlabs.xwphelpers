@@ -4091,6 +4091,8 @@ BOOL winhAssertWarp4Notebook(HWND hwndDlg,
                     // no pushbutton to change:
                     CHAR szClass[10];
 
+                    WinQueryWindowPos(hwndItem, pswpThis);
+
                     // special handling for entry fields
                     // V0.9.16 (2002-02-02) [umoeller]
                     WinQueryClassName(hwndItem, sizeof(szClass), szClass);
@@ -4101,7 +4103,6 @@ BOOL winhAssertWarp4Notebook(HWND hwndDlg,
                     }
 
                     // check lowest y
-                    WinQueryWindowPos(hwndItem, pswpThis);
                     if (    (pswpThis->y < yLowest)
                          // ignore combobox, this will distort everything
                          // AGAIN ... sigh V0.9.19 (2002-05-02) [umoeller]
