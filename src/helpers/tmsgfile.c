@@ -176,7 +176,7 @@ APIRET tmfOpenMessageFile(const char *pcszMessageFile, // in: fully q'fied .TMF 
             // initialize TMFMSGFILE struct
             ZERO(pFile);
             pFile->pszFilename = strdup(pcszMessageFile);
-            treeInit(&pFile->IDsTreeRoot);
+            treeInit(&pFile->IDsTreeRoot, NULL);
 
             xstrInitSet(&pFile->strContent, pszContent);
 
@@ -293,6 +293,7 @@ APIRET tmfOpenMessageFile(const char *pcszMessageFile, // in: fully q'fied .TMF 
 
                     // store this thing
                     if (!treeInsert(&pFile->IDsTreeRoot,
+                                    NULL,
                                     (TREE*)pNew,
                                     treeCompareStrings))
                         // successfully inserted:
@@ -331,7 +332,7 @@ APIRET tmfCloseMessageFile(PTMFMSGFILE *ppMsgFile)
     if (ppMsgFile && *ppMsgFile)
     {
         PTMFMSGFILE pFile = *ppMsgFile;
-        ULONG   cItems;
+        LONG   cItems;
         TREE**  papNodes;
 
         if (pFile->pszFilename)

@@ -8,7 +8,7 @@
  *
  *@@include #define INCL_DOSDATETIME
  *@@include #include <os2.h>
- *@@include #include "stringh.h"
+ *@@include #include "helpers\stringh.h"
  */
 
 /*

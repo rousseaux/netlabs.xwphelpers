@@ -1575,7 +1575,7 @@ VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *
  *          fl specifies formatting flags for the row. This
  *          can be one of ROW_VALIGN_BOTTOM, ROW_VALIGN_CENTER,
- *          ROW_VALIGN_TOP and affects all items in the control.
+ *          ROW_VALIGN_TOP and affects all items in the row.
  *
  *      --  CONTROL_DEF(pDef) defines a control in a table row.
  *          pDef must point to a CONTROLDEF structure.
@@ -1891,6 +1891,11 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
  *          to a valid dialog frame and that this
  *          dialog should be modified according to
  *          flFlags.
+ *
+ *      This is what's used in XWorkplace for notebook
+ *      settings pages since these always have to be
+ *      based on a resource dialog (which is loaded
+ *      empty).
  *
  *      flFlags can be any combination of the following:
  *

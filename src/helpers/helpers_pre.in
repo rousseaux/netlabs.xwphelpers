@@ -58,6 +58,7 @@ $(OUTPUTDIR)\dosh.obj \
 $(OUTPUTDIR)\dosh2.obj \
 $(OUTPUTDIR)\eah.obj \
 $(OUTPUTDIR)\except.obj \
+$(OUTPUTDIR)\lan.obj \
 $(OUTPUTDIR)\level.obj \
 $(OUTPUTDIR)\nls.obj \
 $(OUTPUTDIR)\procstat.obj \

@@ -8,7 +8,7 @@
  *            numbering.
  *
  *@@include #include <os2.h>
- *@@include #include "procstat.h"
+ *@@include #include "helpers\procstat.h"
  */
 
 /*

@@ -19,8 +19,8 @@
  *      GNU General Public License for more details.
  *
  *@@include #include <os2.h>
- *@@include #include "linklist.h"
- *@@include #include "textv_html.h"
+ *@@include #include "helpers\linklist.h"
+ *@@include #include "helpers\textv_html.h"
  */
 
 #if __cplusplus

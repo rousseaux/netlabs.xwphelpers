@@ -8,8 +8,8 @@
  *
  *@@added V0.9.7 (2001-01-15) [umoeller]
  *@@include #include <os2.h>
- *@@include #include "xstring.h"            // for some funcs
- *@@include #include "configsys.h"
+ *@@include #include "helpers\xstring.h"            // for some funcs
+ *@@include #include "helpers\configsys.h"
  */
 
 /*

@@ -230,7 +230,7 @@ APIRET semCreateRWMutex(PHRW phrw)
                                                FALSE)))
                )
             {
-                treeInit(&pMutex->ReaderThreadsTree);
+                treeInit(&pMutex->ReaderThreadsTree, NULL);
             }
         }
 
@@ -280,7 +280,7 @@ APIRET semDeleteRWMutex(PHRW phrw)      // in/out: rwsem handle
                      && (!(arc = DosCloseEventSem(pMutex->hevReadersDone)))
                    )
                 {
-                    ULONG cItems = pMutex->cReaderThreads;
+                    LONG cItems = pMutex->cReaderThreads;
                     TREE **papNodes = treeBuildArray(pMutex->ReaderThreadsTree,
                                                      &cItems);
                     if (papNodes)
@@ -423,6 +423,7 @@ APIRET semRequestRead(HRW hrw,              // in: rw-sem created by semCreateRW
                         pReader->cRequests = 1;
 
                         treeInsert(&pMutex->ReaderThreadsTree,
+                                   NULL,
                                    (TREE*)pReader,
                                    treeCompareKeys);
                         (pMutex->cReaderThreads)++;

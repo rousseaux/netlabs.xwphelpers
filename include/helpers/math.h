@@ -5,7 +5,7 @@
  *      Note: Version numbering in this file relates to XWorkplace version
  *            numbering.
  *
- *@@include #include "math.h"
+ *@@include #include "helpers\math.h"
  */
 
 /*      Copyright (C) 2001 Ulrich M”ller.

@@ -42,7 +42,7 @@
  *@@include #define INCL_WINPROGRAMLIST     // for appStartApp
  *@@include #define INCL_WINHELP            // for help manager helpers
  *@@include #include <os2.h>
- *@@include #include "winh.h"
+ *@@include #include "helpers\winh.h"
  */
 
 #if __cplusplus

@@ -7,7 +7,7 @@
  *            numbering.
  *
  *@@include #include <os2.h>
- *@@include #include "eah.h"
+ *@@include #include "helpers\eah.h"
  */
 
 /*

@@ -12,7 +12,7 @@
  *@@include #define INCL_BASE
  *@@include #include <os2.h>
  *@@include #include <stdio.h>
- *@@include #include "debug.h"
+ *@@include #include "helpers\debug.h"
  */
 
 /*

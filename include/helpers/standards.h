@@ -7,7 +7,7 @@
  *      Note: Version numbering in this file relates to XWorkplace version
  *            numbering.
  *
- *@@include #include "standards.h"
+ *@@include #include "helpers\standards.h"
  */
 
 /*      Copyright (C) 2001 Ulrich M”ller.

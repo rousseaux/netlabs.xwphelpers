@@ -521,6 +521,7 @@ VOID xmlDeleteNode(PNODEBASE pNode)
                     // this is an attribute:
                     // remove from parent's attributes map
                     treeDelete(&pDomNode->pParentNode->AttributesMap,
+                               NULL,
                                (TREE*)pNode);
                 else
                     // remove this node from the parent's list
@@ -618,6 +619,7 @@ APIRET xmlCreateDomNode(PDOMNODE pParentNode,        // in: parent node or NULL 
                 // attribute:
                 // add to parent's attributes list
                 if (treeInsert(&pParentNode->AttributesMap,
+                               NULL,
                                &pNewNode->NodeBase.Tree,
                                CompareXStrings))
                     arc = ERROR_DOM_DUPLICATE_ATTRIBUTE;
@@ -647,7 +649,7 @@ APIRET xmlCreateDomNode(PDOMNODE pParentNode,        // in: parent node or NULL 
         }
 
         lstInit(&pNewNode->llChildren, FALSE);
-        treeInit(&pNewNode->AttributesMap);
+        treeInit(&pNewNode->AttributesMap, NULL);
     }
 
     if (!arc)
@@ -882,8 +884,8 @@ APIRET xmlCreateDocumentTypeNode(PDOMDOCUMENTNODE pDocumentNode,            // i
             xstrcpy(&pNew->strSystemID, pcszSysid, 0);
             pNew->fHasInternalSubset = fHasInternalSubset;
 
-            treeInit(&pNew->ElementDeclsTree);
-            treeInit(&pNew->AttribDeclBasesTree);
+            treeInit(&pNew->ElementDeclsTree, NULL);
+            treeInit(&pNew->AttribDeclBasesTree, NULL);
 
             *ppNew = pNew;
         }
@@ -928,6 +930,7 @@ APIRET SetupParticleAndSubs(PCMELEMENTPARTICLE pParticle,
             pParticle->NodeBase.ulNodeType = ELEMENTPARTICLE_NAME;
             xstrcpy(&pParticle->NodeBase.strNodeName, pModel->name, 0);
             treeInsert(ppElementNamesTree,
+                       NULL,
                        &pParticle->NodeBase.Tree,
                        CompareXStrings);
         break;
@@ -1019,7 +1022,7 @@ APIRET xmlCreateElementDecl(const char *pcszName,
 
     if (!arc)
     {
-        treeInit(&pNew->ParticleNamesTree);
+        treeInit(&pNew->ParticleNamesTree, NULL);
 
         // set up the "particle" member and recurse into sub-particles
         arc = SetupParticleAndSubs(&pNew->Particle,
@@ -2027,6 +2030,7 @@ void EXPATENTRY ElementDeclHandler(void *pUserData,      // in: our PXMLDOM real
             {
                 // add this to the doctype's declarations tree
                 if (treeInsert(&pDocType->ElementDeclsTree,
+                               NULL,
                                (TREE*)pNew,
                                CompareXStrings))
                     // element already declared:
@@ -2060,6 +2064,7 @@ APIRET AddEnum(PCMATTRIBUTEDECL pDecl,
                                    &pNew);
     if (!arc)
         treeInsert(&pDecl->ValuesTree,
+                   NULL,
                    (TREE*)pNew,
                    CompareXStrings);
 
@@ -2152,9 +2157,10 @@ void EXPATENTRY AttlistDeclHandler(void *pUserData,      // in: our PXMLDOM real
                     if (!pDom->arcDOM)
                     {
                         // initialize the subtree
-                        treeInit(&pThis->AttribDeclsTree);
+                        treeInit(&pThis->AttribDeclsTree, NULL);
 
                         treeInsert(&pDocType->AttribDeclBasesTree,
+                                   NULL,
                                    (TREE*)pThis,
                                    CompareXStrings);
                     }
@@ -2175,7 +2181,7 @@ void EXPATENTRY AttlistDeclHandler(void *pUserData,      // in: our PXMLDOM real
                                                  (PNODEBASE*)&pNew);
                 if (!pDom->arcDOM)
                 {
-                    treeInit(&pNew->ValuesTree);
+                    treeInit(&pNew->ValuesTree, NULL);
 
                     // check the type... expat is too lazy to parse this for
                     // us, so we must check manually. Expat only normalizes
@@ -2241,6 +2247,7 @@ void EXPATENTRY AttlistDeclHandler(void *pUserData,      // in: our PXMLDOM real
                                 pNew->ulConstraint = CMAT_IMPLIED;
 
                         if (treeInsert(&pThis->AttribDeclsTree,
+                                       NULL,
                                        (TREE*)pNew,
                                        CompareXStrings))
                             xmlSetError(pDom,

@@ -8,7 +8,7 @@
  *
  *@@include #define INCL_DOSSEMAPHORES
  *@@include #include <os2.h>
- *@@include #include "semaphores.h"
+ *@@include #include "helpers\semaphores.h"
  */
 
 /*

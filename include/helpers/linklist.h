@@ -6,7 +6,7 @@
  *      Note: Version numbering in this file relates to XWorkplace version
  *            numbering.
  *
- *@@include #include "linklist.h"
+ *@@include #include "helpers\linklist.h"
  */
 
 /*      Copyright (C) 1997-2001 Ulrich M”ller.

@@ -8,7 +8,7 @@
  *
  *@@include #define INCL_WINPROGRAMLIST
  *@@include #include <os2.h>
- *@@include #include "apps.h"
+ *@@include #include "helpers\apps.h"
  */
 
 /*      This file Copyright (C) 1997-2001 Ulrich M”ller.
@@ -97,9 +97,20 @@ extern "C" {
         #define APP_RUN_STANDARD        0x0004
         #define APP_RUN_SEPARATE        0x0008
 
-        HAPP XWPENTRY appStartApp(HWND hwndNotify,
-                                  const PROGDETAILS *pcProgDetails,
-                                  ULONG ulFlags);
+        APIRET XWPENTRY appStartApp(HWND hwndNotify,
+                                    const PROGDETAILS *pcProgDetails,
+                                    ULONG ulFlags,
+                                    HAPP *phapp);
+
+        BOOL XWPENTRY appWaitForApp(HWND hwndNotify,
+                                    HAPP happ,
+                                    PULONG pulExitCode);
+
+        HAPP XWPENTRY appQuickStartApp(const char *pcszFile,
+                                       ULONG ulProgType,
+                                       const char *pcszArgs,
+                                       PULONG pulExitCode);
+
     #endif
 
 #endif

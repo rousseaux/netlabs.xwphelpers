@@ -50,6 +50,7 @@
 #define INCL_DOSPROCESS
 #define INCL_DOSSESMGR
 #define INCL_DOSQUEUES
+#define INCL_DOSSEMAPHORES
 #define INCL_DOSMISC
 #define INCL_DOSDEVICES
 #define INCL_DOSDEVIOCTL
@@ -61,10 +62,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 #include "setup.h"                      // code generation and debugging options
 
 #include "helpers\dosh.h"
+#include "helpers\standards.h"
 
 #pragma hdrstop
 
@@ -285,6 +288,25 @@ APIRET doshDevIOCtl(HFILE hf,
  *   Memory helpers
  *
  ********************************************************************/
+
+/*
+ *@@ Allocate:
+ *      wrapper around malloc() which automatically
+ *      sets ERROR_NOT_ENOUGH_MEMORY.
+ *
+ *@@added V0.9.16 (2001-10-19) [umoeller]
+ */
+
+PVOID doshMalloc(ULONG cb,
+                 APIRET *parc)
+{
+    PVOID pv;
+    *parc = NO_ERROR;
+    if (!(pv = malloc(cb)))
+        *parc = ERROR_NOT_ENOUGH_MEMORY;
+
+    return (pv);
+}
 
 /*
  *@@ doshAllocSharedMem:
@@ -1280,15 +1302,18 @@ BOOL doshIsFileOnFAT(const char* pcszFileName)
  *      or 0 upon errors.
  *      Use doshQueryPathSize to query the size of
  *      any file.
+ *
+ *@@changed V0.9.16 (2001-10-19) [umoeller]: now returning APIRET
  */
 
-ULONG doshQueryFileSize(HFILE hFile)
+APIRET doshQueryFileSize(HFILE hFile,
+                         PULONG pulSize)
 {
+    APIRET arc;
     FILESTATUS3 fs3;
-    if (DosQueryFileInfo(hFile, FIL_STANDARD, &fs3, sizeof(fs3)))
-        return (0);
-    else
-        return (fs3.cbFile);
+    if (!(arc = DosQueryFileInfo(hFile, FIL_STANDARD, &fs3, sizeof(fs3))))
+        *pulSize = fs3.cbFile;
+    return (arc);
 }
 
 /*
@@ -1298,15 +1323,18 @@ ULONG doshQueryFileSize(HFILE hFile)
  *      found.
  *      Use doshQueryFileSize instead to query the
  *      size if you have a HFILE.
+ *
+ *@@changed V0.9.16 (2001-10-19) [umoeller]: now returning APIRET
  */
 
-ULONG doshQueryPathSize(PSZ pszFile)
+APIRET doshQueryPathSize(PCSZ pcszFile,
+                         PULONG pulSize)
 {
+    APIRET arc;
     FILESTATUS3 fs3;
-    if (DosQueryPathInfo(pszFile, FIL_STANDARD, &fs3, sizeof(fs3)))
-        return (0);
-    else
-        return (fs3.cbFile);
+    if (!(arc = DosQueryPathInfo((PSZ)pcszFile, FIL_STANDARD, &fs3, sizeof(fs3))))
+        *pulSize = fs3.cbFile;
+    return (arc);
 }
 
 /*
@@ -1498,6 +1526,289 @@ APIRET doshReadAt(HFILE hf,        // in: OS/2 file handle
 }
 
 /*
+ * doshOpen:
+ *      wrapper around DosOpen for simpler opening
+ *      of files.
+ *
+ *      ulOpenMode determines the mode to open the
+ *      file in:
+ *
+ +      +-------------------------+------+-----------+-----------+
+ +      |                         |      |           |           |
+ +      |  ulOpenMode             | mode | if exists | if new    |
+ +      +-------------------------+------+-----------+-----------+
+ +      |  XOPEN_READ_EXISTING    | read | opens     | fails     |
+ +      +-------------------------+------+-----------+-----------+
+ +      |  XOPEN_READWRITE_APPEND | r/w  | opens,    | creates   |
+ +      |                         |      | appends   |           |
+ +      +-------------------------+------+-----------+-----------+
+ +      |  XOPEN_READWRITE_NEW    | r/w  | replaces  | creates   |
+ +      +-------------------------+------+-----------+-----------+
+ *
+ *      *ppFile receives a new XFILE structure describing
+ *      the open file, if NO_ERROR is returned.
+ *
+ *@@added V0.9.16 (2001-10-19) [umoeller]
+ */
+
+APIRET doshOpen(const char *pcszFilename,   // in: filename to open
+                ULONG ulOpenMode,       // in: XOPEN_* mode
+                PULONG pcbFile,         // in: new file size (if new file is created)
+                                        // out: file size
+                PXFILE *ppFile)
+{
+    APIRET arc = NO_ERROR;
+
+    ULONG   fsOpenFlags = 0,
+            fsOpenMode =    OPEN_FLAGS_FAIL_ON_ERROR
+                          | OPEN_FLAGS_NO_LOCALITY
+                          | OPEN_FLAGS_NOINHERIT;
+
+    switch (ulOpenMode)
+    {
+        case XOPEN_READ_EXISTING:
+            fsOpenFlags =   OPEN_ACTION_FAIL_IF_NEW
+                          | OPEN_ACTION_OPEN_IF_EXISTS;
+            fsOpenMode |=   OPEN_SHARE_DENYWRITE
+                          | OPEN_ACCESS_READONLY;
+        break;
+
+        case XOPEN_READWRITE_APPEND:
+            fsOpenFlags =   OPEN_ACTION_CREATE_IF_NEW
+                          | OPEN_ACTION_OPEN_IF_EXISTS;
+            fsOpenMode |=   OPEN_SHARE_DENYREADWRITE
+                          | OPEN_ACCESS_READWRITE;
+        break;
+
+        case XOPEN_READWRITE_NEW:
+            fsOpenFlags =   OPEN_ACTION_CREATE_IF_NEW
+                          | OPEN_ACTION_REPLACE_IF_EXISTS;
+            fsOpenMode |=   OPEN_SHARE_DENYREADWRITE
+                          | OPEN_ACCESS_READWRITE;
+        break;
+    }
+
+    if (pcszFilename && fsOpenFlags && pcbFile && ppFile)
+    {
+        PXFILE pFile;
+        if (pFile = NEW(XFILE))
+        {
+            ULONG ulAction;
+
+            ZERO(pFile);
+
+            if (!(arc = DosOpen((PSZ)pcszFilename,
+                                &pFile->hf,
+                                &ulAction,
+                                *pcbFile,
+                                FILE_ARCHIVED,
+                                fsOpenFlags,
+                                fsOpenMode,
+                                NULL)))       // EAs
+            {
+                // alright, got the file:
+
+                if (    (ulAction == FILE_EXISTED)
+                     && (ulOpenMode == XOPEN_READWRITE_APPEND)
+                   )
+                    // get its size and set ptr to end for append
+                    arc = DosSetFilePtr(pFile->hf,
+                                        0,
+                                        FILE_END,
+                                        pcbFile);
+                else
+                    arc = doshQueryFileSize(pFile->hf,
+                                            pcbFile);
+                    // file ptr is at beginning
+
+                // store file size
+                pFile->cbInitial
+                = pFile->cbCurrent
+                = *pcbFile;
+            }
+
+            if (arc)
+                doshClose(&pFile);
+            else
+                *ppFile = pFile;
+        }
+        else
+            arc = ERROR_NOT_ENOUGH_MEMORY;
+    }
+    else
+        arc = ERROR_INVALID_PARAMETER;
+
+    return (arc);
+}
+
+/*
+ *@@ doshLockFile:
+ *
+ *@@added V0.9.16 (2001-10-19) [umoeller]
+ */
+
+APIRET doshLockFile(PXFILE pFile)
+{
+    if (!pFile)
+        return (ERROR_INVALID_PARAMETER);
+
+    if (!pFile->hmtx)
+        // first call:
+        return (DosCreateMutexSem(NULL,
+                                  &pFile->hmtx,
+                                  0,
+                                  TRUE));        // request!
+
+    return (DosRequestMutexSem(pFile->hmtx, SEM_INDEFINITE_WAIT));
+}
+
+/*
+ *@@ doshUnlockFile:
+ *
+ *@@added V0.9.16 (2001-10-19) [umoeller]
+ */
+
+APIRET doshUnlockFile(PXFILE pFile)
+{
+    if (pFile)
+        return (DosReleaseMutexSem(pFile->hmtx));
+
+    return (ERROR_INVALID_PARAMETER);
+}
+
+/*
+ *@@ doshWrite:
+ *      writes the specified data to the file.
+ *      If (cb == 0), this runs strlen on pcsz
+ *      to find out the length.
+ *
+ *@@added V0.9.16 (2001-10-19) [umoeller]
+ */
+
+APIRET doshWrite(PXFILE pFile,
+                 PCSZ pcsz,
+                 ULONG cb)
+{
+    APIRET arc;
+    if (!pcsz)
+        arc = ERROR_INVALID_PARAMETER;
+    else
+    {
+        if (!cb)
+            cb = strlen(pcsz);
+
+        if (!cb)
+            arc = ERROR_INVALID_PARAMETER;
+        else
+            if (!(arc = doshLockFile(pFile)))   // this checks for pFile
+            {
+                ULONG cbWritten;
+                if (!(arc = DosWrite(pFile->hf,
+                                     (PSZ)pcsz,
+                                     cb,
+                                     &cbWritten)))
+                    pFile->cbCurrent += cbWritten;
+
+                doshUnlockFile(pFile);
+            }
+    }
+
+    return (arc);
+}
+
+/*
+ *@@ doshWriteLogEntry
+ *      writes a log string to an XFILE, adding a
+ *      leading timestamp before the line.
+ *
+ *      The internal string buffer is limited to 2000
+ *      characters. \n is NOT translated to \r\n before
+ *      writing.
+ */
+
+APIRET doshWriteLogEntry(PXFILE pFile,
+                         const char* pcszFormat,
+                         ...)
+{
+    APIRET arc;
+
+    DATETIME dt;
+    CHAR szTemp[2000];
+    ULONG   ulLength;
+
+    DosGetDateTime(&dt);
+    if (ulLength = sprintf(szTemp,
+                           "%04d-%02d-%02d %02d:%02d:%02d:%02d ",
+                           dt.year, dt.month, dt.day,
+                           dt.hours, dt.minutes, dt.seconds, dt.hundredths))
+    {
+        if (!(arc = doshWrite(pFile,
+                              szTemp,
+                              ulLength)))
+        {
+            va_list arg_ptr;
+            va_start(arg_ptr, pcszFormat);
+            ulLength = vsprintf(szTemp, pcszFormat, arg_ptr);
+            va_end(arg_ptr);
+
+            szTemp[ulLength++] = '\r';
+            szTemp[ulLength++] = '\n';
+
+            arc = doshWrite(pFile,
+                            (PVOID)szTemp,
+                            ulLength);
+        }
+    }
+
+    return (arc);
+}
+
+/*
+ * doshClose:
+ *
+ *@@added V0.9.16 (2001-10-19) [umoeller]
+ */
+
+APIRET doshClose(PXFILE *ppFile)
+{
+    APIRET arc = NO_ERROR;
+    PXFILE pFile;
+
+    if (    (ppFile)
+         && (pFile = *ppFile)
+       )
+    {
+        // request the mutex so that we won't be
+        // taking the file away under someone's butt
+        if (!(arc = doshLockFile(pFile)))
+        {
+            HMTX hmtx = pFile->hmtx;
+            pFile->hmtx = NULLHANDLE;
+
+            // now that the file is locked,
+            // set the ptr to NULL
+            *ppFile = NULL;
+
+            if (pFile->hf)
+            {
+                DosSetFileSize(pFile->hf, pFile->cbCurrent);
+                DosClose(pFile->hf);
+                pFile->hf = NULLHANDLE;
+            }
+
+            doshUnlockFile(pFile);
+            DosCloseMutexSem(pFile->hmtx);
+        }
+
+        free(pFile);
+    }
+    else
+        arc = ERROR_INVALID_PARAMETER;
+
+    return (arc);
+}
+
+/*
  *@@ doshLoadTextFile:
  *      reads a text file from disk, allocates memory
  *      via malloc() and sets a pointer to this
@@ -1520,37 +1831,44 @@ APIRET doshLoadTextFile(const char *pcszFile,  // in: file name to read
     HFILE   hFile;
     PSZ     pszContent = NULL;
 
-    APIRET arc = DosOpen((PSZ)pcszFile,
-                         &hFile,
-                         &ulAction,                      // action taken
-                         5000L,                          // primary allocation size
-                         FILE_ARCHIVED | FILE_NORMAL,    // file attribute
-                         OPEN_ACTION_OPEN_IF_EXISTS,     // open flags
-                         OPEN_FLAGS_NOINHERIT
-                            | OPEN_SHARE_DENYNONE
-                            | OPEN_ACCESS_READONLY,      // read-only mode
-                         NULL);                          // no EAs
+    APIRET arc;
 
-    if (arc == NO_ERROR)
+    *ppszContent = 0;
+
+    if (!(arc = DosOpen((PSZ)pcszFile,
+                        &hFile,
+                        &ulAction,                      // action taken
+                        5000L,                          // primary allocation size
+                        FILE_ARCHIVED | FILE_NORMAL,    // file attribute
+                        OPEN_ACTION_OPEN_IF_EXISTS,     // open flags
+                        OPEN_FLAGS_NOINHERIT
+                           | OPEN_SHARE_DENYNONE
+                           | OPEN_ACCESS_READONLY,      // read-only mode
+                        NULL)))                         // no EAs
     {
-        ulSize = doshQueryFileSize(hFile);
-        pszContent = (PSZ)malloc(ulSize+1);
-        arc = DosSetFilePtr(hFile,
-                            0L,
-                            FILE_BEGIN,
-                            &ulLocal);
-        arc = DosRead(hFile,
-                      pszContent,
-                      ulSize,
-                      &ulBytesRead);
-        DosClose(hFile);
-        *(pszContent+ulBytesRead) = 0;
+        if (!(arc = doshQueryFileSize(hFile, &ulSize)))
+        {
+            pszContent = (PSZ)malloc(ulSize+1);
 
-        // set output buffer pointer
-        *ppszContent = pszContent;
+            if (!(arc = DosSetFilePtr(hFile,
+                                      0L,
+                                      FILE_BEGIN,
+                                      &ulLocal)))
+                if (!(arc = DosRead(hFile,
+                                    pszContent,
+                                    ulSize,
+                                    &ulBytesRead)))
+                {
+                    *(pszContent+ulBytesRead) = 0;
+                    // set output buffer pointer
+                    *ppszContent = pszContent;
+                }
+
+            if (arc)
+                free(pszContent);
+        }
+        DosClose(hFile);
     }
-    else
-        *ppszContent = 0;
 
     return (arc);
 }
@@ -1576,6 +1894,7 @@ PSZ doshCreateBackupFileName(const char* pszExisting)
     PSZ     pszLastDot;
     ULONG   ulCount = 1;
     CHAR    szCount[5];
+    ULONG   ulDummy;
 
     strcpy(szFilename, pszExisting);
     pszLastDot = strrchr(szFilename, '.');
@@ -1587,7 +1906,7 @@ PSZ doshCreateBackupFileName(const char* pszExisting)
         sprintf(szCount, ".%03lu", ulCount);
         strcpy(pszLastDot, szCount);
         ulCount++;
-    } while (doshQueryPathSize(szFilename) != 0);
+    } while (!doshQueryPathSize(szFilename, &ulDummy));
 
     return (strdup(szFilename));
 }
@@ -1802,34 +2121,28 @@ APIRET doshWriteTextFile(const char* pszFile,        // in: file name
             free(pszBackup2);
         }
 
-        arc = DosOpen((PSZ)pszFile,
-                      &hFile,
-                      &ulAction,                      // action taken
-                      ulSize,                         // primary allocation size
-                      FILE_ARCHIVED | FILE_NORMAL,    // file attribute
-                      OPEN_ACTION_CREATE_IF_NEW
-                         | OPEN_ACTION_REPLACE_IF_EXISTS,  // open flags
-                      OPEN_FLAGS_NOINHERIT
-                         | OPEN_FLAGS_SEQUENTIAL         // sequential, not random access
-                         | OPEN_SHARE_DENYWRITE          // deny write mode
-                         | OPEN_ACCESS_WRITEONLY,        // write mode
-                      NULL);                          // no EAs
-
-        if (arc == NO_ERROR)
+        if (!(arc = DosOpen((PSZ)pszFile,
+                            &hFile,
+                            &ulAction,                      // action taken
+                            ulSize,                         // primary allocation size
+                            FILE_ARCHIVED | FILE_NORMAL,    // file attribute
+                            OPEN_ACTION_CREATE_IF_NEW
+                               | OPEN_ACTION_REPLACE_IF_EXISTS,  // open flags
+                            OPEN_FLAGS_NOINHERIT
+                               | OPEN_FLAGS_SEQUENTIAL         // sequential, not random access
+                               | OPEN_SHARE_DENYWRITE          // deny write mode
+                               | OPEN_ACCESS_WRITEONLY,        // write mode
+                            NULL)))                         // no EAs
         {
-            arc = DosSetFilePtr(hFile,
-                                0L,
-                                FILE_BEGIN,
-                                &ulLocal);
-            if (arc == NO_ERROR)
-            {
-                arc = DosWrite(hFile,
-                               (PVOID)pszContent,
-                               ulSize,
-                               &ulWritten);
-                if (arc == NO_ERROR)
+            if (!(arc = DosSetFilePtr(hFile,
+                                      0L,
+                                      FILE_BEGIN,
+                                      &ulLocal)))
+                if (!(arc = DosWrite(hFile,
+                                     (PVOID)pszContent,
+                                     ulSize,
+                                     &ulWritten)))
                     arc = DosSetFileSize(hFile, ulSize);
-            }
 
             DosClose(hFile);
         }
@@ -1839,62 +2152,6 @@ APIRET doshWriteTextFile(const char* pszFile,        // in: file name
         *pulWritten = ulWritten;
 
     return (arc);
-}
-
-/*
- *@@ doshOpenLogFile:
- *      this opens a log file in the root directory of
- *      the boot drive; it is titled pszFilename, and
- *      the file handle is returned.
- */
-
-HFILE doshOpenLogFile(const char* pcszFilename)
-{
-    APIRET  rc;
-    CHAR    szFileName[CCHMAXPATH];
-    HFILE   hfLog;
-    ULONG   ulAction;
-    ULONG   ibActual;
-
-    sprintf(szFileName, "%c:\\%s", doshQueryBootDrive(), pcszFilename);
-    rc = DosOpen(szFileName,
-                 &hfLog,
-                 &ulAction,
-                 0,             // file size
-                 FILE_NORMAL,
-                 OPEN_ACTION_CREATE_IF_NEW | OPEN_ACTION_OPEN_IF_EXISTS,
-                 OPEN_ACCESS_WRITEONLY | OPEN_SHARE_DENYWRITE,
-                 (PEAOP2)NULL);
-    if (rc == NO_ERROR)
-    {
-        DosSetFilePtr(hfLog, 0, FILE_END, &ibActual);
-        return (hfLog);
-    }
-    else
-        return (0);
-}
-
-/*
- * doshWriteToLogFile
- *      writes a string to a log file, adding a
- *      leading timestamp.
- */
-
-APIRET doshWriteToLogFile(HFILE hfLog, const char* pcsz)
-{
-    if (hfLog)
-    {
-        DATETIME dt;
-        CHAR szTemp[2000];
-        ULONG   cbWritten;
-        DosGetDateTime(&dt);
-        sprintf(szTemp,
-                "Time: %02d:%02d:%02d %s",
-                dt.hours, dt.minutes, dt.seconds,
-                pcsz);
-        return (DosWrite(hfLog, (PVOID)szTemp, strlen(szTemp), &cbWritten));
-    }
-    else return (ERROR_INVALID_HANDLE);
 }
 
 /*

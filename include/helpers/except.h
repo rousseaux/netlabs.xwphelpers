@@ -11,7 +11,7 @@
  *@@include #include <os2.h>
  *@@include #include <stdio.h>
  *@@include #include <setjmp.h>
- *@@include #include "except.h"
+ *@@include #include "helpers\except.h"
  */
 
 /*

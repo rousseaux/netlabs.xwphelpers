@@ -20,9 +20,9 @@
  *
  *@@include #define INCL_SPL        // for printing functions
  *@@include #include <os2.h>
- *@@include #include "linklist.h"   // for device-independent functions
- *@@include #include "xstring.h"    // for device-independent functions
- *@@include #include "textview.h"
+ *@@include #include "helpers\linklist.h"   // for device-independent functions
+ *@@include #include "helpers\xstring.h"    // for device-independent functions
+ *@@include #include "helpers\textview.h"
  */
 
 #if __cplusplus

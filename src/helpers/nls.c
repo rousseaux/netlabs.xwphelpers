@@ -17,6 +17,7 @@
  *            numbering.
  *
  *@@header "helpers\nls.h"
+ *@@added V0.9.16 (2001-10-11) [umoeller]
  */
 
 /*

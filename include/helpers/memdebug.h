@@ -19,7 +19,7 @@
  *            numbering.
  *
  *@@include #include <os2.h>
- *@@include #include "memdebug.h"
+ *@@include #include "helpers\memdebug.h"
  */
 
 /*      Copyright (C) 2000 Ulrich M”ller.

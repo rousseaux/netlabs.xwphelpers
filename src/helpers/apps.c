@@ -46,6 +46,7 @@
 #include "helpers\dosh.h"
 #include "helpers\prfh.h"
 #include "helpers\stringh.h"
+#include "helpers\winh.h"
 #include "helpers\xstring.h"
 
 /*
@@ -796,8 +797,8 @@ PSZ appQueryDefaultWin31Environment(VOID)
  *          is NULL, the new app inherits a default environment
  *          from the shell.
  *
- +      --  However, if you specify an environment, you _must_
- *          specify a complemete environment. This function
+ *      --  However, if you specify an environment, you _must_
+ *          specify a complete environment. This function
  *          will not merge environments. Use
  *          appSetEnvironmentVar to change environment
  *          variables in a complete environment set.
@@ -806,12 +807,6 @@ PSZ appQueryDefaultWin31Environment(VOID)
  *          and PROGDETAILS.pszEnvironment is empty,
  *          this uses the default Win-OS/2 environment.
  *          See appQueryDefaultWin31Environment.
- *
- *      --  WARNING: Since this uses WinStartApp internally,
- *          and WinStartApp completely hangs PM if a Win-OS/2
- *          full-screen session is started from a thread that
- *          is NOT thread1, THIS SHOULD ONLY BE CALLED ON
- *          THREAD 1 of your application.
  *
  *      Even though this isn't clearly said in PMREF,
  *      PROGDETAILS.swpInitial is important:
@@ -822,8 +817,43 @@ PSZ appQueryDefaultWin31Environment(VOID)
  *         the half-documented SWP_NOAUTOCLOSE flag (0x8000)
  *         This flag is now in the newer toolkit headers.
  *
+ *      In addition, this supports the following session
+ *      flags with ulFlags if PROG_DEFAULT is specified:
+ *
+ *      --  APP_RUN_FULLSCREEN
+ *
+ *      --  APP_RUN_ENHANCED
+ *
+ *      --  APP_RUN_STANDARD
+ *
+ *      --  APP_RUN_SEPARATE
+ *
  *      Since this calls WinStartApp in turn, this
  *      requires a message queue on the calling thread.
+ *
+ *      Note that this also does minimal checking on
+ *      the specified parameters so it can return something
+ *      more meaningful than FALSE like WinStartApp.
+ *      As a result, you get a DOS error code now (V0.9.16).
+ *
+ *      Most importantly:
+ *
+ *      --  ERROR_INVALID_THREADID: not running on thread 1.
+ *          Since this uses WinStartApp internally and
+ *          WinStartApp completely hangs the session manager
+ *          if a Win-OS/2 full-screen session is started from
+ *          a thread that is NOT thread1, this will fail
+ *          with an error for safety (V0.9.16).
+ *
+ *      --  ERROR_INVALID_PARAMETER: pcProgDetails or
+ *          phapp is NULL; or PROGDETAILS.pszExecutable is NULL.
+ *
+ *      --  ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND:
+ *          PROGDETAILS.pszExecutable and/or PROGDETAILS.pszStartupDir
+ *          are invalid.
+ *          A NULL PROGDETAILS.pszStartupDir is supported though.
+ *
+ *      --  ERROR_NOT_ENOUGH_MEMORY
  *
  *@@added V0.9.6 (2000-10-16) [umoeller]
  *@@changed V0.9.7 (2000-12-10) [umoeller]: PROGDETAILS.swpInitial no longer zeroed... this broke VIOs
@@ -833,29 +863,38 @@ PSZ appQueryDefaultWin31Environment(VOID)
  *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from winh.c to apps.c
  *@@changed V0.9.14 (2001-08-07) [pr]: removed some env. strings for Win. apps.
  *@@changed V0.9.14 (2001-08-23) [pr]: added session type options
+ *@@changed V0.9.16 (2001-10-19) [umoeller]: added prototype to return APIRET
+ *@@changed V0.9.16 (2001-10-19) [umoeller]: added thread-1 check
  */
 
-HAPP appStartApp(HWND hwndNotify,                  // in: notify window (as with WinStartApp)
-                 const PROGDETAILS *pcProgDetails, // in: program data
-                 ULONG ulFlags)                    // in: session type options
+APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
+                   const PROGDETAILS *pcProgDetails, // in: program spec (req.)
+                   ULONG ulFlags,          // in: APP_RUN_* flags
+                   HAPP *phapp)            // out: application handle if NO_ERROR is returned
 {
-    HAPP            happ = NULLHANDLE;
-    XSTRING         strParamsPatched;
+    APIRET          arc = NO_ERROR;
     PROGDETAILS     ProgDetails;
 
-    PSZ             pszWinOS2Env = 0;
+    if (!pcProgDetails || !phapp)
+        return (ERROR_INVALID_PARAMETER);
 
     memcpy(&ProgDetails, pcProgDetails, sizeof(PROGDETAILS));
             // pointers still point into old prog details buffer
     ProgDetails.Length = sizeof(PROGDETAILS);
     ProgDetails.progt.fbVisible = SHE_VISIBLE;
-    // ProgDetails.pszEnvironment = 0;
 
     // all this only makes sense if this contains something...
     // besides, this crashed on string comparisons V0.9.9 (2001-01-27) [umoeller]
-    if (ProgDetails.pszExecutable)
+    if (!ProgDetails.pszExecutable)
+        arc = ERROR_INVALID_PARAMETER;
+    else if (doshMyTID() != 1)          // V0.9.16 (2001-10-19) [umoeller]
+        arc = ERROR_INVALID_THREADID;
+    else
     {
-        ULONG ulIsWinApp;
+        ULONG           ulIsWinApp;
+
+        XSTRING         strParamsPatched;
+        PSZ             pszWinOS2Env = 0;
 
         // memset(&ProgDetails.swpInitial, 0, sizeof(SWP));
         // this wasn't a good idea... WPProgram stores stuff
@@ -890,7 +929,7 @@ HAPP appStartApp(HWND hwndNotify,                  // in: notify window (as with
             break;
         }
 
-        // Set session type from option flags
+        // set session type from option flags
         if (ulFlags & APP_RUN_FULLSCREEN)
         {
             if (ProgDetails.progt.progc == PROG_WINDOWABLEVIO)
@@ -918,6 +957,9 @@ HAPP appStartApp(HWND hwndNotify,                  // in: notify window (as with
                                                 ? PROG_31_ENHSEAMLESSVDM
                                                 : PROG_31_ENHSEAMLESSCOMMON;
             }
+
+            // re-run V0.9.16 (2001-10-19) [umoeller]
+            ulIsWinApp = appIsWindowsApp(ProgDetails.progt.progc);
         }
 
         /*
@@ -967,169 +1009,279 @@ HAPP appStartApp(HWND hwndNotify,                  // in: notify window (as with
         } // end if (strcmp(pProgDetails->pszExecutable, "*") == 0)
         else
         {
-            PSZ pszExtension;
-            switch (ProgDetails.progt.progc)
+            // now check if the executable is valid
+            // V0.9.16 (2001-10-19) [umoeller]
+            ULONG ulAttr;
+            _Pmpf(("  %d now, checking %s", arc, ProgDetails.pszExecutable));
+            if (!(arc = doshQueryPathAttr(ProgDetails.pszExecutable,
+                                          &ulAttr)))
             {
-                /*
-                 *  .CMD files fixups
-                 *
-                 */
-
-                case PROG_FULLSCREEN:       // OS/2 fullscreen
-                case PROG_WINDOWABLEVIO:    // OS/2 window
+                // make sure startup dir is really a directory
+                if (ProgDetails.pszStartupDir)
                 {
-                    if (    (pszExtension = doshGetExtension(ProgDetails.pszExecutable))
-                         && (!stricmp(pszExtension, "CMD"))
-                       )
-                    {
-                        CallBatchCorrectly(&ProgDetails,
-                                           &strParamsPatched,
-                                           "OS2_SHELL",
-                                           "CMD.EXE");
-                    }
-                break; }
-
-                case PROG_VDM:              // DOS fullscreen
-                case PROG_WINDOWEDVDM:      // DOS window
-                {
-                    if (    (pszExtension = doshGetExtension(ProgDetails.pszExecutable))
-                         && (!stricmp(pszExtension, "BAT"))
-                       )
-                    {
-                        CallBatchCorrectly(&ProgDetails,
-                                           &strParamsPatched,
-                                           NULL,
-                                           "COMMAND.COM");
-                    }
-                break; }
-            } // end switch (ProgDetails.progt.progc)
-        }
-
-        if (    (ulIsWinApp)
-             && (    (ProgDetails.pszEnvironment == NULL)
-                  || (!strlen(ProgDetails.pszEnvironment))
-                )
-           )
-        {
-            // this is a windoze app, and caller didn't bother
-            // to give us an environment:
-            // we MUST set one then, or we'll get the strangest
-            // errors, up to system hangs. V0.9.12 (2001-05-26) [umoeller]
-
-            DOSENVIRONMENT Env = {0};
-
-            // get standard WIN-OS/2 environment
-            PSZ pszTemp = appQueryDefaultWin31Environment();
-
-            if (!appParseEnvironment(pszTemp,
-                                     &Env))
-            {
-                // now override KBD_CTRL_BYPASS=CTRL_ESC
-                appSetEnvironmentVar(&Env,
-                                     "KBD_CTRL_BYPASS=CTRL_ESC",
-                                     FALSE);        // add last
-                /*
-                 * These should be set by the default environment. It is
-                 * not our business to override them really. V0.9.14
-                 *
-                appSetEnvironmentVar(&Env,
-                                     "KBD_ALTHOME_BYPASS=1",
-                                     FALSE);        // add last
-                appSetEnvironmentVar(&Env,
-                                     "INT_DURING_IO=1",
-                                     FALSE);        // add last
-                appSetEnvironmentVar(&Env,
-                                     "HW_TIMER=1",
-                                     FALSE);        // add last
-                appSetEnvironmentVar(&Env,
-                                     "MOUSE_EXCLUSIVE_ACCESS=0",
-                                     FALSE);        // add last
-                appSetEnvironmentVar(&Env,
-                                     "VIDEO_RETRACE_EMULATION=1",
-                                     FALSE);        // add last
-                appSetEnvironmentVar(&Env,
-                                     "VIDEO_SWITCH_NOTIFICATION=1",
-                                     FALSE);        // add last
-                appSetEnvironmentVar(&Env,
-                                     "VIDEO_8514A_XGA_IOTRAP=0",
-                                     FALSE);        // add last
-                 */
-
-                if (!appConvertEnvironment(&Env,
-                                           &pszWinOS2Env,   // freed at bottom
-                                           NULL))
-                    ProgDetails.pszEnvironment = pszWinOS2Env;
-
-                appFreeEnvironment(&Env);
+                    _Pmpf(("  checking %s", ProgDetails.pszStartupDir));
+                    if (!(arc = doshQueryPathAttr(ProgDetails.pszStartupDir,
+                                                  &ulAttr)))
+                        if (!(ulAttr & FILE_DIRECTORY))
+                            arc = ERROR_PATH_NOT_FOUND;
+                                        // @@todo
+                }
             }
 
-            free(pszTemp);
-        }
+            _Pmpf(("  after checking %d", arc));
 
-        if (!ProgDetails.pszTitle)
-            ProgDetails.pszTitle = ProgDetails.pszExecutable;
-
-        ProgDetails.pszParameters = strParamsPatched.psz;
-
-        /*  _Pmpf(("progt.progc: %d", ProgDetails.progt.progc));
-        _Pmpf(("progt.fbVisible: 0x%lX", ProgDetails.progt.fbVisible));
-        _Pmpf(("progt.pszTitle: \"%s\"", (ProgDetails.pszTitle) ? ProgDetails.pszTitle : "NULL"));
-        _Pmpf(("exec: \"%s\"", (ProgDetails.pszExecutable) ? ProgDetails.pszExecutable : "NULL"));
-        _Pmpf(("params: \"%s\"", (ProgDetails.pszParameters) ? ProgDetails.pszParameters : "NULL"));
-        _Pmpf(("startup: \"%s\"", (ProgDetails.pszStartupDir) ? ProgDetails.pszStartupDir : "NULL"));
-        _Pmpf(("pszIcon: \"%s\"", (ProgDetails.pszIcon) ? ProgDetails.pszIcon : "NULL"));
-        _Pmpf(("environment: "));
-        {
-            PSZ pszThis = ProgDetails.pszEnvironment;
-            while (pszThis && *pszThis)
+            if (!arc)
             {
-                _Pmpf(("  \"%s\"", pszThis));
-                pszThis += strlen(pszThis) + 1;
+                PSZ pszExtension;
+                switch (ProgDetails.progt.progc)
+                {
+                    /*
+                     *  .CMD files fixups
+                     *
+                     */
+
+                    case PROG_FULLSCREEN:       // OS/2 fullscreen
+                    case PROG_WINDOWABLEVIO:    // OS/2 window
+                    {
+                        if (    (pszExtension = doshGetExtension(ProgDetails.pszExecutable))
+                             && (!stricmp(pszExtension, "CMD"))
+                           )
+                        {
+                            CallBatchCorrectly(&ProgDetails,
+                                               &strParamsPatched,
+                                               "OS2_SHELL",
+                                               "CMD.EXE");
+                        }
+                    break; }
+
+                    case PROG_VDM:              // DOS fullscreen
+                    case PROG_WINDOWEDVDM:      // DOS window
+                    {
+                        if (    (pszExtension = doshGetExtension(ProgDetails.pszExecutable))
+                             && (!stricmp(pszExtension, "BAT"))
+                           )
+                        {
+                            CallBatchCorrectly(&ProgDetails,
+                                               &strParamsPatched,
+                                               NULL,
+                                               "COMMAND.COM");
+                        }
+                    break; }
+                } // end switch (ProgDetails.progt.progc)
             }
         }
 
-        _Pmpf(("swpInitial.fl = 0x%lX, x = %d, y = %d, cx = %d, cy = %d:",
-                    ProgDetails.swpInitial.fl,
-                    ProgDetails.swpInitial.x,
-                    ProgDetails.swpInitial.y,
-                    ProgDetails.swpInitial.cx,
-                    ProgDetails.swpInitial.cy));
-        _Pmpf(("  behind = %d, hwnd = %d, res1 = %d, res2 = %d",
-                    ProgDetails.swpInitial.hwndInsertBehind,
-                    ProgDetails.swpInitial.hwnd,
-                    ProgDetails.swpInitial.ulReserved1,
-                    ProgDetails.swpInitial.ulReserved2));
-            */
+        if (!arc)
+        {
+            if (    (ulIsWinApp)
+                 && (    (ProgDetails.pszEnvironment == NULL)
+                      || (!strlen(ProgDetails.pszEnvironment))
+                    )
+               )
+            {
+                // this is a windoze app, and caller didn't bother
+                // to give us an environment:
+                // we MUST set one then, or we'll get the strangest
+                // errors, up to system hangs. V0.9.12 (2001-05-26) [umoeller]
 
-        /* if (WinMessageBox(HWND_DESKTOP,
-                          NULLHANDLE,
-                          (ProgDetails.pszExecutable) ? ProgDetails.pszExecutable : "NULL",
-                          "Start?",
-                          0,
-                          MB_YESNO | MB_MOVEABLE)
-                  == MBID_YES) */
-        happ = WinStartApp(hwndNotify,
-                                    // receives WM_APPTERMINATENOTIFY
-                           &ProgDetails,
-                           strParamsPatched.psz,
-                           NULL,            // "reserved", PMREF says...
-                           SAF_INSTALLEDCMDLINE);
-                                // we MUST use SAF_INSTALLEDCMDLINE
-                                // or no Win-OS/2 session will start...
-                                // whatever is going on here... Warp 4 FP11
+                DOSENVIRONMENT Env = {0};
 
-                                // do not use SAF_STARTCHILDAPP, or the
-                                // app will be terminated automatically
-                                // when the WPS terminates!
+                // get standard WIN-OS/2 environment
+                PSZ pszTemp = appQueryDefaultWin31Environment();
 
-        // _Pmpf((__FUNCTION__ ": got happ 0x%lX", happ));
+                if (!(arc = appParseEnvironment(pszTemp,
+                                                &Env)))
+                {
+                    // now override KBD_CTRL_BYPASS=CTRL_ESC
+                    if (    (!(arc = appSetEnvironmentVar(&Env,
+                                                          "KBD_CTRL_BYPASS=CTRL_ESC",
+                                                          FALSE)))        // add last
+                         && (!(arc = appConvertEnvironment(&Env,
+                                                           &pszWinOS2Env,   // freed at bottom
+                                                           NULL)))
+                       )
+                        ProgDetails.pszEnvironment = pszWinOS2Env;
+
+                    appFreeEnvironment(&Env);
+                }
+
+                free(pszTemp);
+            }
+
+            if (!arc)
+            {
+                if (!ProgDetails.pszTitle)
+                    ProgDetails.pszTitle = ProgDetails.pszExecutable;
+
+                ProgDetails.pszParameters = strParamsPatched.psz;
+
+                /*  _Pmpf(("progt.progc: %d", ProgDetails.progt.progc));
+                _Pmpf(("progt.fbVisible: 0x%lX", ProgDetails.progt.fbVisible));
+                _Pmpf(("progt.pszTitle: \"%s\"", (ProgDetails.pszTitle) ? ProgDetails.pszTitle : "NULL"));
+                _Pmpf(("exec: \"%s\"", (ProgDetails.pszExecutable) ? ProgDetails.pszExecutable : "NULL"));
+                _Pmpf(("params: \"%s\"", (ProgDetails.pszParameters) ? ProgDetails.pszParameters : "NULL"));
+                _Pmpf(("startup: \"%s\"", (ProgDetails.pszStartupDir) ? ProgDetails.pszStartupDir : "NULL"));
+                _Pmpf(("pszIcon: \"%s\"", (ProgDetails.pszIcon) ? ProgDetails.pszIcon : "NULL"));
+                _Pmpf(("environment: "));
+                {
+                    PSZ pszThis = ProgDetails.pszEnvironment;
+                    while (pszThis && *pszThis)
+                    {
+                        _Pmpf(("  \"%s\"", pszThis));
+                        pszThis += strlen(pszThis) + 1;
+                    }
+                }
+
+                _Pmpf(("swpInitial.fl = 0x%lX, x = %d, y = %d, cx = %d, cy = %d:",
+                            ProgDetails.swpInitial.fl,
+                            ProgDetails.swpInitial.x,
+                            ProgDetails.swpInitial.y,
+                            ProgDetails.swpInitial.cx,
+                            ProgDetails.swpInitial.cy));
+                _Pmpf(("  behind = %d, hwnd = %d, res1 = %d, res2 = %d",
+                            ProgDetails.swpInitial.hwndInsertBehind,
+                            ProgDetails.swpInitial.hwnd,
+                            ProgDetails.swpInitial.ulReserved1,
+                            ProgDetails.swpInitial.ulReserved2));
+                    */
+
+                /* if (WinMessageBox(HWND_DESKTOP,
+                                  NULLHANDLE,
+                                  (ProgDetails.pszExecutable) ? ProgDetails.pszExecutable : "NULL",
+                                  "Start?",
+                                  0,
+                                  MB_YESNO | MB_MOVEABLE)
+                          == MBID_YES) */
+                if (!(*phapp = WinStartApp(hwndNotify,
+                                                    // receives WM_APPTERMINATENOTIFY
+                                           &ProgDetails,
+                                           strParamsPatched.psz,
+                                           NULL,            // "reserved", PMREF says...
+                                           SAF_INSTALLEDCMDLINE)))
+                                                // we MUST use SAF_INSTALLEDCMDLINE
+                                                // or no Win-OS/2 session will start...
+                                                // whatever is going on here... Warp 4 FP11
+
+                                                // do not use SAF_STARTCHILDAPP, or the
+                                                // app will be terminated automatically
+                                                // when the WPS terminates!
+                    arc = ERROR_BAD_FORMAT;
+                            // @@todo we can probably do better
+                            // V0.9.16 (2001-10-19) [umoeller]
+
+                // _Pmpf((__FUNCTION__ ": got happ 0x%lX", happ));
+            }
+        }
 
         xstrClear(&strParamsPatched);
         if (pszWinOS2Env)
             free(pszWinOS2Env);
     } // end if (ProgDetails.pszExecutable)
 
-    return (happ);
+    _Pmpf((__FUNCTION__ ": returning %d", arc));
+
+    return (arc);
 }
 
+/*
+ *@@ appWaitForApp:
+ *      waits for the specified application to terminate
+ *      and returns its exit code.
+ *
+ *@@added V0.9.9 (2001-03-07) [umoeller]
+ */
 
+BOOL appWaitForApp(HWND hwndNotify,     // in: notify window
+                   HAPP happ,           // in: app to wait for
+                   PULONG pulExitCode)  // out: exit code (ptr can be NULL)
+{
+    BOOL brc = FALSE;
+
+    if (happ)
+    {
+        // app started:
+        // enter a modal message loop until we get the
+        // WM_APPTERMINATENOTIFY for happ. Then we
+        // know the app is done.
+        HAB     hab = WinQueryAnchorBlock(hwndNotify);
+        QMSG    qmsg;
+        // ULONG   ulXFixReturnCode = 0;
+        while (WinGetMsg(hab, &qmsg, NULLHANDLE, 0, 0))
+        {
+            if (    (qmsg.msg == WM_APPTERMINATENOTIFY)
+                 && (qmsg.hwnd == hwndNotify)
+                 && (qmsg.mp1 == (MPARAM)happ)
+               )
+            {
+                // xfix has terminated:
+                // get xfix return code from mp2... this is:
+                // -- 0: everything's OK, continue.
+                // -- 1: handle section was rewritten, restart Desktop
+                //       now.
+                if (pulExitCode)
+                    *pulExitCode = (ULONG)qmsg.mp2;
+                brc = TRUE;
+                // do not dispatch this
+                break;
+            }
+
+            WinDispatchMsg(hab, &qmsg);
+        }
+    }
+
+    return (brc);
+}
+
+/*
+ *@@ appQuickStartApp:
+ *      shortcut for simply starting an app and
+ *      waiting until it's finished.
+ *
+ *      On errors, NULLHANDLE is returned.
+ *
+ *      If pulReturnCode != NULL, it receives the
+ *      return code of the app.
+ *
+ *@@added V0.9.16 (2001-10-19) [umoeller]
+ */
+
+HAPP appQuickStartApp(const char *pcszFile,
+                      ULONG ulProgType,         // e.g. PROG_PM
+                      const char *pcszArgs,
+                      PULONG pulExitCode)
+{
+    PROGDETAILS    pd = {0};
+    HAPP           happ,
+                   happReturn = NULLHANDLE;
+    CHAR           szDir[CCHMAXPATH] = "";
+    PCSZ           p;
+    HWND           hwndObject;
+
+    pd.Length = sizeof(pd);
+    pd.progt.progc = ulProgType;
+    pd.progt.fbVisible = SHE_VISIBLE;
+    pd.pszExecutable = (PSZ)pcszFile;
+    pd.pszParameters = (PSZ)pcszArgs;
+    if (p = strrchr(pcszFile, '\\'))
+    {
+       strhncpy0(szDir,
+                 pcszFile,
+                 p - pcszFile);
+       pd.pszStartupDir = szDir;
+    }
+
+    if (    (hwndObject = winhCreateObjectWindow(WC_STATIC, NULL))
+         && (!appStartApp(hwndObject,
+                          &pd,
+                          0,
+                          &happ))
+       )
+    {
+        if (appWaitForApp(hwndObject,
+                          happ,
+                          pulExitCode))
+            happReturn = happ;
+    }
+
+    return (happReturn);
+}

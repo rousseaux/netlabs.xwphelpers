@@ -284,11 +284,16 @@ A binary search tree is a red-black tree if:
  *@@ treeInit:
  *      initializes the root of a tree.
  *
+ *@@changed V0.9.16 (2001-10-19) [umoeller]: added plCount
  */
 
-void treeInit(TREE **root)
+void treeInit(TREE **root,
+              PLONG plCount)            // out: tree item count, set to 0 (ptr can be NULL)
 {
     *root = LEAF;
+
+    if (plCount)
+        *plCount = 0;       // V0.9.16 (2001-10-19) [umoeller]
 }
 
 /*
@@ -510,9 +515,12 @@ static void insertFixup(TREE **root,
  *      Returns 0 if no error. Might return
  *      STATUS_DUPLICATE_KEY if a node with the
  *      same ulKey already exists.
+ *
+ *@@changed V0.9.16 (2001-10-19) [umoeller]: added plCount
  */
 
 int treeInsert(TREE **root,                     // in: root of the tree
+               PLONG plCount,                 // in/out: item count (ptr can be NULL)
                TREE *x,                         // in: new node to insert
                FNTREE_COMPARE *pfnCompare)      // in: comparison func
 {
@@ -530,6 +538,7 @@ int treeInsert(TREE **root,                     // in: root of the tree
         int iResult;
         if (0 == (iResult = pfnCompare(key, current->ulKey))) // if (compEQ(key, current->key))
             return STATUS_DUPLICATE_KEY;
+
         parent = current;
         current = (iResult < 0)    // compLT(key, current->key)
                     ? current->left
@@ -560,6 +569,9 @@ int treeInsert(TREE **root,                     // in: root of the tree
     insertFixup(root,
                 x);
     // lastFind = NULL;
+
+    if (plCount)
+        (*plCount)++;       // V0.9.16 (2001-10-19) [umoeller]
 
     return STATUS_OK;
 }
@@ -739,9 +751,12 @@ static void deleteFixup(TREE **root,
  *
  *      Returns 0 if the node was deleted or
  *      STATUS_INVALID_NODE if not.
+ *
+ *@@changed V0.9.16 (2001-10-19) [umoeller]: added plCount
  */
 
 int treeDelete(TREE **root,         // in: root of the tree
+               PLONG plCount,     // in/out: item count (ptr can be NULL)
                TREE *tree)          // in: tree node to delete
 {
     TREE        *y,
@@ -819,97 +834,10 @@ int treeDelete(TREE **root,         // in: root of the tree
         deleteFixup(root,
                     y);
 
+    if (plCount)
+        (*plCount)--;       // V0.9.16 (2001-10-19) [umoeller]
+
     return (STATUS_OK);
-
-    /* TREE    *x,
-            *y; */
-            // *z;
-
-   /*****************************
-    *  delete node z from tree  *
-    *****************************/
-
-    // find node in tree
-    /* if (lastFind && compEQ(lastFind->key, key))
-        // if we just found node, use pointer
-        z = lastFind;
-    else {
-        z = *root;
-        while(z != LEAF)
-        {
-            int iResult = pfnCompare(key, z->key);
-            if (iResult == 0)
-            // if(compEQ(key, z->key))
-                break;
-            else
-                z = (iResult < 0) // compLT(key, z->key)
-                    ? z->left
-                    : z->right;
-        }
-        if (z == LEAF)
-            return STATUS_KEY_NOT_FOUND;
-    }
-
-    if (    z->left == LEAF
-         || z->right == LEAF
-       )
-    {
-        // y has a LEAF node as a child
-        y = z;
-    }
-    else
-    {
-        // find tree successor with a LEAF node as a child
-        y = z->right;
-        while (y->left != LEAF)
-            y = y->left;
-    }
-
-    // x is y's only child
-    if (y->left != LEAF)
-        x = y->left;
-    else
-        x = y->right;
-
-    // remove y from the parent chain
-    x->parent = y->parent;
-    if (y->parent)
-        if (y == y->parent->left)
-            y->parent->left = x;
-        else
-            y->parent->right = x;
-    else
-        *root = x;
-
-    // y is about to be deleted...
-
-    if (y != z)
-    {
-        // now, the original code simply copied the data
-        // from y to z... we can't safely do that since
-        // we don't know about the real data in the
-        // caller's TREE structure
-        z->ulKey = y->ulKey;
-        // z->rec = y->rec;         // hope this works...
-                                    // the original implementation used rec
-                                    // for the node's data
-
-        if (cbStruct > sizeof(TREE))
-        {
-            memcpy(((char*)&z) + sizeof(TREE),
-                   ((char*)&y) + sizeof(TREE),
-                   cbStruct - sizeof(TREE));
-        }
-    }
-
-    if (y->color == BLACK)
-        deleteFixup(root,
-                    x);
-
-    // free(y);
-    // lastFind = NULL;
-
-    return STATUS_OK; */
 }
 
 /*
@@ -1119,11 +1047,11 @@ TREE* treePrev(TREE *r)
  */
 
 TREE** treeBuildArray(TREE* pRoot,
-                      unsigned long *pulCount)  // in: item count, out: array item count
+                      PLONG plCount)  // in: item count, out: array item count
 {
     TREE            **papNodes = NULL,
                     **papThis = NULL;
-    unsigned long   cb = (sizeof(TREE*) * (*pulCount)),
+    long            cb = (sizeof(TREE*) * (*plCount)),
                     cNodes = 0;
 
     if (cb)
@@ -1139,7 +1067,7 @@ TREE** treeBuildArray(TREE* pRoot,
 
             // copy nodes to array
             while (    pNode
-                    && cNodes < (*pulCount)     // just to make sure
+                    && cNodes < (*plCount)     // just to make sure
                   )
             {
                 *papThis = pNode;
@@ -1150,7 +1078,7 @@ TREE** treeBuildArray(TREE* pRoot,
             }
 
             // output count
-            *pulCount = cNodes;
+            *plCount = cNodes;
         }
     }
 

@@ -9,7 +9,7 @@
  *@@include #define INCL_DOSPROCESS
  *@@include #define INCL_DOSDEVIOCTL    // for doshQueryDiskParams only
  *@@include #include <os2.h>
- *@@include #include "dosh.h"
+ *@@include #include "helpers\dosh.h"
  */
 
 /*      This file Copyright (C) 1997-2001 Ulrich M”ller,
@@ -53,6 +53,9 @@ extern "C" {
      *   Memory helpers
      *
      ********************************************************************/
+
+    PVOID doshMalloc(ULONG cb,
+                     APIRET *parc);
 
     PVOID doshAllocSharedMem(ULONG ulSize,
                              const char* pcszName);
@@ -313,9 +316,11 @@ extern "C" {
 
     BOOL doshMakeRealName(PSZ pszTarget, PSZ pszSource, CHAR cReplace, BOOL fIsFAT);
 
-    ULONG doshQueryFileSize(HFILE hFile);
+    APIRET doshQueryFileSize(HFILE hFile,
+                             PULONG pulSize);
 
-    ULONG doshQueryPathSize(PSZ pszFile);
+    APIRET doshQueryPathSize(PCSZ pcszFile,
+                             PULONG pulSize);
 
     APIRET doshQueryPathAttr(const char* pcszFile,
                              PULONG pulAttr);
@@ -339,6 +344,39 @@ extern "C" {
                       ULONG cb,
                       PBYTE pbData);
 
+    /*
+     *@@ XFILE:
+     *
+     *@@added V0.9.16 (2001-10-19) [umoeller]
+     */
+
+    typedef struct _XFILE
+    {
+        HFILE       hf;
+        ULONG       hmtx;       // a HMTX really
+        ULONG       cbInitial,  // intial file size on open (can be 0 if new)
+                    cbCurrent;  // current file size (raised with each write)
+    } XFILE, *PXFILE;
+
+    #define XOPEN_READ_EXISTING             1
+    #define XOPEN_READWRITE_APPEND          2
+    #define XOPEN_READWRITE_NEW             3
+
+    APIRET doshOpen(const char *pcszFilename,
+                    ULONG ulOpenMode,
+                    PULONG pcbFile,
+                    PXFILE *ppFile);
+
+    APIRET doshWrite(PXFILE pFile,
+                     PCSZ pcsz,
+                     ULONG cb);
+
+    APIRET doshWriteLogEntry(PXFILE pFile,
+                             const char* pcszFormat,
+                             ...);
+
+    APIRET doshClose(PXFILE *ppFile);
+
     APIRET doshLoadTextFile(const char *pcszFile,
                             PSZ* ppszContent);
 
@@ -354,9 +392,6 @@ extern "C" {
                              PULONG pulWritten,
                              PSZ pszBackup);
 
-    HFILE doshOpenLogFile(const char* pcszFilename);
-
-    APIRET doshWriteToLogFile(HFILE hfLog, const char* pcsz);
 
     /* ******************************************************************
      *
@@ -394,12 +429,6 @@ extern "C" {
     ULONG XWPENTRY doshMyTID(VOID);
     typedef ULONG XWPENTRY DOSHMYTID(VOID);
     typedef DOSHMYTID *PDOSHMYTID;
-
-    APIRET doshFindExecutable(const char *pcszCommand,
-                              PSZ pszExecutable,
-                              ULONG cbExecutable,
-                              const char **papcszExtensions,
-                              ULONG cExtensions);
 
     APIRET doshExecVIO(const char *pcszExecWithArgs,
                        PLONG plExitCode);
@@ -814,6 +843,17 @@ extern "C" {
                                   PULONG pcResources);
 
     APIRET doshExecFreeResources(PFSYSRESOURCE paResources);
+
+    APIRET doshSearchPath(const char *pcszPath,
+                          const char *pcszFile,
+                          PSZ pszExecutable,
+                          ULONG cbExecutable);
+
+    APIRET doshFindExecutable(const char *pcszCommand,
+                              PSZ pszExecutable,
+                              ULONG cbExecutable,
+                              const char **papcszExtensions,
+                              ULONG cExtensions);
 
     /********************************************************************
      *

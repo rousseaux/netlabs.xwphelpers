@@ -13,11 +13,10 @@
  *@@include #define INCL_WINSHELLDATA
  *@@include #define INCL_WINWORKPLACE
  *@@include #include <os2.h>
- *@@include #include "wphandle.h"
+ *@@include #include "helpers\wphandle.h"
  */
 
-/*      This file Copyright (C) 1997-2000 Ulrich M”ller,
- *                                        Henk Kelder.
+/*      This file Copyright (C) 1997-2001 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
@@ -50,6 +49,12 @@ extern "C" {
     #define ERROR_WPH_NO_HANDLES_DATA               (ERROR_WPH_FIRST +   4)
     #define ERROR_WPH_CORRUPT_HANDLES_DATA          (ERROR_WPH_FIRST +   5)
     #define ERROR_WPH_INVALID_PARENT_HANDLE         (ERROR_WPH_FIRST +   6)
+    #define ERROR_WPH_CANNOT_FIND_HANDLE            (ERROR_WPH_FIRST +   7)
+    #define ERROR_WPH_DRIV_TREEINSERT_FAILED        (ERROR_WPH_FIRST +   8)
+    #define ERROR_WPH_NODE_TREEINSERT_FAILED        (ERROR_WPH_FIRST +   9)
+    #define ERROR_WPH_NODE_BEFORE_DRIV              (ERROR_WPH_FIRST +  10)
+    #define ERROR_WPH_NO_MATCHING_DRIVE_BLOCK       (ERROR_WPH_FIRST +  11)
+    #define ERROR_WPH_NO_MATCHING_ROOT_DIR          (ERROR_WPH_FIRST +  12)
 
     /* ******************************************************************
      *
@@ -94,35 +99,97 @@ extern "C" {
         ULONG   ulSerialNr;
         USHORT  usUnknown2[2];
         CHAR    szName[1];
-    } DRIV, *PDRIV;
+    } DRIVE, *PDRIVE;
 
     #pragma pack()
 
-    /*
-     *@@ WPHANDLESBUF:
-     *      structure created by wphLoadHandles.
+    /* ******************************************************************
      *
-     *@@added V0.9.16 (2001-10-02) [umoeller]
-     */
+     *   Private declarations
+     *
+     ********************************************************************/
 
-    typedef struct _WPHANDLESBUF
-    {
-        PBYTE       pbData;         // ptr to all handles (buffers from OS2SYS.INI)
-        ULONG       cbData;         // byte count of *p
+    #ifdef INCLUDE_WPHANDLE_PRIVATE
 
-        USHORT      usHiwordAbstract,   // hiword for WPAbstract handles
-                    usHiwordFileSystem; // hiword for WPFileSystem handles
+        /*
+         *@@ DRIVETREENODE:
+         *
+         *@@added V0.9.16 (2001-10-19) [umoeller]
+         */
 
-        PNODE       NodeHashTable[65536];
-        BOOL        fNodeHashTableValid;    // TRUE after wphRebuildNodeHashTable
+        typedef struct _DRIVETREENODE
+        {
+            TREE        Tree;       // ulKey points to the DRIVE.szName
+                                    // (null terminated)
+            PDRIVE      pDriv;      // actual DRIVE node
 
-    } HANDLESBUF, *PHANDLESBUF;
+            TREE        *ChildrenTree;  // NODETREENODE's, if any
+            LONG        cChildren;
+
+        } DRIVETREENODE, *PDRIVETREENODE;
+
+        /*
+         *@@ NODETREENODE:
+         *
+         *@@added V0.9.16 (2001-10-19) [umoeller]
+         */
+
+        typedef struct _NODETREENODE
+        {
+            TREE        Tree;       // ulKey points to the NODE.szName
+                                    // (null terminated)
+            PNODE       pNode;      // actual NODE node
+
+            TREE        *ChildrenTree;  // NODETREENODE's, if any
+            LONG        cChildren;
+
+        } NODETREENODE, *PNODETREENODE;
+
+        /*
+         *@@ WPHANDLESBUF:
+         *      structure created by wphLoadHandles.
+         *
+         *      The composed BLOCKs in the handles buffer make up a tree of
+         *      DRIVE and NODE structures (see wphandle.h). Each NODE stands
+         *      for either a directory or a file. (We don't care about the
+         *      DRIVE structures because the root directory gets a NODE also.)
+         *      Each NODE contains the non-qualified file name, an fshandle,
+         *      and the fshandle of its parent NODE.
+         *
+         *@@added V0.9.16 (2001-10-02) [umoeller]
+         */
+
+        typedef struct _WPHANDLESBUF
+        {
+            PBYTE       pbData;         // ptr to all handles (buffers from OS2SYS.INI)
+            ULONG       cbData;         // byte count of *p
+
+            USHORT      usHiwordAbstract,   // hiword for WPAbstract handles
+                        usHiwordFileSystem; // hiword for WPFileSystem handles
+
+            BOOL        fCacheValid;            // TRUE after wphRebuildNodeHashTable()
+            PNODETREENODE NodeHashTable[65536]; // hash table with all nodes sorted by handle;
+                                                // if item is NULL, no handle is assigned
+            TREE        *DrivesTree;          // DRIVETREENODE structs really
+            LONG        cDrives;
+
+            LINKLIST    llDuplicateHandles;     // linked list of NODETREENODE's that
+                                                // have an fshandle that was already
+                                                // occupied (i.e. same fshandle for two
+                                                // NODEs)
+            LINKLIST    llDuplicateShortNames;
+
+        } HANDLESBUF, *PHANDLESBUF;
+
+    #endif
 
     /* ******************************************************************
      *
      *   Load handles functions
      *
      ********************************************************************/
+
+    typedef unsigned long HHANDLES;
 
     APIRET wphQueryActiveHandles(HINI hiniSystem,
                                  PSZ *ppszActiveHandles);
@@ -131,21 +198,21 @@ extern "C" {
                                       PUSHORT pusHiwordAbstract,
                                       PUSHORT pusHiwordFileSystem);
 
-    APIRET wphRebuildNodeHashTable(PHANDLESBUF pHandlesBuf);
+    APIRET wphRebuildNodeHashTable(HHANDLES hHandles);
 
     APIRET wphLoadHandles(HINI hiniUser,
                           HINI hiniSystem,
                           const char *pcszActiveHandles,
-                          PHANDLESBUF *ppHandlesBuf);
+                          HHANDLES *phHandles);
 
-    APIRET wphFreeHandles(PHANDLESBUF *ppHandlesBuf);
+    APIRET wphFreeHandles(HHANDLES *phHandles);
 
     APIRET wphQueryHandleFromPath(HINI hiniUser,
                                   HINI hiniSystem,
                                   const char *pcszName,
                                   HOBJECT *phobj);
 
-    APIRET wphComposePath(PHANDLESBUF pHandlesBuf,
+    APIRET wphComposePath(HHANDLES hHandles,
                           USHORT usHandle,
                           PSZ pszFilename,
                           ULONG cbFilename,

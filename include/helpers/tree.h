@@ -14,6 +14,8 @@ extern "C" {
 
     #if (!defined OS2_INCLUDED) && (!defined _OS2_H) && (!defined __SIMPLES_DEFINED)   // changed V0.9.0 (99-10-22) [umoeller]
         typedef unsigned long BOOL;
+        typedef unsigned long ULONG;
+        typedef long *PLONG;
         #define TRUE (BOOL)1
         #define FALSE (BOOL)0
 
@@ -51,7 +53,7 @@ extern "C" {
                         *parent;
         nodeColor       color;          // the node's color (BLACK, RED)
 
-        unsigned long   ulKey;          // the node's key (data)
+        ULONG           ulKey;          // the node's key (data)
 
     } TREE, *PTREE;
 
@@ -66,24 +68,27 @@ extern "C" {
     #define STATUS_DUPLICATE_KEY        -1
     #define STATUS_INVALID_NODE         -2
 
-    typedef int TREEENTRY FNTREE_COMPARE(unsigned long ul1, unsigned long ul2);
+    typedef int TREEENTRY FNTREE_COMPARE(ULONG ul1, ULONG ul2);
 
     //  Function prototypes
-    void treeInit(TREE **root);
+    void treeInit(TREE **root,
+                  PLONG plCount);
 
-    int TREEENTRY treeCompareKeys(unsigned long  ul1, unsigned long ul2);
+    int TREEENTRY treeCompareKeys(ULONG  ul1, ULONG ul2);
 
-    int TREEENTRY treeCompareStrings(unsigned long  ul1, unsigned long ul2);
+    int TREEENTRY treeCompareStrings(ULONG  ul1, ULONG ul2);
 
     int treeInsert(TREE **root,
+                   PLONG plCount,
                    TREE *x,
                    FNTREE_COMPARE *pfnCompare);
 
     int treeDelete(TREE **root,
+                   PLONG plCount,
                    TREE *z);
 
     TREE* treeFind(TREE *root,
-                   unsigned long key,
+                   ULONG key,
                    FNTREE_COMPARE *pfnCompare);
 
     TREE* treeFirst(TREE *r);
@@ -95,7 +100,7 @@ extern "C" {
     TREE* treePrev(TREE *r);
 
     TREE** treeBuildArray(TREE* pRoot,
-                          unsigned long *pulCount);
+                          PLONG plCount);
 
 #endif
 

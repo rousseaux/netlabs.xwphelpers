@@ -8,7 +8,7 @@
  *
  *@@include #define INCL_WINSHELLDATA
  *@@include #include <os2.h>
- *@@include #include "syssound.h"
+ *@@include #include "helpers\syssound.h"
  */
 
 /*      Copyright (C) 1999-2000 Ulrich M”ller.

@@ -26,7 +26,7 @@
  *@@include #define INCL_WINSYS
  *@@include #define INCL_WINSHELLDATA
  *@@include #include <os2.h>
- *@@include #include "comctl.h"
+ *@@include #include "helpers\comctl.h"
  */
 
 #if __cplusplus

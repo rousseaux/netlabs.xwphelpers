@@ -9,7 +9,9 @@
  *            numbering.
  *
  *@@include #include <os2.h>
- *@@include #include "tmsgfile.h"
+ *@@include #include "helpers\tree.h"
+ *@@include #include "helpers\xstring.h"
+ *@@include #include "helpers\tmsgfile.h"
  */
 
 #if __cplusplus

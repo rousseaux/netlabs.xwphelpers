@@ -584,8 +584,7 @@ PLISTNODE lstAppendItemDebug(PLINKLIST pList,
     if (pList)
         if (pList->ulMagic == LINKLISTMAGIC)
         {
-            pNewNode = (PLISTNODE)memdMalloc(sizeof(LISTNODE), file, line, function);
-            if (pNewNode)
+            if (pNewNode = (PLISTNODE)memdMalloc(sizeof(LISTNODE), file, line, function))
             {
                 memset(pNewNode, 0, sizeof(LISTNODE));
                 pNewNode->pItemData = pNewItemData;
@@ -640,8 +639,7 @@ PLISTNODE lstAppendItem(PLINKLIST pList,
     if (pList)
         if (pList->ulMagic == LINKLISTMAGIC)
         {
-            pNewNode = (PLISTNODE)malloc(sizeof(LISTNODE));
-            if (pNewNode)
+            if (pNewNode = (PLISTNODE)malloc(sizeof(LISTNODE)))
             {
                 memset(pNewNode, 0, sizeof(LISTNODE));
                 pNewNode->pItemData = pNewItemData;
@@ -709,8 +707,7 @@ PLISTNODE lstInsertItemBefore(PLINKLIST pList,
     if (pList)
         if (pList->ulMagic == LINKLISTMAGIC)
         {
-            pNewNode = (PLISTNODE)malloc(sizeof(LISTNODE));
-            if (pNewNode)
+            if (pNewNode = (PLISTNODE)malloc(sizeof(LISTNODE)))
             {
                 memset(pNewNode, 0, sizeof(LISTNODE));
                 pNewNode->pItemData = pNewItemData;

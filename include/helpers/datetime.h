@@ -7,7 +7,7 @@
  *            numbering.
  *
  *@@include #include <os2.h>
- *@@include #include "datetime.h"
+ *@@include #include "helpers\datetime.h"
  */
 
 /*      Copyright (C) 1997-2000 Ulrich M”ller.

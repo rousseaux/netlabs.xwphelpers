@@ -12,7 +12,7 @@
  *@@include #define INCL_WINSHELLDATA
  *@@include #include <os2.h>
  *@@include #include <stdio.h>
- *@@include #include "prfh.h"
+ *@@include #include "helpers\prfh.h"
  */
 
 /*      Copyright (C) 1997-2000 Ulrich M”ller.

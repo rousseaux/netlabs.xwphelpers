@@ -57,7 +57,7 @@
  *      Note: Version numbering in this file relates to XWorkplace version
  *            numbering.
  *
- *@@include #include "ensure.h"
+ *@@include #include "helpers\ensure.h"
  */
 
 /*      This file Copyright (C) 2001 Martin Lafaix.

@@ -3187,8 +3187,8 @@ HSWITCH winhAddToTasklist(HWND hwnd,       // in: window to add
 HAB winhMyAnchorBlock(VOID)
 {
     HAB hab = NULLHANDLE;
-    HWND hwnd = winhCreateObjectWindow(WC_BUTTON, NULL);
-    if (hwnd)
+    HWND hwnd;
+    if (hwnd = winhCreateObjectWindow(WC_BUTTON, NULL))
     {
         hab = WinQueryAnchorBlock(hwnd);
         WinDestroyWindow(hwnd);

@@ -45,6 +45,7 @@
 #define INCL_DOSERRORS
 
 #define INCL_WINSHELLDATA
+#define INCL_WINNLS
 #include <os2.h>
 
 #include <stdio.h>
@@ -56,11 +57,15 @@
 #include "setup.h"                      // code generation and debugging options
 
 #include "helpers\except.h"
+#include "helpers\linklist.h"
 #include "helpers\prfh.h"
 #include "helpers\standards.h"
 #include "helpers\stringh.h"
-#include "helpers\wphandle.h"
+#include "helpers\tree.h"
 #include "helpers\xstring.h"
+
+#define INCLUDE_WPHANDLE_PRIVATE
+#include "helpers\wphandle.h"
 
 /*
  *@@category: Helpers\PM helpers\Workplace Shell\Handles (OS2SYS.INI)
@@ -184,6 +189,75 @@ APIRET wphQueryBaseClassesHiwords(HINI hiniUser,
 }
 
 /*
+ *@@ FreeChildrenTree:
+ *      called from NukeNameTrees for recursion.
+ *
+ *@@added V0.9.16 (2001-10-19) [umoeller]
+ */
+
+VOID FreeChildrenTree(TREE **ppChildrenTree,
+                      PLONG plCount)
+{
+    LONG    cItems = *plCount;
+    TREE**  papNodes = treeBuildArray(*ppChildrenTree,
+                                      &cItems);
+    if (papNodes)
+    {
+        ULONG ul;
+        for (ul = 0; ul < cItems; ul++)
+        {
+            PNODETREENODE pNodeThis = (PNODETREENODE)papNodes[ul];
+
+            FreeChildrenTree(&pNodeThis->ChildrenTree,
+                             &pNodeThis->cChildren);
+
+            free(pNodeThis);
+        }
+
+        free(papNodes);
+        *plCount = 0;
+
+        treeInit(ppChildrenTree, plCount);
+    }
+}
+
+/*
+ *@@ NukeNameTrees:
+ *      frees all cache trees.
+ *
+ *@@added V0.9.16 (2001-10-19) [umoeller]
+ */
+
+APIRET NukeNameTrees(PHANDLESBUF pHandlesBuf)
+{
+    APIRET arc = NO_ERROR;
+
+    LONG    cItems = pHandlesBuf->cDrives;
+    TREE**  papNodes = treeBuildArray(pHandlesBuf->DrivesTree,
+                                      &cItems);
+    if (papNodes)
+    {
+        ULONG ul;
+        for (ul = 0; ul < cItems; ul++)
+        {
+            PDRIVETREENODE pNodeThis = (PDRIVETREENODE)papNodes[ul];
+
+            FreeChildrenTree(&pNodeThis->ChildrenTree,
+                             &pNodeThis->cChildren);
+
+            free(pNodeThis);
+        }
+
+        free(papNodes);
+
+        treeInit(&pHandlesBuf->DrivesTree,
+                 &pHandlesBuf->cDrives);
+    }
+
+    return (arc);
+}
+
+/*
  *@@ wphRebuildNodeHashTable:
  *
  *      Returns:
@@ -197,11 +271,13 @@ APIRET wphQueryBaseClassesHiwords(HINI hiniUser,
  *@@added V0.9.16 (2001-10-02) [umoeller]
  */
 
-APIRET wphRebuildNodeHashTable(PHANDLESBUF pHandlesBuf)
+APIRET wphRebuildNodeHashTable(HHANDLES hHandles)
 {
     APIRET arc = NO_ERROR;
 
-    if (    (!pHandlesBuf)
+    PHANDLESBUF pHandlesBuf;
+
+    if (    (!(pHandlesBuf = (PHANDLESBUF)hHandles))
          || (!pHandlesBuf->pbData)
          || (!pHandlesBuf->cbData)
        )
@@ -212,24 +288,104 @@ APIRET wphRebuildNodeHashTable(PHANDLESBUF pHandlesBuf)
         PBYTE pCur = pHandlesBuf->pbData + 4;
         PBYTE pEnd = pHandlesBuf->pbData + pHandlesBuf->cbData;
 
+        PDRIVETREENODE  pLastDriveTreeNode = NULL;
+
         memset(pHandlesBuf->NodeHashTable, 0, sizeof(pHandlesBuf->NodeHashTable));
+        NukeNameTrees(pHandlesBuf);
 
         // now set up hash table
-        while (pCur < pEnd)
+        while (    (pCur < pEnd)
+                && (!arc)
+              )
         {
             if (!memicmp(pCur, "DRIV", 4))
             {
                 // pCur points to a DRIVE node:
                 // these never have handles, so skip this
-                PDRIV pDriv = (PDRIV)pCur;
-                pCur += sizeof(DRIV) + strlen(pDriv->szName);
+                PDRIVE pDriv = (PDRIVE)pCur;
+
+                // upper the node name for string comparisons
+                strupr(pDriv->szName);
+
+                // create a drive tree node
+                // (stored so we can append to this)
+                if (!(pLastDriveTreeNode = NEW(DRIVETREENODE)))
+                    arc = ERROR_NOT_ENOUGH_MEMORY;
+                else
+                {
+                    pLastDriveTreeNode->Tree.ulKey = (ULONG)pDriv->szName;
+                    pLastDriveTreeNode->pDriv = pDriv;
+                    treeInit(&pLastDriveTreeNode->ChildrenTree,
+                             &pLastDriveTreeNode->cChildren);
+                    if (treeInsert(&pHandlesBuf->DrivesTree,
+                                   &pHandlesBuf->cDrives,
+                                   (TREE*)pLastDriveTreeNode,
+                                   treeCompareStrings))
+                        arc = ERROR_WPH_DRIV_TREEINSERT_FAILED;
+                }
+
+                // next item
+                pCur += sizeof(DRIVE) + strlen(pDriv->szName);
             }
             else if (!memicmp(pCur, "NODE", 4))
             {
                 // pCur points to a regular NODE: offset pointer first
                 PNODE pNode = (PNODE)pCur;
-                // store PNODE in hash table
-                pHandlesBuf->NodeHashTable[pNode->usHandle] = pNode;
+                PNODETREENODE pNew;
+
+                // upper the node name for string comparisons
+                strupr(pNode->szName);
+
+                // create a node tree node
+                if (!(pNew = NEW(NODETREENODE)))
+                    arc = ERROR_NOT_ENOUGH_MEMORY;
+                else
+                {
+                    TREE **ppTree = NULL;
+                    PLONG pcChildren = NULL;
+
+                    pNew->Tree.ulKey = (ULONG)pNode->szName;
+                    pNew->pNode = pNode;
+                    treeInit(&pNew->ChildrenTree,
+                             &pNew->cChildren);
+                    // now check where to insert this...
+                    // does it have a parent?
+                    if (pNode->usParentHandle)
+                    {
+                        PNODETREENODE pParent;
+                        if (!(pParent = pHandlesBuf->NodeHashTable[pNode->usParentHandle]))
+                            // this parent handle is invalid:
+                            arc = ERROR_WPH_INVALID_PARENT_HANDLE;
+                        else
+                        {
+                            ppTree = &pParent->ChildrenTree;
+                            pcChildren = &pParent->cChildren;
+                        }
+                    }
+                    else
+                        // null parent handle: then the parent
+                        // must be a DRIVE node
+                        if (pLastDriveTreeNode)
+                        {
+                            ppTree = &pLastDriveTreeNode->ChildrenTree;
+                            pcChildren = &pLastDriveTreeNode->cChildren;
+                        }
+                        else
+                            arc = ERROR_WPH_NODE_BEFORE_DRIV;
+
+                    if (!arc)
+                        if (treeInsert(ppTree,
+                                       pcChildren,
+                                       (TREE*)pNew,
+                                       treeCompareStrings))
+                            ; // @@todo if this fails, there are
+                            // several handles for short name!!!
+                            // arc = ERROR_WPH_NODE_TREEINSERT_FAILED;
+
+                    // store PNODE in hash table
+                    pHandlesBuf->NodeHashTable[pNode->usHandle] = pNew;
+                }
+
                 pCur += sizeof(NODE) + pNode->usNameSize;
             }
             else
@@ -241,7 +397,7 @@ APIRET wphRebuildNodeHashTable(PHANDLESBUF pHandlesBuf)
     }
 
     if (!arc)
-        pHandlesBuf->fNodeHashTableValid = TRUE;
+        pHandlesBuf->fCacheValid = TRUE;
 
     return (arc);
 }
@@ -278,11 +434,11 @@ APIRET wphRebuildNodeHashTable(PHANDLESBUF pHandlesBuf)
 APIRET wphLoadHandles(HINI hiniUser,      // in: HINI_USER or other INI handle
                       HINI hiniSystem,    // in: HINI_SYSTEM or other INI handle
                       const char *pcszActiveHandles,
-                      PHANDLESBUF *ppHandlesBuf)
+                      HHANDLES *phHandles)
 {
     APIRET arc = NO_ERROR;
 
-    if (!ppHandlesBuf)
+    if (!phHandles)
         arc = ERROR_INVALID_PARAMETER;
     else
     {
@@ -368,6 +524,9 @@ APIRET wphLoadHandles(HINI hiniUser,      // in: HINI_USER or other INI handle
                 {
                     ZERO(pReturn);
 
+                    treeInit(&pReturn->DrivesTree,
+                             &pReturn->cDrives);
+
                     pReturn->pbData = pbData;
                     pReturn->cbData = cbTotal;
 
@@ -375,7 +534,7 @@ APIRET wphLoadHandles(HINI hiniUser,      // in: HINI_USER or other INI handle
                     if (!(arc = wphQueryBaseClassesHiwords(hiniUser,
                                                            &pReturn->usHiwordAbstract,
                                                            &pReturn->usHiwordFileSystem)))
-                        *ppHandlesBuf = pReturn;
+                        *phHandles = (HHANDLES)pReturn;
                 }
                 else
                     arc = ERROR_NOT_ENOUGH_MEMORY;
@@ -383,7 +542,7 @@ APIRET wphLoadHandles(HINI hiniUser,      // in: HINI_USER or other INI handle
 
             if (arc)
                 // error:
-                wphFreeHandles(&pReturn);
+                wphFreeHandles((HHANDLES*)&pReturn);
         }
     }
 
@@ -398,18 +557,24 @@ APIRET wphLoadHandles(HINI hiniUser,      // in: HINI_USER or other INI handle
  *@@added V0.9.16 (2001-10-02) [umoeller]
  */
 
-APIRET wphFreeHandles(PHANDLESBUF *ppHandlesBuf)
+APIRET wphFreeHandles(HHANDLES *phHandles)
 {
     APIRET arc = NO_ERROR;
 
-    if (ppHandlesBuf && *ppHandlesBuf)
+    PHANDLESBUF pHandlesBuf;
+    if (    (phHandles)
+         && (pHandlesBuf = (PHANDLESBUF)*phHandles)
+       )
     {
         PBYTE pbData;
-        if (pbData = (*ppHandlesBuf)->pbData)
+
+        NukeNameTrees(pHandlesBuf);
+
+        if (pbData = pHandlesBuf->pbData)
             free(pbData);
 
-        free(*ppHandlesBuf);
-        *ppHandlesBuf = NULL;
+        free(pHandlesBuf);
+        *phHandles = NULLHANDLE;
     }
     else
         arc = ERROR_INVALID_PARAMETER;
@@ -425,140 +590,157 @@ APIRET wphFreeHandles(PHANDLESBUF *ppHandlesBuf)
 
 /*
  *@@ wphSearchBufferForHandle:
- *      returns the four-digit object handle which corresponds
+ *      returns the 16-bit file-system handle which corresponds
  *      to pszFilename, searching pHandlesBuffer. Note that you
- *      must OR the return value with 0x30000 to make this
- *      a valid WPS file-system handle.
+ *      must OR the return value with the proper hiword to make
+ *      this a valid WPS file-system handle.
  *
  *      You must pass a handles buffer to this function which
  *      has been filled using wphReadAllBlocks above.
  *
  *      This gets called by the one-shot function
  *      wphQueryHandleFromPath.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR
+ *
+ *      --  ERROR_INVALID_PARAMETER
+ *
+ *      --  ERROR_FILE_NOT_FOUND
+ *
+ *      --  ERROR_INVALID_NAME
+ *
+ *      --  ERROR_WPH_CORRUPT_HANDLES_DATA
+ *
+ *      --  ERROR_WPH_CANNOT_FIND_HANDLE: no handle exists for the
+ *          given filename.
+ *
+ *@@changed V0.9.16 (2001-10-19) [umoeller]: rewritten
  */
 
-USHORT wphSearchBufferForHandle(PBYTE pHandlesBuffer, // in: handles buffer (all BLOCK's)
-                                ULONG ulBufSize,      // in: sizeof(pHandlesBuffer)
-                                USHORT usParent,      // in: parent NODE ID;
-                                                      //     must be 0 initially
-                                PSZ pszFilename) // in: fully qlf'd filename to search for
+APIRET wphSearchBufferForHandle(HHANDLES hHandles,
+                                PCSZ pcszFile,  // in: fully qlf'd filename to search for
+                                PUSHORT pusHandle)  // out: 16-bit handle
 {
-    PDRIV pDriv;
-    PNODE pNode;
-    PBYTE pCur;                 // current
-    PBYTE p,
-          pEnd;                 // *end of buffer
-    USHORT usPartSize;
+    APIRET arc = NO_ERROR;
 
-    // _Pmpf(("Entering wphSearchBufferForHandle for %s", pszFilename));
+    PHANDLESBUF pHandlesBuf;
 
-    // The composed BLOCKs in the handles buffer make up a tree of
-    // DRIVE and NODE structures (see wphandle.h). Each NODE stands
-    // for either a directory or a file. (We don't care about the
-    // DRIVE structures because the root directory gets a NODE also.)
-    // Each NODE contains the non-qualified file name, an object ID,
-    // and the object ID of its parent NODE.
-    // We can thus work our way through the buffer by splitting the
-    // fully qualified filename that we're searching for into the
-    // different directory names and, each time, searching for the
-    // corresponding NODE. If we have found that, we go for the next.
-    // Example for C:\OS2\E.EXE:
-    //   1) first search for the "C:" NODE
-    //   2) then find the "OS2" node which has "C" as its parent NODE
-    //      (we do this by comparing the parent object handles)
-    //   3) then find the "E.EXE" NODE the same way
-    // The "E.EXE" NODE then has the object handle we're looking for.
+    _Pmpf((__FUNCTION__ ": entering"));
 
-    // So first find the length of the first filename part (which
-    // should be 2 for the drive letter, "C:")
-    p = strchr(pszFilename, '\\');
-    if (p)
-        // backslash found:
-        usPartSize = p - pszFilename;      // extract first part
-    else
-        usPartSize = strlen(pszFilename);
-
-    // now set the pointer for the end of the BLOCKs buffer
-    pEnd = pHandlesBuffer + ulBufSize;
-
-    // pCur is our variable pointer where we're at now; there
-    // is some offset of 4 bytes at the beginning (duh)
-    pCur = pHandlesBuffer + 4;
-
-    // _Pmpf(("  Searching for: %s, usPartSize: %d", pszFilename, usPartSize));
-
-    // go!
-    while (pCur < pEnd)
+    if (    (hHandles)
+         && (pHandlesBuf = (PHANDLESBUF)hHandles)
+       )
     {
-        // the first four chars tell us whether it's
-        // a DRIVE or a NODE structure
-        if (!memicmp(pCur, "DRIV", 4))
-        {
-            // pCur points to a DRIVE node:
-            // we don't care about these, because the root
-            // directory has a real NODE too, so we just
-            // skip this
-            pDriv = (PDRIV)pCur;
-            pCur += sizeof(DRIV) + strlen(pDriv->szName);
-        }
-        else if (!memicmp(pCur, "NODE", 4))
-        {
-            // pCur points to a regular NODE: offset pointer first
-            pNode = (PNODE)pCur;
-            pCur += sizeof (NODE) + pNode->usNameSize;
+        // rebuild cache
+        if (!pHandlesBuf->fCacheValid)
+            arc = wphRebuildNodeHashTable(hHandles);
 
-            // does the NODE have the same parent that we
-            // are currently searching for? This is "0"
-            // for root directories (and initially for us
-            // too)
-            if (usParent == pNode->usParentHandle)
+        if (!arc)
+        {
+            // We can thus work our way through the buffer by splitting the
+            // fully qualified filename that we're searching for into the
+            // different directory names and, each time, searching for the
+            // corresponding NODE. If we have found that, we go for the next.
+            // Example for C:\OS2\E.EXE:
+            //   1) first search for the "C:" NODE
+            //   2) then find the "OS2" node which has "C" as its parent NODE
+            //      (we do this by comparing the parent object handles)
+            //   3) then find the "E.EXE" NODE the same way
+            // The "E.EXE" NODE then has the object handle we're looking for.
+
+            // make a copy of the filename so we can play
+            PSZ     pszFilename = strdup(pcszFile),
+                    pEnd = NULL;
+
+            strupr(pszFilename);
+
+            // 1) OK, find the drive.
+
+            // If this is an UNC name, the DRIVE node has the form
+            // \\SERVER\RESOURCE.
+            if (    (*pszFilename == '\\')
+                 && (*(pszFilename + 1) == '\\')
+               )
             {
-                // yes:
-                // _Pmpf(("  found matching parents (%lX): %s", usParent, pNode->szName));
-
-                // does the NODE have the same partname length?
-                if (pNode->usNameSize == usPartSize)
-                {
-                    // yes:
-                    // _Pmpf(("    found matching partnames sizes: %d", pNode->usNameSize));
-
-                    // do the partnames match too?
-                    if (memicmp(pszFilename, pNode->szName, usPartSize) == 0)
-                    {
-                        // OK!! proper NODE found!
-                        // _Pmpf(("      FOUND %s!!", pNode->szName));
-
-                        // now check if this was the last NODE
-                        // we were looking for
-                        if (strlen(pszFilename) == usPartSize)
-                           // yes: return ID
-                           return (pNode->usHandle);
-
-                        // else: update our status;
-                        // get next partname
-                        pszFilename += usPartSize + 1;
-                        // calc next partname length
-                        p = strchr(pszFilename, '\\');
-                        if (p)
-                            usPartSize = p - pszFilename;
-                        else
-                            usPartSize = strlen(pszFilename);
-
-                        // get next parent to search for
-                        // (which is the current handle)
-                        usParent = pNode->usHandle;
-                    }
-                }
+                // UNC:
+                // @@todo
             }
-        }
-        else
-            // neither DRIVE nor NODE: error
-            return (0);
+            else if (*(pszFilename + 1) == ':')
+                // extract the drive then (without \)
+                pEnd = pszFilename + 2;
 
-    } // end while
+            if (!pEnd)
+                arc = ERROR_INVALID_NAME;
+            else
+            {
+                PDRIVETREENODE pDrive = NULL;
+                PNODETREENODE pNode;
+
+                // find the DRIVE node
+                CHAR cOld = *pEnd;
+                *pEnd = 0;
+
+                _Pmpf(("  searching for drive \"%s\"", pszFilename));
+
+                if (!(pDrive = (PDRIVETREENODE)treeFind(pHandlesBuf->DrivesTree,
+                                                        (ULONG)pszFilename,   // drive name
+                                                        treeCompareStrings)))
+                    arc = ERROR_WPH_NO_MATCHING_DRIVE_BLOCK;
+                // find the root dir, which has the same name
+                else if (!(pNode = (PNODETREENODE)treeFind(pDrive->ChildrenTree,
+                                                           (ULONG)pszFilename,
+                                                           treeCompareStrings)))
+                    arc = ERROR_WPH_NO_MATCHING_ROOT_DIR;
+                else
+                {
+                    // now we got the root dir... go for next path component
+                    while (    (pEnd)
+                            && (*pEnd = cOld)       // not null char
+                            && (!arc)
+                          )
+                    {
+                        // got another path component to search:
+                        PSZ pCurrent = pEnd + 1,
+                            pNext;
+
+                        if (pNext = strchr(pCurrent, '\\'))
+                        {
+                            cOld = *pNext;
+                            *pNext = 0;
+                        }
+                        else
+                            // done:
+                            cOld = 0;
+
+                        _Pmpf(("  searching for node \"%s\"", pCurrent));
+
+                        // find the next node
+                        if (!(pNode = (PNODETREENODE)treeFind(pNode->ChildrenTree,
+                                                              (ULONG)pCurrent,
+                                                              treeCompareStrings)))
+                            arc = ERROR_WPH_CANNOT_FIND_HANDLE;
+
+                        pEnd = pNext;
+                    }
+
+                    if (!arc && pNode)
+                        // found everything:
+                        *pusHandle = pNode->pNode->usHandle;
+                }
+            } // end while
+
+            free(pszFilename);
+        }
+    }
+    else
+        arc = ERROR_INVALID_PARAMETER;
+
+    _Pmpf((__FUNCTION__ ": returning %d", arc));
 
     // not found: end of buffer reached
-    return (0);
+    return (arc);
 }
 
 /*
@@ -587,7 +769,7 @@ APIRET wphQueryHandleFromPath(HINI hiniUser,      // in: HINI_USER or other INI 
     APIRET      arc = NO_ERROR;
 
     PSZ         pszActiveHandles = NULL;
-    PHANDLESBUF pHandlesBuf = NULL;
+    HHANDLES    hHandles = NULLHANDLE;
 
     TRY_LOUD(excpt1)
     {
@@ -600,7 +782,7 @@ APIRET wphQueryHandleFromPath(HINI hiniUser,      // in: HINI_USER or other INI 
             if (arc = wphLoadHandles(hiniUser,
                                      hiniSystem,
                                      pszActiveHandles,
-                                     &pHandlesBuf))
+                                     &hHandles))
                 _Pmpf((__FUNCTION__ ": wphLoadHandles returned %d", arc));
             else
             {
@@ -609,12 +791,11 @@ APIRET wphQueryHandleFromPath(HINI hiniUser,      // in: HINI_USER or other INI 
                 _fullpath(szFullPath, (PSZ)pcszName, sizeof(szFullPath));
 
                 // search that buffer
-                if (usObjID = wphSearchBufferForHandle(pHandlesBuf->pbData,
-                                                       pHandlesBuf->cbData,
-                                                       0,                  // usParent
-                                                       szFullPath))
+                if (!(arc = wphSearchBufferForHandle(hHandles,
+                                                     szFullPath,
+                                                     &usObjID)))
                     // found: OR 0x30000
-                    *phobj = usObjID | (pHandlesBuf->usHiwordFileSystem << 16);
+                    *phobj = usObjID | (((PHANDLESBUF)hHandles)->usHiwordFileSystem << 16);
                 else
                     arc = ERROR_FILE_NOT_FOUND;
             }
@@ -627,8 +808,8 @@ APIRET wphQueryHandleFromPath(HINI hiniUser,      // in: HINI_USER or other INI 
 
     if (pszActiveHandles)
         free(pszActiveHandles);
-    if (pHandlesBuf)
-        wphFreeHandles(&pHandlesBuf);
+    if (hHandles)
+        wphFreeHandles(&hHandles);
 
     return (arc);
 }
@@ -651,9 +832,12 @@ APIRET ComposeThis(PHANDLESBUF pHandlesBuf,
                    PXSTRING pstrFilename,   // in/out: filename
                    PNODE *ppNode)           // out: node found (ptr can be NULL)
 {
-    APIRET arc = NO_ERROR;
-    PNODE pNode;
-    if (pNode = pHandlesBuf->NodeHashTable[usHandle])
+    APIRET          arc = NO_ERROR;
+    PNODETREENODE   pTreeNode;
+    PNODE           pNode;
+    if (    (pTreeNode = pHandlesBuf->NodeHashTable[usHandle])
+         && (pNode = pTreeNode->pNode)
+       )
     {
         // handle exists:
         if (pNode->usParentHandle)
@@ -716,7 +900,7 @@ APIRET ComposeThis(PHANDLESBUF pHandlesBuf,
  *@@added V0.9.16 (2001-10-02) [umoeller]
  */
 
-APIRET wphComposePath(PHANDLESBUF pHandlesBuf,
+APIRET wphComposePath(HHANDLES hHandles,
                       USHORT usHandle,      // in: loword of handle to search for
                       PSZ pszFilename,
                       ULONG cbFilename,
@@ -724,31 +908,37 @@ APIRET wphComposePath(PHANDLESBUF pHandlesBuf,
 {
     APIRET arc = NO_ERROR;
 
-    TRY_LOUD(excpt1)
+    PHANDLESBUF pHandlesBuf;
+    if (    (hHandles)
+         && (pHandlesBuf = (PHANDLESBUF)hHandles)
+       )
     {
-        if (!pHandlesBuf->fNodeHashTableValid)
-            arc = wphRebuildNodeHashTable(pHandlesBuf);
-
-        if (!arc)
+        TRY_LOUD(excpt1)
         {
-            XSTRING str;
-            xstrInit(&str, CCHMAXPATH);
-            if (!(arc = ComposeThis(pHandlesBuf,
-                                    usHandle,
-                                    &str,
-                                    ppNode)))
-                if (str.ulLength > cbFilename - 1)
-                    arc = ERROR_BUFFER_OVERFLOW;
-                else
-                    memcpy(pszFilename,
-                           str.psz,
-                           str.ulLength + 1);
+            if (!pHandlesBuf->fCacheValid)
+                arc = wphRebuildNodeHashTable(hHandles);
+
+            if (!arc)
+            {
+                XSTRING str;
+                xstrInit(&str, CCHMAXPATH);
+                if (!(arc = ComposeThis(pHandlesBuf,
+                                        usHandle,
+                                        &str,
+                                        ppNode)))
+                    if (str.ulLength > cbFilename - 1)
+                        arc = ERROR_BUFFER_OVERFLOW;
+                    else
+                        memcpy(pszFilename,
+                               str.psz,
+                               str.ulLength + 1);
+            }
         }
+        CATCH(excpt1)
+        {
+            arc = ERROR_WPH_CRASHED;
+        } END_CATCH();
     }
-    CATCH(excpt1)
-    {
-        arc = ERROR_WPH_CRASHED;
-    } END_CATCH();
 
     return (arc);
 }
@@ -784,22 +974,22 @@ APIRET wphQueryPathFromHandle(HINI hiniUser,      // in: HINI_USER or other INI 
             _Pmpf((__FUNCTION__ ": wphQueryActiveHandles returned %d", arc));
         else
         {
-            PHANDLESBUF pHandlesBuf;
+            HHANDLES hHandles;
             if (arc = wphLoadHandles(hiniUser,
                                      hiniSystem,
                                      pszActiveHandles,
-                                     &pHandlesBuf))
+                                     &hHandles))
                 _Pmpf((__FUNCTION__ ": wphLoadHandles returned %d", arc));
             else
             {
                 // is this really a file-system object?
-                if (HIUSHORT(hObject) == pHandlesBuf->usHiwordFileSystem)
+                if (HIUSHORT(hObject) == ((PHANDLESBUF)hHandles)->usHiwordFileSystem)
                 {
                     // use loword only
                     USHORT      usObjID = LOUSHORT(hObject);
 
                     memset(pszFilename, 0, cbFilename);
-                    arc = wphComposePath(pHandlesBuf,
+                    arc = wphComposePath(hHandles,
                                          usObjID,
                                          pszFilename,
                                          cbFilename,
@@ -808,7 +998,7 @@ APIRET wphQueryPathFromHandle(HINI hiniUser,      // in: HINI_USER or other INI 
                     _Pmpf((__FUNCTION__ ": wphFindPartName returned %d", arc));
                 }
 
-                wphFreeHandles(&pHandlesBuf);
+                wphFreeHandles(&hHandles);
             }
 
             free(pszActiveHandles);

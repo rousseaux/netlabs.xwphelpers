@@ -8,7 +8,7 @@
  *
  *@@include #define INCL_GPIBITMAPS
  *@@include #include <os2.h>
- *@@include #include "shapewin.h"
+ *@@include #include "helpers\shapewin.h"
  */
 
 /*      Copyright (C) 1998-2000

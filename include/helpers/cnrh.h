@@ -10,7 +10,7 @@
  *@@include #define INCL_WINSTDCNR
  *@@include #define INCL_WINSTDDRAG
  *@@include #include <os2.h>
- *@@include #include "cnrh.h"
+ *@@include #include "helpers\cnrh.h"
  */
 
 /*      Copyright (C) 1997-2000 Ulrich M”ller.

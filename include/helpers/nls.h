@@ -8,7 +8,7 @@
  *
  *@@include #define INCL_DOSDATETIME
  *@@include #include <os2.h>
- *@@include #include "nls.h"
+ *@@include #include "helpers\nls.h"
  */
 
 /*

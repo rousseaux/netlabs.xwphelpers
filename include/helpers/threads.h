@@ -8,7 +8,7 @@
  *
  *@@include #define INCL_DOSPROCESS
  *@@include #include <os2.h>
- *@@include #include "threads.h"
+ *@@include #include "helpers\threads.h"
  */
 
 /*

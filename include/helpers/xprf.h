@@ -10,7 +10,7 @@
  *
  *@@include #define INCL_WINSHELLDATA
  *@@include #include <os2.h>
- *@@include #include "xprf.h"
+ *@@include #include "helpers\xprf.h"
  */
 
 /*      Copyright (C) 2000 Ulrich M”ller.

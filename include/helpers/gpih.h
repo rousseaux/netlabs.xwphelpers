@@ -8,7 +8,7 @@
  *
  *@@include #define INCL_GPILOGCOLORTABLE       // for some funcs
  *@@include #include <os2.h>
- *@@include #include "gpih.h"
+ *@@include #include "helpers\gpih.h"
  */
 
 /*
