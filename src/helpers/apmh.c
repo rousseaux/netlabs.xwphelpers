@@ -157,11 +157,16 @@ APIRET apmhOpen(PAPM *ppApm)
  *
  *      After this, the status fields in APM
  *      are valid (if NO_ERROR is returned).
+ *      If the values changed since the previous
+ *      call, *pfChanged is set to TRUE; FALSE
+ *      otherwise.
  */
 
-APIRET apmhReadStatus(PAPM pApm)        // in: APM structure created by apmhOpen
+APIRET apmhReadStatus(PAPM pApm,        // in: APM structure created by apmhOpen
+                      PBOOL pfChanged)  // out: values changed (ptr can be NULL)
 {
-    APIRET arc = NO_ERROR;
+    APIRET  arc = NO_ERROR;
+    BOOL    fChanged = FALSE;
 
     if ((pApm) && (pApm->hfAPMSys))
     {
@@ -173,9 +178,21 @@ APIRET apmhReadStatus(PAPM pApm)        // in: APM structure created by apmhOpen
                               &PowerStatus,
                               PowerStatus.ParmLength)))
         {
-            pApm->ulBatteryStatus = PowerStatus.BatteryStatus;
-            pApm->ulBatteryLife = PowerStatus.BatteryLife;
+            if (    (pApm->fAlreadyRead)
+                 || (pApm->ulBatteryStatus != PowerStatus.BatteryStatus)
+                 || (pApm->ulBatteryLife != PowerStatus.BatteryLife)
+               )
+            {
+                pApm->ulBatteryStatus = PowerStatus.BatteryStatus;
+                pApm->ulBatteryLife = PowerStatus.BatteryLife;
+
+                pApm->fAlreadyRead = FALSE;
+                fChanged = TRUE;
+            }
         }
+
+        if (pfChanged)
+            *pfChanged = fChanged;
     }
     else
         arc = ERROR_INVALID_PARAMETER;

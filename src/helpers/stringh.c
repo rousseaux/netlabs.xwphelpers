@@ -1913,13 +1913,17 @@ static int has_colon(const unsigned char *p)
 
 /*
  * match_comp_os2:
- *      Compare a single component (directory name or file name) of the
- *      paths, for OS/2 and DOS styles.  MASK and NAME point into a
- *      component of the wildcard and the name to be checked, respectively.
- *      Comparing stops at the next separator.  The FLAGS argument is the
- *      same as that of fnmatch().  HAS_DOT is true if a dot is in the
- *      current component of NAME.  The number of dots is not restricted,
- *      even in DOS style.  Return FNM_MATCH iff MASK and NAME match.
+ *      compares a single component (directory name or file name)
+ *      of the paths, for OS/2 and DOS styles. MASK and NAME point
+ *      into a component of the wildcard and the name to be checked,
+ *      respectively. Comparing stops at the next separator.
+ *      The FLAGS argument is the same as that of fnmatch().
+ *
+ *      HAS_DOT is true if a dot is in the current component of NAME.
+ *      The number of dots is not restricted, even in DOS style.
+ *
+ *      Returns FNM_MATCH iff MASK and NAME match.
+ *
  *      Note that this function is recursive.
  *
  *      (c) 1994-1996 by Eberhard Mattes.
@@ -1943,7 +1947,7 @@ static int match_comp_os2(const unsigned char *mask,
 
                 if (*name == 0)
                     return FNM_MATCH;
-                if ((flags & _FNM_PATHPREFIX) && IS_OS2_COMP_SEP(*name))
+                if ((flags & FNM_PATHPREFIX) && IS_OS2_COMP_SEP(*name))
                     return FNM_MATCH;
                 return FNM_NOMATCH;
 
@@ -1958,7 +1962,7 @@ static int match_comp_os2(const unsigned char *mask,
                 /* If _FNM_PATHPREFIX is set, a trailing separator in MASK
                  * is ignored at the end of NAME. */
 
-                if ((flags & _FNM_PATHPREFIX) && mask[1] == 0 && *name == 0)
+                if ((flags & FNM_PATHPREFIX) && mask[1] == 0 && *name == 0)
                     return FNM_MATCH;
 
                 /* Stop comparing at the separator. */
@@ -1993,7 +1997,7 @@ static int match_comp_os2(const unsigned char *mask,
                         return rc;
                     if (IS_OS2_COMP_END(*name))
                         return FNM_NOMATCH;
-                    if (*name == '.' && (flags & _FNM_STYLE_MASK) == _FNM_DOS)
+                    if (*name == '.' && (flags & FNM_STYLE_MASK) == FNM_DOS)
                         return FNM_NOMATCH;
                     ++name;
                 }
@@ -2014,7 +2018,7 @@ static int match_comp_os2(const unsigned char *mask,
 
                 /* All other characters match themselves. */
 
-                if (flags & _FNM_IGNORECASE)
+                if (flags & FNM_IGNORECASE)
                 {
                     if (tolower(*mask) != tolower(*name))
                         return FNM_NOMATCH;
@@ -2032,11 +2036,14 @@ static int match_comp_os2(const unsigned char *mask,
 
 /*
  * match_comp:
- *      compare a single component (directory name or file name) of the
- *      paths, for all styles which need component-by-component matching.
- *      MASK and NAME point to the start of a component of the wildcard and
- *      the name to be checked, respectively.  Comparing stops at the next
- *      separator.  The FLAGS argument is the same as that of fnmatch().
+ *      compares a single component (directory name or file
+ *      name) of the paths, for all styles which need
+ *      component-by-component matching. MASK and NAME point
+ *      to the start of a component of the wildcard and the
+ *      name to be checked, respectively.  Comparing stops at
+ *      the next separator. The FLAGS argument is the same as
+ *      that of fnmatch().
+ *
  *      Return FNM_MATCH iff MASK and NAME match.
  *
  *      (c) 1994-1996 by Eberhard Mattes.
@@ -2048,10 +2055,10 @@ static int match_comp(const unsigned char *mask,
 {
     const unsigned char *s;
 
-    switch (flags & _FNM_STYLE_MASK)
+    switch (flags & FNM_STYLE_MASK)
     {
-        case _FNM_OS2:
-        case _FNM_DOS:
+        case FNM_OS2:
+        case FNM_DOS:
 
             /* For OS/2 and DOS styles, we add an implicit dot at the end of
              * the component if the component doesn't include a dot. */
@@ -2079,9 +2086,11 @@ static int match_comp(const unsigned char *mask,
 
 /*
  * match_unix:
- *      match complete paths for Unix styles.  The FLAGS argument is the
- *      same as that of fnmatch().  COMP points to the start of the current
- *      component in NAME.  Return FNM_MATCH iff MASK and NAME match.  The
+ *      matches complete paths for Unix styles.
+ *
+ *      The FLAGS argument is the same as that of fnmatch().
+ *      COMP points to the start of the current component in
+ *      NAME.  Return FNM_MATCH iff MASK and NAME match.  The
  *      backslash character is used for escaping ? and * unless
  *      FNM_NOESCAPE is set.
  *
@@ -2109,7 +2118,7 @@ static int match_unix(const unsigned char *mask,
 
                 if (*name == 0)
                     return FNM_MATCH;
-                if ((flags & _FNM_PATHPREFIX) && IS_UNIX_COMP_SEP(*name))
+                if ((flags & FNM_PATHPREFIX) && IS_UNIX_COMP_SEP(*name))
                     return FNM_MATCH;
                 return FNM_NOMATCH;
 
@@ -2163,7 +2172,7 @@ static int match_unix(const unsigned char *mask,
                  * of NAME. */
 
                 if (!(IS_UNIX_COMP_SEP(*name)
-                      || ((flags & _FNM_PATHPREFIX) && *name == 0
+                      || ((flags & FNM_PATHPREFIX) && *name == 0
                       && (mask[1] == 0
                           || (!(flags & FNM_NOESCAPE) && mask[1] == '\\'
                   && mask[2] == 0)))))
@@ -2291,7 +2300,7 @@ static int match_unix(const unsigned char *mask,
 
                 /* All other characters match themselves. */
 
-                if (flags & _FNM_IGNORECASE)
+                if (flags & FNM_IGNORECASE)
                 {
                     if (tolower(*mask) != tolower(*name))
                         return FNM_NOMATCH;
@@ -2326,8 +2335,9 @@ static int _fnmatch_unsigned(const unsigned char *mask,
                              const unsigned char *name,
                              unsigned flags)
 {
-    int             m_drive, n_drive,
-                    rc;
+    int     m_drive,
+            n_drive,
+            rc;
 
     /* Match and skip the drive name if present. */
 
@@ -2338,7 +2348,7 @@ static int _fnmatch_unsigned(const unsigned char *mask,
     {
         if (m_drive == -1 || n_drive == -1)
             return FNM_NOMATCH;
-        if (!(flags & _FNM_IGNORECASE))
+        if (!(flags & FNM_IGNORECASE))
             return FNM_NOMATCH;
         if (tolower(m_drive) != tolower(n_drive))
             return FNM_NOMATCH;
@@ -2358,10 +2368,10 @@ static int _fnmatch_unsigned(const unsigned char *mask,
     /* The name "\\server\path" should not be matched by mask
      * "\*\server\path".  Ditto for /. */
 
-    switch (flags & _FNM_STYLE_MASK)
+    switch (flags & FNM_STYLE_MASK)
     {
-        case _FNM_OS2:
-        case _FNM_DOS:
+        case FNM_OS2:
+        case FNM_DOS:
 
             if (IS_OS2_COMP_SEP(name[0]) && IS_OS2_COMP_SEP(name[1]))
             {
@@ -2372,7 +2382,7 @@ static int _fnmatch_unsigned(const unsigned char *mask,
             }
             break;
 
-        case _FNM_POSIX:
+        case FNM_POSIX:
 
             if (name[0] == '/' && name[1] == '/')
             {
@@ -2403,7 +2413,7 @@ static int _fnmatch_unsigned(const unsigned char *mask,
         /* If _FNM_PATHPREFIX is set, the names match if the end of MASK
          * is reached even if there are components left in NAME. */
 
-        if (*mask == 0 && (flags & _FNM_PATHPREFIX))
+        if (*mask == 0 && (flags & FNM_PATHPREFIX))
             return FNM_MATCH;
 
         /* Compare a single component of the path name. */
@@ -2435,12 +2445,31 @@ static int _fnmatch_unsigned(const unsigned char *mask,
  *      works on strings only.
  */
 
-BOOL strhMatchOS2(const unsigned char* pcszMask,     // in: mask (e.g. "*.txt")
-                  const unsigned char* pcszName)     // in: string to check (e.g. "test.txt")
+BOOL strhMatchOS2(const char *pcszMask,     // in: mask (e.g. "*.txt")
+                  const char *pcszName)     // in: string to check (e.g. "test.txt")
 {
-    return ((BOOL)(_fnmatch_unsigned(pcszMask,
-                                     pcszName,
-                                     _FNM_OS2 | _FNM_IGNORECASE)
+    return ((BOOL)(_fnmatch_unsigned((const unsigned char *)pcszMask,
+                                     (const unsigned char *)pcszName,
+                                     FNM_OS2 | FNM_IGNORECASE)
+                   == FNM_MATCH)
+           );
+}
+
+/*
+ *@@ strhMatchExt:
+ *      like strhMatchOS2, but this takes all the flags
+ *      for input.
+ *
+ *@@added V0.9.15 (2001-09-14) [umoeller]
+ */
+
+BOOL strhMatchExt(const char *pcszMask,     // in: mask (e.g. "*.txt")
+                  const char *pcszName,     // in: string to check (e.g. "test.txt")
+                  unsigned flags)           // in: FNM_* flags
+{
+    return ((BOOL)(_fnmatch_unsigned((const unsigned char *)pcszMask,
+                                     (const unsigned char *)pcszName,
+                                     flags)
                    == FNM_MATCH)
            );
 }

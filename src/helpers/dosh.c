@@ -813,8 +813,8 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
     arc = doshIsFixedDisk(ulLogicalDrive,
                           &fFixed);    // V0.9.13 (2001-06-14) [umoeller]
 
-    _Pmpf((__FUNCTION__ ": doshIsFixedDisk returned %d for disk %d", arc, ulLogicalDrive));
-    _Pmpf(("   fFixed is %d", fFixed));
+    // _Pmpf((__FUNCTION__ ": doshIsFixedDisk returned %d for disk %d", arc, ulLogicalDrive));
+    // _Pmpf(("   fFixed is %d", fFixed));
 
     if (!arc)
         if (!fFixed)
@@ -824,13 +824,13 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
             BIOSPARAMETERBLOCK bpb;
             arc = doshQueryDiskParams(ulLogicalDrive,
                                       &bpb);
-            _Pmpf(("   doshQueryDiskParams returned %d", arc));
+            // _Pmpf(("   doshQueryDiskParams returned %d", arc));
 
             if (    (!arc)
                  && (doshIsCDROM(&bpb))
                )
             {
-                _Pmpf(("   --> is CD-ROM"));
+                // _Pmpf(("   --> is CD-ROM"));
                 fCDROM = TRUE;
             }
         }

@@ -47,8 +47,9 @@
 #define INCL_WINFRAMEMGR
 #define INCL_WINDIALOGS
 #define INCL_WININPUT
-#define INCL_WINBUTTONS
 #define INCL_WINSTATICS
+#define INCL_WINBUTTONS
+#define INCL_WINENTRYFIELDS
 #define INCL_WINSYS
 
 #define INCL_GPIPRIMITIVES
@@ -69,6 +70,7 @@
 #include "helpers\standards.h"
 #include "helpers\stringh.h"
 #include "helpers\winh.h"
+#include "helpers\xstring.h"
 
 /*
  *@@category: Helpers\PM helpers\Dialog templates
@@ -2130,6 +2132,166 @@ ULONG dlghMessageBox(HWND hwndOwner,            // in: owner for msg box
 }
 
 /*
+ *@@ cmnTextEntryBox:
+ *      common dialog for entering a text string.
+ *      The dialog has a descriptive text on top
+ *      with an entry field below and "OK" and "Cancel"
+ *      buttons.
+ *
+ *      The string from the user is returned in a
+ *      new buffer, which must be free'd by the caller.
+ *      Returns NULL if the user pressed "Cancel".
+ *
+ *      fl can be any combination of the following
+ *      flags:
+ *
+ *      --  TEBF_REMOVETILDE: tilde ("~") characters
+ *          are removed from pcszTitle before setting
+ *          the title. Useful for reusing menu item
+ *          texts.
+ *
+ *      --  TEBF_REMOVEELLIPSE: ellipse ("...") strings
+ *          are removed from pcszTitle before setting
+ *          the title. Useful for reusing menu item
+ *          texts.
+ *
+ *      --  TEBF_SELECTALL: the default text in the
+ *          entry field is initially highlighted.
+ *
+ *@@added V0.9.15 (2001-09-14) [umoeller]
+ */
+
+PSZ dlghTextEntryBox(HWND hwndOwner,
+                     const char *pcszTitle,          // in: dlg title
+                     const char *pcszDescription,    // in: descriptive text above entry field
+                     const char *pcszDefault,        // in: default text for entry field or NULL
+                     const char *pcszOK,             // in: "OK" string
+                     const char *pcszCancel,         // in: "Cancel" string
+                     ULONG ulMaxLen,                 // in: maximum length for entry
+                     ULONG fl,                       // in: TEBF_* flags
+                     const char *pcszFont)           // in: font (e.g. "9.WarpSans")
+{
+    CONTROLDEF
+                Static = {
+                            WC_STATIC,
+                            NULL,
+                            WS_VISIBLE | SS_TEXT | DT_LEFT | DT_WORDBREAK,
+                            -1,
+                            CTL_COMMON_FONT,
+                            0,
+                            { 300, SZL_AUTOSIZE },     // size
+                            5               // spacing
+                         },
+                Entry = {
+                            WC_ENTRYFIELD,
+                            NULL,
+                            WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_MARGIN | ES_AUTOSCROLL,
+                            999,
+                            CTL_COMMON_FONT,
+                            0,
+                            { 300, 20 },     // size
+                            5               // spacing
+                         },
+                OKButton = {
+                            WC_BUTTON,
+                            NULL,
+                            WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_DEFAULT,
+                            DID_OK,
+                            CTL_COMMON_FONT,
+                            0,
+                            { 100, 30 },    // size
+                            5               // spacing
+                         },
+                CancelButton = {
+                            WC_BUTTON,
+                            NULL,
+                            WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
+                            DID_CANCEL,
+                            CTL_COMMON_FONT,
+                            0,
+                            { 100, 30 },    // size
+                            5               // spacing
+                         };
+    DLGHITEM DlgTemplate[] =
+        {
+            START_TABLE,
+                START_ROW(0),
+                    CONTROL_DEF(&Static),
+                START_ROW(0),
+                    CONTROL_DEF(&Entry),
+                START_ROW(0),
+                    CONTROL_DEF(&OKButton),
+                    CONTROL_DEF(&CancelButton),
+            END_TABLE
+        };
+
+    HWND hwndDlg = NULLHANDLE;
+    PSZ  pszReturn = NULL;
+    XSTRING strTitle;
+
+    xstrInitCopy(&strTitle, pcszTitle, 0);
+
+    if (fl & (TEBF_REMOVEELLIPSE | TEBF_REMOVETILDE))
+    {
+        ULONG ulOfs;
+        if (fl & TEBF_REMOVEELLIPSE)
+        {
+            ulOfs = 0;
+            while (xstrFindReplaceC(&strTitle,
+                                    &ulOfs,
+                                    "...",
+                                    ""))
+                ;
+        }
+
+        if (fl & TEBF_REMOVETILDE)
+        {
+            ulOfs = 0;
+            while (xstrFindReplaceC(&strTitle,
+                                    &ulOfs,
+                                    "~",
+                                    ""))
+                ;
+        }
+    }
+
+    Static.pcszText = pcszDescription;
+
+    OKButton.pcszText = pcszOK;
+    CancelButton.pcszText = pcszCancel;
+
+    if (NO_ERROR == dlghCreateDlg(&hwndDlg,
+                                  hwndOwner,
+                                  FCF_TITLEBAR | FCF_SYSMENU | FCF_DLGBORDER | FCF_NOBYTEALIGN,
+                                  WinDefDlgProc,
+                                  strTitle.psz,
+                                  DlgTemplate,      // DLGHITEM array
+                                  ARRAYITEMCOUNT(DlgTemplate),
+                                  NULL,
+                                  pcszFont))
+    {
+        HWND hwndEF = WinWindowFromID(hwndDlg, 999);
+        winhCenterWindow(hwndDlg);
+        winhSetEntryFieldLimit(hwndEF, ulMaxLen);
+        if (pcszDefault)
+        {
+            WinSetWindowText(hwndEF, (PSZ)pcszDefault);
+            if (fl & TEBF_SELECTALL)
+                winhEntryFieldSelectAll(hwndEF);
+        }
+        WinSetFocus(HWND_DESKTOP, hwndEF);
+        if (DID_OK == WinProcessDlg(hwndDlg))
+            pszReturn = winhQueryWindowText(hwndEF);
+
+        WinDestroyWindow(hwndDlg);
+    }
+
+    xstrClear(&strTitle);
+
+    return (pszReturn);
+}
+
+/*
  *@@ dlghSetPrevFocus:
  *      "backward" function for rotating the focus
  *      in a dialog when the "shift+tab" keys get
@@ -2245,14 +2407,6 @@ VOID dlghSetNextFocus(PVOID pvllWindows)
                     (HWND)pNode->pItemData);
     }
 }
-
-/*
- *@@ MatchMnemonic:
- *      returns TRUE if the specified control matches
- *
- *
- *@@added V0.9.9 (2001-03-17) [umoeller]
- */
 
 /*
  *@@ dlghProcessMnemonic:

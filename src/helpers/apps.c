@@ -744,6 +744,12 @@ PSZ appQueryDefaultWin31Environment(VOID)
  *          this uses the default Win-OS/2 environment.
  *          See appQueryDefaultWin31Environment.
  *
+ *      --  WARNING: Since this uses WinStartApp internally,
+ *          and WinStartApp completely hangs PM if a Win-OS/2
+ *          full-screen session is started from a thread that
+ *          is NOT thread1, THIS SHOULD ONLY BE CALLED ON
+ *          THREAD 1 of your application.
+ *
  *      Even though this isn't clearly said in PMREF,
  *      PROGDETAILS.swpInitial is important:
  *
