@@ -59,11 +59,14 @@ extern "C" {
     APIRET appGetEnvironment(PDOSENVIRONMENT pEnv);
 
     PSZ* appFindEnvironmentVar(PDOSENVIRONMENT pEnv,
-                               PSZ pszVarName);
+                               PCSZ pszVarName);
 
     APIRET appSetEnvironmentVar(PDOSENVIRONMENT pEnv,
-                                PSZ pszNewEnv,
+                                PCSZ pszNewEnv,
                                 BOOL fAddFirst);
+
+    APIRET appSetEnvironmentVars(PDOSENVIRONMENT pEnv,
+                                 PCSZ pcszEnv);
 
     APIRET appConvertEnvironment(PDOSENVIRONMENT pEnv,
                                  PSZ *ppszEnv,

@@ -257,7 +257,7 @@ APIRET appGetEnvironment(PDOSENVIRONMENT pEnv)
  */
 
 PSZ* appFindEnvironmentVar(PDOSENVIRONMENT pEnv,
-                           PSZ pszVarName)
+                           PCSZ pszVarName)
 {
     PSZ     *ppszRet = 0;
 
@@ -288,7 +288,7 @@ PSZ* appFindEnvironmentVar(PDOSENVIRONMENT pEnv,
                 ULONG ulLenThis = pFirstEqual - pszThis;
                 if (    (ulLenThis == ulVarNameLen)
                      && (!memicmp(pszThis,
-                                  pszVarName,
+                                  (PVOID)pszVarName,
                                   ulVarNameLen))
                    )
                 {
@@ -329,7 +329,7 @@ PSZ* appFindEnvironmentVar(PDOSENVIRONMENT pEnv,
  */
 
 APIRET appSetEnvironmentVar(PDOSENVIRONMENT pEnv,
-                            PSZ pszNewEnv,
+                            PCSZ pszNewEnv,
                             BOOL fAddFirst)
 {
     APIRET  arc = NO_ERROR;
@@ -398,6 +398,39 @@ APIRET appSetEnvironmentVar(PDOSENVIRONMENT pEnv,
 
     return arc;
 }
+
+
+/*
+ *@@ appSetEnvironmentVars:
+ *      Apply a number of changes or additions to an environment
+ *      initialized by appGetEnvironment. The changes or additions
+ *      is to the environment is passed in as a pointer (pcszEnv) to
+ *      a set of zero terminated VARNAME=VALUE string which ends with
+ *      an empty string. (Hence just like the environment block
+ *      representation in OS/2.)
+ *
+ *@@added V0.9.21 (2002-09-04) [bird]
+ */
+
+APIRET appSetEnvironmentVars(PDOSENVIRONMENT pEnv,
+                             PCSZ pcszEnv)
+{
+    APIRET  arc = NO_ERROR;
+    if (    (!pEnv)
+         || (!pcszEnv)
+       )
+        arc = ERROR_INVALID_PARAMETER;
+    else
+    {
+        while (arc == NO_ERROR && *pcszEnv != '\0')
+        {
+            arc = appSetEnvironmentVar(pEnv, pcszEnv, FALSE);
+            pcszEnv += strlen(pcszEnv) + 1;
+        }
+    }
+    return arc;
+}
+
 
 /*
  *@@ appConvertEnvironment:

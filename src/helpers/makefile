@@ -152,7 +152,7 @@ $(OUTPUTDIR)\helpers.lib: $(OBJS) makefile
 !ifdef EMX
     !emxomfar cr $* $?
 !else
-    rm -f $@
+    - del $@
     ilib /nol /nob $@ @<<$(TEMP)\ilib.lnk
 +$(OBJS: =&^
 );
@@ -164,7 +164,7 @@ $(OUTPUTDIR)\cp.lib: $(CPOBJS) makefile
 !ifdef EMX
     !emxomfar cr $* $?
 !else
-    rm -f $@
+    - del $@
     ilib /nol /nob $@ @<<
 +$(CPOBJS: =&^
 );
@@ -176,7 +176,7 @@ $(OUTPUTDIR)\plainc.lib: $(PLAINCOBJS) makefile
 !ifdef EMX
     !emxomfar cr $* $?
 !else
-    rm -f $@
+    - del $@
     ilib /nol /nob $@ @<<
 +$(PLAINCOBJS: =&^
 );
