@@ -6,10 +6,6 @@ See the file COPYING for copying permission.
 #ifndef XmlRole_INCLUDED
 #define XmlRole_INCLUDED 1
 
-#include "expat\expat_setup.h"
-                        // V0.9.9 (2001-02-10) [umoeller]
-                        // to save the app from having to include this as well
-
 #include "expat\xmltok.h"
 
 #ifdef __cplusplus
@@ -77,11 +73,11 @@ enum {
 };
 
 typedef struct prolog_state {
-  int (* EXPATENTRY handler)(struct prolog_state *state,
-                           int tok,
-                           const char *ptr,
-                           const char *end,
-                           const ENCODING *enc);
+  int (*handler)(struct prolog_state *state,
+             int tok,
+         const char *ptr,
+         const char *end,
+         const ENCODING *enc);
   unsigned level;
 #ifdef XML_DTD
   unsigned includeLevel;

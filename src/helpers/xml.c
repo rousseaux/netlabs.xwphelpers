@@ -135,6 +135,7 @@
 #include "expat\expat.h"
 
 #include "helpers\linklist.h"
+#include "helpers\standards.h"
 #include "helpers\stringh.h"
 #include "helpers\tree.h"
 #include "helpers\xstring.h"
@@ -170,71 +171,113 @@
 
 const char* xmlDescribeError(int code)
 {
-    static const char *message[] =
+    switch (code)
     {
         // start of expat (parser) errors
-        "Out of memory",
-        "Syntax error",
-        "No element found",
-        "Not well-formed (invalid token)",
-        "Unclosed token",
-        "Unclosed token",
-        "Mismatched tag",
-        "Duplicate attribute",
-        "Junk after root element",
-        "Illegal parameter entity reference",
-        "Undefined entity",
-        "Recursive entity reference",
-        "Asynchronous entity",
-        "Reference to invalid character number",
-        "Reference to binary entity",
-        "Reference to external entity in attribute",
-        "XML processing instruction not at start of external entity",
-        "Unknown encoding",
-        "Encoding specified in XML declaration is incorrect",
-        "Unclosed CDATA section",
-        "Error in processing external entity reference",
-        "Document is not standalone",
-        "Unexpected parser state - please send a bug report",
+        case ERROR_EXPAT_NO_MEMORY:
+            return ("Out of memory");
+
+        case ERROR_EXPAT_SYNTAX:
+            return ("Syntax error");
+        case ERROR_EXPAT_NO_ELEMENTS:
+            return ("No element found");
+        case ERROR_EXPAT_INVALID_TOKEN:
+            return ("Not well-formed (invalid token)");
+        case ERROR_EXPAT_UNCLOSED_TOKEN:
+            return ("Unclosed token");
+        case ERROR_EXPAT_PARTIAL_CHAR:
+            return ("Unclosed token");
+        case ERROR_EXPAT_TAG_MISMATCH:
+            return ("Mismatched tag");
+        case ERROR_EXPAT_DUPLICATE_ATTRIBUTE:
+            return ("Duplicate attribute");
+        case ERROR_EXPAT_JUNK_AFTER_DOC_ELEMENT:
+            return ("Junk after root element");
+        case ERROR_EXPAT_PARAM_ENTITY_REF:
+            return ("Illegal parameter entity reference");
+        case ERROR_EXPAT_UNDEFINED_ENTITY:
+            return ("Undefined entity");
+        case ERROR_EXPAT_RECURSIVE_ENTITY_REF:
+            return ("Recursive entity reference");
+        case ERROR_EXPAT_ASYNC_ENTITY:
+            return ("Asynchronous entity");
+        case ERROR_EXPAT_BAD_CHAR_REF:
+            return ("Reference to invalid character number");
+        case ERROR_EXPAT_BINARY_ENTITY_REF:
+            return ("Reference to binary entity");
+        case ERROR_EXPAT_ATTRIBUTE_EXTERNAL_ENTITY_REF:
+            return ("Reference to external entity in attribute");
+        case ERROR_EXPAT_MISPLACED_XML_PI:
+            return ("XML processing instruction not at start of external entity");
+        case ERROR_EXPAT_UNKNOWN_ENCODING:
+            return ("Unknown encoding");
+        case ERROR_EXPAT_INCORRECT_ENCODING:
+            return ("Encoding specified in XML declaration is incorrect");
+        case ERROR_EXPAT_UNCLOSED_CDATA_SECTION:
+            return ("Unclosed CDATA section");
+        case ERROR_EXPAT_EXTERNAL_ENTITY_HANDLING:
+            return ("Error in processing external entity reference");
+        case ERROR_EXPAT_NOT_STANDALONE:
+            return ("Document is not standalone");
+        case ERROR_EXPAT_UNEXPECTED_STATE:
+            return ("Unexpected parser state - please send a bug report");
         // end of expat (parser) errors
 
         // start of validation errors
-        "Element has not been declared",
-        "Root element name does not match DOCTYPE name",
-        "Invalid or duplicate root element",
-        "Invalid sub-element in parent element",
-        "Duplicate element declaration",
-        "Duplicate attribute declaration",
-        "Undeclared attribute in element",
-        "Element cannot have content",
-        "Invalid attribute value",
-        "Required attribute is missing",
-        "Subelement in empty element",
 
-        "Parsing error",
-        "Validity error",
+        case ERROR_DOM_UNDECLARED_ELEMENT:
+            return ("Element has not been declared");
+        case ERROR_DOM_ROOT_ELEMENT_MISNAMED:
+            return ("Root element name does not match DOCTYPE name");
+        case ERROR_DOM_INVALID_ROOT_ELEMENT:
+            return ("Invalid or duplicate root element");
 
-        "DOM node type not supported",
-        "No DOM document",
-        "No DOM element",
-        "Duplicate doctype",
-        "Root element doesn't match doctype name",
-        "DOM integrity error",
-        "Duplicate attribute",
+        case ERROR_DOM_INVALID_SUBELEMENT:
+            return ("Invalid sub-element in parent element");
+        case ERROR_DOM_DUPLICATE_ELEMENT_DECL:
+            return ("Duplicate element declaration");
+        case ERROR_DOM_DUPLICATE_ATTRIBUTE_DECL:
+            return ("Duplicate attribute declaration");
+        case ERROR_DOM_UNDECLARED_ATTRIBUTE:
+            return ("Undeclared attribute in element");
+        case ERROR_ELEMENT_CANNOT_HAVE_CONTENT:
+            return ("Element cannot have content");
+        case ERROR_DOM_INVALID_ATTRIB_VALUE:
+            return ("Invalid attribute value");
+        case ERROR_DOM_REQUIRED_ATTRIBUTE_MISSING:
+            return ("Required attribute is missing");
+        case ERROR_DOM_SUBELEMENT_IN_EMPTY_ELEMENT:
+            return ("Subelement in empty element");
 
-        "Validation error: Undeclared element name",
-        "Element declaration outside doctype",
-        "Attlist declaration outside doctype"
-    };
+        case ERROR_DOM_PARSING:
+            return ("Parsing error");
+        case ERROR_DOM_VALIDITY:
+            return ("Validity error");
 
-    int code2 = code - ERROR_XML_FIRST;
+        case ERROR_DOM_NODETYPE_NOT_SUPPORTED:
+            return ("DOM node type not supported");
+        case ERROR_DOM_NO_DOCUMENT:
+            return ("No DOM document");
+        case ERROR_DOM_NO_ELEMENT:
+            return ("No DOM element");
+        case ERROR_DOM_DUPLICATE_DOCTYPE:
+            return ("Duplicate doctype");
+        case ERROR_DOM_DOCTYPE_ROOT_NAMES_MISMATCH:
+            return ("Root element doesn't match doctype name");
+        case ERROR_DOM_INTEGRITY:
+            return ("DOM integrity error");
+        case ERROR_DOM_DUPLICATE_ATTRIBUTE:
+            return ("Duplicate attribute");
 
-    if (    code2 >= 0
-         && code2 < sizeof(message) / sizeof(message[0])
-       )
-        return message[code2];
+        case ERROR_DOM_VALIDATE_INVALID_ELEMENT:
+            return ("Validation error: Undeclared element name");
+        case ERROR_DOM_ELEMENT_DECL_OUTSIDE_DOCTYPE:
+            return ("Element declaration outside doctype");
+        case ERROR_DOM_ATTLIST_DECL_OUTSIDE_DOCTYPE:
+            return ("Attlist declaration outside doctype");
+    }
 
-    return 0;
+    return NULL;
 }
 
 /*
@@ -290,13 +333,14 @@ VOID xmlSetError(PXMLDOM pDom,
  *          _CMELEMENTDECLNODE.ElementNamesTree.
  *
  *@@added V0.9.9 (2001-02-16) [umoeller]
+ *@@changed V0.9.14 (2001-08-09) [umoeller]: fixed map bug which caused the whole XML stuff to fail
  */
 
 int TREEENTRY CompareXStrings(ULONG ul1,
                               ULONG ul2)
 {
     return (strhcmp(((PXSTRING)ul1)->psz,
-                    ((PXSTRING)ul1)->psz));
+                    ((PXSTRING)ul2)->psz));
 }
 
 /*
@@ -353,6 +397,7 @@ APIRET xmlCreateNodeBase(NODEBASETYPE ulNodeType,     // in: node type
  *      entire DOM tree will get deleted recursively.
  *
  *@@added V0.9.9 (2001-02-16) [umoeller]
+ *@@changed V0.9.14 (2001-08-09) [umoeller]: fixed crash on string delete
  */
 
 VOID xmlDeleteNode(PNODEBASE pNode)
@@ -500,7 +545,7 @@ VOID xmlDeleteNode(PNODEBASE pNode)
 
         lstClear(&llDeleteNodes);
 
-        xstrFree(((PXSTRING*)&pNode->Tree.ulKey));
+        xstrClear(&pNode->strNodeName);
         free(pNode);
     }
 }
@@ -556,12 +601,11 @@ APIRET xmlCreateDomNode(PDOMNODE pParentNode,        // in: parent node or NULL 
         break;
     }
 
-    arc = xmlCreateNodeBase(ulNodeType,
-                            cb,
-                            pcszNodeName,
-                            ulNodeNameLength,
-                            (PNODEBASE*)&pNewNode);
-    if (arc == NO_ERROR)
+    if (!(arc = xmlCreateNodeBase(ulNodeType,
+                                  cb,
+                                  pcszNodeName,
+                                  ulNodeNameLength,
+                                  (PNODEBASE*)&pNewNode)))
     {
         pNewNode->pParentNode = pParentNode;
 
@@ -634,10 +678,10 @@ APIRET xmlCreateElementNode(PDOMNODE pParent,         // in: parent node (either
 {
     PDOMNODE pNew = NULL;
     APIRET arc = xmlCreateDomNode(pParent,
-                               DOMNODE_ELEMENT,
-                               pcszElement,
-                               0,
-                               &pNew);
+                                  DOMNODE_ELEMENT,
+                                  pcszElement,
+                                  0,
+                                  &pNew);
 
     if (arc == NO_ERROR)
         *ppNew = pNew;
@@ -752,10 +796,10 @@ APIRET xmlCreateCommentNode(PDOMNODE pParent,         // in: parent element node
 {
     PDOMNODE pNew = NULL;
     APIRET arc = xmlCreateDomNode(pParent,
-                               DOMNODE_COMMENT,
-                               NULL,
-                               0,
-                               &pNew);
+                                  DOMNODE_COMMENT,
+                                  NULL,
+                                  0,
+                                  &pNew);
     if (arc == NO_ERROR)
     {
         pNew->pstrNodeValue = xstrCreate(0);
@@ -1380,6 +1424,71 @@ VOID PushElementStack(PXMLDOM pDom,
  ********************************************************************/
 
 /*
+ *@@ UnknownEncodingHandler:
+ *      @expat handler called when the xml
+ *      @text_declaration has an @encoding that is not
+ *      one of the four encodings built into expat.
+ *
+ *      See XML_SetUnknownEncodingHandler.
+ *
+ *@@added V0.9.14 (2001-08-09) [umoeller]
+ */
+
+int EXPATENTRY UnknownEncodingHandler(void *pUserData,   // in: out PXMLDOM really
+                                      const XML_Char *pcszName,
+                                      XML_Encoding *pEncoding)
+{
+    PXMLDOM     pDom = (PXMLDOM)pUserData;
+
+    ULONG ulCP;
+    if (    (pDom->pfnGetCPData)            // callback exists?
+         && (!strncmp(pcszName, "cp", 2))
+         && (strlen(pcszName) > 4)              // at least five chars (e.g. "cp850")
+         && (ulCP = atoi(pcszName + 2))
+       )
+    {
+        // this is a PC codepage:
+/* typedef struct _XML_Encoding
+{
+  int           map[256];
+  void          *data;
+  int           (* EXPATENTRY convert)(void *data, const char *s);
+  void          (* EXPATENTRY release)(void *data);
+} XML_Encoding; */
+
+        // ZERO(pEncoding);
+
+        pEncoding->convert = NULL;
+        pEncoding->release = NULL;
+
+        memset(&pEncoding->map, -1, sizeof(pEncoding->map));
+
+        if (pDom->pfnGetCPData(pDom,
+                               ulCP,
+                               pEncoding->map))
+        {
+            // go check if there's any -1 chars left
+            ULONG ul;
+            for (ul = 0;
+                 ul < 256;
+                 ul++)
+            {
+                if (pEncoding->map[ul] < 0)
+                    xmlSetError(pDom,
+                                ERROR_DOM_INCOMPLETE_ENCODING_MAP,
+                                NULL,
+                                FALSE);
+            }
+            // return success
+            return (1);
+        }
+    }
+
+    // error
+    return (0);
+}
+
+/*
  *@@ StartElementHandler:
  *      @expat handler called when a new element is
  *      found.
@@ -1448,11 +1557,17 @@ void EXPATENTRY StartElementHandler(void *pUserData,      // in: our PXMLDOM rea
                                                           papcszAttribs[i + 1],    // attr value
                                                           &pAttrib);
 
-                    // shall we validate?
-                    if (pDom->pDocTypeNode)
-                        ValidateAttributeType(pDom,
-                                              pAttrib,
-                                              &pAttribDeclBase);
+                    if (pDom->arcDOM)
+                        xmlSetError(pDom,
+                                    pDom->arcDOM,
+                                    papcszAttribs[i],
+                                    TRUE);      // validation
+                    else
+                        // shall we validate?
+                        if (pDom->pDocTypeNode)
+                            ValidateAttributeType(pDom,
+                                                  pAttrib,
+                                                  &pAttribDeclBase);
                 }
 
                 // OK, now we got all attributes:
@@ -1523,8 +1638,6 @@ void EXPATENTRY CharacterDataHandler(void *pUserData,      // in: our PXMLDOM re
     // continue parsing only if we had no errors so far
     if (!pDom->arcDOM)
     {
-        // ULONG       i;
-
         if (len)
         {
             // we need a new text node:
@@ -1534,6 +1647,8 @@ void EXPATENTRY CharacterDataHandler(void *pUserData,      // in: our PXMLDOM re
             {
                 PDOMNODE    pParent = pSI->pDomNode;
                             // pNew = NULL;
+
+                BOOL fIsWhitespace = FALSE;
 
                 // shall we validate?
                 if (pDom->pDocTypeNode)
@@ -1567,6 +1682,10 @@ void EXPATENTRY CharacterDataHandler(void *pUserData,      // in: our PXMLDOM re
                                 // whitespace, terminate
                                 ULONG ul;
                                 const char *p = s;
+
+                                if (pDom->flParserFlags & DF_DROP_WHITESPACE)
+                                    fIsWhitespace = TRUE;
+
                                 for (ul = 0;
                                      ul < len;
                                      ul++, p++)
@@ -1577,12 +1696,25 @@ void EXPATENTRY CharacterDataHandler(void *pUserData,      // in: our PXMLDOM re
                                                     ERROR_ELEMENT_CANNOT_HAVE_CONTENT,
                                                     pParent->NodeBase.strNodeName.psz,
                                                     TRUE);
+                                        fIsWhitespace = FALSE;
                                         break;
                                     }
                             }
                         }
                     }
-                }
+
+                } // end if (pDom->pDocTypeNode)
+
+                if (!fIsWhitespace)
+                    // this is false if any of the following
+                    // is true:
+                    // --  we are not validating at all
+                    // --  we are validating, but the the element
+                    //     can have mixed content
+                    // --  we are validating and the element does
+                    //     _not_ have mixed content and DF_DROP_WHITESPACE
+                    //     is set, but the string is whitespace only
+                    //     --> drop it then
 
                 if (pDom->pLastWasTextNode)
                 {
@@ -1774,25 +1906,76 @@ void EXPATENTRY NotationDeclHandler(void *pUserData,      // in: our PXMLDOM rea
  *      external entities may refer to other external entities, your
  *      handler should be prepared to be called recursively.
  *
- *@@added V0.9.9 (2001-02-14) [umoeller]
+ *@@added V0.9.14 (2001-08-09) [umoeller]
  */
 
-int EXPATENTRY ExternalEntityRefHandler(XML_Parser parser,
+int EXPATENTRY ExternalEntityRefHandler(void *pUserData,      // in: our PXMLDOM really
+                                        XML_Parser parser,
                                         const XML_Char *pcszContext,
                                         const XML_Char *pcszBase,
                                         const XML_Char *pcszSystemId,
                                         const XML_Char *pcszPublicId)
 {
-    int i = 1;
+    PXMLDOM     pDom = (PXMLDOM)pUserData;
 
-    // @@todo: allow caller to load external references some way
+    int i = 0;          // return error per default
 
-    /* PXMLDOM     pDom = (PXMLDOM)pUserData;
+    APIRET  arc = NO_ERROR;
 
-    // continue parsing only if we had no errors so far
-    if (!pDom->arcDOM)
+    // store the previous parser because
+    // all the callbacks use the parser pointer
+    XML_Parser pOldParser = pDom->pParser;
+    pDom->pParser = NULL;
+
+    if (    (pDom->pfnExternalHandler)
+            // create sub-parser and replace the one
+            // in the DOM with it
+         && (pDom->pParser = XML_ExternalEntityParserCreate(parser,
+                                                            pcszContext,
+                                                            "US-ASCII"))
+       )
     {
-    } */
+        if ((arc = pDom->pfnExternalHandler(pDom,
+                                            pDom->pParser,
+                                            pcszSystemId,
+                                            pcszPublicId)))
+        {
+            // error:
+            // now this needs special handling, since we're
+            // dealing with a sub-handler here...
+
+            if (arc == -1)
+                // parser error: well, then xmlSetError has been
+                // called from somewhere in the callbacks already,
+                // and we can safely ignore this
+                ;
+            else
+            {
+                pDom->arcDOM = arc;
+                if (pcszSystemId)
+                {
+                    if (!pDom->pxstrFailingNode)
+                        pDom->pxstrFailingNode = xstrCreate(0);
+                    xstrcpy(pDom->pxstrFailingNode, pcszSystemId, 0);
+                }
+                pDom->pcszErrorDescription = xmlDescribeError(arc);
+                pDom->ulErrorLine = XML_GetCurrentLineNumber(pDom->pParser);
+                pDom->ulErrorColumn = XML_GetCurrentColumnNumber(pDom->pParser);
+            }
+        }
+
+        i = 1;      // success
+    }
+    else
+        xmlSetError(pDom,
+                    (!arc) ? ERROR_DOM_INVALID_EXTERNAL_HANDLER : arc,
+                    NULL,
+                    FALSE);
+
+    if (pDom->pParser)
+        XML_ParserFree(pDom->pParser);
+
+    pDom->pParser = pOldParser;
 
     return (i);
 }
@@ -2124,24 +2307,12 @@ void EXPATENTRY EntityDeclHandler(void *pUserData,      // in: our PXMLDOM reall
  *
  *      Pass the XMLDOM returned here to xmlParse afterwards.
  *
- *      ulFlags is any combination of the following:
- *
- *      --  DF_PARSECOMMENTS: XML @comments are to be returned in
- *          the DOM tree. Otherwise they are silently ignored.
- *
- *      --  DF_PARSEDTD: add the @DTD of the document into the DOM tree
- *          as well and validate the document, if a DTD was found.
- *          Otherwise just parse and do not validate.
- *
- *      --  DF_FAIL_IF_NO_DTD: fail if no @DTD was found. Useful
- *          if you want to enforce validation. @@todo
- *
- *      Usage:
+ *      Simplest possible usage:
  *
  *      1) Create a DOM instance.
  *
  +          PXMLDOM pDom = NULL;
- +          APIRET arc = xmlCreateDOM(flags, &pDom);
+ +          APIRET arc = xmlCreateDOM(flags, NULL, NULL, NULL, &pDom);
  +
  *      2) Give chunks of data (or an entire buffer)
  *         to the DOM instance for parsing.
@@ -2163,11 +2334,84 @@ void EXPATENTRY EntityDeclHandler(void *pUserData,      // in: our PXMLDOM reall
  *
  *      4) When done, call xmlFreeDOM, which will free all memory.
  *
+ *      The above code has limitations: only a few character
+ *      @encodings are supported, and @external_entities are
+ *      silently ignored.
+ *
+ *      This function supports a number of callbacks and flags
+ *      to allow for maximum flexibility. Note however that
+ *      not all @expat features are supported yet.
+ *
+ *      The following callbacks can be specified (any of these
+ *      can be NULL):
+ *
+ *      --  pfnGetCPData should be specified if you want to
+ *          support character @encodings other than the
+ *          four that built into expat itself (see
+ *          XML_SetUnknownEncodingHandler). This is probably
+ *          a good idea to do under OS/2 since most OS/2
+ *          documents are in a PC-specific codepage such as
+ *          CP 850.
+ *
+ *          This callback must have the following prototype:
+ *
+ +              int APIENTRY FNGETCPDATA(PXMLDOM pDom, ULONG ulCP, int *piMap)
+ *
+ *          The callback will only be called once for each
+ *          document if the "encoding" attribute of the
+ *          XML @text_declaration starts with "cp" (e.g.
+ *          "cp850") and will then receives the following
+ *          parameters:
+ *
+ *          --  "pDom" will be the XMLDOM created by this function.
+ *
+ *          --  ulCP has the IBM code page number, such as "850".
+ *
+ *          --  piMap is an array of 256 integer values which must
+ *              be filled with the callback. Each array item index
+ *              is the codepage value, and the value of each field
+ *              is the corresponding Unicode value, or -1 if the
+ *              character is invalid (shouldn't happen with codepages).
+ *
+ *              For example, the German o-umlaut character is
+ *              0x94 in CP850 and 0x00f6 in Unicode. So set
+ *              the int at index 0x94 to 0x00f6.
+ *
+ *      pvCallbackUser is a user parameter which is simply stored
+ *      in the XMLDOM struct which is returned. Since the XMLDOM
+ *      is passed to all the callbacks, you can access that pointer
+ *      from them.
+ *
+ *      flParserFlags is any combination of the following:
+ *
+ *      --  DF_PARSECOMMENTS: XML @comments are to be returned in
+ *          the DOM tree. Otherwise they are discarded.
+ *
+ *      --  DF_PARSEDTD: add the @DTD of the document into the DOM tree
+ *          as well and validate the document, if a DTD was found.
+ *          Otherwise just parse and do not validate.
+ *
+ *          DF_PARSEDTD is required for external entities to work
+ *          also.
+ *
+ *      --  DF_FAIL_IF_NO_DTD: fail if no @DTD was found. Useful
+ *          if you want to enforce validation. @@todo
+ *
+ *      --  DF_DROP_WHITESPACE: discard all @whitespace for those
+ *          elements that can only have element content. Whitespace
+ *          will be preserved only for elements that can have
+ *          mixed content. -- If this flag is not set, all whitespace
+ *          is preserved.
+ *
  *@@added V0.9.9 (2001-02-14) [umoeller]
+ *@@changed V0.9.14 (2001-08-09) [umoeller]: added DF_DROP_WHITESPACE support
  */
 
-APIRET xmlCreateDOM(ULONG flParserFlags,
-                    PXMLDOM *ppDom)
+APIRET xmlCreateDOM(ULONG flParserFlags,            // in: DF_* parser flags
+                    PFNGETCPDATA pfnGetCPData,      // in: codepage callback or NULL
+                    PFNEXTERNALHANDLER pfnExternalHandler, // in: external entity callback or NULL
+                    PVOID pvCallbackUser,           // in: user param for callbacks
+                    PXMLDOM *ppDom)                 // out: XMLDOM struct created
 {
     APIRET  arc = NO_ERROR;
 
@@ -2179,6 +2423,11 @@ APIRET xmlCreateDOM(ULONG flParserFlags,
         PDOMNODE pDocument = NULL;
 
         memset(pDom, 0, sizeof(XMLDOM));
+
+        pDom->flParserFlags = flParserFlags;
+        pDom->pfnGetCPData = pfnGetCPData;
+        pDom->pfnExternalHandler = pfnExternalHandler;
+        pDom->pvCallbackUser = pvCallbackUser;
 
         lstInit(&pDom->llElementStack,
                 TRUE);                 // auto-free
@@ -2206,6 +2455,14 @@ APIRET xmlCreateDOM(ULONG flParserFlags,
                 arc = ERROR_NOT_ENOUGH_MEMORY;
             else
             {
+                if (pfnGetCPData)
+                    XML_SetUnknownEncodingHandler(pDom->pParser,
+                                                  UnknownEncodingHandler,
+                                                  pDom);        // user data
+
+                XML_SetParamEntityParsing(pDom->pParser,
+                                          XML_PARAM_ENTITY_PARSING_ALWAYS);
+
                 XML_SetElementHandler(pDom->pParser,
                                       StartElementHandler,
                                       EndElementHandler);
@@ -2221,6 +2478,10 @@ APIRET xmlCreateDOM(ULONG flParserFlags,
                     XML_SetCommentHandler(pDom->pParser,
                                           CommentHandler);
 
+                if (pfnExternalHandler)
+                    XML_SetExternalEntityRefHandler(pDom->pParser,
+                                                    ExternalEntityRefHandler);
+
                 if (flParserFlags & DF_PARSEDTD)
                 {
                     XML_SetDoctypeDeclHandler(pDom->pParser,
@@ -2229,9 +2490,6 @@ APIRET xmlCreateDOM(ULONG flParserFlags,
 
                     XML_SetNotationDeclHandler(pDom->pParser,
                                                NotationDeclHandler);
-
-                    XML_SetExternalEntityRefHandler(pDom->pParser,
-                                                    ExternalEntityRefHandler);
 
                     XML_SetElementDeclHandler(pDom->pParser,
                                               ElementDeclHandler);
@@ -2305,12 +2563,11 @@ APIRET xmlParse(PXMLDOM pDom,
         arc = ERROR_INVALID_PARAMETER;
     else
     {
-        BOOL fSuccess = XML_Parse(pDom->pParser,
-                                  pcszBuf,
-                                  cb,
-                                  fIsLast);
-
-        if (!fSuccess)
+        // go parse then
+        if (!XML_Parse(pDom->pParser,
+                       pcszBuf,
+                       cb,
+                       fIsLast))
         {
             // expat parsing error:
             xmlSetError(pDom,
@@ -2379,6 +2636,13 @@ APIRET xmlFreeDOM(PXMLDOM pDom)
         }
 
         xmlDeleteNode((PNODEBASE)pDom->pDocumentNode);
+
+        if (pDom->pxstrSystemID)
+            xstrFree(&pDom->pxstrSystemID);
+        if (pDom->pxstrFailingNode)
+            xstrFree(&pDom->pxstrFailingNode);
+
+        lstClear(&pDom->llElementStack);
 
         free(pDom);
     }

@@ -84,10 +84,15 @@ extern "C" {
     #define ERROR_DOM_INTEGRITY (ERROR_XML_FIRST + 42)
     #define ERROR_DOM_DUPLICATE_ATTRIBUTE (ERROR_XML_FIRST + 43)
 
-        // @@@todo these
     #define ERROR_DOM_VALIDATE_INVALID_ELEMENT (ERROR_XML_FIRST + 44)
     #define ERROR_DOM_ELEMENT_DECL_OUTSIDE_DOCTYPE (ERROR_XML_FIRST + 45)
     #define ERROR_DOM_ATTLIST_DECL_OUTSIDE_DOCTYPE (ERROR_XML_FIRST + 46)
+
+    #define ERROR_DOM_INCOMPLETE_ENCODING_MAP (ERROR_XML_FIRST + 47)
+                // callback to UnknownEncodingHandler has provided
+                // an incomplete encoding map V0.9.14 (2001-08-09) [umoeller]
+
+    #define ERROR_DOM_INVALID_EXTERNAL_HANDLER (ERROR_XML_FIRST + 48)
 
     const char* xmlDescribeError(int code);
 
@@ -618,6 +623,17 @@ extern "C" {
      *
      ********************************************************************/
 
+    typedef struct _XMLDOM *PXMLDOM;
+
+    typedef int APIENTRY FNGETCPDATA(PXMLDOM pDom, ULONG ulCP, int *piMap);
+    typedef FNGETCPDATA *PFNGETCPDATA;
+
+    typedef APIRET APIENTRY FNEXTERNALHANDLER(PXMLDOM pDom,
+                                              XML_Parser *pSubParser,
+                                              const char *pcszSystemID,
+                                              const char *pcszPublicID);
+    typedef FNEXTERNALHANDLER *PFNEXTERNALHANDLER;
+
     /*
      *@@ XMLDOM:
      *      DOM instance returned by xmlCreateDOM.
@@ -637,17 +653,31 @@ extern "C" {
         PDOMDOCTYPENODE pDocTypeNode;
                         // != NULL only if the document has a DOCTYPE
 
-        APIRET          arcDOM;         // validation errors etc.
-        BOOL            fInvalid;       // TRUE after validation failed
+        // error handling
+        APIRET          arcDOM;         // validation errors etc.;
+                                        // if != 0, this has a detailed
+                                        // expat or DOM error code
+        BOOL            fInvalid;       // TRUE if validation failed
+                                        // (parser error otherwise)
 
-        const char      *pcszErrorDescription;
-        ULONG           ulErrorLine;
-        ULONG           ulErrorColumn;
-        PXSTRING        pxstrFailingNode; // element or attribute name
+        const char      *pcszErrorDescription;  // error description
+        PXSTRING        pxstrSystemID;      // system ID of external entity
+                                            // where error occured, or NULL
+                                            // if in main document
+        ULONG           ulErrorLine;        // line where error occured
+        ULONG           ulErrorColumn;      // column where error occured
+        PXSTRING        pxstrFailingNode;   // element or attribute name
+                                            // or NULL
 
         /*
          *  Private fields (for xml* functions)
          */
+
+        // params copied from xmlCreateDOM
+        ULONG           flParserFlags;
+        PFNGETCPDATA    pfnGetCPData;
+        PFNEXTERNALHANDLER pfnExternalHandler;
+        PVOID           pvCallbackUser;
 
         XML_Parser      pParser;
                             // expat parser instance
@@ -661,13 +691,17 @@ extern "C" {
         PCMATTRIBUTEDECLBASE pAttListDeclCache;
                             // cache for attribute declarations according
                             // to attdecl element name
-    } XMLDOM, *PXMLDOM;
+    } XMLDOM;
 
     #define DF_PARSECOMMENTS        0x0001
     #define DF_PARSEDTD             0x0002
     #define DF_FAIL_IF_NO_DTD       0x0004
+    #define DF_DROP_WHITESPACE      0x0008
 
     APIRET xmlCreateDOM(ULONG flParserFlags,
+                        PFNGETCPDATA pfnGetCPData,
+                        PFNEXTERNALHANDLER pfnExternalHandler,
+                        PVOID pvCallbackUser,
                         PXMLDOM *ppDom);
 
     APIRET xmlParse(PXMLDOM pDom,

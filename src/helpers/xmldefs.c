@@ -546,8 +546,16 @@
  +          <?xml version="1.0" encoding="ISO-8859-2"?>
  *
  *      All XML processors must be able to read @entities in either
- *      UTF-8 or UTF-16. See XML_SetUnknownEncodingHandler for additional
- *      encodings directly supported by @expat.
+ *      UTF-8 or UTF-16. @expat directly supports the following
+ *      (see XML_SetUnknownEncodingHandler):
+ *
+ *      --   UTF-8: 8-bit encoding of Unicode.
+ *
+ *      --   UTF-16: 16-bit encoding of Unicode.
+ *
+ *      --   ISO-8859-1: that's "latin 1".
+ *
+ *      --   US-ASCII.
  *
  *      Entities encoded in UTF-16 must begin with the ZERO WIDTH NO-BREAK
  *      SPACE character, #xFEFF). This is an encoding signature, not part

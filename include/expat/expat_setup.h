@@ -19,6 +19,8 @@
     #endif
 
     #define XML_DTD 1
+    #define XML_BYTE_ORDER 12
+    #define XML_CONTEXT_BYTES 1024
 
 #endif
 

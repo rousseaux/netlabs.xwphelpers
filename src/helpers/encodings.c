@@ -126,4 +126,122 @@ long encRegisterEncoding(PXWPENCODINGMAP pEncodingMap,
     return (lrc);
 }
 
+/*
+ *@@ encDecodeUTF8:
+ *      decodes one UTF-8 character and returns
+ *      the Unicode value or -1 if the character
+ *      is invalid.
+ *
+ *      On input, *ppch is assumed to point to
+ *      the first byte of the UTF-8 char to be
+ *      read.
+ *
+ *      This function will advance *ppch by at
+ *      least one byte (or more if the UTF-8
+ *      char initially pointed to introduces
+ *      a multi-byte sequence).
+ *
+ *      This returns -1 if *ppch points to an
+ *      invalid encoding (in which case the
+ *      pointer is advanced anyway).
+ *
+ *      This returns 0 if **ppch points to a
+ *      null character.
+ *
+ *@@added V0.9.14 (2001-08-09) [umoeller]
+ */
+
+unsigned long encDecodeUTF8(const char **ppch)
+{
+    unsigned long   ulChar = **ppch;
+
+    if (!ulChar)
+        return 0;
+
+    // if (ulChar < 0x80): simple, one byte only... use that
+
+    if (ulChar >= 0x80)
+    {
+        unsigned long ulCount = 1;
+        int fIllegal = 0;
+
+        // note: 0xc0 and 0xc1 are reserved and
+        // cannot appear as the first UTF-8 byte
+
+        if (    (ulChar >= 0xc2)
+             && (ulChar < 0xe0)
+           )
+        {
+            // that's two bytes
+            ulCount = 2;
+            ulChar &= 0x1f;
+        }
+        else if ((ulChar & 0xf0) == 0xe0)
+        {
+            // three bytes
+            ulCount = 3;
+            ulChar &= 0x0f;
+        }
+        else if ((ulChar & 0xf8) == 0xf0)
+        {
+            // four bytes
+            ulCount = 4;
+            ulChar &= 0x07;
+        }
+        else if ((ulChar & 0xfc) == 0xf8)
+        {
+            // five bytes
+            ulCount = 5;
+            ulChar &= 0x03;
+        }
+        else if ((ulChar & 0xfe) == 0xfc)
+        {
+            // six bytes
+            ulCount = 6;
+            ulChar &= 0x01;
+        }
+        else
+            ++fIllegal;
+
+        if (!fIllegal)
+        {
+            // go for the second and more bytes then
+            int ul2;
+
+            for (ul2 = 1;
+                 ul2 < ulCount;
+                 ++ul2)
+            {
+                unsigned long ulChar2 = *((*ppch) + ul2);
+
+                if (!(ulChar2 & 0xc0)) //  != 0x80)
+                {
+                    ++fIllegal;
+                    break;
+                }
+
+                ulChar <<= 6;
+                ulChar |= ulChar2 & 0x3f;
+            }
+        }
+
+        if (fIllegal)
+        {
+            // skip all the following characters
+            // until we find something with bit 7 off
+            do
+            {
+                ulChar = *(++(*ppch));
+                if (!ulChar)
+                    break;
+            } while (ulChar & 0x80);
+        }
+        else
+            *ppch += ulCount;
+    }
+    else
+        (*ppch)++;
+
+    return (ulChar);
+}
 
