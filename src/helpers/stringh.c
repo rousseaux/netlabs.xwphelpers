@@ -1500,6 +1500,14 @@ PSZ strhGetTextAttr(const char *pszSearchIn,
             pParam++;
         }
 
+        // V1.0.3 (2004-11-10) [pr]: @@fixes 461
+        if (*pParam == '\'')
+        {
+            // or, if the data is enclosed in single quotes, a single quote
+            cEnd = '\'';
+            pParam++;
+        }
+
         if (pulOffset)
             // store the offset
             (*pulOffset) = pParam - (PSZ)pszSearchIn;
