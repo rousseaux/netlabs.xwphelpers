@@ -395,8 +395,8 @@ void XWPENTRY xstrShrink(PXSTRING pxstr)
          && (pxstr->cbAllocated > pxstr->ulLength + 1)
        )
     {
-        pxstr->psz = realloc(pxstr->psz,
-                             pxstr->ulLength + 1);
+        pxstr->psz = (PSZ)realloc(pxstr->psz,
+                                  pxstr->ulLength + 1);
         pxstr->cbAllocated = pxstr->ulLength + 1;
     }
 }

@@ -202,43 +202,41 @@ ULONG eaPathQueryTotalSize(const char *pcszPath)
     ULONG   ulTotalEASize = 0;
     FILEFINDBUF4   ffb4;
 
-    arc = DosQueryPathInfo((PSZ)pcszPath,
-                           FIL_QUERYEASIZE,
-                           &ffb4,
-                           sizeof(FILEFINDBUF4));
-
-    if (arc == NO_ERROR)
+    if (!(arc = DosQueryPathInfo((PSZ)pcszPath,
+                                 FIL_QUERYEASIZE,
+                                 &ffb4,
+                                 sizeof(FILEFINDBUF4))))
     {
-        // CHAR szFile[CCHMAXPATH];
-        // PBYTE pbBuffer = malloc(ffb4.cbList);
         BYTE abBuf[2000];
         LONG lCount = 0;
         PDENA2 pdena2;
 
         lCount = -1;
 
-        arc = DosEnumAttribute(ENUMEA_REFTYPE_PATH,
-                               (PSZ)pcszPath,
-                               1,
-                               abBuf,
-                               sizeof(abBuf),
-                               (PULONG)&lCount,
-                               ENUMEA_LEVEL_NO_VALUE);
+        if (!(arc = DosEnumAttribute(ENUMEA_REFTYPE_PATH,
+                                     (PSZ)pcszPath,
+                                     1,
+                                     abBuf,
+                                     sizeof(abBuf),
+                                     (PULONG)&lCount,
+                                     ENUMEA_LEVEL_NO_VALUE)))
+        {
             // ulCount now contains the EA count
 
-        pdena2 = (PDENA2)abBuf;
+            pdena2 = (PDENA2)abBuf;
 
-        if (lCount > 0)
-        {
-            ulTotalEASize = pdena2->cbName + 8;
-
-            while (lCount > 0)
+            if (lCount > 0)
             {
-                ulTotalEASize += (pdena2->cbValue + sizeof(DENA2));
-                lCount--;
-                pdena2 = (PDENA2) (((PBYTE) pdena2) +
-                              pdena2->oNextEntryOffset);
+                ulTotalEASize = pdena2->cbName + 8;
 
+                while (lCount > 0)
+                {
+                    ulTotalEASize += (pdena2->cbValue + sizeof(DENA2));
+                    lCount--;
+                    pdena2 = (PDENA2) (((PBYTE) pdena2) +
+                                  pdena2->oNextEntryOffset);
+
+                }
             }
         }
     }

@@ -98,7 +98,7 @@
  */
 
 APIRET wphQueryActiveHandles(HINI hiniSystem,
-                             PSZ *ppszActiveHandles)
+                             PSZ *ppszActiveHandles)        // out: active handles string (new buffer)
 {
     PSZ pszActiveHandles;
     if (pszActiveHandles = prfhQueryProfileData(hiniSystem,
@@ -230,7 +230,7 @@ APIRET wphRebuildNodeHashTable(PHANDLESBUF pHandlesBuf)
                 PNODE pNode = (PNODE)pCur;
                 // store PNODE in hash table
                 pHandlesBuf->NodeHashTable[pNode->usHandle] = pNode;
-                pCur += sizeof (NODE) + pNode->usNameSize;
+                pCur += sizeof(NODE) + pNode->usNameSize;
             }
             else
             {
@@ -340,7 +340,7 @@ APIRET wphLoadHandles(HINI hiniUser,      // in: HINI_USER or other INI handle
                     {
                         ULONG   cbTotalOld = cbTotal;
                         cbTotal += cbBlockThis;
-                        if (!(pbData = realloc(pbData, cbTotal)))
+                        if (!(pbData = (BYTE*)realloc(pbData, cbTotal)))
                                 // on first call, pbData is NULL and this
                                 // behaves like malloc()
                         {
@@ -416,108 +416,6 @@ APIRET wphFreeHandles(PHANDLESBUF *ppHandlesBuf)
 
     return (arc);
 }
-
-/*
- *@@ wphReadAllBlocks:
- *      this reads all the BLOCK's in the active handles
- *      section in OS2SYS.INI into one common buffer, for
- *      which sufficient memory is allocated.
- *
- *      Each of these blocks is a maximum of 64 KB, hell
- *      knows why, maybe the INIs can't handle more. This
- *      func combines all the BLOCK's into one buffer anyways,
- *      which can then be searched.
- *
- *      Use wphQueryActiveHandles to pass the active handles
- *      section to this function.
- *
- *      This gets called by the one-shot function
- *      wphQueryHandleFromPath.
- */
-
-/* BOOL wphReadAllBlocks(HINI hiniSystem,       // in: can be HINI_USER or HINI_SYSTEM
-                      PSZ pszActiveHandles,  // in: active handles section
-                      PBYTE* ppBlock,        // in/out: pointer to buffer, which
-                                             //    will point to the allocated
-                                             //    memory afterwards
-                      PULONG pulSize)        // out: size of the allocated buffer
-{
-    PBYTE   pbAllBlocks,
-            pszBlockName,
-            p;
-    ULONG   ulBlockSize;
-    ULONG   ulTotalSize;
-    BYTE    rgfBlock[100];
-    BYTE    szAppName[10];
-    USHORT  usBlockNo;
-
-    pbAllBlocks = wphEnumProfileKeys(hiniSystem, pszActiveHandles, &ulBlockSize);
-    if (!pbAllBlocks)
-       return FALSE;
-
-    // query size of all individual blocks and calculate total
-    memset(rgfBlock, 0, sizeof rgfBlock);
-    ulTotalSize = 0L;
-    pszBlockName = pbAllBlocks;
-    while (*pszBlockName)
-    {
-        if (!memicmp(pszBlockName, "BLOCK", 5))
-        {
-           usBlockNo = atoi(pszBlockName + 5);
-           if (usBlockNo < 100)
-           {
-               rgfBlock[usBlockNo] = TRUE;
-
-               if (!PrfQueryProfileSize(hiniSystem,
-                                        pszActiveHandles,
-                                        pszBlockName,
-                                        &ulBlockSize))
-               {
-                   free(pbAllBlocks);
-                   return FALSE;
-               }
-               ulTotalSize += ulBlockSize;
-           }
-        }
-        pszBlockName += strlen(pszBlockName) + 1;
-    }
-
-    // *pulSize now contains the total size of all blocks
-    *ppBlock = (PBYTE)malloc(ulTotalSize);
-    if (!(*ppBlock))
-    {
-         free(pbAllBlocks);
-         return FALSE;
-    }
-
-    // now get all blocks into the memory we allocated
-    p = *ppBlock;
-    (*pulSize) = 0;
-    for (usBlockNo = 1; usBlockNo < 100; usBlockNo++)
-    {
-        if (!rgfBlock[usBlockNo])
-            break;
-
-        sprintf(szAppName, "BLOCK%u", (UINT)usBlockNo);
-        ulBlockSize = ulTotalSize;
-        if (!PrfQueryProfileData(hiniSystem,
-                                 pszActiveHandles,
-                                 szAppName,
-                                 p,
-                                 &ulBlockSize))
-        {
-            free(pbAllBlocks);
-            free(*ppBlock);
-            return FALSE;
-        }
-        p += ulBlockSize;
-        (*pulSize) += ulBlockSize;
-        ulTotalSize -= ulBlockSize;
-    }
-
-    free(pbAllBlocks);
-    return TRUE;
-} */
 
 /* ******************************************************************
  *
@@ -687,17 +585,18 @@ APIRET wphQueryHandleFromPath(HINI hiniUser,      // in: HINI_USER or other INI 
                               HOBJECT *phobj)      // out: object handle found if NO_ERROR
 {
     APIRET      arc = NO_ERROR;
-    PVOID       pvData;
+
+    PSZ         pszActiveHandles = NULL;
+    PHANDLESBUF pHandlesBuf = NULL;
 
     TRY_LOUD(excpt1)
     {
         // not found there: check the handles then
-        PSZ pszActiveHandles;
+
         if (arc = wphQueryActiveHandles(hiniSystem, &pszActiveHandles))
             _Pmpf((__FUNCTION__ ": wphQueryActiveHandles returned %d", arc));
         else
         {
-            PHANDLESBUF pHandlesBuf;
             if (arc = wphLoadHandles(hiniUser,
                                      hiniSystem,
                                      pszActiveHandles,
@@ -718,17 +617,18 @@ APIRET wphQueryHandleFromPath(HINI hiniUser,      // in: HINI_USER or other INI 
                     *phobj = usObjID | (pHandlesBuf->usHiwordFileSystem << 16);
                 else
                     arc = ERROR_FILE_NOT_FOUND;
-
-                wphFreeHandles(&pHandlesBuf);
             }
-
-            free(pszActiveHandles);
         }
     }
     CATCH(excpt1)
     {
         arc = ERROR_WPH_CRASHED;
     } END_CATCH();
+
+    if (pszActiveHandles)
+        free(pszActiveHandles);
+    if (pHandlesBuf)
+        wphFreeHandles(&pHandlesBuf);
 
     return (arc);
 }

@@ -1373,9 +1373,9 @@ BOOL shpLoadBitmap(HAB hab, // in: anchor block
             } else
                 // load resource bitmap
                 psb->hbm = GpiLoadBitmap(psb->hps,
-                                             hmodResource,
-                                             idResource,
-                                             0, 0);
+                                         hmodResource,
+                                         idResource,
+                                         0, 0);
             if (psb->hbm)
             {
                 SWP     swpScreen;

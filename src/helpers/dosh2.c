@@ -2254,16 +2254,20 @@ APIRET doshSearchPath(const char *pcszPath,     // in: path variable name (e.g. 
     APIRET arc = NO_ERROR;
 
     // get the PATH value
-    PSZ pszPath;
+    PCSZ pcszPathValue;
     if (!(arc = DosScanEnv((PSZ)pcszPath,
-                           &pszPath)))
+#if __cplusplus
+                           &pcszPathValue)))
+#else
+                           (PSZ*)&pcszPathValue)))
+#endif
     {
         // run thru the path components
         PSZ pszPathCopy;
-        if (pszPathCopy = strdup(pszPath))
+        if (pszPathCopy = strdup(pcszPathValue))
         {
             PSZ pszToken = strtok(pszPathCopy, ";");
-            while (pszToken)        // V0.9.12 (2001-05-03) [umoeller]
+            while (pszToken)
             {
                 CHAR szFileMask[2*CCHMAXPATH];
                 FILESTATUS3 fs3;
