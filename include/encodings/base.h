@@ -13,6 +13,8 @@ extern "C" {
 #ifndef ENC_BASE_HEADER_INCLUDED
     #define ENC_BASE_HEADER_INCLUDED
 
+    #pragma pack(1)         // V0.9.20 (2002-07-03) [umoeller]
+
     /*
      *@@ XWPENCODINGMAP:
      *      entry in a codepage-to-Unicode conversion table.
@@ -23,6 +25,8 @@ extern "C" {
         unsigned short      usCP;
         unsigned short      usUni;
     } XWPENCODINGMAP, *PXWPENCODINGMAP;
+
+    #pragma pack()
 
     /*
      *@@ ENCID:
@@ -131,6 +135,13 @@ extern "C" {
                                unsigned long ulUni);
 
     unsigned long encDecodeUTF8(const char **ppch);
+
+    int encInitCase(void);
+
+    unsigned long encToUpper(unsigned long ulUni);
+
+    int encicmp(const char *pcsz1,
+                const char *pcsz2);
 
 #endif
 

@@ -2600,6 +2600,83 @@ APIRET xmlParse(PXMLDOM pDom,               // in: DOM created by xmlCreateDOM
     return arc;
 }
 
+#ifdef __DEBUG__
+
+/*
+ *@@ Dump:
+ *
+ *@@added V0.9.20 (2002-07-03) [umoeller]
+ */
+
+static VOID Dump(int iIndent,
+                 PDOMNODE pDomNode)
+{
+    PLISTNODE pChildNode;
+    int i;
+    for (i = 0;
+         i < iIndent;
+         ++i)
+    {
+        printf(" ");
+    }
+
+    switch (pDomNode->NodeBase.ulNodeType)
+    {
+        #define DUMPTYPE(t) case t: printf(#t); break;
+        DUMPTYPE(DOMNODE_ELEMENT)
+        DUMPTYPE(DOMNODE_ATTRIBUTE)
+        DUMPTYPE(DOMNODE_TEXT)
+        DUMPTYPE(DOMNODE_PROCESSING_INSTRUCTION)
+        DUMPTYPE(DOMNODE_COMMENT)
+        DUMPTYPE(DOMNODE_DOCUMENT)
+        DUMPTYPE(DOMNODE_DOCUMENT_TYPE)
+        DUMPTYPE(ELEMENTPARTICLE_EMPTY)
+        DUMPTYPE(ELEMENTPARTICLE_ANY)
+        DUMPTYPE(ELEMENTPARTICLE_MIXED)
+        DUMPTYPE(ELEMENTPARTICLE_CHOICE)
+        DUMPTYPE(ELEMENTPARTICLE_SEQ)
+        DUMPTYPE(ELEMENTPARTICLE_NAME)
+        DUMPTYPE(ATTRIBUTE_DECLARATION_BASE)
+        DUMPTYPE(ATTRIBUTE_DECLARATION)
+        DUMPTYPE(ATTRIBUTE_DECLARATION_ENUM)
+    }
+
+    printf(" \"%s\"\n", STRINGORNULL(pDomNode->NodeBase.strNodeName.psz));
+
+    ++iIndent;
+    for (pChildNode = lstQueryFirstNode(&pDomNode->llChildren);
+         pChildNode;
+         pChildNode = pChildNode->pNext)
+    {
+        Dump(iIndent, (PDOMNODE)pChildNode->pItemData);
+    }
+    --iIndent;
+}
+
+#endif
+
+/*
+ *@@ xmlDump:
+ *      debug function which dumps the DOM to stdout.
+ *
+ *@@added V0.9.20 (2002-07-03) [umoeller]
+ */
+
+VOID xmlDump(PXMLDOM pDom)
+{
+#ifdef __DEBUG__
+    if (!pDom)
+    {
+        printf(__FUNCTION__ ": pDom is NULL\n");
+        return;
+    }
+
+    printf(__FUNCTION__ ": dumping document node ");
+
+    Dump(0, (PDOMNODE)pDom->pDocumentNode);
+#endif
+}
+
 /*
  *@@ xmlFreeDOM:
  *      cleans up all resources allocated by
@@ -2745,6 +2822,7 @@ PCMATTRIBUTEDECL xmlFindAttribDecl(PXMLDOM pDom,
  *      DOM. Useful helper to start enumerating elements.
  *
  *@@added V0.9.11 (2001-04-22) [umoeller]
+ *@@changed V0.9.20 (2002-07-03) [umoeller]: this never worked with DTDs, fixed
  */
 
 PDOMNODE xmlGetRootElement(PXMLDOM pDom)
@@ -2756,7 +2834,19 @@ PDOMNODE xmlGetRootElement(PXMLDOM pDom)
          && (pListNode = lstQueryFirstNode(&pDocumentNode->DomNode.llChildren))
        )
     {
-        return ((PDOMNODE)pListNode->pItemData);
+        // V0.9.20 (2002-07-03) [umoeller]:
+        // we can't just return the first node on the
+        // list, because if we have DTD, this might
+        // be the doctype... so loop until we find
+        // an element, which must be the root element
+        while (pListNode)
+        {
+            PDOMNODE pDomNode = (PDOMNODE)pListNode->pItemData;
+            if (pDomNode->NodeBase.ulNodeType == DOMNODE_ELEMENT)
+                return (pDomNode);
+
+            pListNode = pListNode->pNext;
+        }
     }
 
     return NULL;
@@ -2842,8 +2932,6 @@ PDOMNODE xmlGetFirstText(PDOMNODE pElement)
 PLINKLIST xmlGetElementsByTagName(PDOMNODE pParent,
                                   const char *pcszName)
 {
-    // APIRET arc = NO_ERROR;
-
     PLINKLIST pll = lstCreate(FALSE);       // no free
     if (pll)
     {

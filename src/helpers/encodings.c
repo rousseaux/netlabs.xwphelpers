@@ -39,8 +39,10 @@
 #include "helpers\standards.h"
 
 #include "encodings\base.h"
-#include "encodings\alltables.h"
-// #include "encodings\collate.h"
+
+#include "encodings\unicase.h"
+
+#include "encodings\alltables.h"        // this takes a very long time
 
 #pragma hdrstop
 
@@ -123,6 +125,20 @@ struct
         UNSUPPORTED, NULL, 0, 1200, MULTI_UNICODE, "Unicode UCS-2",
         UNSUPPORTED, NULL, 0, 1208, MULTI_UNICODE, "Unicode UTF-8"
     };
+
+/*
+ *@@ ENCCASEFOLD:
+ *
+ *@@added V0.9.20 (2002-07-03) [umoeller]
+ */
+
+typedef struct _ENCCASEFOLD
+{
+    unsigned long   cEntries;
+    unsigned long   aulFolds[1];
+} ENCCASEFOLD, *PENCCASEFOLD;
+
+static PENCCASEFOLD G_pFold = NULL;
 
 /*
  *@@ encGetTable:
@@ -238,6 +254,8 @@ ENCID encFindIdForCodepage(unsigned short usCodepage,       // in: codepage to f
  *      Unfortunately, OS/2 uses codepage 850 on most
  *      systems (and Windows uses OS/2 codepage 1252),
  *      so for conversion between those, codecs are needed.
+ *
+ *      This works and is presently used in WarpIN.
  */
 
 PCONVERSION encCreateCodec(ENCID id)
@@ -324,6 +342,8 @@ PCONVERSION encCreateCodec(ENCID id)
  *      frees a codec created with encFreeConversion
  *      and sets the given pointer to NULL.
  *
+ *      This works and is presently used in WarpIN.
+ *
  *@@added V0.9.18 (2002-03-08) [umoeller]
  */
 
@@ -350,6 +370,8 @@ void encFreeCodec(PCONVERSION *ppTable)         // in: ptr to codec ptr returned
  *      Returns 0xFFFF on errors, which is unlikely
  *      with Unicode though.
  *
+ *      This works and is presently used in WarpIN.
+ *
  *@@added V0.9.18 (2002-03-08) [umoeller]
  */
 
@@ -372,6 +394,8 @@ unsigned long encChar2Uni(PCONVERSION pTable,
  *
  *      Returns 0xFFFF if the Unicode character
  *      has no codepage equivalent.
+ *
+ *      This works and is presently used in WarpIN.
  *
  *@@added V0.9.18 (2002-03-08) [umoeller]
  */
@@ -408,6 +432,8 @@ unsigned short encUni2Char(PCONVERSION pTable,
  *
  *      This returns 0 if **ppch points to a
  *      null character.
+ *
+ *      This works and is presently used in WarpIN.
  *
  *@@added V0.9.14 (2001-08-09) [umoeller]
  */
@@ -510,4 +536,154 @@ unsigned long encDecodeUTF8(const char **ppch)
     return (ulChar);
 }
 
+/*
+ *@@ CreateCaseFold:
+ *      creates a casefold for later use with
+ *      encToUpper.
+ *
+ *      This only uses one-byte sequences from
+ *      the Unicode case folding table (see
+ *      include\encodings\unicase.h), so this
+ *      cannot be used for expanding characters
+ *      at this point.
+ *
+ *      Returns 1 (TRUE) on success.
+ *
+ *      This works and is presently used in WarpIN.
+ *
+ *@@added V0.9.20 (2002-07-03) [umoeller]
+ */
+
+int encInitCase(void)
+{
+    unsigned long   ul,
+                    cEntries = 0,
+                    cb;
+
+    for (ul = 0;
+         ul < ARRAYITEMCOUNT(G_aCaseFolds);
+         ++ul)
+    {
+        // ignore CASEFL_T (duplicate entries for i chars)
+        // and CASEFL_F (expansions)
+        if (    (G_aCaseFolds[ul].fl & (CASEFL_C | CASEFL_S))
+             && (G_aCaseFolds[ul].ulLow > cEntries)
+           )
+            cEntries = G_aCaseFolds[ul].ulLow;
+    }
+
+    cb = sizeof(ENCCASEFOLD) + cEntries * sizeof(unsigned long);
+    if (G_pFold = (PENCCASEFOLD)malloc(cb))
+    {
+        memset(G_pFold, 0, cb);
+        G_pFold->cEntries = cEntries;
+
+        for (ul = 0;
+             ul < ARRAYITEMCOUNT(G_aCaseFolds);
+             ++ul)
+        {
+            if (G_aCaseFolds[ul].fl & (CASEFL_C | CASEFL_S))
+                G_pFold->aulFolds[G_aCaseFolds[ul].ulLow] = G_aCaseFolds[ul].c1;
+        }
+
+        return 1;
+    }
+
+    return 0;
+}
+
+/*
+ *@@ encToUpper:
+ *      converts the given unicode character to
+ *      upper case, if possible, or returns
+ *      ulUni back if Unicode doesn't define
+ *      an upper-case character for it.
+ *
+ *      Special cases:
+ *
+ *      --  Returns 0 for 0.
+ *
+ *      Preconditions:
+ *
+ *      --  You must call encInitCase before
+ *          the first call.
+ *
+ *      This works and is presently used in WarpIN.
+ *
+ *@@added V0.9.20 (2002-07-03) [umoeller]
+ */
+
+unsigned long encToUpper(unsigned long ulUni)
+{
+    unsigned long ulFold;
+
+    if (    (ulUni < G_pFold->cEntries)
+         && (ulFold = G_pFold->aulFolds[ulUni])
+       )
+        return ulFold;
+
+    return ulUni;
+}
+
+/*
+ *@@ encicmp:
+ *      like stricmp, but for UTF-8 strings.
+ *      This uses encToUpper for the comparisons.
+ *
+ *      Like stricmp, this returns:
+ *
+ *      --  -1 if pcsz1 is less than pcsz2
+ *      --  0 if pcsz1 is equal to pcsz2
+ *      --  +1 if pcsz1 is greater than pcsz2
+ *
+ *      However, this does not crash on passing
+ *      in NULL strings.
+ *
+ *      Preconditions:
+ *
+ *      --  You must call encInitCase before
+ *          the first call.
+ *
+ *      This works and is presently used in WarpIN.
+ *
+ *@@added V0.9.20 (2002-07-03) [umoeller]
+ */
+
+int encicmp(const char *pcsz1,
+            const char *pcsz2)
+{
+    const char  *p1 = pcsz1,
+                *p2 = pcsz2;
+
+    unsigned long ul1, ul2;
+
+    do
+    {
+        // encDecodeUTF8 returns null for null, so this is safe
+        ul1 = encToUpper(encDecodeUTF8(&p1));
+        ul2 = encToUpper(encDecodeUTF8(&p2));
+
+        if (ul1 < ul2)
+            return -1;
+        if (ul1 > ul2)
+            return +1;
+
+        // both are equal: check for null bytes then
+        if (!ul1)
+            if (!ul2)
+                return 0;
+            else
+                // ul1 is null, but ul2 isn't:
+                return -1;
+        else
+            if (!ul2)
+                // ul1 is not null, but ul2 is:
+                return +1;
+
+        // both are non-null: continue
+
+    } while (1);
+
+    return 0;
+}
 

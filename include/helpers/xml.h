@@ -711,6 +711,8 @@ extern "C" {
                     ULONG cb,
                     BOOL fIsLast);
 
+    VOID xmlDump(PXMLDOM pDom);
+
     APIRET xmlFreeDOM(PXMLDOM pDom);
 
     /* ******************************************************************
