@@ -676,12 +676,15 @@ BOOL ctlMakeMenuButton(HWND hwndButton,      // in: button to subclass
  *@@changed V0.9.0 [umoeller]: added halftoned display for WS_DISABLED
  *@@changed V0.9.0 [umoeller]: exported gpihIcon2Bitmap function to gpih.c
  *@@changed V0.9.0 [umoeller]: fixed paint errors when SM_SETHANDLE had NULL argument in mp1
+ *@@changed V0.9.16 (2001-10-15) [umoeller]: now centering icon in static properly
+ *@@changed V0.9.16 (2001-10-15) [umoeller]: this always used the presparam colors of the parent instead of its own ones
  */
 
 MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     PANIMATIONDATA pa = (PANIMATIONDATA)WinQueryWindowULong(hwndStatic, QWL_USER);
                 // animation data which was stored in window words
+
     PFNWP   OldStaticProc = NULL;
     MRESULT mrc = NULL;
 
@@ -725,9 +728,14 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
                 SIZEL szlPage;
 
                 LONG lBkgndColor
-                    = winhQueryPresColor(WinQueryWindow(hwndStatic, QW_PARENT),
+                    /* = winhQueryPresColor(WinQueryWindow(hwndStatic, QW_PARENT),
                                          PP_BACKGROUNDCOLOR,
                                          FALSE,
+                                         SYSCLR_DIALOGBACKGROUND); */
+                    // fixed this... V0.9.16 (2001-10-15) [umoeller]
+                    = winhQueryPresColor(hwndStatic,
+                                         PP_BACKGROUNDCOLOR,
+                                         TRUE,
                                          SYSCLR_DIALOGBACKGROUND);
 
                 HPS hps = WinGetPS(hwndStatic);
@@ -791,11 +799,24 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
                                 pa->hptr = (HPOINTER)mp1;
 
                                 if (pa->hptr)
+                                {
+                                    // center the icon in the bitmap
+                                    // V0.9.16 (2001-10-15) [umoeller]
+                                    POINTL ptlOfs;
+                                    ptlOfs.x = (   (pa->rclIcon.xRight - pa->rclIcon.xLeft)
+                                                 - pa->lIconSize
+                                               ) / 2;
+                                    ptlOfs.y = (   (pa->rclIcon.yTop - pa->rclIcon.yBottom)
+                                                 - pa->lIconSize
+                                               ) / 2;
+
                                     // paint icon into bitmap
                                     gpihIcon2Bitmap(hpsMem,
                                                     pa->hptr,
                                                     lBkgndColor,
-                                                    WinQuerySysValue(HWND_DESKTOP, SV_CXICON));
+                                                    &ptlOfs,
+                                                    pa->lIconSize);
+                                }
 
                             } // end if (pa->ulFlags & ANF_ICON)
 
@@ -932,6 +953,41 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
  ********************************************************************/
 
 /*
+ *@@ CreateAnimationData:
+ *
+ *@@added V0.9.16 (2001-10-15) [umoeller]
+ */
+
+PANIMATIONDATA CreateAnimationData(HWND hwndStatic,
+                                   USHORT cAnimations)
+{
+    PANIMATIONDATA pa = NULL;
+
+    if (cAnimations >= 1)
+    {
+        // create the ANIMATIONDATA structure,
+        // initialize some fields,
+        // and store it in QWL_USER of the static control
+        ULONG   cbStruct =   sizeof(ANIMATIONDATA)
+                           + ((cAnimations - 1) * sizeof(HPOINTER));
+
+        if (pa = (PANIMATIONDATA)malloc(cbStruct))
+        {
+            memset(pa, 0, cbStruct);
+
+            WinSetWindowULong(hwndStatic, QWL_USER, (ULONG)pa);
+
+            pa->hab = WinQueryAnchorBlock(hwndStatic);
+            WinQueryWindowRect(hwndStatic, &pa->rclIcon);
+            pa->OldStaticProc = WinSubclassWindow(hwndStatic, ctl_fnwpBitmapStatic);
+            pa->lIconSize = WinQuerySysValue(HWND_DESKTOP, SV_CXICON);
+        }
+    }
+
+    return (pa);
+}
+
+/*
  *@@ ctlPrepareStaticIcon:
  *      turns a static control into one which properly
  *      displays transparent icons when given a
@@ -970,26 +1026,15 @@ PANIMATIONDATA ctlPrepareStaticIcon(HWND hwndStatic,
                                     USHORT usAnimCount) // needed for allocating extra memory,
                                                         // this must be at least 1
 {
-    PANIMATIONDATA pa = NULL;
-    PFNWP OldStaticProc = WinSubclassWindow(hwndStatic, ctl_fnwpBitmapStatic);
-    if (OldStaticProc)
-    {
-        // create the ANIMATIONDATA structure,
-        // initialize some fields,
-        // and store it in QWL_USER of the static control
-        ULONG   cbStruct =   sizeof(ANIMATIONDATA)
-                           + ((usAnimCount-1) * sizeof(HPOINTER));
-        pa = (PANIMATIONDATA)malloc(cbStruct);
-        memset(pa, 0, cbStruct);
+    PANIMATIONDATA pa;
 
+    if (pa = CreateAnimationData(hwndStatic,
+                                 usAnimCount))
+    {
         // switch static to icon mode
         pa->ulFlags = ANF_ICON;
-        pa->OldStaticProc = OldStaticProc;
-        WinQueryWindowRect(hwndStatic, &(pa->rclIcon));
-        pa->hab = WinQueryAnchorBlock(hwndStatic);
-
-        WinSetWindowULong(hwndStatic, QWL_USER, (ULONG)pa);
     }
+
     return (pa);
 }
 
@@ -1056,10 +1101,12 @@ BOOL ctlPrepareAnimation(HWND hwndStatic,   // icon hwnd
         // paNew->rclIcon already set
         paNew->usAniCurrent = 0;
         paNew->usAniCount = usAnimCount;
-        memcpy(&(paNew->ahptrAniIcons), pahptr,
-                        (usAnimCount * sizeof(HPOINTER)));
+        memcpy(&paNew->ahptrAniIcons,
+               pahptr,
+               (usAnimCount * sizeof(HPOINTER)));
 
-        if (fStartAnimation) {
+        if (fStartAnimation)
+        {
             WinStartTimer(WinQueryAnchorBlock(hwndStatic), hwndStatic,
                     1, ulDelay);
             WinPostMsg(hwndStatic, WM_TIMER, NULL, NULL);
@@ -1154,33 +1201,22 @@ BOOL ctlStopAnimation(HWND hwndStatic)
  *      it is cleaned up automatically when the control is destroyed.
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.16 (2001-10-15) [umoeller]: some cleanup
  */
 
 PANIMATIONDATA ctlPrepareStretchedBitmap(HWND hwndStatic,
                                          BOOL fPreserveProportions)
 {
-    PANIMATIONDATA pa = NULL;
-    PFNWP OldStaticProc = WinSubclassWindow(hwndStatic, ctl_fnwpBitmapStatic);
-    if (OldStaticProc)
-    {
-        // create the ANIMATIONDATA structure,
-        // initialize some fields,
-        // and store it in QWL_USER of the static control
-        ULONG   cbStruct =   sizeof(ANIMATIONDATA);
-        pa = (PANIMATIONDATA)malloc(cbStruct);
-        memset(pa, 0, cbStruct);
+    PANIMATIONDATA pa;
 
+    if (pa = CreateAnimationData(hwndStatic, 1))
+    {
         // switch static to bitmap mode
         pa->ulFlags = ANF_BITMAP;
         if (fPreserveProportions)
             pa->ulFlags |= ANF_PROPORTIONAL;
-
-        pa->OldStaticProc = OldStaticProc;
-        WinQueryWindowRect(hwndStatic, &(pa->rclIcon));
-        pa->hab = WinQueryAnchorBlock(hwndStatic);
-
-        WinSetWindowULong(hwndStatic, QWL_USER, (ULONG)pa);
     }
+
     return (pa);
 }
 

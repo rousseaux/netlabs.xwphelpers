@@ -77,6 +77,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 #include "setup.h"                      // code generation and debugging options
 
@@ -2887,6 +2888,25 @@ LONG winhQueryPresColor(HWND    hwnd,       // in: window to query
         return (WinQuerySysColor(HWND_DESKTOP, lSysColor, 0));
 
     return -1;
+}
+
+/*
+ *@@ winhSetPresColor:
+ *      sets a color presparam. ulIndex specifies
+ *      the presparam to be set and would normally
+ *      be either PP_BACKGROUNDCOLOR or PP_FOREGROUNDCOLOR.
+ *
+ *@@added V0.9.16 (2001-10-15) [umoeller]
+ */
+
+BOOL winhSetPresColor(HWND hwnd,
+                      ULONG ulIndex,
+                      LONG lColor)
+{
+    return (WinSetPresParam(hwnd,
+                            ulIndex,
+                            sizeof(LONG),
+                            &lColor));
 }
 
 /*

@@ -304,9 +304,9 @@ VOID gpihDrawRect(HPS hps,      // in: presentation space for output
     ptl1.x = prcl->xLeft;
     ptl1.y = prcl->yBottom;
     GpiMove(hps, &ptl1);
-    ptl1.y = prcl->yTop-1;
+    ptl1.y = prcl->yTop - 1;
     GpiLine(hps, &ptl1);
-    ptl1.x = prcl->xRight-1;
+    ptl1.x = prcl->xRight - 1;
     GpiLine(hps, &ptl1);
     ptl1.y = prcl->yBottom;
     GpiLine(hps, &ptl1);
@@ -1972,16 +1972,22 @@ LONG gpihStretchBitmap(HPS hpsTarget,       // in: memory PS to copy bitmap to
 /*
  *@@ gpihIcon2Bitmap:
  *      this paints the given icon/pointer into
- *      a bitmap.
+ *      a bitmap. Note that if the bitmap is
+ *      larget than the system icon size, only
+ *      the rectangle of the icon will be filled
+ *      with lBkgndColor.
  *
  *      Returns FALSE upon errors.
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.16 (2001-10-15) [umoeller]: added pptlLowerLeft
+ *@@changed V0.9.16 (2001-10-15) [umoeller]: fixed inclusive/exclusive confusion (sigh...)
  */
 
 BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap selected into it
                      HPOINTER hptr,      // in: source icon
                      LONG lBkgndColor,   // in: background color for transparent areas
+                     PPOINTL pptlLowerLeft,   // in: lower left corner of where to paint (ptr can be NULL)
                      ULONG ulIconSize)   // in: icon size (should be the value of WinQuerySysValue(HWND_DESKTOP, SV_CXICON))
 {
     BOOL        brc = FALSE;
@@ -2002,20 +2008,29 @@ BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap sel
     //                  transparent parts).
     if (WinQueryPointerInfo(hptr, &pi))
     {
+        POINTL  ptlLowerLeft = {0, 0};
         POINTL  aptl[4];
         memset(aptl, 0, sizeof(POINTL) * 4);
 
+        if (pptlLowerLeft)
+            // lower left specified: V0.9.16 (2001-10-15) [umoeller]
+            memcpy(&ptlLowerLeft, pptlLowerLeft, sizeof(POINTL));
+
         // aptl[0]: target bottom-left, is all 0
+        aptl[0].x = ptlLowerLeft.x;
+        aptl[0].y = ptlLowerLeft.y;
 
         // aptl[1]: target top-right (inclusive!)
-        aptl[1].x = ulIconSize;
-        aptl[1].y = ulIconSize;
+        // V0.9.16 (2001-10-15) [umoeller]: fixed rectangle confusion
+        aptl[1].x = ptlLowerLeft.x + ulIconSize - 1;
+        aptl[1].y = ptlLowerLeft.y + ulIconSize - 1;
 
         // aptl[2]: source bottom-left, is all 0
 
         // aptl[3]: source top-right (exclusive!)
-        aptl[3].x = ulIconSize + 1;
-        aptl[3].y = ulIconSize + 1;
+        // V0.9.16 (2001-10-15) [umoeller]: fixed rectangle confusion
+        aptl[3].x = ulIconSize; //  + 1;
+        aptl[3].y = ulIconSize; //  + 1;
 
         GpiSetColor(hpsMem, CLR_WHITE);
         GpiSetBackColor(hpsMem, CLR_BLACK);
@@ -2023,8 +2038,8 @@ BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap sel
         // GpiErase(hpsMem);
 
         // work on the AND image
-        GpiWCBitBlt(hpsMem,
-                    pi.hbmPointer,
+        GpiWCBitBlt(hpsMem,     // target
+                    pi.hbmPointer,  // src bmp
                     4L,         // must always be 4
                     &aptl[0],   // point array
                     ROP_SRCAND,   // source AND target
@@ -2041,8 +2056,9 @@ BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap sel
 
         GpiSetColor(hpsMem, lBkgndColor);
         // work on the XOR image
-        aptl[2].y = ulIconSize;
-        aptl[3].y = (ulIconSize * 2) + 1;
+        aptl[2].y = ulIconSize;                 // exclusive
+        aptl[3].y = (ulIconSize * 2); //  /* + 1; */       // exclusive
+        // V0.9.16 (2001-10-15) [umoeller]: fixed rectangle confusion
         GpiWCBitBlt(hpsMem,
                     pi.hbmPointer,
                     4L,         // must always be 4

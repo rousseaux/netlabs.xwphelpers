@@ -208,6 +208,8 @@ extern "C" {
     typedef VOID APIENTRY APMHCLOSE(PAPM *ppApm);
     typedef APMHCLOSE *PAPMHCLOSE;
 
+    BOOL apmhHasBattery(VOID);
+
 #endif
 
 #if __cplusplus

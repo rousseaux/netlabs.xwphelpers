@@ -50,6 +50,9 @@ extern "C" {
     #define DLGERR_TABLE_NOT_CLOSED             (DLGERR_FIRST + 5)
     #define DLGERR_TOO_MANY_TABLES_CLOSED       (DLGERR_FIRST + 6)
     #define DLGERR_CANNOT_CREATE_CONTROL        (DLGERR_FIRST + 7)
+    #define DLGERR_ARRAY_TOO_SMALL              (DLGERR_FIRST + 8)
+    #define DLGERR_INVALID_CONTROL_TITLE        (DLGERR_FIRST + 9)
+    #define DLGERR_INVALID_STATIC_BITMAP        (DLGERR_FIRST + 10)
 
     /* ******************************************************************
      *
@@ -97,6 +100,7 @@ extern "C" {
         USHORT      usAdjustPosition;
                 // flags for winhAdjustControls; any combination of
                 // XAC_MOVEX, XAC_MOVEY, XAC_SIZEX, XAC_SIZEY
+                // @@todo not implemented yet
 
         SIZEL       szlControlProposed;
                 // proposed size; a number of special flags are
@@ -189,6 +193,10 @@ extern "C" {
             WS_VISIBLE | SS_TEXT | DT_LEFT | DT_VCENTER | DT_MNEMONIC, \
             id, CTL_COMMON_FONT,  0, {cx, cy}, COMMON_SPACING }
 
+    #define CONTROLDEF_TEXT_WORDBREAK(pcsz, id, cx) { WC_STATIC, pcsz, \
+            WS_VISIBLE | SS_TEXT | DT_LEFT | DT_TOP | DT_WORDBREAK, \
+            id, CTL_COMMON_FONT,  0, {cx, -1}, COMMON_SPACING }
+
     #define CONTROLDEF_DEFPUSHBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_DEFAULT, \
             id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
@@ -214,7 +222,15 @@ extern "C" {
             id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
 
     #define CONTROLDEF_ENTRYFIELD(pcsz, id, cx, cy) { WC_ENTRYFIELD, pcsz, \
-            WS_VISIBLE | WS_TABSTOP | ES_MARGIN, \
+            WS_VISIBLE | WS_TABSTOP | ES_MARGIN | ES_AUTOSCROLL, \
+            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING + 5 }
+
+    #define CONTROLDEF_ENTRYFIELD_RO(pcsz, id, cx, cy) { WC_ENTRYFIELD, pcsz, \
+            WS_VISIBLE | WS_TABSTOP | ES_MARGIN | ES_READONLY | ES_AUTOSCROLL, \
+            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING + 5 }
+
+    #define CONTROLDEF_MLE(pcsz, id, cx, cy) { WC_MLE, pcsz, \
+            WS_VISIBLE | WS_TABSTOP | MLS_BORDER | MLS_IGNORETAB | MLS_WORDWRAP, \
             id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
 
     #define CONTROLDEF_SPINBUTTON(id, cx, cy) { WC_SPINBUTTON, NULL, \
@@ -223,7 +239,7 @@ extern "C" {
 
     /* ******************************************************************
      *
-     *   APIs
+     *   Dialog formatter entry points
      *
      ********************************************************************/
 
@@ -255,6 +271,45 @@ extern "C" {
 
     #define DFFL_RESIZEFRAME        0x0001
     #define DFFL_CREATECONTROLS     0x0002
+
+    /* ******************************************************************
+     *
+     *   Dialog arrays
+     *
+     ********************************************************************/
+
+    /*
+     *@@ DLGARRAY:
+     *      dialog array structure used with dlghCreateArray.
+     *      See remarks there.
+     *
+     *@@added V0.9.16 (2001-10-15) [umoeller]
+     */
+
+    typedef struct _DLGARRAY
+    {
+        DLGHITEM    *paDlgItems;        // array of DLGHITEM's, allocated once
+                                        // by dlghCreateArray
+        ULONG       cDlgItemsMax,       // copied from dlghCreateArray
+                    cDlgItemsNow;       // initially 0, raised after each
+                                        // dlghAppendToArray; pass this to the
+                                        // dialog formatter
+    } DLGARRAY, *PDLGARRAY;
+
+    APIRET dlghCreateArray(ULONG cMaxItems,
+                           PDLGARRAY *ppArray);
+
+    APIRET dlghFreeArray(PDLGARRAY *ppArray);
+
+    APIRET dlghAppendToArray(PDLGARRAY pArray,
+                             DLGHITEM *paItems,
+                             ULONG cItems);
+
+    /* ******************************************************************
+     *
+     *   Standard dialogs
+     *
+     ********************************************************************/
 
     /*
      *@@ MSGBOXSTRINGS:
@@ -332,6 +387,12 @@ extern "C" {
                          ULONG ulMaxLen,
                          ULONG fl,
                          const char *pcszFont);
+
+    /* ******************************************************************
+     *
+     *   Dialog input handlers
+     *
+     ********************************************************************/
 
     VOID dlghSetPrevFocus(PVOID pvllWindows);
 

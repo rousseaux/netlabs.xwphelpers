@@ -218,4 +218,27 @@ VOID apmhClose(PAPM *ppApm)
     }
 }
 
+/*
+ *@@ apmhHasBattery:
+ *      quick'n'dirty helper which returns TRUE only
+ *      if APM is supported on the system and the
+ *      system actually has a battery (i.e. is a laptop).
+ *
+ *@@added V0.9.16 (2001-10-15) [umoeller]
+ */
 
+BOOL apmhHasBattery(VOID)
+{
+    BOOL brc = FALSE;
+
+    PAPM p = NULL;
+    if (!apmhOpen(&p))
+    {
+        if (!apmhReadStatus(p, NULL))
+            brc = (p->ulBatteryStatus != 0xFF);
+
+        apmhClose(&p);
+    }
+
+    return brc;
+}

@@ -106,7 +106,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
 
 #include "setup.h"                      // code generation and debugging options
 

@@ -85,9 +85,7 @@
 /*
  *@@ DLGPRIVATE:
  *      private data to the dlg manager, allocated
- *      by dlghCreateDlg. This is what is really
- *      used, even though the prototype only
- *      declares DIALOGDATA.
+ *      by dlghCreateDlg.
  *
  *      This only exists while the dialog is being
  *      created and is not stored with the new dialog.
@@ -217,7 +215,7 @@ typedef enum _PROCESSMODE
  *
  ********************************************************************/
 
-#define PM_GROUP_SPACING_X          10
+#define PM_GROUP_SPACING_X          16
 #define PM_GROUP_SPACING_TOP        20
 
 APIRET ProcessTable(PTABLEDEF pTableDef,
@@ -293,13 +291,16 @@ VOID SetDlgFont(PCONTROLDEF pControlDef,
  *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed various things with statics
  *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed broken fonts
  *@@changed V0.9.14 (2001-08-01) [umoeller]: now caching fonts, which is significantly faster
+ *@@changed V0.9.16 (2001-10-15) [umoeller]: added APIRET
  */
 
-VOID CalcAutoSizeText(PCONTROLDEF pControlDef,
-                      BOOL fMultiLine,          // in: if TRUE, multiple lines
-                      PSIZEL pszlAuto,          // out: computed size
-                      PDLGPRIVATE pDlgData)
+APIRET CalcAutoSizeText(PCONTROLDEF pControlDef,
+                        BOOL fMultiLine,          // in: if TRUE, multiple lines
+                        PSIZEL pszlAuto,          // out: computed size
+                        PDLGPRIVATE pDlgData)
 {
+    APIRET arc = NO_ERROR;
+
     SetDlgFont(pControlDef, pDlgData);
 
     pszlAuto->cy =   pDlgData->fmLast.lMaxBaselineExt
@@ -307,7 +308,9 @@ VOID CalcAutoSizeText(PCONTROLDEF pControlDef,
 
     // ok, we FINALLY have a font now...
     // get the control string and see how much space it needs
-    if (pControlDef->pcszText)
+    if (    (pControlDef->pcszText)
+         && (pControlDef->pcszText != (PCSZ)-1)
+       )
     {
         // do we have multiple lines?
         if (fMultiLine)
@@ -340,18 +343,25 @@ VOID CalcAutoSizeText(PCONTROLDEF pControlDef,
             pszlAuto->cx = aptl[TXTBOX_TOPRIGHT].x - aptl[TXTBOX_BOTTOMLEFT].x;
         }
     }
+    else
+        arc = DLGERR_INVALID_CONTROL_TITLE;
+
+    return (arc);
 }
 
 /*
  *@@ CalcAutoSize:
  *
  *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed various things with statics
+ *@@changed V0.9.16 (2001-10-15) [umoeller]: added APIRET
  */
 
-VOID CalcAutoSize(PCONTROLDEF pControlDef,
-                  PSIZEL pszlAuto,          // out: computed size
-                  PDLGPRIVATE pDlgData)
+APIRET CalcAutoSize(PCONTROLDEF pControlDef,
+                    PSIZEL pszlAuto,          // out: computed size
+                    PDLGPRIVATE pDlgData)
 {
+    APIRET arc = NO_ERROR;
+
     // dumb defaults
     pszlAuto->cx = 100;
     pszlAuto->cy = 30;
@@ -359,44 +369,46 @@ VOID CalcAutoSize(PCONTROLDEF pControlDef,
     switch ((ULONG)pControlDef->pcszClass)
     {
         case 0xffff0003L: // WC_BUTTON:
-            CalcAutoSizeText(pControlDef,
-                             FALSE,         // no multiline
-                             pszlAuto,
-                             pDlgData);
-            if (pControlDef->flStyle & (  BS_AUTOCHECKBOX
-                                        | BS_AUTORADIOBUTTON
-                                        | BS_AUTO3STATE
-                                        | BS_3STATE
-                                        | BS_CHECKBOX
-                                        | BS_RADIOBUTTON))
+            if (!(arc = CalcAutoSizeText(pControlDef,
+                                         FALSE,         // no multiline
+                                         pszlAuto,
+                                         pDlgData)))
             {
-                // give a little extra width for the box bitmap
-                pszlAuto->cx += 20;     // @@todo
-                // and height
-                pszlAuto->cy += 2;
-            }
-            else if (pControlDef->flStyle & BS_BITMAP)
-                ;
-            else if (pControlDef->flStyle & (BS_ICON | BS_MINIICON))
-                ;
-            // we can't test for BS_PUSHBUTTON because that's 0x0000
-            else if (!(pControlDef->flStyle & BS_USERBUTTON))
-            {
-                pszlAuto->cx += (2 * WinQuerySysValue(HWND_DESKTOP, SV_CXBORDER) + 15);
-                pszlAuto->cy += (2 * WinQuerySysValue(HWND_DESKTOP, SV_CYBORDER) + 15);
+                if (pControlDef->flStyle & (  BS_AUTOCHECKBOX
+                                            | BS_AUTORADIOBUTTON
+                                            | BS_AUTO3STATE
+                                            | BS_3STATE
+                                            | BS_CHECKBOX
+                                            | BS_RADIOBUTTON))
+                {
+                    // give a little extra width for the box bitmap
+                    pszlAuto->cx += 20;     // @@todo
+                    // and height
+                    pszlAuto->cy += 2;
+                }
+                else if (pControlDef->flStyle & BS_BITMAP)
+                    ;
+                else if (pControlDef->flStyle & (BS_ICON | BS_MINIICON))
+                    ;
+                // we can't test for BS_PUSHBUTTON because that's 0x0000
+                else if (!(pControlDef->flStyle & BS_USERBUTTON))
+                {
+                    pszlAuto->cx += (2 * WinQuerySysValue(HWND_DESKTOP, SV_CXBORDER) + 15);
+                    pszlAuto->cy += (2 * WinQuerySysValue(HWND_DESKTOP, SV_CYBORDER) + 15);
+                }
             }
         break;
 
         case 0xffff0005L: // WC_STATIC:
             if ((pControlDef->flStyle & 0x0F) == SS_TEXT)
-                CalcAutoSizeText(pControlDef,
-                                 ((pControlDef->flStyle & DT_WORDBREAK) != 0),
-                                 pszlAuto,
-                                 pDlgData);
+                arc = CalcAutoSizeText(pControlDef,
+                                       ((pControlDef->flStyle & DT_WORDBREAK) != 0),
+                                       pszlAuto,
+                                       pDlgData);
             else if ((pControlDef->flStyle & 0x0F) == SS_BITMAP)
             {
-                HBITMAP hbm = (HBITMAP)pControlDef->pcszText;
-                if (hbm)
+                HBITMAP hbm;
+                if (hbm = (HBITMAP)pControlDef->pcszText)
                 {
                     BITMAPINFOHEADER2 bmih2;
                     ZERO(&bmih2);
@@ -407,6 +419,8 @@ VOID CalcAutoSize(PCONTROLDEF pControlDef,
                         pszlAuto->cx = bmih2.cx;
                         pszlAuto->cy = bmih2.cy;
                     }
+                    else
+                        arc = DLGERR_INVALID_STATIC_BITMAP;
                 }
             }
             else if ((pControlDef->flStyle & 0x0F) == SS_ICON)
@@ -424,6 +438,8 @@ VOID CalcAutoSize(PCONTROLDEF pControlDef,
                            + pDlgData->fmLast.lExternalLeading
                            + 5;         // some space
     }
+
+    return (arc);
 }
 
 /*
@@ -432,32 +448,38 @@ VOID CalcAutoSize(PCONTROLDEF pControlDef,
  *      ProcessColumn.
  *
  *@@added V0.9.15 (2001-08-26) [umoeller]
+ *@@changed V0.9.16 (2001-10-15) [umoeller]: fixed ugly group table spacings
+ *@@changed V0.9.16 (2001-10-15) [umoeller]: added APIRET
  */
 
-VOID ColumnCalcSizes(PCOLUMNDEF pColumnDef,
-                     PDLGPRIVATE pDlgData)
+APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
+                       PDLGPRIVATE pDlgData)
 {
+    APIRET arc = NO_ERROR;
+
     ULONG       ulXSpacing = 0,
                 ulYSpacing = 0;
     if (pColumnDef->fIsNestedTable)
     {
         // nested table: recurse!!
         PTABLEDEF pTableDef = (PTABLEDEF)pColumnDef->pvDefinition;
-        ProcessTable(pTableDef,
-                     NULL,
-                     PROCESS_CALC_SIZES,
-                     pDlgData);
-
-        // store the size of the sub-table
-        pColumnDef->cpControl.cx = pTableDef->cpTable.cx;
-        pColumnDef->cpControl.cy = pTableDef->cpTable.cy;
-
-        // should we create a PM control around the table?
-        if (pTableDef->pCtlDef)
+        if (!(arc = ProcessTable(pTableDef,
+                                 NULL,
+                                 PROCESS_CALC_SIZES,
+                                 pDlgData)))
         {
-            // yes: make this wider
-            ulXSpacing = (2 * PM_GROUP_SPACING_X);
-            ulYSpacing = (PM_GROUP_SPACING_X + PM_GROUP_SPACING_TOP);
+            // store the size of the sub-table
+            pColumnDef->cpControl.cx = pTableDef->cpTable.cx;
+            pColumnDef->cpControl.cy = pTableDef->cpTable.cy;
+
+            // should we create a PM control around the table?
+            if (pTableDef->pCtlDef)
+            {
+                // yes: make this wider
+                ulXSpacing =    2 * PM_GROUP_SPACING_X;
+                ulYSpacing =    // 3 * PM_GROUP_SPACING_X;
+                            (PM_GROUP_SPACING_X + PM_GROUP_SPACING_TOP);
+            }
         }
     }
     else
@@ -471,30 +493,37 @@ VOID ColumnCalcSizes(PCOLUMNDEF pColumnDef,
              || (pszl->cy == -1)
            )
         {
-            CalcAutoSize(pControlDef,
-                         &szlAuto,
-                         pDlgData);
+            arc = CalcAutoSize(pControlDef,
+                               &szlAuto,
+                               pDlgData);
         }
 
-        if (pszl->cx == -1)
-            pColumnDef->cpControl.cx = szlAuto.cx;
-        else
-            pColumnDef->cpControl.cx = pszl->cx;
+        if (!arc)
+        {
+            if (pszl->cx == -1)
+                pColumnDef->cpControl.cx = szlAuto.cx;
+            else
+                pColumnDef->cpControl.cx = pszl->cx;
 
-        if (pszl->cy == -1)
-            pColumnDef->cpControl.cy = szlAuto.cy;
-        else
-            pColumnDef->cpControl.cy = pszl->cy;
+            if (pszl->cy == -1)
+                pColumnDef->cpControl.cy = szlAuto.cy;
+            else
+                pColumnDef->cpControl.cy = pszl->cy;
 
-        // @@todo hack sizes
+            // @@todo hack sizes
 
-        ulXSpacing = ulYSpacing = (2 * pControlDef->ulSpacing);
+            ulXSpacing
+            = ulYSpacing
+            = (2 * pControlDef->ulSpacing);
+        }
     }
 
     pColumnDef->cpColumn.cx =   pColumnDef->cpControl.cx
                                + ulXSpacing;
     pColumnDef->cpColumn.cy =   pColumnDef->cpControl.cy
                                + ulYSpacing;
+
+    return (arc);
 }
 
 /*
@@ -503,13 +532,16 @@ VOID ColumnCalcSizes(PCOLUMNDEF pColumnDef,
  *      ProcessColumn.
  *
  *@@added V0.9.15 (2001-08-26) [umoeller]
+ *@@changed V0.9.16 (2001-10-15) [umoeller]: added APIRET
  */
 
-VOID ColumnCalcPositions(PCOLUMNDEF pColumnDef,
-                         PROWDEF pOwningRow,          // in: current row from ProcessRow
-                         PLONG plX,                   // in/out: PROCESS_CALC_POSITIONS only
-                         PDLGPRIVATE pDlgData)
+APIRET ColumnCalcPositions(PCOLUMNDEF pColumnDef,
+                           PROWDEF pOwningRow,          // in: current row from ProcessRow
+                           PLONG plX,                   // in/out: PROCESS_CALC_POSITIONS only
+                           PDLGPRIVATE pDlgData)
 {
+    APIRET arc = NO_ERROR;
+
     // calculate column position: this includes spacing
     ULONG ulSpacing = 0;
 
@@ -543,7 +575,7 @@ VOID ColumnCalcPositions(PCOLUMNDEF pColumnDef,
         // should we create a PM control around the table?
         if (pTableDef->pCtlDef)
             // yes:
-            ulSpacing = PM_GROUP_SPACING_X;
+            ulSpacing = PM_GROUP_SPACING_X / 2;     // V0.9.16 (2001-10-15) [umoeller]
     }
     else
     {
@@ -567,11 +599,13 @@ VOID ColumnCalcPositions(PCOLUMNDEF pColumnDef,
         PTABLEDEF pTableDef = (PTABLEDEF)pColumnDef->pvDefinition;
 
         // recurse!! to create windows for the sub-table
-        ProcessTable(pTableDef,
-                     &pColumnDef->cpControl,   // start pos for new table
-                     PROCESS_CALC_POSITIONS,
-                     pDlgData);
+        arc = ProcessTable(pTableDef,
+                           &pColumnDef->cpControl,   // start pos for new table
+                           PROCESS_CALC_POSITIONS,
+                           pDlgData);
     }
+
+    return (arc);
 }
 
 /*
@@ -580,6 +614,7 @@ VOID ColumnCalcPositions(PCOLUMNDEF pColumnDef,
  *      ProcessColumn.
  *
  *@@added V0.9.15 (2001-08-26) [umoeller]
+ *@@changed V0.9.16 (2001-10-15) [umoeller]: fixed ugly group table spacings
  */
 
 APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
@@ -594,7 +629,7 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
     LHANDLE     lHandleSet = NULLHANDLE;
     ULONG       flOld = 0;
 
-    LONG        y, cy;              // for combo box hacks
+    LONG        x, cx, y, cy;              // for combo box hacks
 
     if (pColumnDef->fIsNestedTable)
     {
@@ -618,8 +653,13 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
                 pcszTitle = pControlDef->pcszText;
                 flStyle = pControlDef->flStyle;
 
+                x = pcp->x + pDlgData->ptlTotalOfs.x;
+                cx = pcp->cx - PM_GROUP_SPACING_X;
+                    // note, just one spacing: for the _column_ size,
+                    // we have specified 2 X spacings
                 y = pcp->y + pDlgData->ptlTotalOfs.y;
-                cy = pcp->cy;
+                // cy = pcp->cy - PM_GROUP_SPACING_X;
+                cy = pcp->cy - /* PM_GROUP_SPACING_X - */ PM_GROUP_SPACING_TOP / 2;
             }
         }
     }
@@ -631,6 +671,8 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
         pcszTitle = pControlDef->pcszText;
         flStyle = pControlDef->flStyle;
 
+        x = pcp->x + pDlgData->ptlTotalOfs.x;
+        cx = pcp->cx;
         y = pcp->y + pDlgData->ptlTotalOfs.y;
         cy = pcp->cy;
 
@@ -684,9 +726,9 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
                                     ? (PSZ)pcszTitle
                                     : "",
                               flStyle,      // hacked
-                              pcp->x + pDlgData->ptlTotalOfs.x,
+                              x,
                               y,
-                              pcp->cx,
+                              cx,
                               cy,
                               pDlgData->hwndDlg,   // owner
                               HWND_BOTTOM,
@@ -805,8 +847,8 @@ APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
          */
 
         case PROCESS_CALC_SIZES:
-            ColumnCalcSizes(pColumnDef,
-                            pDlgData);
+            arc = ColumnCalcSizes(pColumnDef,
+                                  pDlgData);
         break;
 
         /*
@@ -815,10 +857,10 @@ APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
          */
 
         case PROCESS_CALC_POSITIONS:
-            ColumnCalcPositions(pColumnDef,
-                                pOwningRow,
-                                plX,
-                                pDlgData);
+            arc = ColumnCalcPositions(pColumnDef,
+                                      pOwningRow,
+                                      plX,
+                                      pDlgData);
         break;
 
         /*
@@ -1128,7 +1170,7 @@ VOID FreeTable(PTABLEDEF pTable)
 
 /* ******************************************************************
  *
- *   Public APIs
+ *   Dialog formatter engine
  *
  ********************************************************************/
 
@@ -1451,6 +1493,12 @@ VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
         *ppDlgData = NULL;
     }
 }
+
+/* ******************************************************************
+ *
+ *   Dialog formatter entry points
+ *
+ ********************************************************************/
 
 /*
  *@@ dlghCreateDlg:
@@ -1956,6 +2004,200 @@ APIRET dlghFormatDlg(HWND hwndDlg,              // in: dialog frame to work on
     return (arc);
 }
 
+/* ******************************************************************
+ *
+ *   Dialog arrays
+ *
+ ********************************************************************/
+
+/*
+ *@@ dlghCreateArray:
+ *      creates a "dialog array" for dynamically
+ *      building a dialog template in memory.
+ *
+ *      A dialog array is simply an array of
+ *      DLGHITEM structures, as you would normally
+ *      define them statically in the source.
+ *      However, there are situations where you
+ *      might want to leave out certain controls
+ *      depending on certain conditions, which
+ *      can be difficult with static arrays.
+ *
+ *      As a result, these "array" functions have
+ *      been added to allow for adding static
+ *      DLGHITEM subarrays to a dynamic array in
+ *      memory, which can then be passed to the
+ *      formatter.
+ *
+ *      Usage:
+ *
+ *      1)  Call this function with the maximum
+ *          amount of DLGHITEM's that will need
+ *          to be allocated in cMaxItems. Set this
+ *          to the total sum of all DLGHITEM's
+ *          in all the subarrays.
+ *
+ *      2)  For each of the subarrays, call
+ *          dlghAppendToArray to have the subarray
+ *          appended to the dialog array.
+ *          After each call, DLGARRAY.cDlgItemsNow
+ *          will contain the actual total count of
+ *          DLGHITEM's that were added.
+ *
+ *      3)  Call dlghCreateDialog with the dialog
+ *          array.
+ *
+ *      4)  Call dlghFreeArray.
+ *
+ *      Sort of like this (error checking omitted):
+ *
+ +      DLGHITEM    dlgSampleFront =  ...   // always included
+ +      DLGHITEM    dlgSampleSometimes =  ...   // not always included
+ +      DLGHITEM    dlgSampleTail =  ...   // always included
+ +
+ +      PDLGARRAY pArraySample = NULL;
+ +      dlghCreateArray(   ARRAYITEMCOUNT(dlgSampleFront)
+ +                       + ARRAYITEMCOUNT(dlgSampleSometimes)
+ +                       + ARRAYITEMCOUNT(dlgSampleTail),
+ +                      &pArraySample);
+ +
+ +      // always include front
+ +      dlghAppendToArray(pArraySample,
+ +                        dlgSampleFront,
+ +                        ARRAYITEMCOUNT(dlgSampleFront));
+ +      // include "sometimes" conditionally
+ +      if (...)
+ +          dlghAppendToArray(pArraySample,
+ +                            dlgSampleSometimes,
+ +                            ARRAYITEMCOUNT(dlgSampleSometimes));
+ +      // include tail always
+ +      dlghAppendToArray(pArraySample,
+ +                        dlgSampleTail,
+ +                        ARRAYITEMCOUNT(dlgSampleTail));
+ +
+ +      // now create the dialog from the array
+ +      dlghCreateDialog(&hwndDlg,
+ +                       hwndOwner,
+ +                       FCF_ ...
+ +                       fnwpMyDialogProc,
+ +                       "Title",
+ +                       pArray->paDialogItems,     // dialog array!
+ +                       pArray->cDlgItemsNow,      // real count of items!
+ +                       NULL,
+ +                       NULL);
+ +
+ +      dlghFreeArray(&pArraySample);
+ *
+ *@@added V0.9.16 (2001-10-15) [umoeller]
+ */
+
+APIRET dlghCreateArray(ULONG cMaxItems,
+                       PDLGARRAY *ppArray)       // out: DLGARRAY
+{
+    APIRET arc = NO_ERROR;
+    PDLGARRAY pArray;
+
+    if (pArray = NEW(DLGARRAY))
+    {
+        ULONG cb;
+
+        ZERO(pArray);
+        if (    (cb = cMaxItems * sizeof(DLGHITEM))
+             && (pArray->paDlgItems = (DLGHITEM*)malloc(cb))
+           )
+        {
+            memset(pArray->paDlgItems, 0, cb);
+            pArray->cDlgItemsMax = cMaxItems;
+            *ppArray = pArray;
+        }
+        else
+            arc = ERROR_NOT_ENOUGH_MEMORY;
+
+        if (arc)
+            dlghFreeArray(&pArray);
+    }
+    else
+        arc = ERROR_NOT_ENOUGH_MEMORY;
+
+    return arc;
+}
+
+/*
+ *@@ dlghFreeArray:
+ *      frees a dialog array created by dlghCreateArray.
+ *
+ *@@added V0.9.16 (2001-10-15) [umoeller]
+ */
+
+APIRET dlghFreeArray(PDLGARRAY *ppArray)
+{
+    PDLGARRAY pArray;
+    if (    (ppArray)
+         && (pArray = *ppArray)
+       )
+    {
+        if (pArray->paDlgItems)
+            free(pArray->paDlgItems);
+        free(pArray);
+    }
+    else
+        return ERROR_INVALID_PARAMETER;
+
+    return NO_ERROR;
+}
+
+/*
+ *@@ dlghAppendToArray:
+ *      appends a subarray of DLGHITEM's to the
+ *      given DLGARRAY. See dlghCreateArray for
+ *      usage.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR
+ *
+ *      --  ERROR_INVALID_PARAMETER
+ *
+ *      --  DLGERR_ARRAY_TOO_SMALL: pArray does not
+ *          have enough memory to hold the new items.
+ *          The cMaxItems parameter given to dlghCreateArray
+ *          wasn't large enough.
+ *
+ *@@added V0.9.16 (2001-10-15) [umoeller]
+ */
+
+APIRET dlghAppendToArray(PDLGARRAY pArray,      // in: dialog array created by dlghCreateArray
+                         DLGHITEM *paItems,     // in: subarray to be appended
+                         ULONG cItems)          // in: subarray item count (NOT array size)
+{
+    APIRET arc = NO_ERROR;
+    if (pArray)
+    {
+        if (    (pArray->cDlgItemsMax >= cItems)
+             && (pArray->cDlgItemsMax - pArray->cDlgItemsNow >= cItems)
+           )
+        {
+            // enough space left in the array:
+            memcpy(&pArray->paDlgItems[pArray->cDlgItemsNow],
+                   paItems,     // source
+                   cItems * sizeof(DLGHITEM));
+            pArray->cDlgItemsNow += cItems;
+        }
+        else
+            arc = DLGERR_ARRAY_TOO_SMALL;
+    }
+    else
+        arc = ERROR_INVALID_PARAMETER;
+
+    return (arc);
+}
+
+/* ******************************************************************
+ *
+ *   Standard dialogs
+ *
+ ********************************************************************/
+
 /*
  *@@ dlghCreateMessageBox:
  *
@@ -2460,6 +2702,12 @@ PSZ dlghTextEntryBox(HWND hwndOwner,
 
     return (pszReturn);
 }
+
+/* ******************************************************************
+ *
+ *   Dialog input handlers
+ *
+ ********************************************************************/
 
 /*
  *@@ dlghSetPrevFocus:

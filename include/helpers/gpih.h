@@ -291,9 +291,11 @@ extern "C" {
                                             BOOL fProportional);
     typedef GPIHSTRETCHBITMAP *PGPIHSTRETCHBITMAP;
 
-    BOOL XWPENTRY gpihIcon2Bitmap(HPS hpsMem, HPOINTER hptr, LONG lBkgndColor, ULONG ulIconSize);
-    typedef BOOL XWPENTRY GPIHICON2BITMAP(HPS hpsMem, HPOINTER hptr, LONG lBkgndColor, ULONG ulIconSize);
-    typedef GPIHICON2BITMAP *PGPIHICON2BITMAP;
+    BOOL XWPENTRY gpihIcon2Bitmap(HPS hpsMem,
+                                  HPOINTER hptr,
+                                  LONG lBkgndColor,
+                                  PPOINTL pptlLowerLeft,
+                                  ULONG ulIconSize);
 
     /* ******************************************************************
      *

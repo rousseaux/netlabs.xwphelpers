@@ -697,6 +697,8 @@ extern "C" {
     typedef LONG XWPENTRY WINHQUERYPRESCOLOR(HWND hwnd, ULONG ulPP, BOOL fInherit, LONG lSysColor);
     typedef WINHQUERYPRESCOLOR *PWINHQUERYPRESCOLOR;
 
+    BOOL XWPENTRY winhSetPresColor(HWND hwnd, ULONG ulIndex, LONG lColor);
+
     /* ******************************************************************
      *
      *   Help instance helpers
