@@ -163,6 +163,7 @@ extern "C" {
     #endif
 
     APIRET XWPENTRY doshHasAudioCD(ULONG ulLogicalDrive,
+                                   HFILE hfDrive,
                                    BOOL fMixedModeCD,
                                    PBOOL pfAudio);
 
@@ -409,7 +410,8 @@ extern "C" {
                                  USHORT usPgmCtl,
                                  BOOL fWait,
                                  PULONG pulSID,
-                                 PPID ppid);
+                                 PPID ppid,
+                                 PUSHORT pusReturn);
 
     /********************************************************************
      *

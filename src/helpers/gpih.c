@@ -324,11 +324,7 @@ VOID gpihDrawRect(HPS hps,      // in: presentation space for output
  *
  *      The specified rectangle is inclusive, that is, the top
  *      right corner specifies the top right pixel to be drawn.
- *      This is different from WinFillRect
- *      (see @GPI_rectangles).
- *
- *      If (lColor != -1), the HPS's current foreground color
- *      is changed to that color.
+ *      This is different from WinFillRect (see @GPI_rectangles).
  *
  *      Changes to the HPS:
  *
@@ -342,7 +338,7 @@ VOID gpihDrawRect(HPS hps,      // in: presentation space for output
 
 VOID gpihBox(HPS hps,              // in: presentation space for output
              LONG lControl,        // in: one of DRO_OUTLINE, DRO_FILL, DRO_OUTLINEFILL
-             PRECTL prcl)          // in: rectangle to draw (exclusive)
+             PRECTL prcl)          // in: rectangle to draw (inclusive)
 {
     POINTL      ptl;
 
@@ -553,6 +549,262 @@ LONG gpihCharStringPosAt(HPS hps,
  ********************************************************************/
 
 /*
+ *@@ gpihMatchFont:
+ *      attempts to find a font matching the specified
+ *      data and fills the specified FATTRS structure
+ *      accordingly.
+ *
+ *      This function performs the insane "11-step process" to
+ *      match a font, as described in the GPI reference.
+ *
+ *      This function can operate in two modes:
+ *
+ *      -- "Family" mode. In that case, specify the font family name
+ *         with pszName and set fFamily to TRUE. This is useful for
+ *         WYSIWYG text viewing if you need several font faces for
+ *         the same family, such as Courier Bold, Bold Italics, etc.
+ *         You can specify those attributes with usFormat then.
+ *
+ *      -- "Face" mode. In that case, specify the full font face name
+ *         with pszName and set fFamily to FALSE. This is useful for
+ *         font presentation parameters which use the "WarpSans Bold"
+ *         format. In that case, set usFormat to 0.
+ *
+ *      Returns TRUE if a "true" match was found, FALSE
+ *      otherwise. In both cases, *pfa receives data
+ *      which will allow GpiCreateLogFont to work; however,
+ *      if FALSE is returned, GpiCreateLogFont will most
+ *      likely find the default font (System Proportional)
+ *      only.
+ *
+ *      If (pFontMetrics != NULL), *pFontMetrics receives the
+ *      FONTMETRICS of the font which was found. If an outline
+ *      font has been found (instead of a bitmap font),
+ *      FONTMETRICS.fsDefn will have the FM_DEFN_OUTLINE bit set.
+ *
+ *      This function was extracted from gpihFindFont with
+ *      0.9.14 to allow for caching the font search results,
+ *      which is most helpful for memory device contexts,
+ *      where gpihFindFont can be inefficient.
+ *
+ *@@added V0.9.14 (2001-08-03) [umoeller]
+ *@@changed V0.9.14 (2001-08-03) [umoeller]: fixed a few weirdos with outline fonts
+ */
+
+BOOL gpihMatchFont(HPS hps,
+                   LONG lSize,            // in: font point size
+                   BOOL fFamily,          // in: if TRUE, pszName specifies font family;
+                                          //     if FALSE, pszName specifies font face
+                   const char *pcszName,  // in: font family or face name (without point size)
+                   USHORT usFormat,       // in: none, one or several of:
+                                          // -- FATTR_SEL_ITALIC
+                                          // -- FATTR_SEL_UNDERSCORE (underline)
+                                          // -- FATTR_SEL_BOLD
+                                          // -- FATTR_SEL_STRIKEOUT
+                                          // -- FATTR_SEL_OUTLINE (hollow)
+                   FATTRS *pfa,           // out: font attributes if found
+                   PFONTMETRICS pFontMetrics) // out: font metrics of created font (optional)
+{
+    // first find out how much memory we need to allocate
+    // for the FONTMETRICS structures
+    ULONG   ul = 0;
+    LONG    lTemp = 0;
+    LONG    cFonts = GpiQueryFonts(hps,
+                                   QF_PUBLIC | QF_PRIVATE,
+                                   NULL, // pszFaceName,
+                                   &lTemp,
+                                   sizeof(FONTMETRICS),
+                                   NULL);
+    PFONTMETRICS    pfm = (PFONTMETRICS)malloc(cFonts * sizeof(FONTMETRICS)),
+                    pfm2 = pfm,
+                    pfmFound = NULL;
+
+    BOOL            fQueriedDevice = FALSE;     // V0.9.14 (2001-08-01) [umoeller]
+    LONG            alDevRes[2];            // device resolution
+
+    // _Pmpf(("gpihFindFont: enumerating for %s, %d points", pcszName, lSize));
+
+    GpiQueryFonts(hps,
+                  QF_PUBLIC | QF_PRIVATE,
+                  NULL, // pszFaceName,
+                  &cFonts,
+                  sizeof(FONTMETRICS),      // length of each metrics structure
+                                            // -- _not_ total buffer size!
+                  pfm);
+
+    // now we have an array of FONTMETRICS
+    // for EVERY font that is installed on the system...
+    // these things are completely unsorted, so there's
+    // nothing we can rely on, we have to check them all.
+
+    // fill in some default values for FATTRS,
+    // in case we don't find something better
+    // in the loop below; these values will be
+    // applied if
+    // a)   an outline font has been found;
+    // b)   bitmap fonts have been found, but
+    //      none for the current device resolution
+    //      exists;
+    // c)   no font has been found at all.
+    // In all cases, GpiCreateLogFont will do
+    // a "close match" resolution (at the bottom).
+    pfa->usRecordLength = sizeof(FATTRS);
+    pfa->fsSelection = usFormat; // changed later if better font is found
+    pfa->lMatch = 0L;             // closest match
+    strcpy(pfa->szFacename, pcszName);
+    pfa->idRegistry = 0;          // default registry
+    pfa->usCodePage = 0;          // default codepage
+    // the following two must be zero, or outline fonts
+    // will not be found; if a bitmap font has been passed
+    // to us, we'll modify these two fields later
+    pfa->lMaxBaselineExt = 0;     // font size (height)
+    pfa->lAveCharWidth = 0;       // font size (width)
+    pfa->fsType = 0;              // default type
+    pfa->fsFontUse = FATTR_FONTUSE_NOMIX;
+
+    // now go thru the array of FONTMETRICS
+    // to check if we have a bitmap font
+    // pszFaceName; the default WPS behavior
+    // is that bitmap fonts appear to take
+    // priority over outline fonts of the
+    // same name, so we check these first
+    pfm2 = pfm;
+    for (ul = 0;
+         ul < cFonts;
+         ul++)
+    {
+        const char *pcszCompare = (fFamily)
+                                     ? pfm2->szFamilyname
+                                     : pfm2->szFacename;
+
+        /* _Pmpf(("  Checking font: %s (Fam: %s), %d, %d, %d",
+               pcszCompare,
+               pfm2->szFamilyname,
+               pfm2->sNominalPointSize,
+               pfm2->lMaxBaselineExt,
+               pfm2->lAveCharWidth)); */
+
+        if (!strcmp(pcszCompare, pcszName))
+        {
+            /* _Pmpf(("  Found font %s; slope %d, usWeightClass %d",
+                    pfm2->szFacename,
+                    pfm2->sCharSlope,
+                    pfm2->usWeightClass)); */
+
+            if ((pfm2->fsDefn & FM_DEFN_OUTLINE) == 0)
+            {
+                // image (bitmap) font:
+                // check point size
+                if (pfm2->sNominalPointSize == lSize * 10)
+                {
+                    // OK: check device resolutions, because
+                    // normally, there are always several image
+                    // fonts for different resolutions
+                    // for bitmap fonts, there are normally two versions:
+                    // one for low resolutions, one for high resolutions
+                    if (!fQueriedDevice)
+                    {
+                        DevQueryCaps(GpiQueryDevice(hps),
+                                     CAPS_HORIZONTAL_FONT_RES,
+                                     2L,
+                                     alDevRes);
+                        fQueriedDevice = TRUE;
+                    }
+
+                    if (    (pfm2->sXDeviceRes == alDevRes[0])
+                         && (pfm2->sYDeviceRes == alDevRes[1])
+                       )
+                    {
+                        // OK: use this for GpiCreateLogFont
+                        pfa->lMaxBaselineExt = pfm2->lMaxBaselineExt;
+                        pfa->lAveCharWidth = pfm2->lAveCharWidth;
+                        // pfa->lMatch = pfm2->lMatch;
+
+                        pfmFound = pfm2;
+                        break;
+                    }
+                }
+            }
+            else
+                // outline font:
+                if (pfmFound == NULL)
+                {
+                    // no bitmap font found yet:
+
+                    /*
+                        #define FATTR_SEL_ITALIC               0x0001
+                        #define FATTR_SEL_UNDERSCORE           0x0002
+                        #define FATTR_SEL_OUTLINE              0x0008
+                        #define FATTR_SEL_STRIKEOUT            0x0010
+                        #define FATTR_SEL_BOLD                 0x0020
+                     */
+
+                    if (    (!fFamily)          // face mode is OK always
+                                                // V0.9.14 (2001-08-03) [umoeller]
+                         || (    (    (    (usFormat & FATTR_SEL_BOLD)
+                                        && (pfm2->usWeightClass == 7) // bold
+                                      )
+                                   || (    (!(usFormat & FATTR_SEL_BOLD))
+                                        && (pfm2->usWeightClass == 5) // regular
+                                      )
+                                 )
+                              && (    (    (usFormat & FATTR_SEL_ITALIC)
+                                        && (pfm2->sCharSlope != 0) // italics
+                                      )
+                                   || (    (!(usFormat & FATTR_SEL_ITALIC))
+                                        && (pfm2->sCharSlope == 0) // regular
+                                      )
+                                 )
+                            )
+                       )
+                    {
+                        // yes, we found a true font for that face:
+                        pfmFound = pfm2;
+
+                        // use this exact font for GpiCreateLogFont
+                        pfa->lMatch = pfm2->lMatch;
+
+                        // the following two might have been set
+                        // for a bitmap font above
+                        // V0.9.14 (2001-08-03) [umoeller]
+                        pfa->lMaxBaselineExt = pfm2->lMaxBaselineExt;
+                        pfa->lAveCharWidth = pfm2->lAveCharWidth;
+
+                        pfa->idRegistry = pfm2->idRegistry;
+
+                        // override NOMIX // V0.9.14 (2001-08-03) [umoeller]
+                        pfa->fsFontUse = FATTR_FONTUSE_OUTLINE;
+
+                        // according to GPIREF, we must also specify
+                        // the full face name... geese!
+                        strcpy(pfa->szFacename, pfm2->szFacename);
+                        // unset flag in FATTRS, because this would
+                        // duplicate bold or italic
+                        pfa->fsSelection = 0;
+
+                        // _Pmpf(("    --> using it"));
+                        // but loop on, because we might have a bitmap
+                        // font which should take priority
+                    }
+                }
+        }
+
+        pfm2++;
+    }
+
+    if (pfmFound)
+        // FONTMETRICS found:
+        // copy font metrics?
+        if (pFontMetrics)
+            memcpy(pFontMetrics, pfmFound, sizeof(FONTMETRICS));
+
+    // free the FONTMETRICS array
+    free(pfm);
+
+    return (pfmFound != NULL);
+}
+
+/*
  *@@ gpihSplitPresFont:
  *      splits a presentation parameter font
  *      string into the point size and face
@@ -745,30 +997,40 @@ LONG gpihQueryNextFontID(HPS hps)
 }
 
 /*
+ *@@ gpihCreateFont:
+ *
+ *@@added V0.9.14 (2001-08-03) [umoeller]
+ */
+
+LONG gpihCreateFont(HPS hps,
+                    FATTRS *pfa)
+{
+    LONG lLCIDReturn = 0;
+
+    if (gpihLockLCIDs())        // V0.9.9 (2001-04-01) [umoeller]
+    {
+        // new logical font ID: last used plus one
+        lLCIDReturn = gpihQueryNextFontID(hps);
+
+        GpiCreateLogFont(hps,
+                         NULL,  // don't create "logical font name" (STR8)
+                         lLCIDReturn,
+                         pfa);
+
+        gpihUnlockLCIDs();
+    }
+
+    return (lLCIDReturn);
+}
+
+/*
  *@@ gpihFindFont:
  *      this returns a new logical font ID (LCID) for the specified
- *      font by calling GpiCreateLogFont.
- *      This function performs the insane "11-step process" to
- *      match a font, as described in the GPI reference.
+ *      font by calling gpihMatchFont first and then
+ *      GpiCreateLogFont to create a logical font from the
+ *      data returned.
  *
- *      This function can operate in two modes:
- *
- *      -- "Family" mode. In that case, specify the font family name
- *         with pszName and set fFamily to TRUE. This is useful for
- *         WYSIWYG text viewing if you need several font faces for
- *         the same family, such as Courier Bold, Bold Italics, etc.
- *         You can specify those attributes with usFormat then.
- *
- *      -- "Face" mode. In that case, specify the full font face name
- *         with pszName and set fFamily to FALSE. This is useful for
- *         font presentation parameters which use the "WarpSans Bold"
- *         format. In that case, set usFormat to 0.
- *
- *      After the font has been created, if (pFontMetrics != NULL),
- *      *pFontMetrics receives the FONTMETRICS of the font which
- *      has been created. If an outline font has been created
- *      (instead of a bitmap font), FONTMETRICS.fsDefn will have
- *      the FM_DEFN_OUTLINE bit set.
+ *      See gpihMatchFont for additional explanations.
  *
  *      To then use the font whose LCID has been returned by this
  *      function for text output, call:
@@ -929,203 +1191,20 @@ LONG gpihFindFont(HPS hps,               // in: HPS for font selection
                                          // -- FATTR_SEL_OUTLINE (hollow)
                   PFONTMETRICS pFontMetrics) // out: font metrics of created font (optional)
 {
-    LONG    lLCIDReturn = 0;
-    ULONG   ul = 0;
     FATTRS  FontAttrs;
 
-    // first find out how much memory we need to allocate
-    // for the FONTMETRICS structures
-    LONG    lTemp = 0;
-    LONG    cFonts = GpiQueryFonts(hps,
-                                   QF_PUBLIC | QF_PRIVATE,
-                                   NULL, // pszFaceName,
-                                   &lTemp,
-                                   sizeof(FONTMETRICS),
-                                   NULL);
-    PFONTMETRICS    pfm = (PFONTMETRICS)malloc(cFonts * sizeof(FONTMETRICS)),
-                    pfm2 = pfm,
-                    pfmFound = NULL;
+    gpihMatchFont(hps,
+                  lSize,
+                  fFamily,
+                  pcszName,
+                  usFormat,
+                  &FontAttrs,
+                  pFontMetrics);
 
-    BOOL            fQueriedDevice = FALSE;     // V0.9.14 (2001-08-01) [umoeller]
-    LONG            alDevRes[2];            // device resolution
-
-    // _Pmpf(("gpihFindFont: enumerating for %s, %d points", pszFaceName, lSize));
-
-    GpiQueryFonts(hps,
-                  QF_PUBLIC | QF_PRIVATE,
-                  NULL, // pszFaceName,
-                  &cFonts,
-                  sizeof(FONTMETRICS),      // length of each metrics structure
-                                            // -- _not_ total buffer size!
-                  pfm);
-
-    // now we have an array of FONTMETRICS
-    // for EVERY font that is installed on the system...
-    // these things are completely unsorted, so there's
-    // nothing we can rely on, we have to check them all.
-
-    // fill in some default values for FATTRS,
-    // in case we don't find something better
-    // in the loop below; these values will be
-    // applied if
-    // a)   an outline font has been found;
-    // b)   bitmap fonts have been found, but
-    //      none for the current device resolution
-    //      exists;
-    // c)   no font has been found at all.
-    // In all cases, GpiCreateLogFont will do
-    // a "close match" resolution (at the bottom).
-    FontAttrs.usRecordLength = sizeof(FATTRS);
-    FontAttrs.fsSelection = usFormat; // changed later if better font is found
-    FontAttrs.lMatch = 0L;             // closest match
-    strcpy(FontAttrs.szFacename, pcszName);
-    FontAttrs.idRegistry = 0;          // default registry
-    FontAttrs.usCodePage = 0;          // default codepage
-    // the following two must be zero, or outline fonts
-    // will not be found; if a bitmap font has been passed
-    // to us, we'll modify these two fields later
-    FontAttrs.lMaxBaselineExt = 0;     // font size (height)
-    FontAttrs.lAveCharWidth = 0;       // font size (width)
-    FontAttrs.fsType = 0;              // default type
-    FontAttrs.fsFontUse = FATTR_FONTUSE_NOMIX;
-
-    // now go thru the array of FONTMETRICS
-    // to check if we have a bitmap font
-    // pszFaceName; the default WPS behavior
-    // is that bitmap fonts appear to take
-    // priority over outline fonts of the
-    // same name, so we check these first
-    pfm2 = pfm;
-    for (ul = 0;
-         ul < cFonts;
-         ul++)
-    {
-        /* _Pmpf(("  Checking font: %s (Fam: %s), %d, %d, %d",
-               pszFaceName,
-               pfm2->szFamilyname,
-               pfm2->sNominalPointSize,
-               pfm2->lMaxBaselineExt,
-               pfm2->lAveCharWidth)); */
-
-        const char *pcszCompare = (fFamily)
-                                     ? pfm2->szFamilyname
-                                     : pfm2->szFacename;
-
-        if (!strcmp(pcszCompare, pcszName))
-        {
-            /* _Pmpf(("  Found font %s; slope %d, usWeightClass %d",
-                    pfm2->szFacename,
-                    pfm2->sCharSlope,
-                    pfm2->usWeightClass)); */
-
-            if ((pfm2->fsDefn & FM_DEFN_OUTLINE) == 0)
-            {
-                // image (bitmap) font:
-                // check point size
-                if (pfm2->sNominalPointSize == lSize * 10)
-                {
-                    // OK: check device resolutions, because
-                    // normally, there are always several image
-                    // fonts for different resolutions
-                    // for bitmap fonts, there are always two versions:
-                    // one for low resolutions, one for high resolutions
-                    if (!fQueriedDevice)
-                    {
-                        DevQueryCaps(GpiQueryDevice(hps),
-                                     CAPS_HORIZONTAL_FONT_RES,
-                                     2L,
-                                     alDevRes);
-                        fQueriedDevice = TRUE;
-                    }
-
-                    if (    (pfm2->sXDeviceRes == alDevRes[0])
-                         && (pfm2->sYDeviceRes == alDevRes[1])
-                       )
-                    {
-                        // OK: use this for GpiCreateLogFont
-                        FontAttrs.lMaxBaselineExt = pfm2->lMaxBaselineExt;
-                        FontAttrs.lAveCharWidth = pfm2->lAveCharWidth;
-                        FontAttrs.lMatch = pfm2->lMatch;
-
-                        pfmFound = pfm2;
-                        break;
-                    }
-                }
-            }
-            else
-                // outline font:
-                if (pfmFound == NULL)
-                {
-                    /*
-                        #define FATTR_SEL_ITALIC               0x0001
-                        #define FATTR_SEL_UNDERSCORE           0x0002
-                        #define FATTR_SEL_OUTLINE              0x0008
-                        #define FATTR_SEL_STRIKEOUT            0x0010
-                        #define FATTR_SEL_BOLD                 0x0020
-                     */
-                    // no bitmap font found yet:
-                    if (  (     (   (usFormat & FATTR_SEL_BOLD)
-                                 && (pfm2->usWeightClass == 7) // bold
-                                )
-                            ||  (   (!(usFormat & FATTR_SEL_BOLD))
-                                 && (pfm2->usWeightClass == 5) // regular
-                                )
-                           )
-                        && (    (   (usFormat & FATTR_SEL_ITALIC)
-                                 && (pfm2->sCharSlope != 0) // italics
-                                )
-                            ||  (   (!(usFormat & FATTR_SEL_ITALIC))
-                                 && (pfm2->sCharSlope == 0) // regular
-                                )
-                           )
-                       )
-                    {
-                        // yes, we found a true font for that face:
-                        pfmFound = pfm2;
-                        // use this exact font for GpiCreateLogFont
-                        FontAttrs.lMatch = pfm2->lMatch;
-                        // according to GPIREF, we must also specify
-                        // the full face name... Jesus!
-                        strcpy(FontAttrs.szFacename, pfm2->szFacename);
-                        // unset flag in FATTRS, because this would
-                        // duplicate bold or italic
-                        FontAttrs.fsSelection = 0;
-
-                        // _Pmpf(("    --> using it"));
-                        // but loop on, because we might have a bitmap
-                        // font which should take priority
-                    }
-                }
-        }
-
-        pfm2++;
-    }
-
-    if (pfmFound)
-        // FONTMETRICS found:
-        // copy font metrics?
-        if (pFontMetrics)
-            memcpy(pFontMetrics, pfmFound, sizeof(FONTMETRICS));
-
-    // free the FONTMETRICS array
-    free(pfm);
-
-    if (gpihLockLCIDs())        // V0.9.9 (2001-04-01) [umoeller]
-    {
-        // new logical font ID: last used plus one
-        lLCIDReturn = gpihQueryNextFontID(hps);
-
-        GpiCreateLogFont(hps,
-                         NULL,  // don't create "logical font name" (STR8)
-                         lLCIDReturn,
-                         &FontAttrs);
-
-        gpihUnlockLCIDs();
-    }
+    return (gpihCreateFont(hps,
+                           &FontAttrs));
 
     // _Pmpf((__FUNCTION__ ": returning lcid %d", lLCIDReturn));
-
-    return (lLCIDReturn);
 }
 
 /*
@@ -1248,19 +1327,32 @@ LONG gpihFindPresFont(HWND hwnd,          // in: window to search for presparam 
  *      This returns the return value of GpiSetCharBox.
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.14 (2001-08-03) [umoeller]: fixed bad rounding errors
  */
 
 BOOL gpihSetPointSize(HPS hps,          // in: presentation space for output
                       LONG lPointSize)  // in: desired nominal point size
 {
     SIZEF   box;
+    HDC     hdc = GpiQueryDevice(hps);       // get the HDC from the HPS
     LONG    alDevRes[2];
     DevQueryCaps(GpiQueryDevice(hps),       // get the HDC from the HPS
                  CAPS_HORIZONTAL_FONT_RES,
                  2L,
                  alDevRes);
-    box.cx = MAKEFIXED((lPointSize * alDevRes[0]) / 72, 0);
-    box.cy = MAKEFIXED((lPointSize * alDevRes[1]) / 72, 0);
+
+    // V0.9.14: this code didn't work... it produced rounding
+    // errors which set the font size different from what
+    // it should be according to the WPS font palette
+    /* box.cx = MAKEFIXED((lPointSize * alDevRes[0]) / 72, 0);
+    box.cy = MAKEFIXED((lPointSize * alDevRes[1]) / 72, 0); */
+
+    // V0.9.14 (2001-08-03) [umoeller]: now using this one
+    // instead
+    lPointSize *= 65536;
+    box.cx = (FIXED)(lPointSize / 72 * alDevRes[0]);
+    box.cy = (FIXED)(lPointSize / 72 * alDevRes[1]);
+
     return (GpiSetCharBox(hps, &box));
 }
 

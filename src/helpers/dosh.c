@@ -372,12 +372,23 @@ PVOID doshRequestSharedMem(const char *pcszName)
  *      Warning: This uses DosDevIOCtl, which has proved
  *      to cause problems with some device drivers for
  *      removeable disks.
+ *
+ *@@changed V0.9.14 (2001-08-03) [umoeller]: added extra fix for A: and B:
  */
 
 APIRET doshIsFixedDisk(ULONG ulLogicalDrive,   // in: 1 for A:, 2 for B:, 3 for C:, ...
                        PBOOL pfFixed)          // out: TRUE for fixed disks
 {
     APIRET arc = ERROR_INVALID_DRIVE;
+
+    if (    (ulLogicalDrive == 1)
+         || (ulLogicalDrive == 2)
+       )
+    {
+        // drive A: and B: can never be fixed V0.9.14 (2001-08-03) [umoeller]
+        *pfFixed = FALSE;
+        return NO_ERROR;
+    }
 
     if (ulLogicalDrive)
     {
@@ -394,8 +405,8 @@ APIRET doshIsFixedDisk(ULONG ulLogicalDrive,   // in: 1 for A:, 2 for B:, 3 for 
 
         parms.drive = (UCHAR)(ulLogicalDrive-1);
         arc = doshDevIOCtl((HFILE)-1,
-                           IOCTL_DISK,
-                           DSK_BLOCKREMOVABLE,
+                           IOCTL_DISK,                  // 0x08
+                           DSK_BLOCKREMOVABLE,          // 0x20
                            &parms, sizeof(parms),
                            &ucNonRemoveable, sizeof(ucNonRemoveable));
 
@@ -470,8 +481,8 @@ APIRET doshQueryDiskParams(ULONG ulLogicalDrive,        // in:  1 for A:, 2 for 
         memset(pdp, 0, sizeof(BIOSPARAMETERBLOCK));
 
         arc = doshDevIOCtl((HFILE)-1,
-                           IOCTL_DISK,
-                           DSK_GETDEVICEPARAMS,
+                           IOCTL_DISK,                  // 0x08
+                           DSK_GETDEVICEPARAMS,         // 0x63
                            &parms, sizeof(parms),
                            pdp,   sizeof(BIOSPARAMETERBLOCK));
 
@@ -519,135 +530,103 @@ BOOL doshIsCDROM(PBIOSPARAMETERBLOCK pdp)
  */
 
 APIRET doshHasAudioCD(ULONG ulLogicalDrive,
+                      HFILE hfDrive,            // in: DASD open
                       BOOL fMixedModeCD,
                       PBOOL pfAudio)
 {
     APIRET  arc = NO_ERROR;
 
-    HFILE   hfDrive = 0;
-    ULONG   ulTemp = 0;
+    ULONG ulAudioTracks = 0,
+          ulDataTracks = 0;
 
-    CHAR    szDrive[3] = "C:";
-    szDrive[0] = 'A' + ulLogicalDrive - 1;
+    CHAR cds1[4] = { 'C', 'D', '0', '1' };
+    CHAR cds2[4];
 
     *pfAudio = FALSE;
 
-    arc = DosOpen(szDrive,   // "C:", "D:", ...
-                  &hfDrive,
-                  &ulTemp,
-                  0,
-                  FILE_NORMAL,
-                  OPEN_ACTION_FAIL_IF_NEW
-                         | OPEN_ACTION_OPEN_IF_EXISTS,
-                  OPEN_FLAGS_DASD
-                         | OPEN_FLAGS_FAIL_ON_ERROR
-                         | OPEN_FLAGS_NOINHERIT     // V0.9.6 (2000-11-25) [pr]
-              //            | OPEN_ACCESS_READONLY  // V0.9.13 (2001-06-14) [umoeller]
-                         | OPEN_SHARE_DENYNONE,
-                  NULL);
-
-    // _Pmpf(("   DosOpen(OPEN_FLAGS_DASD) returned %d", arc));
-
-    // this still returns NO_ERROR for audio CDs in a
-    // CD-ROM drive...
-    // however, the WPS then attempts to read in the
-    // root directory for audio CDs, which produces
-    // a "sector not found" error box...
-
-    if (!arc && hfDrive)     // determined above
+    // check for proper driver signature
+    if (!(arc = doshDevIOCtl(hfDrive,
+                             IOCTL_CDROMDISK,
+                             CDROMDISK_GETDRIVER,
+                             &cds1, sizeof(cds1),
+                             &cds2, sizeof(cds2))))
     {
-        ULONG ulAudioTracks = 0,
-              ulDataTracks = 0;
-
-        CHAR cds1[4] = { 'C', 'D', '0', '1' };
-        CHAR cds2[4];
-        // check for proper driver signature
-        if (!(arc = doshDevIOCtl(hfDrive,
-                                 IOCTL_CDROMDISK,
-                                 CDROMDISK_GETDRIVER,
-                                 &cds1, sizeof(cds1),
-                                 &cds2, sizeof(cds2))))
+        if (memcmp(&cds1, &cds2, 4))
+            // this is not a CD-ROM then:
+            arc = NO_ERROR;
+        else
         {
-            if (memcmp(&cds1, &cds2, 4))
-                // this is not a CD-ROM then:
-                arc = NO_ERROR;
-            else
+            struct {
+                UCHAR   ucFirstTrack,
+                        ucLastTrack;
+                ULONG   ulLeadOut;
+            } cdat;
+
+            // get track count
+            if (!(arc = doshDevIOCtl(hfDrive,
+                                     IOCTL_CDROMAUDIO,
+                                     CDROMAUDIO_GETAUDIODISK,
+                                     &cds1, sizeof(cds1),
+                                     &cdat, sizeof(cdat))))
             {
-                struct {
-                    UCHAR   ucFirstTrack,
-                            ucLastTrack;
-                    ULONG   ulLeadOut;
-                } cdat;
-
-                // get track count
-                if (!(arc = doshDevIOCtl(hfDrive,
-                                         IOCTL_CDROMAUDIO,
-                                         CDROMAUDIO_GETAUDIODISK,
-                                         &cds1, sizeof(cds1),
-                                         &cdat, sizeof(cdat))))
+                // still no error: build the audio TOC
+                ULONG i;
+                for (i = cdat.ucFirstTrack;
+                     i <= cdat.ucLastTrack;
+                     i++)
                 {
-                    // still no error: build the audio TOC
-                    ULONG i;
-                    for (i = cdat.ucFirstTrack;
-                         i <= cdat.ucLastTrack;
-                         i++)
+                    BYTE cdtp[5] =
+                      { 'C', 'D', '0', '1', (UCHAR)i };
+
+                    struct {
+                        ULONG   ulTrackAddress;
+                        BYTE    bFlags;
+                    } trackdata;
+
+                    if (!(arc = doshDevIOCtl(hfDrive,
+                                             IOCTL_CDROMAUDIO,
+                                             CDROMAUDIO_GETAUDIOTRACK,
+                                             &cdtp, sizeof(cdtp),
+                                             &trackdata, sizeof(trackdata))))
                     {
-                        BYTE cdtp[5] =
-                          { 'C', 'D', '0', '1', (UCHAR)i };
-
-                        struct {
-                            ULONG   ulTrackAddress;
-                            BYTE    bFlags;
-                        } trackdata;
-
-                        if (!(arc = doshDevIOCtl(hfDrive,
-                                                 IOCTL_CDROMAUDIO,
-                                                 CDROMAUDIO_GETAUDIOTRACK,
-                                                 &cdtp, sizeof(cdtp),
-                                                 &trackdata, sizeof(trackdata))))
+                        if (trackdata.bFlags & 64)
+                            ulDataTracks++;
+                        else
                         {
-                            if (trackdata.bFlags & 64)
-                                ulDataTracks++;
-                            else
-                            {
-                                ulAudioTracks++;
+                            ulAudioTracks++;
 
-                                if (!fMixedModeCD)
-                                {
-                                    // caller doesn't want mixed mode:
-                                    // stop here
-                                    ulDataTracks = 0;
-                                    break;
-                                }
+                            if (!fMixedModeCD)
+                            {
+                                // caller doesn't want mixed mode:
+                                // stop here
+                                ulDataTracks = 0;
+                                break;
                             }
                         }
                     }
-
-                    // _Pmpf(("   got %d audio, %d data tracks",
-                    //             ulAudioTracks, ulDataTracks));
-
-                    if (!ulDataTracks)
-                        *pfAudio = TRUE;
                 }
-                else
-                {
-                    // not audio disk:
-                    // go on then
-                    // _Pmpf(("   CDROMAUDIO_GETAUDIODISK returned %d", arc));
-                    arc = NO_ERROR;
-                }
+
+                // _Pmpf(("   got %d audio, %d data tracks",
+                //             ulAudioTracks, ulDataTracks));
+
+                if (!ulDataTracks)
+                    *pfAudio = TRUE;
+            }
+            else
+            {
+                // not audio disk:
+                // go on then
+                // _Pmpf(("   CDROMAUDIO_GETAUDIODISK returned %d", arc));
+                arc = NO_ERROR;
             }
         }
-        else
-        {
-            // not CD-ROM: go on then
-            // _Pmpf(("   CDROMDISK_GETDRIVER returned %d", arc));
-            arc = NO_ERROR;
-        }
     }
-
-    if (hfDrive)
-        DosClose(hfDrive);
+    else
+    {
+        // not CD-ROM: go on then
+        // _Pmpf(("   CDROMDISK_GETDRIVER returned %d", arc));
+        arc = NO_ERROR;
+    }
 
     return (arc);
 }
@@ -834,8 +813,8 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
     arc = doshIsFixedDisk(ulLogicalDrive,
                           &fFixed);    // V0.9.13 (2001-06-14) [umoeller]
 
-    // _Pmpf((__FUNCTION__ ": doshIsFixedDisk returned %d for disk %d", arc, ulLogicalDrive));
-    // _Pmpf(("   fFixed is %d", fFixed));
+    _Pmpf((__FUNCTION__ ": doshIsFixedDisk returned %d for disk %d", arc, ulLogicalDrive));
+    _Pmpf(("   fFixed is %d", fFixed));
 
     if (!arc)
         if (!fFixed)
@@ -845,26 +824,64 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
             BIOSPARAMETERBLOCK bpb;
             arc = doshQueryDiskParams(ulLogicalDrive,
                                       &bpb);
-            // _Pmpf(("   doshQueryDiskParams returned %d", arc));
+            _Pmpf(("   doshQueryDiskParams returned %d", arc));
 
             if (    (!arc)
                  && (doshIsCDROM(&bpb))
                )
             {
-                // _Pmpf(("   --> is CD-ROM"));
+                _Pmpf(("   --> is CD-ROM"));
                 fCDROM = TRUE;
             }
         }
 
-    if ((!arc) && (fCDROM))
+    if (!arc)
     {
-        BOOL fAudio;
-        if (    (!(arc = doshHasAudioCD(ulLogicalDrive,
-                                        ((fl & ASSERTFL_MIXEDMODECD) != 0),
-                                        &fAudio)))
-             && (fAudio)
+        HFILE hfDrive = NULLHANDLE;
+
+        ULONG   ulTemp = 0;
+        CHAR    szDrive[3] = "C:";
+        szDrive[0] = 'A' + ulLogicalDrive - 1;
+
+        arc = DosOpen(szDrive,   // "C:", "D:", ...
+                      &hfDrive,
+                      &ulTemp,
+                      0,
+                      FILE_NORMAL,
+                      OPEN_ACTION_FAIL_IF_NEW
+                             | OPEN_ACTION_OPEN_IF_EXISTS,
+                      OPEN_FLAGS_DASD
+                             | OPEN_FLAGS_FAIL_ON_ERROR
+                             | OPEN_FLAGS_NOINHERIT     // V0.9.6 (2000-11-25) [pr]
+                  //            | OPEN_ACCESS_READONLY  // V0.9.13 (2001-06-14) [umoeller]
+                             | OPEN_SHARE_DENYNONE,
+                      NULL);
+
+        // _Pmpf(("   DosOpen(OPEN_FLAGS_DASD) returned %d", arc));
+
+        // this still returns NO_ERROR for audio CDs in a
+        // CD-ROM drive...
+        // however, the WPS then attempts to read in the
+        // root directory for audio CDs, which produces
+        // a "sector not found" error box...
+
+        if (    (!arc)
+             && (hfDrive)
+             && (fCDROM)
            )
-            arc = ERROR_AUDIO_CD_ROM;       // special private error code (10000)
+        {
+            BOOL fAudio;
+            if (    (!(arc = doshHasAudioCD(ulLogicalDrive,
+                                            hfDrive,
+                                            ((fl & ASSERTFL_MIXEDMODECD) != 0),
+                                            &fAudio)))
+                 && (fAudio)
+               )
+                arc = ERROR_AUDIO_CD_ROM;       // special private error code (10000)
+        }
+
+        if (hfDrive)
+            DosClose(hfDrive);
     }
 
     switch (arc)
@@ -2648,9 +2665,14 @@ APIRET doshExecVIO(const char *pcszExecWithArgs,
  *      visible.
  *
  *      If (fWait), this function will create a termination queue
- *      and not return until the child session has ended. Otherwise
- *      the function will return immediately, and the SID/PID of
- *      the child session can be found in *pulSID and *ppid.
+ *      and not return until the child session has ended. Be warned,
+ *      this blocks the calling thread.
+ *
+ *      Otherwise the function will return immediately.
+ *
+ *      The session and process IDs of the child session will be
+ *      written to *pulSID and *ppid. Of course, in "wait" mode,
+ *      these are no longer valid after this function returns.
  *
  *      Returns the error code of DosStartSession.
  *
@@ -2660,6 +2682,8 @@ APIRET doshExecVIO(const char *pcszExecWithArgs,
  *@@changed V0.9.0 [umoeller]: prototype changed to include usPgmCtl
  *@@changed V0.9.1 (99-12-30) [umoeller]: queue was sometimes not closed. Fixed.
  *@@changed V0.9.3 (2000-05-03) [umoeller]: added fForeground
+ *@@changed V0.9.14 (2001-08-03) [umoeller]: fixed potential queue leak
+ *@@changed V0.9.14 (2001-08-03) [umoeller]: fixed memory leak in wait mode; added pusReturn to prototype
  */
 
 APIRET doshQuickStartSession(const char *pcszPath,       // in: program to start
@@ -2668,75 +2692,91 @@ APIRET doshQuickStartSession(const char *pcszPath,       // in: program to start
                              USHORT usPgmCtl,   // in: STARTDATA.PgmControl
                              BOOL fWait,        // in: wait for termination?
                              PULONG pulSID,     // out: session ID (req.)
-                             PPID ppid)         // out: process ID (req.)
+                             PPID ppid,         // out: process ID (req.)
+                             PUSHORT pusReturn) // out: in wait mode, session's return code (ptr can be NULL)
 {
-    APIRET      arc;
+    APIRET      arc = NO_ERROR;
     // queue stuff
     const char  *pcszQueueName = "\\queues\\xwphlpsw.que";
     HQUEUE      hq = 0;
     PID         qpid = 0;
-    STARTDATA   SData;
-    CHAR        szObjBuf[CCHMAXPATH];
 
     if (fWait)
     {
-        if ((arc = DosCreateQueue(&hq,
-                                  QUE_FIFO | QUE_CONVERT_ADDRESS,
-                                  (PSZ)pcszQueueName))
-                    != NO_ERROR)
-            return (arc);
-
-        if ((arc = DosOpenQueue(&qpid, &hq, (PSZ)pcszQueueName)) != NO_ERROR)
-            return (arc);
+        if (!(arc = DosCreateQueue(&hq,
+                                   QUE_FIFO | QUE_CONVERT_ADDRESS,
+                                   (PSZ)pcszQueueName)))
+            arc = DosOpenQueue(&qpid, &hq, (PSZ)pcszQueueName);
     }
 
-    SData.Length  = sizeof(STARTDATA);
-    SData.Related = SSF_RELATED_CHILD; //INDEPENDENT;
-    SData.FgBg    = (fForeground) ? SSF_FGBG_FORE : SSF_FGBG_BACK;
-            // V0.9.3 (2000-05-03) [umoeller]
-    SData.TraceOpt = SSF_TRACEOPT_NONE;
-
-    SData.PgmTitle = (PSZ)pcszPath;       // title for window
-    SData.PgmName = (PSZ)pcszPath;
-    SData.PgmInputs = (PSZ)pcszParams;
-
-    SData.TermQ = (fWait) ? (PSZ)pcszQueueName : NULL;
-    SData.Environment = 0;
-    SData.InheritOpt = SSF_INHERTOPT_PARENT;
-    SData.SessionType = SSF_TYPE_DEFAULT;
-    SData.IconFile = 0;
-    SData.PgmHandle = 0;
-
-    SData.PgmControl = usPgmCtl;
-
-    SData.InitXPos  = 30;
-    SData.InitYPos  = 40;
-    SData.InitXSize = 200;
-    SData.InitYSize = 140;
-    SData.Reserved = 0;
-    SData.ObjectBuffer  = (CHAR*)&szObjBuf;
-    SData.ObjectBuffLen = (ULONG)sizeof(szObjBuf);
-
-    arc = DosStartSession(&SData, pulSID, ppid);
-
-    if (arc == NO_ERROR)
+    if (!arc)    // V0.9.14 (2001-08-03) [umoeller]
     {
-        if (fWait)
+        STARTDATA   SData;
+        CHAR        szObjBuf[CCHMAXPATH];
+
+        SData.Length  = sizeof(STARTDATA);
+        SData.Related = SSF_RELATED_CHILD; //INDEPENDENT;
+        SData.FgBg    = (fForeground) ? SSF_FGBG_FORE : SSF_FGBG_BACK;
+                // V0.9.3 (2000-05-03) [umoeller]
+        SData.TraceOpt = SSF_TRACEOPT_NONE;
+
+        SData.PgmTitle = (PSZ)pcszPath;       // title for window
+        SData.PgmName = (PSZ)pcszPath;
+        SData.PgmInputs = (PSZ)pcszParams;
+
+        SData.TermQ = (fWait) ? (PSZ)pcszQueueName : NULL;
+        SData.Environment = 0;
+        SData.InheritOpt = SSF_INHERTOPT_PARENT;
+        SData.SessionType = SSF_TYPE_DEFAULT;
+        SData.IconFile = 0;
+        SData.PgmHandle = 0;
+
+        SData.PgmControl = usPgmCtl;
+
+        SData.InitXPos  = 30;
+        SData.InitYPos  = 40;
+        SData.InitXSize = 200;
+        SData.InitYSize = 140;
+        SData.Reserved = 0;
+        SData.ObjectBuffer  = szObjBuf;
+        SData.ObjectBuffLen = (ULONG)sizeof(szObjBuf);
+
+        if (    (!(arc = DosStartSession(&SData, pulSID, ppid)))
+             && (fWait)
+           )
         {
+            // block on the termination queue, which is written
+            // to when the subprocess ends
             REQUESTDATA rqdata;
-            ULONG       DataLength = 0;
-            PULONG      DataAddress;
+            ULONG       cbData = 0;
+            PULONG      pulData = NULL;
             BYTE        elpri;
 
             rqdata.pid = qpid;
-            DosReadQueue(hq,                // in: queue handle
-                         &rqdata,           // out: pid and ulData
-                         &DataLength,       // out: size of data returned
-                         (PVOID*)&DataAddress, // out: data returned
-                         0,                 // in: remove first element in queue
-                         0,                 // in: wait for queue data (block thread)
-                         &elpri,            // out: element's priority
-                         0);                // in: event semaphore to be posted
+            if (!(arc = DosReadQueue(hq,                // in: queue handle
+                                     &rqdata,           // out: pid and ulData
+                                     &cbData,           // out: size of data returned
+                                     (PVOID*)&pulData,  // out: data returned
+                                     0,                 // in: remove first element in queue
+                                     0,                 // in: wait for queue data (block thread)
+                                     &elpri,            // out: element's priority
+                                     0)))               // in: event semaphore to be posted
+            {
+                if (!rqdata.ulData)
+                {
+                    // child session ended:
+                    // V0.9.14 (2001-08-03) [umoeller]
+
+                    // *pulSID = (*pulData) & 0xffff;
+                    if (pusReturn)
+                        *pusReturn = ((*pulData) >> 16) & 0xffff;
+
+                }
+                // else: continue looping
+
+                if (pulData)
+                    DosFreeMem(pulData);
+            }
         }
     }
 

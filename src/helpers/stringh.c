@@ -68,7 +68,7 @@
  */
 
 /*
- *@@ strcpy:
+ *@@ strhcpy:
  *      like strdup, but this one doesn't crash if string2 is NULL,
  *      but sets the first byte in string1 to \0 instead.
  *

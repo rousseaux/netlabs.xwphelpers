@@ -181,6 +181,22 @@ extern "C" {
      *
      ********************************************************************/
 
+    BOOL XWPENTRY gpihMatchFont(HPS hps,
+                                LONG lSize,
+                                BOOL fFamily,
+                                const char *pcszName,
+                                USHORT usFormat,
+                                FATTRS *pfa,
+                                PFONTMETRICS pFontMetrics);
+    typedef BOOL XWPENTRY GPIHMATCHFONT(HPS hps,
+                                        LONG lSize,
+                                        BOOL fFamily,
+                                        const char *pcszName,
+                                        USHORT usFormat,
+                                        FATTRS *pfa,
+                                        PFONTMETRICS pFontMetrics);
+    typedef GPIHMATCHFONT *PGPIHMATCHFONT;
+
     BOOL XWPENTRY gpihSplitPresFont(PSZ pszFontNameSize,
                                     PULONG pulSize,
                                     PSZ *ppszFaceName);
@@ -196,6 +212,10 @@ extern "C" {
     VOID XWPENTRY gpihUnlockLCIDs(VOID);
     typedef VOID XWPENTRY GPIHUNLOCKLCIDS(VOID);
     typedef GPIHUNLOCKLCIDS *PGPIHUNLOCKLCIDS;
+
+    LONG XWPENTRY gpihCreateFont(HPS hps, FATTRS *pfa);
+    typedef LONG XWPENTRY GPIHCREATEFONT(HPS hps, FATTRS *pfa);
+    typedef GPIHCREATEFONT *PGPIHCREATEFONT;
 
     LONG XWPENTRY gpihFindFont(HPS hps,
                                LONG lSize,
