@@ -2489,7 +2489,7 @@ APIRET GetOfsFromPageTableIndex(PEXECUTABLE pExec,   // in: executable from exeh
     // watch out for out of range, or we'll trap
     if (ulObjPageTblIndexThis - 1 >= pExec->pLXHeader->ulPageCount)
     {
-        _Pmpf(("ulObjPageTblIndexThis %d is too large", ulObjPageTblIndexThis));
+        // _Pmpf(("ulObjPageTblIndexThis %d is too large", ulObjPageTblIndexThis));
         return ERROR_INVALID_SEGMENT_NUMBER;     // 180
     }
 
@@ -2534,12 +2534,12 @@ APIRET exehReadLXPage(PEXECUTABLE pExec,
 
         ulOffset +=   ulExeOffset;
 
-        _Pmpf(("  reading pgtbl %d, ofs %d, type %s",
+        /* _Pmpf(("  reading pgtbl %d, ofs %d, type %s",
                 ulObjPageTblIndex,
                 ulOffset,
                 (ulFlags == 0x0001) ? "ITERDATA"
                 : (ulFlags == 0x0005) ? "ITERDATA2"
-                : "uncompressed"));
+                : "uncompressed")); */
 
         if (ulSize > ulPageSize)
             arc = ERROR_BAD_FORMAT;
@@ -2550,7 +2550,7 @@ APIRET exehReadLXPage(PEXECUTABLE pExec,
                                     pabCompressed,
                                     0)))
         {
-            _Pmpf(("   %d bytes read", ulSize));
+            // _Pmpf(("   %d bytes read", ulSize));
 
             // terminate buffer for decompress
             *(PULONG)(pabCompressed + ulSize) = 0;
@@ -2643,9 +2643,9 @@ APIRET exehLoadLXResource(PEXECUTABLE pExec,     // in: executable from exehOpen
 
     *ppbResData = 0;
 
-    _Pmpf((__FUNCTION__ " %s: ulType = %d, idResource %d",
+    /* _Pmpf((__FUNCTION__ " %s: ulType = %d, idResource %d",
             pExec->pFile->pszFilename,
-            ulType, idResource));
+            ulType, idResource)); */
 
     if (!(pLXHeader = pExec->pLXHeader))
         return (ERROR_INVALID_EXE_SIGNATURE);
@@ -2692,7 +2692,7 @@ APIRET exehLoadLXResource(PEXECUTABLE pExec,     // in: executable from exehOpen
                 // resides in, but check the bounds
                 if (pRsEntry->obj - 1 >= pLXHeader->ulObjCount)
                 {
-                    _Pmpf(("pRsEntry->obj %d is too large", pRsEntry->obj));
+                    // _Pmpf(("pRsEntry->obj %d is too large", pRsEntry->obj));
                     arc = ERROR_INVALID_SEGMENT_NUMBER;     // 180
                 }
                 else
@@ -2755,12 +2755,12 @@ APIRET exehLoadLXResource(PEXECUTABLE pExec,     // in: executable from exehOpen
                         ULONG   ul,
                                 ulPageThis;
 
-                        _Pmpf(("  found RT_POINTER %d, size %d, resofs %d",
+                        /* _Pmpf(("  found RT_POINTER %d, size %d, resofs %d",
                                 pRsEntry->name,
                                 pRsEntry->cb,
                                 pRsEntry->offset));
                         _Pmpf(("  ulFirstPage %d, ulResOffsetInFirstPage %d, cPages %d",
-                                ulFirstPage, ulResOffsetInFirstPage, cPages));
+                                ulFirstPage, ulResOffsetInFirstPage, cPages)); */
 
                         ulPageThis = ulObjPageTblIndex + ulFirstPage;
 
@@ -2825,7 +2825,7 @@ APIRET exehLoadLXResource(PEXECUTABLE pExec,     // in: executable from exehOpen
             arc = ERROR_NO_DATA;
     }
 
-    _Pmpf((__FUNCTION__ ": returning %d", arc));
+    // _Pmpf((__FUNCTION__ ": returning %d", arc));
 
     return (arc);
 }
@@ -3010,7 +3010,7 @@ APIRET exehLoadOS2NEResource(PEXECUTABLE pExec,     // in: executable from exehO
         // executable has DOS stub: V0.9.12 (2001-05-03) [umoeller]
         ulNewHeaderOfs = pExec->pDosExeHeader->ulNewHeaderOfs;
 
-    _Pmpf((__FUNCTION__ ": entering, checking %d resources", pNEHeader->usResSegmCount));
+    // _Pmpf((__FUNCTION__ ": entering, checking %d resources", pNEHeader->usResSegmCount));
 
     if (!(cResources = pNEHeader->usResSegmCount))
         // no resources at all:
@@ -3079,8 +3079,8 @@ APIRET exehLoadOS2NEResource(PEXECUTABLE pExec,     // in: executable from exehO
         if ((!fPtrFound) && (!arc))
             arc = ERROR_NO_DATA;
     }
-    else
-        _Pmpf(("exehLoadOS2NEMaps returned %d"));
+    // else
+        // _Pmpf(("exehLoadOS2NEMaps returned %d"));
 
     return (arc);
 }

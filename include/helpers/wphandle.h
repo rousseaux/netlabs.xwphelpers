@@ -199,7 +199,8 @@ extern "C" {
                                       PUSHORT pusHiwordAbstract,
                                       PUSHORT pusHiwordFileSystem);
 
-    APIRET wphRebuildNodeHashTable(HHANDLES hHandles);
+    APIRET wphRebuildNodeHashTable(HHANDLES hHandles,
+                                   BOOL fQuitOnErrors);
 
     APIRET wphLoadHandles(HINI hiniUser,
                           HINI hiniSystem,

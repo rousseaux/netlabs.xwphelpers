@@ -1525,8 +1525,8 @@ HBITMAP gpihCreateBitmap2(HPS hpsMem,        // in: memory DC
         bih2.cy = cy; // (prcl->yTop - prcl->yBottom);       changed V0.9.0
         bih2.cPlanes = (cPlanes) ? cPlanes : alData[0];
         bih2.cBitCount = (cBitCount) ? cBitCount : alData[1];
-            _Pmpf((__FUNCTION__ ": cPlanes %d, cBitCount %d",
-                        bih2.cPlanes, bih2.cBitCount));
+            // _Pmpf((__FUNCTION__ ": cPlanes %d, cBitCount %d",
+               //          bih2.cPlanes, bih2.cBitCount));
         bih2.ulCompression = BCA_UNCOMP;
         bih2.cbImage = (    (   (bih2.cx
                                     * (1 << bih2.cPlanes)

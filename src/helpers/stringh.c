@@ -80,9 +80,9 @@
 APIRET strhStoreDebug(PSZ *ppszTarget,
                       PCSZ pcszSource,
                       PULONG pulLength,        // out: length of new string (ptr can be NULL)
-                      const char *pcszSourceFile,
+                      PCSZ pcszSourceFile,
                       unsigned long ulLine,
-                      const char *pcszFunction)
+                      PCSZ pcszFunction)
 {
     ULONG ulLength = 0;
 
@@ -168,7 +168,7 @@ APIRET strhStore(PSZ *ppszTarget,
  *@@added V0.9.14 (2001-08-01) [umoeller]
  */
 
-PSZ strhcpy(PSZ string1, const char *string2)
+PSZ strhcpy(PSZ string1, PCSZ string2)
 {
     if (string2)
         return (strcpy(string1, string2));
@@ -186,11 +186,11 @@ PSZ strhcpy(PSZ string1, const char *string2)
  *@@added V0.9.0 [umoeller]
  */
 
-PSZ strhdupDebug(const char *pcszSource,
+PSZ strhdupDebug(PCSZ pcszSource,
                  unsigned long *pulLength,
-                 const char *pcszSourceFile,
+                 PCSZ pcszSourceFile,
                  unsigned long ulLine,
-                 const char *pcszFunction)
+                 PCSZ pcszFunction)
 {
     PSZ     pszReturn = NULL;
     ULONG   ulLength = 0;
@@ -224,7 +224,7 @@ PSZ strhdupDebug(const char *pcszSource,
  *@@changed V0.9.16 (2001-10-25) [umoeller]: added pulLength
  */
 
-PSZ strhdup(const char *pcszSource,
+PSZ strhdup(PCSZ pcszSource,
             unsigned long *pulLength)       // out: length of string excl. null terminator (ptr can be NULL)
 {
     PSZ     pszReturn = NULL;
@@ -258,7 +258,7 @@ PSZ strhdup(const char *pcszSource,
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
 
-int strhcmp(const char *p1, const char *p2)
+int strhcmp(PCSZ p1, PCSZ p2)
 {
     if (p1 && p2)
     {
@@ -285,7 +285,7 @@ int strhcmp(const char *p1, const char *p2)
  *@@added V0.9.9 (2001-04-07) [umoeller]
  */
 
-int strhicmp(const char *p1, const char *p2)
+int strhicmp(PCSZ p1, PCSZ p2)
 {
     if (p1 && p2)
     {
@@ -311,7 +311,7 @@ int strhicmp(const char *p1, const char *p2)
  *@@changed V0.9.0 [umoeller]: crashed if null pointers were passed, thanks RÅdiger Ihle
  */
 
-PSZ strhistr(const char *string1, const char *string2)
+PSZ strhistr(PCSZ string1, PCSZ string2)
 {
     PSZ prc = NULL;
 
@@ -351,7 +351,7 @@ PSZ strhistr(const char *string1, const char *string2)
  */
 
 ULONG strhncpy0(PSZ pszTarget,
-                const char *pszSource,
+                PCSZ pszSource,
                 ULONG cbSource)
 {
     ULONG ul = 0;
@@ -377,7 +377,7 @@ ULONG strhncpy0(PSZ pszTarget,
  *      this counts the occurences of c in pszSearch.
  */
 
-ULONG strhCount(const char *pszSearch,
+ULONG strhCount(PCSZ pszSearch,
                 CHAR c)
 {
     PSZ         p = (PSZ)pszSearch;
@@ -423,11 +423,11 @@ BOOL strhIsDecimal(PSZ psz)
  *@@added V0.9.14 (2001-08-01) [umoeller]
  */
 
-PSZ strhSubstrDebug(const char *pBegin,      // in: first char
-                    const char *pEnd,        // in: last char (not included)
-                    const char *pcszSourceFile,
+PSZ strhSubstrDebug(PCSZ pBegin,      // in: first char
+                    PCSZ pEnd,        // in: last char (not included)
+                    PCSZ pcszSourceFile,
                     unsigned long ulLine,
-                    const char *pcszFunction)
+                    PCSZ pcszFunction)
 {
     PSZ pszSubstr = NULL;
 
@@ -468,8 +468,8 @@ PSZ strhSubstrDebug(const char *pBegin,      // in: first char
  *@@changed V0.9.9 (2001-04-04) [umoeller]: now using memcpy for speed
  */
 
-PSZ strhSubstr(const char *pBegin,      // in: first char
-               const char *pEnd)        // in: last char (not included)
+PSZ strhSubstr(PCSZ pBegin,      // in: first char
+               PCSZ pEnd)        // in: last char (not included)
 {
     PSZ pszSubstr = NULL;
 
@@ -670,9 +670,9 @@ ULONG strhStrip(PSZ psz)         // in/out: string
  *@@changed V0.9.0 [umoeller]: completely rewritten.
  */
 
-PSZ strhins(const char *pcszBuffer,
+PSZ strhins(PCSZ pcszBuffer,
             ULONG ulInsertOfs,
-            const char *pcszInsert)
+            PCSZ pcszInsert)
 {
     PSZ     pszNew = NULL;
 
@@ -722,8 +722,8 @@ PSZ strhins(const char *pcszBuffer,
 ULONG strhFindReplace(PSZ *ppszBuf,                // in/out: string
                       PULONG pulOfs,               // in: where to begin search (0 = start);
                                                    // out: ofs of first char after replacement string
-                      const char *pcszSearch,      // in: search string; cannot be NULL
-                      const char *pcszReplace)     // in: replacement string; cannot be NULL
+                      PCSZ pcszSearch,      // in: search string; cannot be NULL
+                      PCSZ pcszReplace)     // in: replacement string; cannot be NULL
 {
     ULONG   ulrc = 0;
     XSTRING xstrBuf,
@@ -796,17 +796,17 @@ ULONG strhWords(PSZ psz)
 
 BOOL strhGetWord(PSZ *ppszStart,        // in: start of search,
                                         // out: start of word (if TRUE is returned)
-                 const char *pLimit,    // in: ptr to last char after *ppszStart to be
+                 PCSZ pLimit,    // in: ptr to last char after *ppszStart to be
                                         // searched; if the word does not end before
                                         // or with this char, FALSE is returned
-                 const char *pcszBeginChars, // stringh.h defines STRH_BEGIN_CHARS
-                 const char *pcszEndChars, // stringh.h defines STRH_END_CHARS
+                 PCSZ pcszBeginChars, // stringh.h defines STRH_BEGIN_CHARS
+                 PCSZ pcszEndChars, // stringh.h defines STRH_END_CHARS
                  PSZ *ppszEnd)          // out: first char _after_ word
                                         // (if TRUE is returned)
 {
     // characters after which a word can be started
-    // const char *pcszBeginChars = "\x0d\x0a ";
-    // const char *pcszEndChars = "\x0d\x0a /-";
+    // PCSZ pcszBeginChars = "\x0d\x0a ";
+    // PCSZ pcszEndChars = "\x0d\x0a /-";
 
     PSZ pStart = *ppszStart;
 
@@ -854,11 +854,11 @@ BOOL strhGetWord(PSZ *ppszStart,        // in: start of search,
  *@@added V0.9.6 (2000-11-12) [umoeller]
  */
 
-BOOL strhIsWord(const char *pcszBuf,
-                const char *p,                 // in: start of word
+BOOL strhIsWord(PCSZ pcszBuf,
+                PCSZ p,                 // in: start of word
                 ULONG cbSearch,                // in: length of word
-                const char *pcszBeginChars,    // suggestion: "\x0d\x0a ()/\\-,."
-                const char *pcszEndChars)      // suggestion: "\x0d\x0a ()/\\-,.:;"
+                PCSZ pcszBeginChars,    // suggestion: "\x0d\x0a ()/\\-,."
+                PCSZ pcszEndChars)      // suggestion: "\x0d\x0a ()/\\-,.:;"
 {
     BOOL    fEndOK = FALSE;
 
@@ -914,10 +914,10 @@ BOOL strhIsWord(const char *pcszBuf,
  *@@changed V0.9.0 (99-11-10) [umoeller]: tried second algorithm, reverted to original...
  */
 
-PSZ strhFindWord(const char *pszBuf,
-                 const char *pszSearch,
-                 const char *pcszBeginChars,    // suggestion: "\x0d\x0a ()/\\-,."
-                 const char *pcszEndChars)      // suggestion: "\x0d\x0a ()/\\-,.:;"
+PSZ strhFindWord(PCSZ pszBuf,
+                 PCSZ pszSearch,
+                 PCSZ pcszBeginChars,    // suggestion: "\x0d\x0a ()/\\-,."
+                 PCSZ pcszEndChars)      // suggestion: "\x0d\x0a ()/\\-,.:;"
 {
     PSZ     pszReturn = 0;
     ULONG   cbBuf = strlen(pszBuf),
@@ -925,7 +925,7 @@ PSZ strhFindWord(const char *pszBuf,
 
     if ((cbBuf) && (cbSearch))
     {
-        const char *p = pszBuf;
+        PCSZ p = pszBuf;
 
         do  // while p
         {
@@ -965,11 +965,11 @@ PSZ strhFindWord(const char *pszBuf,
  *@@added V0.9.4 (2000-07-01) [umoeller]
  */
 
-PSZ strhFindEOL(const char *pcszSearchIn,        // in: where to search
+PSZ strhFindEOL(PCSZ pcszSearchIn,        // in: where to search
                 PULONG pulOffset)       // out: offset (ptr can be NULL)
 {
-    const char *p = pcszSearchIn,
-               *prc = 0;
+    PCSZ    p = pcszSearchIn,
+            prc = 0;
     while (TRUE)
     {
         if ( (*p == '\r') || (*p == '\n') || (*p == 0) )

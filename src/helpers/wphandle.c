@@ -259,6 +259,12 @@ APIRET NukeNameTrees(PHANDLESBUF pHandlesBuf)
 
 /*
  *@@ wphRebuildNodeHashTable:
+ *      builds all the complex cache trees in the
+ *      given handles buffer.
+ *
+ *      If (fQuitOnErrors == TRUE), we'll fail as
+ *      soon as an invalid handle is found. Otherwise
+ *      we will try to continue if the error is not fatal.
  *
  *      Returns:
  *
@@ -268,10 +274,15 @@ APIRET NukeNameTrees(PHANDLESBUF pHandlesBuf)
  *
  *      --  ERROR_WPH_CORRUPT_HANDLES_DATA
  *
+ *      --  ERROR_WPH_DRIV_TREEINSERT_FAILED: duplicate DRIV node
+ *          (non-fatal)
+ *
  *@@added V0.9.16 (2001-10-02) [umoeller]
+ *@@changted V0.9.17 (2002-02-05) [umoeller]: added fQuitOnErrors
  */
 
-APIRET wphRebuildNodeHashTable(HHANDLES hHandles)
+APIRET wphRebuildNodeHashTable(HHANDLES hHandles,
+                               BOOL fQuitOnErrors)
 {
     APIRET arc = NO_ERROR;
 
@@ -321,7 +332,8 @@ APIRET wphRebuildNodeHashTable(HHANDLES hHandles)
                                    &pHandlesBuf->cDrives,
                                    (TREE*)pLastDriveTreeNode,
                                    treeCompareStrings))
-                        arc = ERROR_WPH_DRIV_TREEINSERT_FAILED;
+                        if (fQuitOnErrors)
+                            arc = ERROR_WPH_DRIV_TREEINSERT_FAILED;
                 }
 
                 // next item
@@ -354,8 +366,11 @@ APIRET wphRebuildNodeHashTable(HHANDLES hHandles)
                     {
                         PNODETREENODE pParent;
                         if (!(pParent = pHandlesBuf->NodeHashTable[pNode->usParentHandle]))
+                        {
                             // this parent handle is invalid:
-                            arc = ERROR_WPH_INVALID_PARENT_HANDLE;
+                            if (fQuitOnErrors)
+                                arc = ERROR_WPH_INVALID_PARENT_HANDLE;
+                        }
                         else
                         {
                             ppTree = &pParent->ChildrenTree;
@@ -371,22 +386,27 @@ APIRET wphRebuildNodeHashTable(HHANDLES hHandles)
                             pcChildren = &pLastDriveTreeNode->cChildren;
                         }
                         else
-                            arc = ERROR_WPH_NODE_BEFORE_DRIV;
+                            if (fQuitOnErrors)
+                                arc = ERROR_WPH_NODE_BEFORE_DRIV;
 
-                    if (!arc)
+                    if (ppTree && pcChildren)
                         if (!treeInsert(ppTree,
                                         pcChildren,
                                         (TREE*)pNew,
                                         treeCompareStrings))
+                        {
                             // store PNODE in hash table
                             pHandlesBuf->NodeHashTable[pNode->usHandle] = pNew;
+                            // do not free
+                            pNew = NULL;
+                        }
                         else
                             ;
                             // @@todo if this fails, there are
                             // several handles for short name!!!
                             // arc = ERROR_WPH_NODE_TREEINSERT_FAILED;
 
-                    if (arc)
+                    if (pNew)
                         free(pNew);
 
                 }
@@ -640,7 +660,8 @@ APIRET wphSearchBufferForHandle(HHANDLES hHandles,
     {
         // rebuild cache
         if (!pHandlesBuf->fCacheValid)
-            arc = wphRebuildNodeHashTable(hHandles);
+            arc = wphRebuildNodeHashTable(hHandles,
+                                          TRUE);        // fail on errors
 
         if (!arc)
         {
@@ -921,7 +942,8 @@ APIRET wphComposePath(HHANDLES hHandles,
         TRY_LOUD(excpt1)
         {
             if (!pHandlesBuf->fCacheValid)
-                arc = wphRebuildNodeHashTable(hHandles);
+                arc = wphRebuildNodeHashTable(hHandles,
+                                              TRUE);        // fail on errors
 
             if (!arc)
             {

@@ -1249,14 +1249,14 @@ APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
 
                 ProgDetails.pszParameters = strParamsPatched.psz;
 
-                _Pmpf((__FUNCTION__ ": progt.progc: %d", ProgDetails.progt.progc));
+                /* _Pmpf((__FUNCTION__ ": progt.progc: %d", ProgDetails.progt.progc));
                 _Pmpf(("    progt.fbVisible: 0x%lX", ProgDetails.progt.fbVisible));
                 _Pmpf(("    progt.pszTitle: \"%s\"", (ProgDetails.pszTitle) ? ProgDetails.pszTitle : "NULL"));
                 _Pmpf(("    exec: \"%s\"", (ProgDetails.pszExecutable) ? ProgDetails.pszExecutable : "NULL"));
                 _Pmpf(("    params: \"%s\"", (ProgDetails.pszParameters) ? ProgDetails.pszParameters : "NULL"));
                 _Pmpf(("    startup: \"%s\"", (ProgDetails.pszStartupDir) ? ProgDetails.pszStartupDir : "NULL"));
                 _Pmpf(("    pszIcon: \"%s\"", (ProgDetails.pszIcon) ? ProgDetails.pszIcon : "NULL"));
-                /* _Pmpf(("    environment: "));
+                _Pmpf(("    environment: "));
                 {
                     PSZ pszThis = ProgDetails.pszEnvironment;
                     while (pszThis && *pszThis)
@@ -1267,7 +1267,7 @@ APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
                 }
                    */
 
-                _Pmpf(("    swpInitial.fl = 0x%lX, x = %d, y = %d, cx = %d, cy = %d:",
+                /* _Pmpf(("    swpInitial.fl = 0x%lX, x = %d, y = %d, cx = %d, cy = %d:",
                             ProgDetails.swpInitial.fl,
                             ProgDetails.swpInitial.x,
                             ProgDetails.swpInitial.y,
@@ -1278,6 +1278,7 @@ APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
                             ProgDetails.swpInitial.hwnd,
                             ProgDetails.swpInitial.ulReserved1,
                             ProgDetails.swpInitial.ulReserved2));
+                   */
 
                 if (pszFailingName)
                     strhncpy0(pszFailingName, ProgDetails.pszExecutable, cbFailingName);
@@ -1307,7 +1308,7 @@ APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
                                                     // when the WPS terminates!
                     {
                         // cannot start app:
-                        _Pmpf((__FUNCTION__ ": WinStartApp failed"));
+                        // _Pmpf((__FUNCTION__ ": WinStartApp failed"));
                         arc = ERROR_FILE_NOT_FOUND;
                         // unfortunately WinStartApp doesn't
                         // return meaningful codes like DosStartSession, so
@@ -1404,7 +1405,7 @@ APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
             free(pszWinOS2Env);
     } // end if (ProgDetails.pszExecutable)
 
-    _Pmpf((__FUNCTION__ ": returning %d", arc));
+    // _Pmpf((__FUNCTION__ ": returning %d", arc));
 
     return (arc);
 }
