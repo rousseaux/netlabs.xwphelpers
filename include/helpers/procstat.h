@@ -232,6 +232,9 @@ extern "C" {
      *
      ********************************************************************/
 
+    // #pragma pack(1)
+    #pragma pack(4)         // V0.9.10 (2001-04-08) [umoeller]
+
     #define QS32_PROCESS      0x0001
     #define QS32_SEMAPHORE    0x0002
     #define QS32_MTE          0x0004
@@ -243,14 +246,21 @@ extern "C" {
     #define QS32_THREAD       0x0100
     #define QS32_MODVER       0x0200
 
-    #define QS32_STANDARD    (QS32_PROCESS | QS32_SEMAPHORE | QS32_MTE | QS32_FILESYS | QS32_SHMEMORY)
+    #define QS32_SUPPORTED    (QS32_PROCESS | QS32_SEMAPHORE | QS32_MTE | QS32_FILESYS \
+                               | QS32_SHMEMORY | QS32_MODVER)
 
-    APIRET APIENTRY DosQuerySysState(ULONG flQueries,
-                                     ULONG arg1,
-                                     ULONG arg2,
-                                     ULONG _res_,
-                                     PVOID buf,
-                                     ULONG bufsz);
+    APIRET  APIENTRY DosQuerySysState(ULONG EntityList,
+                                      ULONG EntityLevel,
+                                      PID pid,
+                                      TID tid,
+                                      PVOID pDataBuf,
+                                      ULONG cbBuf);
+
+    /**********************
+     *
+     *  global struct
+     *
+     **********************/
 
     /*
      *@@ QGLOBAL32:
@@ -264,6 +274,12 @@ extern "C" {
         ULONG   ulModuleCount;  // module count
     } QGLOBAL32, *PQGLOBAL32;
 
+    /**********************
+     *
+     *  thread struct
+     *
+     **********************/
+
     /*
      *@@ QTHREAD32:
      *      Pointed to by QPROCESS32.
@@ -271,10 +287,11 @@ extern "C" {
 
     typedef struct _QTHREAD32
     {
-        ULONG   rectype;        // 256 for thread
+        ULONG   ulRecType;        // 256 for thread
         USHORT  usTID;          // thread ID, process-specific
-        USHORT  usSlotID;       // slot ID, this identifies the thread to the kernel
-        ULONG   ulSleepID;      // something the kernel uses for blocking threads
+        USHORT  usSlotID;       // system-specific slot ID, this identifies the
+                                // thread to the kernel
+        ULONG   ulSleepID;      // sleep ID the kernel uses for blocking threads
         ULONG   ulPriority;     // priority flags
         ULONG   ulSystime;      // CPU time spent in system code
         ULONG   ulUsertime;     // CPU time spent in user code
@@ -286,6 +303,12 @@ extern "C" {
         UCHAR   _reserved1_;    /* padding to ULONG */
         USHORT  _reserved2_;    /* padding to ULONG */
     } QTHREAD32, *PQTHREAD32;
+
+    /**********************
+     *
+     *  open files
+     *
+     **********************/
 
     // found the following in the "OS/2 Debugging handbook"
     // (the identifiers are not official, but invented by
@@ -318,7 +341,7 @@ extern "C" {
 
     typedef struct _QFDS32
     {
-        USHORT  sfn;                // "system file number" of the file.
+        USHORT  usSFN;              // "system file number" of the file.
                                     // This is the same as in
                                     // the QPROCESS32.pausFds array,
                                     // so we can identify files opened
@@ -349,18 +372,18 @@ extern "C" {
                  #define OPEN_FLAGS_PROTECTED_HANDLE    0x40000000 */
 
         ULONG   ulFileSize;         // file size in bytes
-        USHORT  hVolume;            // "volume handle"; apparently,
+        USHORT  usHVolume;          // "volume handle"; apparently,
                                     // this identifies some kernel
                                     // structure, it's the same for
                                     // files on the same disk
-        USHORT  attrib;             // attributes:
+        USHORT  fsAttribs;          // attributes:
                                     // 0x20: 'A' (archived)
                                     // 0x10: 'D' (directory)
                                     // 0x08: 'L' (?!?)
                                     // 0x04: 'S' (system)
                                     // 0x02: 'H' (hidden)
                                     // 0x01: 'R' (read-only)
-        USHORT  _reserved_;
+        USHORT  us_pad_;
     } QFDS32, *PQFDS32;
 
     /*
@@ -372,12 +395,18 @@ extern "C" {
 
     typedef struct _QFILEDATA32
     {
-        ULONG           rectype;        // 8 for file
-        struct _QFILEDATA32 *pNext;
-        ULONG           ulOpenCount;
-        PQFDS32         filedata;
-        char            acFilename[1];
+        ULONG           ulRecType;          // 8 for file
+        struct _QFILEDATA32 *pNext;         // next record
+        ULONG           ulCFiles;           // no. of SFT entries for this MFT entry
+        PQFDS32         paFiles;            // first entry here
+        char            szFilename[1];
     } QFILEDATA32, *PQFILEDATA32;
+
+    /**********************
+     *
+     *  process struct
+     *
+     **********************/
 
     /*
      *@@ QPROCESS32:
@@ -392,10 +421,11 @@ extern "C" {
 
     typedef struct _QPROCESS32
     {
-        ULONG       rectype;        // 1 for process
-        PQTHREAD32  pThreads;       // thread data array; apperently with usThreadCount items
-        USHORT      pid;            // process ID
-        USHORT      ppid;           // parent process ID
+        ULONG       ulRecType;      // 1 for process
+        PQTHREAD32  pThreads;       // thread data array,
+                                    // apperently with usThreadCount items
+        USHORT      usPID;          // process ID
+        USHORT      usPPID;         // parent process ID
         ULONG       ulProgType;
                 // -- 0: Full screen protected mode.
                 // -- 1: Real mode (probably DOS or Windoze).
@@ -410,20 +440,20 @@ extern "C" {
                 // -- STAT_SYNCH    0x20
                 // -- STAT_DYING    0x40
                 // -- STAT_EMBRYO   0x80
-        ULONG       sessid;         // session ID
+        ULONG       ulScreenGroupID; // screen group ID
         USHORT      usHModule;      // module handle of main executable
-        USHORT      usThreadCount;  // no. of threads
+        USHORT      usThreadCount;  // no. of threads (TCB's in use)
         ULONG       ulPrivSem32Count;  // count of 32-bit semaphores
-        ULONG       ulPrivSem32s;   // should be ptr to 32-bit sems array; 0 always
+        PVOID       pvPrivSem32s;   // ptr to 32-bit sems array
         USHORT      usSem16Count;   // count of 16-bit semaphores in pausSem16 array
         USHORT      usModuleCount;  // count of DLLs owned by this process
-        USHORT      usShrMemCount;  // count of shared memory items
+        USHORT      usShrMemCount;  // count of shared memory handles
         USHORT      usFdsCount;     // count of open files; this is mostly way too large
         PUSHORT     pausSem16;      // ptr to array of 16-bit semaphore handles;
                                     // has usSem16Count items
         PUSHORT     pausModules;    // ptr to array of modules (MTE);
                                     // has usModuleCount items
-        PUSHORT     pausShrMems;    // ptr to array of shared mem items;
+        PUSHORT     pausShrMems;    // ptr to array of shared mem handles;
                                     // has usShrMemCount items
         PUSHORT     pausFds;        // ptr to array of file handles;
                                     // many of these are pseudo-file handles, but
@@ -431,111 +461,65 @@ extern "C" {
                                     // so open files can be identified.
     } QPROCESS32, *PQPROCESS32;
 
-    /*
-     *@@ QSEMA32:
-     *      Member of QSEM16STRUC32.
-     */
-
-    typedef struct _QSEMA32
-    {
-        struct _QSEMA32 *pNext;
-        USHORT      usRefCount;
-        UCHAR       ucSysFlags;
-        UCHAR       ucSysProcCount;
-        ULONG       _reserved1_;
-        USHORT      usIndex;
-        CHAR        acName[1];
-    } QSEMA32, *PQSEMA32;
-
-    /*
-     *@@ QSEM16STRUC32:
-     *      Apparently 16-bit semaphores.
+    /**********************
      *
-     *      Pointed to by QTOPLEVEL32.
-     */
-
-    typedef struct _QSEM16STRUC32
-    {
-        ULONG   rectype;        /**/
-        ULONG   _reserved1_;
-        USHORT  _reserved2_;
-        USHORT  usSysSemIndex;
-        ULONG   ulIndex;
-        QSEMA32   sema;
-    } QSEM16STRUC32, *PQSEM16STRUC32;
-
-    /*
-     *@@ QSEM32OWNER32:
-     *      Pointed to by QSEM16SMUX32, QSEM16EV32, QSEM16MUX32.
-     */
-
-    typedef struct _QSEM32OWNER32
-    {
-        USHORT  pid;
-        USHORT  usOpenCount;        // or owner?!?
-    } QSEM32OWNER32, *PQSEM32OWNER32;
-
-    /*
-     *@@ QSEM32SMUX32:
-     *      member of QSEM32STRUC32.
-     */
-
-    typedef struct _QSEM32SMUX32
-    {
-        PQSEM32OWNER32  pOwner;
-        PCHAR           pszName;
-        PVOID           semrecs;        // array of associated sema's
-        USHORT          flags;
-        USHORT          semreccnt;
-        USHORT          waitcnt;
-        USHORT          _reserved_;     // padding to ULONG
-    } QSEM32SMUX32, *PQSEM32SMUX32;
-
-    /*
-     *@@ QSEM32EV32:
-     *      describes an event semaphore.
-     *      Member of QSEM32STRUC32.
-     */
-
-    typedef struct _QSEM32EV32
-    {
-        PQSEM32OWNER32  pOwner;
-        PCHAR           pacName;
-        PQSEM32SMUX32   pMux;
-        USHORT          flags;
-        USHORT          postcnt;
-    } QSEM32EV32, *PQSEM32EV32;
-
-    /*
-     *@@ QSEM32MUX32:
-     *      member of QSEM32STRUC32.
-     */
-
-    typedef struct _QSEM32MUX32
-    {
-        PQSEM32OWNER32  pOwner;
-        PCHAR           name;
-        PQSEM32SMUX32   mux;
-        USHORT          flags;
-        USHORT          usRefCount;
-        USHORT          thrdnum;
-        USHORT          _reserved_;     /* padding to ULONG */
-    } QSEM32MUX32, *PQSEM32MUX32;
-
-    /*
-     *@@ QSEM32STRUC32:
-     *      apparently describes a 32-bit semaphore.
+     *  16-bit semaphores
      *
-     *      Pointed to by QTOPLEVEL32.
+     **********************/
+
+    // SysSemFlag values
+
+    #define QS32_SYSSEM_WAITING 0x01               /* a thread is waiting on the sem */
+    #define QS32_SYSSEM_MUXWAITING 0x02            /* a thread is muxwaiting on the sem */
+    #define QS32_SYSSEM_OWNER_DIED 0x04            /* the process/thread owning the sem died */
+    #define QS32_SYSSEM_EXCLUSIVE 0x08             /* indicates a exclusive system semaphore */
+    #define QS32_SYSSEM_NAME_CLEANUP 0x10          /* name table entry needs to be removed */
+    #define QS32_SYSSEM_THREAD_OWNER_DIED 0x20     /* the thread owning the sem died */
+    #define QS32_SYSSEM_EXITLIST_OWNER 0x40        /* the exitlist thread owns the sem */
+
+    /*
+     *@@ QS32SEM16:
+     *      16-bit semaphore description.
+     *
+     *@@added V0.9.10 (2001-04-08) [umoeller]
      */
 
-    typedef struct _QSEM32STRUC32
+    typedef struct _QS32SEM16
     {
-        struct _QSEM32STRUC32 *pNext;
-        QSEM32EV32    EventSem;
-        QSEM32MUX32   MuxSem;
-        QSEM32SMUX32  SmuxSem;
-    } QSEM32STRUC32, *PQSEM32STRUC32;
+        struct _QS32SEM16 *pNext;
+        // ULONG         NextRec;        /* offset to next record in buffer */
+                                      /* System Semaphore Table Structure */
+        USHORT        usSysSemOwner;   /* thread owning this semaphore */
+        UCHAR         fsSysSemFlags;    /* system semaphore flag bit field */
+        UCHAR         usSysSemRefCnt ;  /* number of references to this sys sem */
+        UCHAR         usSysSemProcCnt ; /* number of requests for this owner */
+        UCHAR         usSysSemPad ;     /* pad byte to round structure up to word */
+        USHORT        pad_sh;
+        USHORT        SemPtr;         /* RMP SysSemPtr field */
+        char          szName[1];      /* start of semaphore name string */
+    } QS32SEM16, *PQS32SEM16;
+
+    /*
+     *@@ QS32SEM16HEAD:
+     *
+     *@@added V0.9.10 (2001-04-08) [umoeller]
+     */
+
+    typedef struct _QS32SEM16HEAD
+    {
+        ULONG         SRecType;       /* offset of SysSemDataTable */
+        ULONG         SpNextRec;      /* overlays NextRec of 1st QS32SEM16 */
+        ULONG         S32SemRec;
+        ULONG         S16TblOff;
+        // ULONG         pSem16Rec;
+        QS32SEM16     Sem16Rec;       // first record, with subsequent following
+    } QS32SEM16HEAD, *PQS32SEM16HEAD;
+
+    /**********************
+     *
+     *  shared memory
+     *
+     **********************/
 
     /*
      *@@ QSHRMEM32:
@@ -547,11 +531,148 @@ extern "C" {
     typedef struct _QSHRMEM32
     {
         struct _QSHRMEM32 *pNext;
-        USHORT      usHandle;
-        USHORT      usSelector;
-        USHORT      usRefCount;
-        CHAR        acName[1];
+        USHORT      usHandle;           // shared memory handle
+        USHORT      usSelector;         // selector
+        USHORT      usRefCount;         // reference count
+        CHAR        acName[1];          // shared memory name
     } QSHRMEM32, *PQSHRMEM32;
+
+    /**********************
+     *
+     *  32-bit semaphores
+     *
+     **********************/
+
+    #define QS32_DC_SEM_SHARED   0x0001   //  Shared Mutex, Event or MUX semaphore
+    #define QS32_DCMW_WAIT_ANY   0x0002   //  Wait on any event/mutex to occur
+    #define QS32_DCMW_WAIT_ALL   0x0004   //  Wait on all events/mutexs to occur
+    #define QS32_DCM_MUTEX_SEM   0x0008   //  Mutex semaphore
+    #define QS32_DCE_EVENT_SEM   0x0010   //  Event semaphore
+    #define QS32_DCMW_MUX_SEM    0x0020   //  Muxwait semaphore
+    // #define QS32_DC_SEM_PM       0x0040   //  PM Shared Event Semphore
+    #define QS32_DE_POSTED       0x0040   //  event sem is in the posted state
+    #define QS32_DM_OWNER_DIED   0x0080   //  The owning process died
+    #define QS32_DMW_MTX_MUX     0x0100   //  MUX contains mutex sems
+    #define QS32_DHO_SEM_OPEN    0x0200   //  Device drivers have opened this semaphore
+    #define QS32_DE_16BIT_MW     0x0400   //  Part of a 16-bit MuxWait
+    #define QS32_DCE_POSTONE     0x0800   //  Post one flag event semaphore
+    #define QS32_DCE_AUTORESET   0x1000   //  Auto-reset event semaphore
+
+    /*
+     *@@ QS32OPENQ:
+     *
+     *@@added V0.9.10 (2001-04-08) [umoeller]
+     */
+
+    typedef struct _QS32OPENQ {    /* qsopenq */
+            PID           pidOpener;      /* process id of opening process */
+            USHORT        OpenCt;         /* number of opens for this process */
+    } QS32OPENQ, *PQS32OPENQ;
+
+    /*
+     *@@ QS32EVENT:
+     *
+     *@@added V [umoeller]
+     */
+
+    typedef struct _QS32EVENT {    /* qsevent */
+            QS32OPENQ     *pOpenQ;        /* pointer to open q entries */
+            UCHAR         *pName;         /* pointer to semaphore name */
+            ULONG         *pMuxQ;         /* pointer to the mux queue */
+            USHORT        flags;
+            USHORT        PostCt;         /* # of posts */
+    } QS32EVENT, *PQS32EVENT;
+
+    /*
+     *@@ QS32MUTEX:
+     *
+     *@@added V0.9.10 (2001-04-08) [umoeller]
+     */
+
+    typedef struct _QS32MUTEX {    /* qsmutex */
+            QS32OPENQ     *pOpenQ;        /* pointer to open q entries */
+            UCHAR         *pName;         /* pointer to semaphore name */
+            ULONG         *pMuxQ;         /* pointer to the mux queue */
+            USHORT        flags;
+            USHORT        ReqCt;          /* # of requests */
+            USHORT        SlotNum;        /* slot # of owning thread */
+            USHORT        pad_sh;
+    } QS32MUTEX, *PQS32MUTEX;
+
+    /*
+     *@@ QS32MUX:
+     *
+     *@@added V0.9.10 (2001-04-08) [umoeller]
+     */
+
+    typedef struct _QS32MUX {   /* qsmux */
+            QS32OPENQ       *pOpenQ;        /* pointer to open q entries */
+            UCHAR           *pName;         /* pointer to semaphore name */
+            void            *pSemRec;       /* array of semaphore record entries */
+            USHORT          flags;
+            USHORT          cSemRec;        /* count of semaphore records */
+            USHORT          WaitCt;         /* # threads waiting on the mux */
+            USHORT          pad_sh;
+    } QS32MUX, *PQS32MUX;
+
+    /*
+     *@@ QS32SHUN:
+     *
+     *@@added V0.9.10 (2001-04-08) [umoeller]
+     */
+
+    typedef union _QS32SHUN {  /* qsshun */
+            QS32EVENT       qsSEvt;         /* shared event sem */
+            QS32MUTEX       qsSMtx;         /* shared mutex sem */
+            QS32MUX         qsSMux;         /* shared mux sem */
+    } QS32SHUN, *PQS32SHUN;
+
+    /*
+     *@@ QS32SEM32:
+     *
+     *@@added V0.9.10 (2001-04-08) [umoeller]
+     */
+
+    typedef struct _QS32SEM32 {   /* qsS32rec */
+            void        *pNext;      /* pointer to next record in buffer */
+            ULONG       fl;         // semaphore flags; THIS FIELD IS MISSING
+                                    // IN THE ORIGINAL TOOLKIT DEFINITIONS...
+                                    // only with this field we can determine
+                                    // if this is a mutex, event, or muxwait
+            PSZ         pszName;        // or NULL if unnamed
+            ULONG       pvDeviceDriver; // ?!? points into kernel memory
+            USHORT      usPostCount;
+            USHORT      us_;
+            ULONG       ulBlockID;
+
+            // can't make sense of the following fields... these
+            // seem to be variable in size
+            ULONG       ulHandle;
+            /* USHORT      usAlways1;
+            ULONG       ulElse;
+            ULONG       ulElse2; */
+    } QS32SEM32, *PQS32SEM32;           // qsS32rec_t;
+
+    /**********************
+     *
+     *  modules
+     *
+     **********************/
+
+    /*
+     *@@ QS32OBJ:
+     *      describes an object in a module.
+     *      Pointed to by QSMODULE32, but only
+     *      if QS32_MTE was set on query.
+     *
+     *@@added V0.9.10 (2001-04-08) [umoeller]
+     */
+
+    typedef struct _QS32OBJ {
+            ULONG   oaddr;  /* object address */
+            ULONG   osize;  /* object size */
+            ULONG   oflags; /* object flags */
+    } QS32OBJ, *PQS32OBJ;
 
     /*
      *@@ QMODULE32:
@@ -563,16 +684,22 @@ extern "C" {
     typedef struct _QMODULE32
     {
         struct _QMODULE32 *pNext;       // next module
-        USHORT      usHModule;          // module handle
-        USHORT      type;
-        ULONG       ulRefCount;
-        ULONG       ulSegmentCount;
-        PVOID       _reserved_;
+        USHORT      usHModule;          // module handle (HMTE)
+        USHORT      fFlat;              // TRUE for 32-bit modules
+        ULONG       ulRefCount;         // no. of imports
+        ULONG       cObjects;           // no. of objects in module
+        PQS32OBJ    paObjects;          // ptr to objects list, if QS32_MTE was queried
         PCHAR       pcName;             // module name (fully qualified)
         USHORT      ausModRef[1];       // array of module "references";
                                         // this has usRefCount items
                                         // and holds other modules (imports)
     } QMODULE32, *PQMODULE32;
+
+    /**********************
+     *
+     *  top-level struct
+     *
+     **********************/
 
     /*
      *@@ QTOPLEVEL32:
@@ -584,8 +711,8 @@ extern "C" {
     {
         PQGLOBAL32      pGlobalData;
         PQPROCESS32     pProcessData;
-        PQSEM16STRUC32  pSem16Data;
-        PQSEM32STRUC32  pSem32Data;     // not always present!
+        PQS32SEM16HEAD  pSem16Data;
+        PQS32SEM32      pSem32Data;     // not always present!
         PQSHRMEM32      pShrMemData;
         PQMODULE32      pModuleData;
         PVOID           _reserved2_;
@@ -635,15 +762,15 @@ extern "C" {
 
     #pragma pack()
 
-   /********************************************************************
-    *
-    *   DosQProcStat (16-bit) interface
-    *
-    ********************************************************************/
+    /********************************************************************
+     *
+     *   DosQProcStat (16-bit) interface
+     *
+     ********************************************************************/
 
-    PQPROCSTAT16 prc16GetInfo(APIRET *parc);
+    APIRET prc16GetInfo(PQPROCSTAT16 *ppps);
 
-    VOID prc16FreeInfo(PQPROCSTAT16 pInfo);
+    APIRET prc16FreeInfo(PQPROCSTAT16 pInfo);
 
     PQPROCESS16 prc16FindProcessFromName(PQPROCSTAT16 pInfo,
                                          const char *pcszName);
@@ -680,11 +807,11 @@ extern "C" {
     PQPROCESS32 prc32FindProcessFromName(PQTOPLEVEL32 pInfo,
                                          const char *pcszName);
 
-    PQSEMA32 prc32FindSem16(PQTOPLEVEL32 pInfo,
+    PQS32SEM16 prc32FindSem16(PQTOPLEVEL32 pInfo,
                               USHORT usSemID);
 
-    PQSEM32STRUC32 prc32FindSem32(PQTOPLEVEL32 pInfo,
-                                  USHORT usSemID);
+    PQS32SEM32 prc32FindSem32(PQTOPLEVEL32 pInfo,
+                              USHORT usSemID);
 
     PQSHRMEM32 prc32FindShrMem(PQTOPLEVEL32 pInfo,
                                USHORT usShrMemID);

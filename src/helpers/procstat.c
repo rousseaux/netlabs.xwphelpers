@@ -83,25 +83,51 @@
  *      Use prc16FreeInfo to free the buffer.
  *
  *@@added V0.9.3 (2000-05-05) [umoeller]
+ *@@changed V0.9.10 (2001-04-08) [umoeller]: this returned != NULL even though item was freed, fixed
+ *@@changed V0.9.10 (2001-04-08) [umoeller]: now using DosAllocMem, raised bufsize, changed prototype
  */
 
-PQPROCSTAT16 prc16GetInfo(APIRET *parc)     // out: error, ptr can be NULL
+APIRET prc16GetInfo(PQPROCSTAT16 *ppps)     // out: error, ptr can be NULL
 {
     APIRET arc = NO_ERROR;
-    PQPROCSTAT16 pps = (PQPROCSTAT16)malloc(0x8000);
+    PQPROCSTAT16 pps = NULL;
+
+    /* PQPROCSTAT16 pps = (PQPROCSTAT16)malloc(0x8000);
     if (!pps)
         arc = ERROR_NOT_ENOUGH_MEMORY;
-    else
+    else */
+
+    if (!ppps)
+        return (ERROR_INVALID_PARAMETER);
+
+    // changed allocation V0.9.10 (2001-04-08) [umoeller]:
+    // malloc didn't guarantee that the object did not
+    // cross a 64K boundary, which could cause DosQProcStat
+    // to fail...
+    #define BUF_SIZE        0xFFFF          // raised from 0x8000
+
+    if (!(arc = DosAllocMem((VOID**)&pps,
+                            BUF_SIZE,
+                            PAG_READ | PAG_WRITE | PAG_COMMIT
+                                | OBJ_TILE          // 16-bit compatible, ignored really
+                           )))
     {
-        arc = DosQProcStatus(pps, 0x8000);
-        if (arc != NO_ERROR)
-            free(pps);
+        if (arc = DosQProcStatus(pps, BUF_SIZE))
+        {
+            // error:
+            DosFreeMem(pps);        // V0.9.10 (2001-04-08) [umoeller]
+
+            // and even worse, I forgot to set the return ptr
+            // to NULL, so this was freed twice... I guess
+            // this produced the crashes in WarpIN with the
+            // KILLPROCESS attribute... V0.9.10 (2001-04-08) [umoeller]
+            pps = NULL;
+        }
     }
 
-    if (parc)
-        *parc = arc;
+    *ppps = pps;
 
-    return (pps);
+    return (arc);
 }
 
 /*
@@ -109,12 +135,15 @@ PQPROCSTAT16 prc16GetInfo(APIRET *parc)     // out: error, ptr can be NULL
  *      frees memory allocated by prc16GetInfo.
  *
  *@@added V0.9.3 (2000-05-05) [umoeller]
+ *@@changed V0.9.10 (2001-04-08) [umoeller]: now using DosFreeMem
  */
 
-VOID prc16FreeInfo(PQPROCSTAT16 pInfo)
+APIRET prc16FreeInfo(PQPROCSTAT16 pInfo)
 {
-    if (pInfo)
-        free(pInfo);
+    if (!pInfo)
+        return ERROR_INVALID_PARAMETER;
+
+    return DosFreeMem(pInfo);
 }
 
 /*
@@ -475,11 +504,12 @@ ULONG prc16QueryThreadPriority(PQPROCSTAT16 pps, // in: from prc16GetInfo
  *
  *@@added V0.9.1 (2000-02-12) [umoeller]
  *@@changed V0.9.3 (2000-05-01) [umoeller]: now using DosAllocMem
+ *@@changed V0.9.10 (2001-04-08) [umoeller]: fixed second QuerySysState param
  */
 
 PQTOPLEVEL32 prc32GetInfo(APIRET *parc)     // out: error, ptr can be NULL
 {
-    #define BUFSIZE 128000l
+    #define BUFSIZE (256 * 1024) // 128000l
     PCHAR pBuf = NULL; // (PCHAR)malloc(BUFSIZE);
 
     if (DosAllocMem((PVOID*)&pBuf,
@@ -488,8 +518,10 @@ PQTOPLEVEL32 prc32GetInfo(APIRET *parc)     // out: error, ptr can be NULL
             == NO_ERROR)
         if (pBuf)
         {
-            APIRET arc = DosQuerySysState(0x1f,
-                                          0, 0, 0,
+            APIRET arc = DosQuerySysState(QS32_SUPPORTED,
+                                          QS32_SUPPORTED,       // this was missing
+                                                                // V0.9.10 (2001-04-08) [umoeller]
+                                          0, 0,
                                           (PCHAR)pBuf,
                                           BUFSIZE);
             if (parc)
@@ -527,7 +559,7 @@ PQPROCESS32 prc32FindProcessFromName(PQTOPLEVEL32 pInfo,
                                      const char *pcszName) // in: e.g. "pmshell.exe"
 {
     PQPROCESS32 pProcThis = pInfo->pProcessData;
-    while (pProcThis && pProcThis->rectype == 1)
+    while (pProcThis && pProcThis->ulRecType == 1)
     {
         int i;
         PQTHREAD32  t = pProcThis->pThreads;
@@ -560,7 +592,7 @@ PQPROCESS32 prc32FindProcessFromName(PQTOPLEVEL32 pInfo,
         pProcThis = (PQPROCESS32)t;
     }
 
-    if (pProcThis->rectype == 1)
+    if (pProcThis->ulRecType == 1)
         return (pProcThis);
     else
         return (NULL);
@@ -577,17 +609,17 @@ PQPROCESS32 prc32FindProcessFromName(PQTOPLEVEL32 pInfo,
  *@@added V0.9.1 (2000-02-12) [umoeller]
  */
 
-PQSEMA32 prc32FindSem16(PQTOPLEVEL32 pInfo,     // in: as returned by prc32GetInfo
+PQS32SEM16 prc32FindSem16(PQTOPLEVEL32 pInfo,     // in: as returned by prc32GetInfo
                           USHORT usSemID)       // in: as in QPROCESS32.pausSem16
 {
-    PQSEM16STRUC32  pSemData = pInfo->pSem16Data;
-    PQSEMA32        pSemThis = &pSemData->sema;
-    ULONG           i = 0;
+    PQS32SEM16HEAD      pSemHead = pInfo->pSem16Data;
+    PQS32SEM16          // pSemThis = &pSemData->sema;
+                        pSemThis = &pSemHead->Sem16Rec;
+    ULONG               i = 0;
 
     while (pSemThis)
     {
-        _Pmpf(("prc32FindSem16: found usIndex 0x%lX", pSemThis->usIndex));
-        if (/* pSemThis->usIndex */ i == usSemID)
+        if (i == usSemID)
             return (pSemThis);
 
         i++;
@@ -609,8 +641,8 @@ PQSEMA32 prc32FindSem16(PQTOPLEVEL32 pInfo,     // in: as returned by prc32GetIn
  *@@added V0.9.1 (2000-02-12) [umoeller]
  */
 
-PQSEM32STRUC32 prc32FindSem32(PQTOPLEVEL32 pInfo,     // in: as returned by prc32GetInfo
-                              USHORT usSemID)         // in: as in QPROCESS32.pausSem16
+PQS32SEM32 prc32FindSem32(PQTOPLEVEL32 pInfo,     // in: as returned by prc32GetInfo
+                          USHORT usSemID)         // in: as in QPROCESS32.pausSem16
 {
     // PQSEM32STRUC32  pSemThis = pInfo->pSem32Data;
 
@@ -686,11 +718,19 @@ PQFILEDATA32 prc32FindFileData(PQTOPLEVEL32 pInfo,  // in: as returned by prc32G
 {
     PQFILEDATA32 pFile = pInfo->pFileData;
     while (     (pFile)
-             && (pFile->rectype == 8)  // this is necessary, we'll crash otherwise!!
+             && (pFile->ulRecType == 8)  // this is necessary, we'll crash otherwise!!
           )
     {
-            if (pFile->filedata->sfn == usFileID)
+        ULONG ul;
+        // for some reason, there is an array in the file struct,
+        // so search the array for the SFN
+        for (ul = 0;
+             ul < pFile->ulCFiles;
+             ul++)
+        {
+            if (pFile->paFiles[ul].usSFN == usFileID)
                 return (pFile);
+        }
 
         pFile = pFile->pNext;
     }

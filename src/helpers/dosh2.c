@@ -809,6 +809,7 @@ APIRET doshFreeEnvironment(PDOSENVIRONMENT pEnv)
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.1 (2000-02-13) [umoeller]: fixed 32-bits flag
  *@@changed V0.9.7 (2000-12-20) [lafaix]: fixed ulNewHeaderOfs
+ *@@changed V0.9.10 (2001-04-08) [umoeller]: now setting ppExec only if NO_ERROR is returned
  */
 
 APIRET doshExecOpen(const char* pcszExecutable,
@@ -818,15 +819,16 @@ APIRET doshExecOpen(const char* pcszExecutable,
 
     ULONG   ulAction = 0;
     HFILE   hFile;
+    PEXECUTABLE pExec = NULL;
 
     if (!ppExec)
         return (ERROR_INVALID_PARAMETER);
 
-    *ppExec = (PEXECUTABLE)malloc(sizeof(EXECUTABLE));
-    if (!(*ppExec))
+    pExec = (PEXECUTABLE)malloc(sizeof(EXECUTABLE));
+    if (!(pExec))
         return (ERROR_NOT_ENOUGH_MEMORY);
 
-    memset((*ppExec), 0, sizeof(EXECUTABLE));
+    memset(pExec, 0, sizeof(EXECUTABLE));
 
     if (!(arc = DosOpen((PSZ)pcszExecutable,
                         &hFile,
@@ -849,8 +851,8 @@ APIRET doshExecOpen(const char* pcszExecutable,
         ULONG           ulLocal = 0;
 
         // read old DOS EXE header
-        (*ppExec)->pDosExeHeader = (PDOSEXEHEADER)malloc(sizeof(DOSEXEHEADER));
-        if (!((*ppExec)->pDosExeHeader))
+        pExec->pDosExeHeader = (PDOSEXEHEADER)malloc(sizeof(DOSEXEHEADER));
+        if (!(pExec->pDosExeHeader))
             arc = ERROR_NOT_ENOUGH_MEMORY;
         else
         {
@@ -861,22 +863,22 @@ APIRET doshExecOpen(const char* pcszExecutable,
                                            FILE_BEGIN,
                                            &ulLocal)))      // out: new offset
                  && (!(arc = DosRead(hFile,
-                                     (*ppExec)->pDosExeHeader,
+                                     pExec->pDosExeHeader,
                                      sizeof(DOSEXEHEADER),
-                                     &((*ppExec)->cbDosExeHeader))))
+                                     &(pExec->cbDosExeHeader))))
                )
             {
                 // now check if we really have a DOS header
-                if ((*ppExec)->pDosExeHeader->usDosExeID != 0x5a4d)
+                if (pExec->pDosExeHeader->usDosExeID != 0x5a4d)
                     arc = ERROR_INVALID_EXE_SIGNATURE;
                 else
                 {
                     // we have a DOS header:
-                    if ((*ppExec)->pDosExeHeader->usRelocTableOfs < 0x40)
+                    if (pExec->pDosExeHeader->usRelocTableOfs < 0x40)
                     {
                         // neither LX nor PE nor NE:
-                        (*ppExec)->ulOS = EXEOS_DOS3;
-                        (*ppExec)->ulExeFormat = EXEFORMAT_OLDDOS;
+                        pExec->ulOS = EXEOS_DOS3;
+                        pExec->ulExeFormat = EXEFORMAT_OLDDOS;
                     }
                     else
                     {
@@ -885,7 +887,7 @@ APIRET doshExecOpen(const char* pcszExecutable,
                         CHAR    achNewHeaderType[2] = "";
 
                         if (    (!(arc = DosSetFilePtr(hFile,
-                                                       (*ppExec)->pDosExeHeader->ulNewHeaderOfs,
+                                                       pExec->pDosExeHeader->ulNewHeaderOfs,
                                                        FILE_BEGIN,
                                                        &ulLocal)))
                                 // read two chars to find out header type
@@ -899,26 +901,26 @@ APIRET doshExecOpen(const char* pcszExecutable,
 
                             // reset file ptr
                             DosSetFilePtr(hFile,
-                                          (*ppExec)->pDosExeHeader->ulNewHeaderOfs,
+                                          pExec->pDosExeHeader->ulNewHeaderOfs,
                                           FILE_BEGIN,
                                           &ulLocal);
 
                             if (memcmp(achNewHeaderType, "NE", 2) == 0)
                             {
                                 // New Executable:
-                                (*ppExec)->ulExeFormat = EXEFORMAT_NE;
+                                pExec->ulExeFormat = EXEFORMAT_NE;
                                 // allocate NE header
-                                (*ppExec)->pNEHeader = (PNEHEADER)malloc(sizeof(NEHEADER));
-                                if (!((*ppExec)->pNEHeader))
+                                pExec->pNEHeader = (PNEHEADER)malloc(sizeof(NEHEADER));
+                                if (!(pExec->pNEHeader))
                                     arc = ERROR_NOT_ENOUGH_MEMORY;
                                 else
                                     // read in NE header
                                     if (!(arc = DosRead(hFile,
-                                                        (*ppExec)->pNEHeader,
+                                                        pExec->pNEHeader,
                                                         sizeof(NEHEADER),
-                                                        &((*ppExec)->cbNEHeader))))
-                                        if ((*ppExec)->cbNEHeader == sizeof(NEHEADER))
-                                            pbCheckOS = &((*ppExec)->pNEHeader->bTargetOS);
+                                                        &(pExec->cbNEHeader))))
+                                        if (pExec->cbNEHeader == sizeof(NEHEADER))
+                                            pbCheckOS = &(pExec->pNEHeader->bTargetOS);
                             }
                             else if (   (memcmp(achNewHeaderType, "LX", 2) == 0)
                                      || (memcmp(achNewHeaderType, "LE", 2) == 0)
@@ -926,25 +928,25 @@ APIRET doshExecOpen(const char* pcszExecutable,
                                     )
                             {
                                 // OS/2 Linear Executable:
-                                (*ppExec)->ulExeFormat = EXEFORMAT_LX;
+                                pExec->ulExeFormat = EXEFORMAT_LX;
                                 // allocate LX header
-                                (*ppExec)->pLXHeader = (PLXHEADER)malloc(sizeof(LXHEADER));
-                                if (!((*ppExec)->pLXHeader))
+                                pExec->pLXHeader = (PLXHEADER)malloc(sizeof(LXHEADER));
+                                if (!(pExec->pLXHeader))
                                     arc = ERROR_NOT_ENOUGH_MEMORY;
                                 else
                                     // read in LX header
                                     if (!(arc = DosRead(hFile,
-                                                        (*ppExec)->pLXHeader,
+                                                        pExec->pLXHeader,
                                                         sizeof(LXHEADER),
-                                                        &((*ppExec)->cbLXHeader))))
-                                        if ((*ppExec)->cbLXHeader == sizeof(LXHEADER))
-                                            pbCheckOS = (PBYTE)(&((*ppExec)->pLXHeader->usTargetOS));
+                                                        &(pExec->cbLXHeader))))
+                                        if (pExec->cbLXHeader == sizeof(LXHEADER))
+                                            pbCheckOS = (PBYTE)(&(pExec->pLXHeader->usTargetOS));
                             }
                             else if (memcmp(achNewHeaderType, "PE", 2) == 0)
                             {
-                                (*ppExec)->ulExeFormat = EXEFORMAT_PE;
-                                (*ppExec)->ulOS = EXEOS_WIN32;
-                                (*ppExec)->f32Bits = TRUE;
+                                pExec->ulExeFormat = EXEFORMAT_PE;
+                                pExec->ulOS = EXEOS_WIN32;
+                                pExec->f32Bits = TRUE;
 
                                 // can't parse this yet
                             }
@@ -958,37 +960,39 @@ APIRET doshExecOpen(const char* pcszExecutable,
                                 switch (*pbCheckOS)
                                 {
                                     case NEOS_OS2:
-                                        (*ppExec)->ulOS = EXEOS_OS2;
-                                        if ((*ppExec)->ulExeFormat == EXEFORMAT_LX)
-                                            (*ppExec)->f32Bits = TRUE;
+                                        pExec->ulOS = EXEOS_OS2;
+                                        if (pExec->ulExeFormat == EXEFORMAT_LX)
+                                            pExec->f32Bits = TRUE;
                                     break;
 
                                     case NEOS_WIN16:
-                                        (*ppExec)->ulOS = EXEOS_WIN16;
+                                        pExec->ulOS = EXEOS_WIN16;
                                     break;
 
                                     case NEOS_DOS4:
-                                        (*ppExec)->ulOS = EXEOS_DOS4;
+                                        pExec->ulOS = EXEOS_DOS4;
                                     break;
 
                                     case NEOS_WIN386:
-                                        (*ppExec)->ulOS = EXEOS_WIN386;
-                                        (*ppExec)->f32Bits = TRUE;
+                                        pExec->ulOS = EXEOS_WIN386;
+                                        pExec->f32Bits = TRUE;
                                     break;
                                 }
                         } // end if (!(arc = DosSetFilePtr(hFile,
                     }
                 }
             } // end if (!(arc = DosSetFilePtr(hFile,
-        } // end if (*ppExec)->pDosExeHeader = (PDOSEXEHEADER)malloc(sizeof(DOSEXEHEADER));
+        } // end if pExec->pDosExeHeader = (PDOSEXEHEADER)malloc(sizeof(DOSEXEHEADER));
 
         // store exec's HFILE
-        (*ppExec)->hfExe = hFile;
+        pExec->hfExe = hFile;
     } // end if (!(arc = DosOpen((PSZ)pcszExecutable,
 
     if (arc != NO_ERROR)
         // error: clean up
-        doshExecClose(*ppExec);
+        doshExecClose(pExec);
+    else
+        *ppExec = pExec;
 
     return (arc);
 }
@@ -3004,7 +3008,7 @@ VOID CleanPartitionInfos(PPARTITIONINFO ppiThis)
  *
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.9 (2001-04-07) [umoeller]: added transparent LVM support; changed prototype
- *@@changed V0.9.9 (2001-04-07) [umoeller]: added memory leaks on errors
+ *@@changed V0.9.9 (2001-04-07) [umoeller]: fixed memory leaks on errors
  */
 
 APIRET doshGetPartitionsList(PPARTITIONSLIST *ppList,
