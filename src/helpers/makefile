@@ -141,83 +141,6 @@ dep:
     $(RUN_FASTDEP) *.c
     @echo ----- Leaving $(MAKEDIR)
 
-# "test" target: for test cases
-TESTCASE_DIR = testcase
-
-TESTCASE_CC = icc /c /ti+ /w2 /ss /se /i$(HELPERS_BASE)\include /Fo$(TESTCASE_DIR)\$(@B).obj $(@B).c
-
-.c.{$(TESTCASE_DIR)}.obj:
-    @echo $(MAKEDIR)\makefile: Compiling $(@B).c
-    $(TESTCASE_CC)
-
-# testcase executables
-TESTCASE_TARGETS = \
-    dosh.exe \
-    dialog.exe \
-    vcard.exe \
-    fdlg.exe \
-
-# dosh.exe
-DOSH_TEST_OBJS = \
-    $(TESTCASE_DIR)\dosh.obj \
-    $(TESTCASE_DIR)\_test_dosh.obj
-
-dosh.exe: $(DOSH_TEST_OBJS)
-    ilink /debug /optfunc /pmtype:vio $(DOSH_TEST_OBJS) /o:$@
-
-$(TESTCASE_DIR)\dialog.obj: ..\..\include\helpers\dialog.h
-$(TESTCASE_DIR)\_test_dialog.obj: ..\..\include\helpers\dialog.h
-
-# dialog.exe
-DIALOG_TEST_OBJS = \
-    $(TESTCASE_DIR)\dialog.obj \
-    $(TESTCASE_DIR)\_test_dialog.obj \
-    $(TESTCASE_DIR)\winh.obj \
-    $(TESTCASE_DIR)\xstring.obj \
-    $(TESTCASE_DIR)\linklist.obj \
-    $(TESTCASE_DIR)\cctl_checkcnr.obj \
-    $(TESTCASE_DIR)\cnrh.obj \
-    $(TESTCASE_DIR)\comctl.obj \
-    $(TESTCASE_DIR)\stringh.obj \
-    $(TESTCASE_DIR)\dosh.obj \
-    $(TESTCASE_DIR)\except.obj \
-    $(TESTCASE_DIR)\debug.obj \
-    $(TESTCASE_DIR)\textview.obj \
-    $(TESTCASE_DIR)\textv_html.obj \
-    $(TESTCASE_DIR)\tmsgfile.obj \
-    $(TESTCASE_DIR)\datetime.obj \
-    $(TESTCASE_DIR)\tree.obj \
-    $(TESTCASE_DIR)\gpih.obj
-
-dialog.exe: $(DIALOG_TEST_OBJS)
-    ilink /debug /optfunc /pmtype:pm $(DIALOG_TEST_OBJS) /o:$@
-
-# vcard.exe
-VCARD_TEST_OBJS = \
-    $(TESTCASE_DIR)\vcard.obj \
-    $(TESTCASE_DIR)\_test_vcard.obj \
-    $(TESTCASE_DIR)\xstring.obj \
-    $(TESTCASE_DIR)\stringh.obj \
-    $(TESTCASE_DIR)\linklist.obj \
-    $(TESTCASE_DIR)\dosh.obj \
-    $(TESTCASE_DIR)\prfh.obj \
-    $(TESTCASE_DIR)\nls.obj \
-    $(TESTCASE_DIR)\except.obj \
-    $(TESTCASE_DIR)\debug.obj \
-    $(TESTCASE_DIR)\tree.obj
-
-vcard.exe: $(VCARD_TEST_OBJS)
-    ilink /debug /pmtype:vio $(VCARD_TEST_OBJS) /o:$@
-
-# vcard.exe
-VCARD_TEST_OBJS = \
-    $(TESTCASE_DIR)\_call_filedlg.obj
-
-fdlg.exe: $(VCARD_TEST_OBJS)
-    ilink /debug /pmtype:pm $(VCARD_TEST_OBJS) /o:$@
-
-test: $(TESTCASE_TARGETS)
-
 # Define the main dependency between the output HELPERS.LIB and
 # all the object files.
 # $? represents the names of all dependent files that are
@@ -249,5 +172,105 @@ $(OUTPUTDIR)\plainc.lib: $(PLAINCOBJS)
 !endif
 
 !include helpers_post.in
+
+###################################################
+#
+# "test" target: for test cases
+#
+###################################################
+
+TESTCASE_DIR = testcase
+
+DEBUGDIALOG =
+!ifdef DBGDLG
+DEBUGDIALOG = /DDEBUG_DIALOG_WINDOWS=1
+!endif
+
+TESTCASE_CC = icc /c /ti+ /w2 /ss /se /D__DEBUG__=1 $(DEBUGDIALOG) /i$(HELPERS_BASE)\include /Fo$(TESTCASE_DIR)\$(@B).obj $(@B).c
+
+.c.{$(TESTCASE_DIR)}.obj:
+    @echo $(MAKEDIR)\makefile: Compiling $(@B).c
+    @echo INCLUDE is $(INCLUDE)
+    $(TESTCASE_CC)
+
+# testcase executables
+TESTCASE_TARGETS = \
+    dosh.exe \
+    dialog.exe \
+    exeh.exe \
+    fdlg.exe \
+    vcard.exe
+
+# dialog.exe
+DIALOG_TEST_OBJS = \
+    $(TESTCASE_DIR)\dialog.obj \
+    $(TESTCASE_DIR)\_test_dialog.obj \
+    $(TESTCASE_DIR)\winh.obj \
+    $(TESTCASE_DIR)\xstring.obj \
+    $(TESTCASE_DIR)\linklist.obj \
+    $(TESTCASE_DIR)\cctl_checkcnr.obj \
+    $(TESTCASE_DIR)\cnrh.obj \
+    $(TESTCASE_DIR)\comctl.obj \
+    $(TESTCASE_DIR)\stringh.obj \
+    $(TESTCASE_DIR)\dosh.obj \
+    $(TESTCASE_DIR)\except.obj \
+    $(TESTCASE_DIR)\debug.obj \
+    $(TESTCASE_DIR)\textview.obj \
+    $(TESTCASE_DIR)\textv_html.obj \
+    $(TESTCASE_DIR)\tmsgfile.obj \
+    $(TESTCASE_DIR)\datetime.obj \
+    $(TESTCASE_DIR)\tree.obj \
+    $(TESTCASE_DIR)\gpih.obj
+
+$(TESTCASE_DIR)\dialog.obj: ..\..\include\helpers\dialog.h
+$(TESTCASE_DIR)\_test_dialog.obj: ..\..\include\helpers\dialog.h
+
+dialog.exe: $(DIALOG_TEST_OBJS)
+    ilink /debug /optfunc /pmtype:pm $(DIALOG_TEST_OBJS) pmprintf.lib /o:$@
+
+# dosh.exe
+DOSH_TEST_OBJS = \
+    $(TESTCASE_DIR)\dosh.obj \
+    $(TESTCASE_DIR)\_test_dosh.obj
+
+dosh.exe: $(DOSH_TEST_OBJS)
+    ilink /debug /optfunc /pmtype:vio $(DOSH_TEST_OBJS) pmprintf.lib /o:$@
+
+# exeh.exe
+EXEH_TEST_OBJS = \
+    $(TESTCASE_DIR)\dosh.obj \
+    $(TESTCASE_DIR)\exeh.obj \
+    $(TESTCASE_DIR)\stringh.obj \
+    $(TESTCASE_DIR)\xstring.obj \
+    $(TESTCASE_DIR)\_test_exeh.obj
+
+exeh.exe: $(EXEH_TEST_OBJS)
+    ilink /debug /optfunc /pmtype:vio $(EXEH_TEST_OBJS) pmprintf.lib /o:$@
+
+# fdlg.exe
+FDLG_TEST_OBJS = \
+    $(TESTCASE_DIR)\_call_filedlg.obj
+
+fdlg.exe: $(FDLG_TEST_OBJS)
+    ilink /debug /pmtype:pm $(FDLG_TEST_OBJS) /o:$@
+
+# vcard.exe
+VCARD_TEST_OBJS = \
+    $(TESTCASE_DIR)\vcard.obj \
+    $(TESTCASE_DIR)\_test_vcard.obj \
+    $(TESTCASE_DIR)\xstring.obj \
+    $(TESTCASE_DIR)\stringh.obj \
+    $(TESTCASE_DIR)\linklist.obj \
+    $(TESTCASE_DIR)\dosh.obj \
+    $(TESTCASE_DIR)\prfh.obj \
+    $(TESTCASE_DIR)\nls.obj \
+    $(TESTCASE_DIR)\except.obj \
+    $(TESTCASE_DIR)\debug.obj \
+    $(TESTCASE_DIR)\tree.obj
+
+vcard.exe: $(VCARD_TEST_OBJS)
+    ilink /debug /pmtype:vio $(VCARD_TEST_OBJS) /o:$@
+
+test: $(TESTCASE_TARGETS)
 
 

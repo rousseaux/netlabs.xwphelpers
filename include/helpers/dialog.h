@@ -45,7 +45,7 @@ extern "C" {
 
     #define DLGERR_ROW_BEFORE_TABLE             (ERROR_DLG_FIRST)
     #define DLGERR_CONTROL_BEFORE_ROW           (ERROR_DLG_FIRST + 1)
-    #define DLGERR_NULL_CTL_DEF                 (ERROR_DLG_FIRST + 2)
+    #define DLGERR_NULL_CONTROLDEF              (ERROR_DLG_FIRST + 2)
     #define DLGERR_CANNOT_CREATE_FRAME          (ERROR_DLG_FIRST + 3)
     #define DLGERR_INVALID_CODE                 (ERROR_DLG_FIRST + 4)
     #define DLGERR_TABLE_NOT_CLOSED             (ERROR_DLG_FIRST + 5)
@@ -54,9 +54,14 @@ extern "C" {
     #define DLGERR_ARRAY_TOO_SMALL              (ERROR_DLG_FIRST + 8)
     #define DLGERR_INVALID_CONTROL_TITLE        (ERROR_DLG_FIRST + 9)
     #define DLGERR_INVALID_STATIC_BITMAP        (ERROR_DLG_FIRST + 10)
-    #define DLGERR_INTEGRITY_BAD_COLUMN_INDEX   (ERROR_DLG_FIRST + 11)
+    #define DLGERR_ROOT_TABLE_INHERIT_SIZE      (ERROR_DLG_FIRST + 11)
+            // TABLE_INHERIT_SIZE set for root table, which is invalid
+    #define DLGERR_GPIQUERYTEXTBOX              (ERROR_DLG_FIRST + 12)
+            // GpiQueryTextBox failed
+    #define DLGERR_GPIQUERYBITMAPINFOHEADER     (ERROR_DLG_FIRST + 13)
+            // GpiQueryBitmapInfoHeader failed
 
-    #define ERROR_DLG_LAST                      (ERROR_DLG_FIRST + 11)
+    #define ERROR_DLG_LAST                      (ERROR_DLG_FIRST + 12)
 
     /* ******************************************************************
      *
@@ -65,6 +70,7 @@ extern "C" {
      ********************************************************************/
 
     #define SZL_AUTOSIZE                (-1)
+    #define SZL_REMAINDER               (0)
 
     #define CTL_COMMON_FONT             ((PCSZ)-1)
 
@@ -96,28 +102,50 @@ extern "C" {
                                         // or CTL_COMMON_FONT for standard dialog
                                         // font specified on input to dlghCreateDlg
 
-        USHORT      usAdjustPosition;
+        // USHORT      usAdjustPosition;
                 // flags for winhAdjustControls; any combination of
                 // XAC_MOVEX, XAC_MOVEY, XAC_SIZEX, XAC_SIZEY
-                // @@todo not implemented yet
+                // removed V0.9.21 (2002-08-18) [umoeller]
 
         SIZEL       szlDlgUnits;
-                // proposed size for the control. Note that starting
-                // with V0.9.19, these are now dialog units to
-                // finally fix the bad alignment problems with
-                // lower resolutions. The dialog formatter applies
-                // an internal factor to these things based on
+                // proposed size for the control content rectangle.
+                // Starting with V0.9.19, this is specified in
+                // dialog units to fix the bad alignment problems
+                // with lower resolutions. The dialog formatter
+                // applies an internal factor to these things based on
                 // what WinMapDlgPoints gives us.
+                //
+                // This size then becomes the column's content
+                // rectangle, to which spacing is applied to get
+                // the control's box.
+                //
                 // A number of special flags are available per
                 // cx and cy field:
+                //
                 // -- SZL_AUTOSIZE (-1): determine size automatically.
-                //    Works only for statics with SS_TEXT and
-                //    SS_BITMAP.
+                //    The behavior of this is control-specific:
+                //    -- Statics with SS_BITMAP or SS_ICON and
+                //       single-line SS_TEXT statics may
+                //       specify this for either cx or cy.
+                //    -- Same applies to pushbuttons, checkboxes
+                //       and radio buttons.
+                //    -- Multi-line statics and XTextView controls
+                //       can specify SZL_AUTOSIZE for cy only because
+                //       we cannot determine the height without knowing
+                //       the width.
+                //
                 // -- Any other _negative_ value is considered a
                 //    percentage of the largest row width in the
                 //    table. For example, -50 would mean 50% of
                 //    the largest row in the table. This is valid
                 //    for the CX field only.
+                //    For this, we take the _box_ of the widest
+                //    row, subtract the left spacing of the first
+                //    column in that row and the right spacing of
+                //    the last column in that row (because this
+                //    field specifies the content rectangle, but
+                //    the row already had spacing applied).
+                //
                 // If the CONTROLDEF appears with a START_NEW_TABLE
                 // type in _DLGHITEM (to specify a group table)
                 // and they are not SZL_AUTOSIZE, they specify the
@@ -176,7 +204,7 @@ extern "C" {
                 // TYPE_CONTROL_DEF             // control definition
                 // TYPE_END_TABLE               // end of table
 
-        const CONTROLDEF *pCtlDef;
+        ULONG           ul1;        // const CONTROLDEF *pCtlDef;
                 // -- with TYPE_START_NEW_TABLE: if NULL, this starts
                 //          an invisible table (for formatting only).
                 //          Otherwise a _CONTROLDEF pointer to specify
@@ -185,9 +213,20 @@ extern "C" {
                 //          with SS_GROUPBOX to create a group around
                 //          the table.
 
-        ULONG           fl;
+        ULONG           ul2;
                 // -- with TYPE_START_NEW_TABLE. TABLE_* formatting flags.
                         #define TABLE_ALIGN_COLUMNS         0x0100
+                                // used with START_TABLE_ALIGN to align the table's
+                                // columns horizontalle
+                        #define TABLE_INHERIT_SIZE          0x0200
+                                // if set, the table width is set to the
+                                // widest row in the parent table. Useful
+                                // for making several group boxes align
+                                // vertically.
+                                // @@todo get rid of this, remove size
+                                // from CONTROLDEF, and make size a field
+                                // of DLGHITEM so that we can finally treat
+                                // tables like controls WRT size
 
                 // -- with TYPE_START_NEW_ROW: ROW_* formatting flags.
                         #define ROW_VALIGN_MASK             0x0003
@@ -201,21 +240,25 @@ extern "C" {
 
     // a few handy macros for defining templates
 
-    #define START_TABLE                     { TYPE_START_NEW_TABLE, NULL, 0 }
+    #define START_TABLE                     { TYPE_START_NEW_TABLE, (ULONG)NULL, 0 }
 
-    #define START_TABLE_ALIGN               { TYPE_START_NEW_TABLE, NULL, TABLE_ALIGN_COLUMNS }
-                // added V0.9.20 (2002-08-08) [umoeller]
+    #define START_TABLE_EXT(fl)             { TYPE_START_NEW_TABLE, (ULONG)NULL, fl }
+                // added V0.9.21 (2002-08-16) [umoeller]
 
-    #define START_GROUP_TABLE(pDef)         { TYPE_START_NEW_TABLE, pDef, 0 }
+    #define START_TABLE_ALIGN START_TABLE_EXT(TABLE_ALIGN_COLUMNS)
 
-    #define START_GROUP_TABLE_ALIGN(pDef)   { TYPE_START_NEW_TABLE, pDef, TABLE_ALIGN_COLUMNS }
-                // added V0.9.20 (2002-08-08) [umoeller]
+    #define START_GROUP_TABLE(pDef)         { TYPE_START_NEW_TABLE, (ULONG)pDef, 0 }
 
-    #define END_TABLE                       { TYPE_END_TABLE, NULL, 0 }
+    #define START_GROUP_TABLE_EXT(pDef, fl) { TYPE_START_NEW_TABLE, (ULONG)pDef, fl }
+                // added V0.9.21 (2002-08-16) [umoeller]
 
-    #define START_ROW(fl)                   { TYPE_START_NEW_ROW, NULL, fl }
+    #define START_GROUP_TABLE_ALIGN(pDef) START_GROUP_TABLE_EXT(pDef, TABLE_ALIGN_COLUMNS)
 
-    #define CONTROL_DEF(pDef)               { TYPE_CONTROL_DEF, pDef, 0 }
+    #define END_TABLE                       { TYPE_END_TABLE, (ULONG)NULL, 0 }
+
+    #define START_ROW(fl)                   { TYPE_START_NEW_ROW, (ULONG)NULL, fl }
+
+    #define CONTROL_DEF(pDef)               { TYPE_CONTROL_DEF, (ULONG)pDef, 0 }
 
     /* ******************************************************************
      *
@@ -247,13 +290,18 @@ extern "C" {
                 // notebook pages V0.9.19 (2002-04-24) [umoeller]
     #define DLG_OUTER_SPACING_Y             3
 
-    #define COMMON_SPACING                  1
+    #ifdef DEBUG_DIALOG_WINDOWS
+        #define COMMON_SPACING              5
+    #else
+        #define COMMON_SPACING              1
+    #endif
 
     #define GROUP_INNER_SPACING_X           3
-    #define GROUP_OUTER_SPACING_BOTTOM      1
     #define GROUP_INNER_SPACING_BOTTOM      3
     #define GROUP_INNER_SPACING_TOP         8
-    #define GROUP_OUTER_SPACING_TOP         0
+    #define GROUP_OUTER_SPACING_X           COMMON_SPACING
+    #define GROUP_OUTER_SPACING_BOTTOM      COMMON_SPACING
+    #define GROUP_OUTER_SPACING_TOP         COMMON_SPACING
 
     #define STD_BUTTON_WIDTH                50
 
@@ -273,99 +321,104 @@ extern "C" {
 
     #define CONTROLDEF_GROUP(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_GROUPBOX | DT_MNEMONIC, \
-            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
+            id, CTL_COMMON_FONT, { cx, cy }, 0 }
 
     #define LOADDEF_GROUP(id, cx) CONTROLDEF_GROUP(LOAD_STRING, id, cx, SZL_AUTOSIZE)
 
+    #define CONTROLDEF_SPACING(cx, cy) { WC_STATIC, NULL, \
+            SS_TEXT, \
+            -1, CTL_COMMON_FONT,  {cx, cy}, COMMON_SPACING }
+
     #define CONTROLDEF_TEXT(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_TEXT | DT_LEFT | DT_VCENTER | DT_MNEMONIC, \
-            id, CTL_COMMON_FONT,  0, {cx, cy}, COMMON_SPACING }
+            id, CTL_COMMON_FONT,  {cx, cy}, COMMON_SPACING }
 
     #define LOADDEF_TEXT(id) CONTROLDEF_TEXT(LOAD_STRING, id, SZL_AUTOSIZE, SZL_AUTOSIZE)
 
     #define CONTROLDEF_TEXT_CENTER(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_TEXT | DT_CENTER | DT_VCENTER | DT_MNEMONIC, \
-            id, CTL_COMMON_FONT,  0, {cx, cy}, COMMON_SPACING }
+            id, CTL_COMMON_FONT,  {cx, cy}, COMMON_SPACING }
 
     #define CONTROLDEF_TEXT_RIGHT(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_TEXT | DT_RIGHT | DT_VCENTER | DT_MNEMONIC, \
-            id, CTL_COMMON_FONT,  0, {cx, cy}, COMMON_SPACING }
+            id, CTL_COMMON_FONT,  {cx, cy}, COMMON_SPACING }
 
     #define LOADDEF_TEXT_RIGHT(id) CONTROLDEF_TEXT_RIGHT(LOAD_STRING, id, SZL_AUTOSIZE, SZL_AUTOSIZE)
 
     #define CONTROLDEF_TEXT_WORDBREAK(pcsz, id, cx) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_TEXT | DT_LEFT | DT_TOP | DT_WORDBREAK, \
-            id, CTL_COMMON_FONT,  0, {cx, SZL_AUTOSIZE}, COMMON_SPACING }
+            id, CTL_COMMON_FONT,  {cx, SZL_AUTOSIZE}, COMMON_SPACING }
 
     #define CONTROLDEF_TEXT_WORDBREAK_CY(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_TEXT | DT_LEFT | DT_TOP | DT_WORDBREAK, \
-            id, CTL_COMMON_FONT,  0, {cx, cy}, COMMON_SPACING }
+            id, CTL_COMMON_FONT,  {cx, cy}, COMMON_SPACING }
 
     #define LOADDEF_TEXT_WORDBREAK(id, cx) CONTROLDEF_TEXT_WORDBREAK(LOAD_STRING, id, cx)
 
     #define CONTROLDEF_TEXT_WORDBREAK_MNEMONIC(pcsz, id, cx) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_TEXT | DT_LEFT | DT_TOP | DT_WORDBREAK | DT_MNEMONIC, \
-            id, CTL_COMMON_FONT,  0, {cx, SZL_AUTOSIZE}, COMMON_SPACING }
+            id, CTL_COMMON_FONT,  {cx, SZL_AUTOSIZE}, COMMON_SPACING }
 
     #define LOADDEF_TEXT_WORDBREAK_MNEMONIC(id, cx) CONTROLDEF_TEXT_WORDBREAK_MNEMONIC(LOAD_STRING, id, cx)
 
     #define CONTROLDEF_ICON(hptr, id) { WC_STATIC, (PCSZ)(hptr), \
             WS_VISIBLE | SS_ICON | DT_LEFT | DT_VCENTER, \
-            id, CTL_COMMON_FONT, 0, {SZL_AUTOSIZE, SZL_AUTOSIZE}, COMMON_SPACING }
+            id, CTL_COMMON_FONT, {SZL_AUTOSIZE, SZL_AUTOSIZE}, COMMON_SPACING }
 
     #define CONTROLDEF_ICON_WIDER(hptr, id) { WC_STATIC, (PCSZ)(hptr), \
             WS_VISIBLE | SS_ICON | DT_LEFT | DT_VCENTER, \
-            id, CTL_COMMON_FONT, 0, {SZL_AUTOSIZE, SZL_AUTOSIZE}, 2 * COMMON_SPACING }
+            id, CTL_COMMON_FONT, {SZL_AUTOSIZE, SZL_AUTOSIZE}, 2 * COMMON_SPACING }
 
     #define CONTROLDEF_BITMAP(hbm, id) { WC_STATIC, (PCSZ)(hbm), \
             WS_VISIBLE | SS_BITMAP | DT_LEFT | DT_VCENTER, \
-            id, CTL_COMMON_FONT, 0, {SZL_AUTOSIZE, SZL_AUTOSIZE}, COMMON_SPACING }
+            id, CTL_COMMON_FONT, {SZL_AUTOSIZE, SZL_AUTOSIZE}, COMMON_SPACING }
 
     // the following require INCL_WINBUTTONS
 
     #define CONTROLDEF_DEFPUSHBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_DEFAULT, \
-            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
+            id, CTL_COMMON_FONT, {cx, cy}, COMMON_SPACING }
 
     #define LOADDEF_DEFPUSHBUTTON(id) CONTROLDEF_DEFPUSHBUTTON(LOAD_STRING, id, STD_BUTTON_WIDTH, STD_BUTTON_HEIGHT)
 
     #define CONTROLDEF_PUSHBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, \
-            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
+            id, CTL_COMMON_FONT, {cx, cy}, COMMON_SPACING }
 
     #define LOADDEF_PUSHBUTTON(id) CONTROLDEF_PUSHBUTTON(LOAD_STRING, id, STD_BUTTON_WIDTH, STD_BUTTON_HEIGHT)
 
     #define CONTROLDEF_DEFNOFOCUSBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_DEFAULT | BS_NOPOINTERFOCUS, \
-            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
+            id, CTL_COMMON_FONT, {cx, cy}, COMMON_SPACING }
 
     #define CONTROLDEF_NOFOCUSBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_NOPOINTERFOCUS, \
-            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
+            id, CTL_COMMON_FONT, {cx, cy}, COMMON_SPACING }
 
     #define LOADDEF_NOFOCUSBUTTON(id) CONTROLDEF_NOFOCUSBUTTON(LOAD_STRING, id, STD_BUTTON_WIDTH, STD_BUTTON_HEIGHT)
 
     #define CONTROLDEF_HELPPUSHBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_HELP | BS_NOPOINTERFOCUS, \
-            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
+            id, CTL_COMMON_FONT, {cx, cy}, COMMON_SPACING }
 
     #define LOADDEF_HELPPUSHBUTTON(id) CONTROLDEF_HELPPUSHBUTTON(LOAD_STRING, id, STD_BUTTON_WIDTH, STD_BUTTON_HEIGHT)
 
     #define CONTROLDEF_AUTOCHECKBOX(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, \
-            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
+            id, CTL_COMMON_FONT, { cx, cy }, COMMON_SPACING }
 
     #define LOADDEF_AUTOCHECKBOX(id) CONTROLDEF_AUTOCHECKBOX(LOAD_STRING, id, SZL_AUTOSIZE, SZL_AUTOSIZE)
 
     #define CONTROLDEF_FIRST_AUTORADIO(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_AUTORADIOBUTTON | WS_GROUP, \
-            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
+            id, CTL_COMMON_FONT, { cx, cy }, COMMON_SPACING }
 
-    #define LOADDEF_FIRST_AUTORADIO(id) CONTROLDEF_FIRST_AUTORADIO(LOAD_STRING, id, SZL_AUTOSIZE, SZL_AUTOSIZE)
+    #define LOADDEF_FIRST_AUTORADIO(id) \
+            CONTROLDEF_FIRST_AUTORADIO(LOAD_STRING, id, SZL_AUTOSIZE, SZL_AUTOSIZE)
 
     #define CONTROLDEF_NEXT_AUTORADIO(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_AUTORADIOBUTTON, \
-            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
+            id, CTL_COMMON_FONT, { cx, cy }, COMMON_SPACING }
 
     #define LOADDEF_NEXT_AUTORADIO(id) CONTROLDEF_NEXT_AUTORADIO(LOAD_STRING, id, SZL_AUTOSIZE, SZL_AUTOSIZE)
 
@@ -373,71 +426,77 @@ extern "C" {
 
     #define CONTROLDEF_ENTRYFIELD(pcsz, id, cx, cy) { WC_ENTRYFIELD, pcsz, \
             WS_VISIBLE | WS_TABSTOP | ES_MARGIN | ES_AUTOSCROLL, \
-            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
+            id, CTL_COMMON_FONT, { cx, cy }, COMMON_SPACING }
 
     #define CONTROLDEF_ENTRYFIELD_RO(pcsz, id, cx, cy) { WC_ENTRYFIELD, pcsz, \
             WS_VISIBLE | WS_TABSTOP | ES_MARGIN | ES_READONLY | ES_AUTOSCROLL, \
-            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
+            id, CTL_COMMON_FONT, { cx, cy }, COMMON_SPACING }
 
     // the following require INCL_WINMLE
 
     #define CONTROLDEF_MLE(pcsz, id, cx, cy) { WC_MLE, pcsz, \
             WS_VISIBLE | WS_TABSTOP | MLS_BORDER | MLS_IGNORETAB | MLS_WORDWRAP, \
-            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
+            id, CTL_COMMON_FONT, { cx, cy }, COMMON_SPACING }
 
     // the following require INCL_WINLISTBOXES
 
     #define CONTROLDEF_LISTBOX(id, cx, cy) { WC_LISTBOX, NULL, \
             WS_VISIBLE | WS_TABSTOP | LS_HORZSCROLL | LS_NOADJUSTPOS, \
-            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
+            id, CTL_COMMON_FONT, { cx, cy }, COMMON_SPACING }
 
     // the following require INCL_WINLISTBOXES and INCL_WINENTRYFIELDS
 
     #define CONTROLDEF_DROPDOWN(id, cx, cy) { WC_COMBOBOX, NULL, \
             WS_VISIBLE | WS_TABSTOP | LS_HORZSCROLL | CBS_DROPDOWN, \
-            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
+            id, CTL_COMMON_FONT, { cx, cy }, COMMON_SPACING }
 
     #define CONTROLDEF_DROPDOWNLIST(id, cx, cy) { WC_COMBOBOX, NULL, \
             WS_VISIBLE | WS_TABSTOP | LS_HORZSCROLL | CBS_DROPDOWNLIST, \
-            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
+            id, CTL_COMMON_FONT, { cx, cy }, COMMON_SPACING }
 
     // the following require INCL_WINSTDSPIN
 
     #define CONTROLDEF_SPINBUTTON(id, cx, cy) { WC_SPINBUTTON, NULL, \
             WS_VISIBLE | WS_TABSTOP | SPBS_MASTER | SPBS_NUMERICONLY | SPBS_JUSTCENTER | SPBS_FASTSPIN, \
-            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
+            id, CTL_COMMON_FONT, {cx, cy}, COMMON_SPACING }
 
     // the following require INCL_WINSTDCNR
 
     #define CONTROLDEF_CONTAINER(id, cx, cy) { WC_CONTAINER, NULL, \
             WS_VISIBLE | WS_TABSTOP | 0, \
-            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
+            id, CTL_COMMON_FONT, {cx, cy}, COMMON_SPACING }
 
     #define CONTROLDEF_CONTAINER_EXTSEL(id, cx, cy) { WC_CONTAINER, NULL, \
             WS_VISIBLE | WS_TABSTOP | CCS_EXTENDSEL, \
-            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
+            id, CTL_COMMON_FONT, {cx, cy}, COMMON_SPACING }
 
     // the following require INCL_WINSTDSLIDER
 
     #define CONTROLDEF_SLIDER(id, cx, cy, pctldata) { WC_SLIDER, NULL, \
             WS_VISIBLE | WS_TABSTOP | WS_GROUP | SLS_HORIZONTAL | SLS_PRIMARYSCALE1 \
             | SLS_BUTTONSRIGHT | SLS_SNAPTOINCREMENT, \
-            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING, pctldata }
+            id, CTL_COMMON_FONT, {cx, cy}, 0, pctldata }
+            // id, CTL_COMMON_FONT, {cx, cy}, COMMON_SPACING, pctldata }
 
     #define CONTROLDEF_VSLIDER(id, cx, cy, pctldata) { WC_SLIDER, NULL, \
             WS_VISIBLE | WS_TABSTOP | WS_GROUP | SLS_VERTICAL | SLS_PRIMARYSCALE1 \
             | SLS_BUTTONSRIGHT | SLS_SNAPTOINCREMENT, \
-            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING, pctldata }
+            id, CTL_COMMON_FONT, {cx, cy}, COMMON_SPACING, pctldata }
+
+    // the following require #include helpers\comctl.h
+    #define CONTROLDEF_SEPARATORLINE(id, cx, cy) { WC_SEPARATORLINE, NULL, \
+            WS_VISIBLE, \
+            id, NULL, {cx, cy}, COMMON_SPACING }
 
     // the following require #include helpers\textview.h
 
     #define CONTROLDEF_XTEXTVIEW(text, id, cx, pctldata) { WC_XTEXTVIEW, text, \
             WS_VISIBLE | XS_STATIC | XS_WORDWRAP, \
-            id, CTL_COMMON_FONT, 0, {cx, SZL_AUTOSIZE}, COMMON_SPACING, pctldata }
+            id, CTL_COMMON_FONT, {cx, SZL_AUTOSIZE}, COMMON_SPACING, pctldata }
 
     #define CONTROLDEF_XTEXTVIEW_HTML(text, id, cx, pctldata) { WC_XTEXTVIEW, text, \
             WS_VISIBLE | XS_STATIC | XS_WORDWRAP | XS_HTML, \
-            id, CTL_COMMON_FONT, 0, {cx, SZL_AUTOSIZE}, COMMON_SPACING, pctldata }
+            id, CTL_COMMON_FONT, {cx, SZL_AUTOSIZE}, COMMON_SPACING, pctldata }
 
     /* ******************************************************************
      *

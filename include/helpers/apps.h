@@ -54,20 +54,20 @@ extern "C" {
     } DOSENVIRONMENT, *PDOSENVIRONMENT;
 
     APIRET appParseEnvironment(const char *pcszEnv,
-                                PDOSENVIRONMENT pEnv);
+                               PDOSENVIRONMENT pEnv);
 
     APIRET appGetEnvironment(PDOSENVIRONMENT pEnv);
 
     PSZ* appFindEnvironmentVar(PDOSENVIRONMENT pEnv,
-                                PSZ pszVarName);
+                               PSZ pszVarName);
 
     APIRET appSetEnvironmentVar(PDOSENVIRONMENT pEnv,
-                                 PSZ pszNewEnv,
-                                 BOOL fAddFirst);
+                                PSZ pszNewEnv,
+                                BOOL fAddFirst);
 
     APIRET appConvertEnvironment(PDOSENVIRONMENT pEnv,
-                                  PSZ *ppszEnv,
-                                  PULONG pulSize);
+                                 PSZ *ppszEnv,
+                                 PULONG pulSize);
 
     APIRET appFreeEnvironment(PDOSENVIRONMENT pEnv);
 
@@ -80,8 +80,8 @@ extern "C" {
         #define PROG_WIN32              990     // added V0.9.16 (2001-12-08) [umoeller]
 
         APIRET appQueryAppType(const char *pcszExecutable,
-                                PULONG pulDosAppType,
-                                PULONG pulWinAppType);
+                               PULONG pulDosAppType,
+                               PULONG pulWinAppType);
 
         PCSZ appDescribeAppType(PROGCATEGORY progc);
 
@@ -115,13 +115,16 @@ extern "C" {
                                     HAPP happ,
                                     PULONG pulExitCode);
 
-        HAPP appQuickStartApp(const char *pcszFile,
-                              ULONG ulProgType,
-                              const char *pcszArgs,
-                              const char *pcszWorkingDir,
-                              PULONG pulExitCode);
+        APIRET appQuickStartApp(const char *pcszFile,
+                                ULONG ulProgType,
+                                const char *pcszArgs,
+                                const char *pcszWorkingDir,
+                                HAPP *phapp,
+                                PULONG pulExitCode);
 
-        BOOL appOpenURL(PCSZ pcszURL);
+        APIRET appOpenURL(PCSZ pcszURL,
+                          PSZ pszAppStarted,
+                          ULONG cbAppStarted);
 
     #endif
 

@@ -175,6 +175,7 @@
  *@@changed V0.9.16 (2001-12-08) [umoeller]: fLibrary was never set, works for LX, NE, and PE now
  *@@changed V0.9.16 (2001-12-08) [umoeller]: speed optimizations, changed some return codes
  *@@changed V0.9.16 (2002-01-04) [umoeller]: added fixes for COM, BAT, CMD extensions
+ *@@changed V0.9.21 (2002-08-18) [umoeller]: this was completely broken for files without extensions (os2krnl)
  */
 
 APIRET exehOpen(const char* pcszExecutable,
@@ -192,17 +193,24 @@ APIRET exehOpen(const char* pcszExecutable,
     ULONG       ulNewHeaderOfs = 0;       // V0.9.12 (2001-05-03) [umoeller]
 
     if (!ppExec)
-        return (ERROR_INVALID_PARAMETER);
+        return ERROR_INVALID_PARAMETER;
 
     if (!(pExec = (PEXECUTABLE)malloc(sizeof(EXECUTABLE))))
-        return (ERROR_NOT_ENOUGH_MEMORY);
+        return ERROR_NOT_ENOUGH_MEMORY;
 
     memset(pExec, 0, sizeof(EXECUTABLE));
 
     // check some of the default extensions
     // V0.9.16 (2002-01-04) [umoeller]
-    if (pExt = doshGetExtension(pcszExecutable))
+    if (!(pExt = doshGetExtension(pcszExecutable)))
     {
+        // has no extension: then open file!
+        // fixed V0.9.21 (2002-08-18) [umoeller]
+        fOpenFile = TRUE;
+    }
+    else
+    {
+        // has extension:
         if (!stricmp(pExt, "COM"))
         {
             // I am not willing to find out more about the
@@ -507,14 +515,12 @@ APIRET exehOpen(const char* pcszExecutable,
 
 /*
  *@@ ParseBldLevel:
- *      called from exehQueryBldLevel to parse
- *      the BLDLEVEL string.
+ *      called from exehQueryBldLevel to parse the BLDLEVEL string.
  *
- *      On entry, caller has copied the string into
- *      pExec->pszDescription. The string is
- *      null-terminated.
+ *      On entry, caller has copied the string into pExec->pszDescription.
+ *      The string is null-terminated.
  *
- *      The BLDLEVEL string comes in two flavors.
+ *      The BLDLEVEL string comes in at least two basic flavors.
  *
  *      --  The standard format is:
  *
@@ -523,28 +529,39 @@ APIRET exehOpen(const char* pcszExecutable,
  *          DESCRIPTION can have leading spaces, but
  *          need to have them.
  *
- *      --  However, there is an extended version
- *          in that the DESCRIPTION field is split
- *          up even more. The marker for this seems
- *          to be that the description starts out
- *          with "##1##".
+ *      --  However, there is an extended version in that the DESCRIPTION field
+ *          is split up even more.
+ *
+ *          I have seen two subformats for this.
+ *
+ *          --  DANIS506.ADD and some IBM programs have a marker that seems
+ *              to be that the description starts out with "##1##".
  *
  +              ##1## DATETIME BUILDMACHINE:ASD:LANG:CTRY:REVISION:UNKNOWN:FIXPAK@@DESCRIPTION
  *
- *          The problem is that the DATETIME field comes
- *          in several flavors. IBM uses things like
+ *              The problem is that the DATETIME field comes
+ *              in several flavors. IBM uses things like
  *
- +              "Thu Nov 30 15:30:37 2000 BWBLD228"
+ +                  "Thu Nov 30 15:30:37 2000 BWBLD228"
  *
- *          while DANIS506.ADD has
+ *              while DANIS506.ADD has
  *
- +              "15.12.2000 18:22:57      Nachtigall"
+ +                  "15.12.2000 18:22:57      Nachtigall"
  *
- *          Looks like the date/time string is standardized
- *          to have 24 characters then.
+ *              Looks like the date/time string is standardized to have 24 characters then.
+ *
+ *          --  IBM TCP/IP executables (try INETD.EXE) have something yet different on.
+ *              We now try to parse that format as well, even though bldlevel.exe can't
+ *              handle it. (Isn't that utility from IBM too?)
+ *
+ *              Here's what I get for inetd.exe:
+ *
+ +              ##built 09:16:27 Mon Sep 17 2001 -- On AURORA43;0.1@@ TCP/IP for OS/2: INETD
  *
  *@@added V0.9.12 (2001-05-18) [umoeller]
  *@@changed V0.9.12 (2001-05-19) [umoeller]: added extended BLDLEVEL support
+ *@@changed V0.9.21 (2002-08-18) [umoeller]: added support for IBM TCP/IP format
+ *@@changed V0.9.21 (2002-08-18) [umoeller]: fixed DANIS506 format when an extended field had only one character
  */
 
 static VOID ParseBldLevel(PEXECUTABLE pExec)
@@ -554,7 +571,6 @@ static VOID ParseBldLevel(PEXECUTABLE pExec)
             pEndOfVendor;
 
     // @#VENDOR:VERSION#@ DESCRIPTION
-    // but skip the first byte, which has the string length
     if (    (pStartOfVendor = strstr(pExec->pszDescription, "@#"))
          && (pStartOfInfo = strstr(pStartOfVendor + 2, "#@"))
          && (pEndOfVendor = strchr(pStartOfVendor + 2, ':'))
@@ -568,24 +584,42 @@ static VOID ParseBldLevel(PEXECUTABLE pExec)
         pStartOfInfo += 2;
 
         // now check if we have extended DESCRIPTION V0.9.12 (2001-05-19) [umoeller]
-        if (    (strlen(pStartOfInfo) > 6)
-             && (!memcmp(pStartOfInfo, "##1##", 5))
-           )
+        if (strlen(pStartOfInfo) > 6)
         {
-            // yes: parse that beast
-            const char *p = pStartOfInfo + 5;
-
-            // get build date/time
-            if (strlen(p) > 24)
+            if (!memcmp(pStartOfInfo, "##1##", 5))
             {
-                // date/time seems to be fixed 24 chars in length
-                if (pExec->pszBuildDateTime = (PSZ)malloc(25))
+                // DANIS506.ADD format:
+                // "##1## 2.7.2002 19:32:34        Nachtigall::::6::@@..."
+
+                // parse that beast
+                PCSZ p = pStartOfInfo + 5;
+
+                // get build date/time
+                if (strlen(p) > 24)
                 {
-                    memcpy(pExec->pszBuildDateTime,
+                    // skip leading and trailing spaces
+                    // V0.9.21 (2002-08-18) [umoeller]
+                    PCSZ pStartOfDT = p,
+                         pEndOfDT = p + 24;
+                                // date/time seems to be fixed 24 chars in length
+
+                    while (*pStartOfDT == ' ')
+                        ++pStartOfDT;
+
+                    while (    (*pEndOfDT == ' ')
+                            && (pEndOfDT > pStartOfDT)
+                          )
+                        --pEndOfDT;
+
+                    pExec->pszBuildDateTime = strhSubstr(pStartOfDT, pEndOfDT + 1);
+
+                    /* memcpy(pExec->pszBuildDateTime,
                            p,
                            24);
                     pExec->pszBuildDateTime[24] = '\0';
+                    */
 
+                    // date/time seems to be fixed 24 chars in length
                     p += 24;
 
                     // now we're at the colon-separated
@@ -612,9 +646,9 @@ static VOID ParseBldLevel(PEXECUTABLE pExec)
                              ul < sizeof(papsz) / sizeof(papsz[0]);
                              ul++)
                         {
-                            BOOL fStop = FALSE;
-                            const char *pNextColon = strchr(p, ':'),
-                                       *pDoubleAt = strstr(p, "@@");
+                            BOOL    fStop = FALSE;
+                            PCSZ    pNextColon = strchr(p, ':'),
+                                    pDoubleAt = strstr(p, "@@");
                             if (!pNextColon)
                             {
                                 // last item:
@@ -634,7 +668,11 @@ static VOID ParseBldLevel(PEXECUTABLE pExec)
                                     )
                                )
                             {
-                                if (pNextColon > p + 1)
+                                // if (pNextColon > p + 1)
+                                        // fixed V0.9.21 (2002-08-18) [umoeller]
+                                        // this failed on fields like "revision"
+                                        // which only had one character
+                                if (pNextColon > p)
                                     *(papsz[ul]) = strhSubstr(p, pNextColon);
                             }
                             else
@@ -647,12 +685,67 @@ static VOID ParseBldLevel(PEXECUTABLE pExec)
                         }
                     }
                 }
-            }
 
-            pStartOfInfo = strstr(p,
-                                  "@@");
-            if (pStartOfInfo)
-                pStartOfInfo += 2;
+                if (pStartOfInfo = strstr(p,
+                                          "@@"))
+                    pStartOfInfo += 2;
+            } // end if (!memcmp(pStartOfInfo, "##1##", 5))
+            else if (!memcmp(pStartOfInfo, "##built", 7))
+            {
+                // IBM TCP/IP format:
+                // V0.9.21 (2002-08-18) [umoeller]
+
+                // ##built 09:16:27 Mon Sep 17 2001 -- On AURORA43;0.1@@ TCP/IP for OS/2: INETD
+
+                PCSZ    p = pStartOfInfo + 7,
+                        p2,
+                        p3;
+
+                if (p3 = strchr(p, ';'))
+                {
+                    while (*p == ' ')
+                        ++p;
+
+                    // ##built 09:16:27 Mon Sep 17 2001 -- On AURORA43;0.1@@ TCP/IP for OS/2: INETD
+                    //         ^ p                                    ^ p3
+                    //                                 ^ p2
+
+                    if (    (p2 = strstr(p, " -- On "))
+                         && (p2 < p3)
+                       )
+                    {
+                        pExec->pszBuildMachine = strhSubstr(p2 + 7, p3);
+                        pExec->pszBuildDateTime = strhSubstr(p, p2);
+                    }
+                    else
+                        pExec->pszBuildDateTime = strhSubstr(p, p3);
+
+                    p = p3 + 1;
+                }
+
+                if (pStartOfInfo = strstr(p,
+                                          "@@"))
+                {
+                    if (pStartOfInfo > p3)
+                    {
+                        // p3 points to this "0.1" string; I assume this is
+                        // a "revision.fixpak" format since inetver reports
+                        // four digits with this revision
+                        PCSZ p4;
+                        if (    (p4 = strchr(p3, '.'))
+                             && (p4 < pStartOfInfo)
+                           )
+                        {
+                            pExec->pszRevision = strhSubstr(p3 + 1, p4);
+                            pExec->pszFixpak = strhSubstr(p4 + 1, pStartOfInfo);
+                        }
+                        else
+                            pExec->pszRevision = strhSubstr(p3 + 1, pStartOfInfo);
+                    }
+
+                    pStartOfInfo += 2;
+                }
+            }
         }
 
         // -- if we had no extended DESCRIPTION,
@@ -665,7 +758,8 @@ static VOID ParseBldLevel(PEXECUTABLE pExec)
             // add the regular DESCRIPTION then
             // skip leading spaces in info string
             while (*pStartOfInfo == ' ')
-                pStartOfInfo++;
+                ++pStartOfInfo;
+
             if (*pStartOfInfo)  // V0.9.9 (2001-04-04) [umoeller]
                 // and copy until end of string
                 pExec->pszInfo = strdup(pStartOfInfo);
@@ -2141,7 +2235,7 @@ VOID exehFreeLXMaps(PEXECUTABLE pExec)
 
 static APIRET ExpandIterdata1(char *pabTarget,         // out: page data (pagesize as in lx spec)
                               int cbTarget,            // in: sizeof *pabTarget (pagesize as in lx spec)
-                              const char *pabSource,   // in: compressed source data in EXEPACK:1 format
+                              PCSZ pabSource,   // in: compressed source data in EXEPACK:1 format
                               int cbSource)            // in: sizeof *pabSource
 {
     PLXITER             pIter = (PLXITER)pabSource;
@@ -2204,7 +2298,7 @@ static APIRET ExpandIterdata1(char *pabTarget,         // out: page data (pagesi
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-static void memcpyw(char *pch1, const char *pch2, size_t cch)
+static void memcpyw(char *pch1, PCSZ pch2, size_t cch)
 {
     /*
      * Use memcpy if possible.
@@ -2238,7 +2332,7 @@ static void memcpyw(char *pch1, const char *pch2, size_t cch)
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-static void memcpyb(char *pch1, const char *pch2, size_t cch)
+static void memcpyb(char *pch1, PCSZ pch2, size_t cch)
 {
     /*
      * Use memcpy if possible.
@@ -2275,7 +2369,7 @@ static void memcpyb(char *pch1, const char *pch2, size_t cch)
 
 static APIRET ExpandIterdata2(char *pachPage,              // out: page data (pagesize as in lx spec)
                               int cchPage,                 // in: sizeof *pachPage (pagesize as in lx spec)
-                              const char *pachSrcPage,     // in: compressed source data in EXEPACK:1 format
+                              PCSZ pachSrcPage,     // in: compressed source data in EXEPACK:1 format
                               int cchSrcPage)              // in: size of source buf
 {
     char    *pachDestPage = pachPage; /* Store the pointer for boundrary checking. */
@@ -3180,4 +3274,5 @@ APIRET exehClose(PEXECUTABLE *ppExec)
 
     return arc;
 }
+
 

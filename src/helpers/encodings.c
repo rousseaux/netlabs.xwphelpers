@@ -8,6 +8,9 @@
  *
  *      See encCreateCodec for an introduction.
  *
+ *      See http://www.ietf.org/rfc/rfc2279.txt for
+ *      RFC 2279, which defines UTF-8.
+ *
  *      Be warned, compilation of this file takes a long
  *      file because this includes all the complex codepages
  *      from include\encodings.

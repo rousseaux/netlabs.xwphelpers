@@ -118,6 +118,94 @@
 
 /* ******************************************************************
  *
+ *   "Separator line" control
+ *
+ ********************************************************************/
+
+PFNWP   G_pfnwpStatic = NULL;
+
+/*
+ *@@ fnwpSeparatorLine:
+ *      window proc for the subclassed static control that makes
+ *      the "separator line" control.
+ *
+ *@@added V0.9.20 (2002-08-10) [umoeller]
+ */
+
+static MRESULT EXPENTRY fnwpSeparatorLine(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
+{
+    MRESULT mrc = 0;
+
+    switch (msg)
+    {
+        case WM_PAINT:
+        {
+            RECTL rcl;
+            HPS hps;
+            WinQueryWindowRect(hwnd, &rcl);
+            if (hps = WinBeginPaint(hwnd, NULLHANDLE, NULL))
+            {
+                POINTL ptl;
+
+                gpihSwitchToRGB(hps);
+
+                GpiSetColor(hps, WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONLIGHT, 0));
+
+                ptl.x = rcl.xLeft;
+                ptl.y = (rcl.yTop - rcl.yBottom) / 2 - 1;
+                GpiMove(hps, &ptl);
+                ptl.x = rcl.xRight;
+                GpiLine(hps, &ptl);
+
+                GpiSetColor(hps, WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONDARK, 0));
+
+                ptl.x = rcl.xLeft;
+                ++ptl.y;
+                GpiMove(hps, &ptl);
+                ptl.x = rcl.xRight;
+                GpiLine(hps, &ptl);
+
+                WinEndPaint(hps);
+            }
+        }
+        break;
+
+        default:
+            mrc = G_pfnwpStatic(hwnd, msg, mp1, mp2);
+    }
+
+    return mrc;
+}
+
+/*
+ *@@ ctlMakeSeparatorLine:
+ *      turns the given static control into a 3D separator line.
+ *
+ *@@added V0.9.21 (2002-08-12) [umoeller]
+ */
+
+BOOL ctlRegisterSeparatorLine(HAB hab)
+{
+    CLASSINFO ciStatic;
+    if (WinQueryClassInfo(hab,
+                          WC_STATIC,
+                          &ciStatic))
+    {
+        G_pfnwpStatic = ciStatic.pfnWindowProc;
+
+        return WinRegisterClass(hab,
+                                WC_SEPARATORLINE,
+                                fnwpSeparatorLine,
+                                (ciStatic.flClassStyle & ~CS_PUBLIC),
+                                ciStatic.cbWindowData);
+
+    }
+
+    return FALSE;
+}
+
+/* ******************************************************************
+ *
  *   "XButton" control
  *
  ********************************************************************/

@@ -878,8 +878,9 @@ static APIRET CallBatchCorrectly(PPROGDETAILS pProgDetails,
 
     // if the path has spaces, or other invalid characters,
     // include it in quotes V0.9.21 (2002-08-12) [umoeller]
-    if (fQuotes = !!strpbrk(pProgDetails->pszExecutable, " +&|"))
+    if (fQuotes = !!strpbrk(pProgDetails->pszExecutable, " +&|="))
         xstrcatc(pstrParams, '"');
+            // @@bugbug "=" still doesn't work
 
     #ifdef DEBUG_PROGRAMSTART
         _PmpfF(("fQuotes (parameters need quotes) is %d", fQuotes));
@@ -1164,6 +1165,7 @@ static void DumpMemoryBlock(PBYTE pb,       // in: start address
  *@@changed V0.9.19 (2002-03-28) [umoeller]: now allocating contiguous buffer
  *@@changed V0.9.20 (2002-07-03) [umoeller]: fixed Win-OS/2 full screen breakage
  *@@changed V0.9.20 (2002-07-03) [umoeller]: fixed broken bat and cmd files when PROG_DEFAULT was set
+ *@@changed V0.9.21 (2002-08-18) [umoeller]: fixed cmd and bat files that had "=" in their paths
  */
 
 APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem with fixed program spec (req.)
@@ -1347,6 +1349,17 @@ APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem
                         arc = ERROR_PATH_NOT_FOUND;
                 }
 
+// V0.9.21: this define is never set. I have thus completely
+// disabled the batch hacks that we used to provide, that is
+// we no longer change the "c:\path\batch.cmd" to "cmd.exe /c c:\path\batch.cmd"
+// because it is perfectly valid to call WinStartApp with a
+// batch file. The problem with my code was that cmd.exe has
+// a weird bug in that if you give it something via /c that
+// has an equals character (=) in its path, e.g. "c:\path=path\batch.cmd",
+// the command parser apparently stops at the first "=" and
+// reports "c:\path" not found or something. What a bitch.
+#ifdef ENABLEBATCHHACKS
+
                 // we frequently get here for BAT and CMD files
                 // with progtype == PROG_DEFAULT, so include
                 // that in the check, or all BAT files will fail
@@ -1398,6 +1411,7 @@ APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem
                     }
                     break;
                 } // end switch (Details.progt.progc)
+#endif // ENABLEBATCHHACKS
             }
         }
 
@@ -2044,17 +2058,19 @@ BOOL appWaitForApp(HWND hwndNotify,     // in: notify window
  *@@added V0.9.16 (2001-10-19) [umoeller]
  *@@changed V0.9.20 (2002-08-10) [umoeller]: fixed missing destroy window, made wait optional
  *@@changed V0.9.20 (2002-08-10) [umoeller]: added pcszWorkingDir
+ *@@changed V0.9.21 (2002-08-18) [umoeller]: changed prototype to return APIRET
  */
 
-HAPP appQuickStartApp(const char *pcszFile,
-                      ULONG ulProgType,             // e.g. PROG_PM
-                      const char *pcszArgs,         // in: arguments (can be NULL)
-                      const char *pcszWorkingDir,   // in: working dir (can be NULL)
-                      PULONG pulExitCode)           // out: exit code; if ptr is NULL, we don't wait
+APIRET appQuickStartApp(const char *pcszFile,
+                        ULONG ulProgType,             // e.g. PROG_PM
+                        const char *pcszArgs,         // in: arguments (can be NULL)
+                        const char *pcszWorkingDir,   // in: working dir (can be NULL)
+                        HAPP *phapp,
+                        PULONG pulExitCode)           // out: exit code; if ptr is NULL, we don't wait
 {
+    APIRET         arc = NO_ERROR;
     PROGDETAILS    pd = {0};
-    HAPP           happ,
-                   happReturn = NULLHANDLE;
+    HAPP           happReturn = NULLHANDLE;
     CHAR           szDir[CCHMAXPATH] = "";
     PCSZ           p;
     HWND           hwndObject;
@@ -2076,25 +2092,23 @@ HAPP appQuickStartApp(const char *pcszFile,
     }
 
     if (    (hwndObject = winhCreateObjectWindow(WC_STATIC, NULL))
-         && (!appStartApp(hwndObject,
-                          &pd,
-                          0,
-                          &happ,
-                          0,
-                          NULL))
+         && (!(arc = appStartApp(hwndObject,
+                                 &pd,
+                                 0,
+                                 phapp,
+                                 0,
+                                 NULL)))
        )
     {
         if (pulExitCode)
             appWaitForApp(hwndObject,
-                          happ,
+                          *phapp,
                           pulExitCode);
-
-        happReturn = happ;
 
         WinDestroyWindow(hwndObject);       // was missing V0.9.20 (2002-08-10) [umoeller]
     }
 
-    return happReturn;
+    return arc;
 }
 
 /*
@@ -2102,12 +2116,17 @@ HAPP appQuickStartApp(const char *pcszFile,
  *      opens the system default browser with the given
  *      URL.
  *
+ *      We return TRUE if appQuickStartApp succeeded with
+ *      that URL.
+ *
  *@@added V0.9.20 (2002-08-10) [umoeller]
  */
 
-BOOL appOpenURL(PCSZ pcszURL)
+APIRET appOpenURL(PCSZ pcszURL,           // in: URL to open
+                  PSZ pszAppStarted,      // out: application that was started
+                  ULONG cbAppStarted)     // in: size of that buffer
 {
-    BOOL        brc = FALSE;
+    APIRET      arc = NO_ERROR;
 
     CHAR        szBrowser[CCHMAXPATH],
                 szStartupDir[CCHMAXPATH];
@@ -2122,7 +2141,8 @@ BOOL appOpenURL(PCSZ pcszURL)
                               szBrowser,
                               sizeof(szBrowser)))
     {
-        PSZ pszDefParams;
+        PSZ     pszDefParams;
+        HAPP    happ;
 
         if (pszDefParams = prfhQueryProfileData(HINI_USER,
                                                 "WPURLDEFAULTSETTINGS",
@@ -2144,14 +2164,20 @@ BOOL appOpenURL(PCSZ pcszURL)
                               sizeof(szStartupDir));
 
 
-        brc = !!appQuickStartApp(szBrowser,
-                                 PROG_DEFAULT,
-                                 strParameters.psz,
-                                 szStartupDir,
-                                 NULL);            // don't wait
+        arc = appQuickStartApp(szBrowser,
+                               PROG_DEFAULT,
+                               strParameters.psz,
+                               szStartupDir,
+                               &happ,
+                               NULL);     // don't wait
+
+        if (pszAppStarted)
+            strhncpy0(pszAppStarted,
+                      szBrowser,
+                      cbAppStarted);
     }
 
     xstrClear(&strParameters);
 
-    return brc;
+    return arc;
 }
