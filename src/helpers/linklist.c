@@ -803,6 +803,7 @@ BOOL lstRemoveNode(PLINKLIST pList,
         if (pList->pFirst == pRemoveNode)
             // item to be removed is first: adjust first
             pList->pFirst = pRemoveNode->pNext;     // can be NULL
+
         if (pList->pLast == pRemoveNode)
             // item to be removed is last: adjust last
             pList->pLast = pRemoveNode->pPrevious;  // can be NULL
