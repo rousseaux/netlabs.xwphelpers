@@ -14,7 +14,12 @@
  *      This can be a problem with mixing Win and Gpi functions. For
  *      example, WinQueryWindowRect returns an inclusive-exclusive
  *      rectangle (so that the xRight value is the same as the window
- *      width). However, GpiBox expects an inclusive-inclusive rectangle.
+ *      width -- tested V0.9.7 (2000-12-20) [umoeller]).
+ *
+ *      WinFillRect expects an inclusive-exclusive rectangle, so it
+ *      will work with a rectangle from WinQueryWindowRect directly.
+ *
+ *      By contrast, the GpiBox expects an inclusive-inclusive rectangle.
  *
  *      Function prefixes (new with V0.81):
  *      --  gpih*   GPI helper functions
@@ -193,11 +198,9 @@ VOID gpihDrawRect(HPS hps,      // in: presentation space for output
  *      As opposed to WinFillRect, this works with memory
  *      (bitmap) PS's also.
  *
- *      The specified rectangle is exclusive, meaning that
- *      the top right point lies _outside_ the rectangle
- *      which is actually drawn. This is the same as with
- *      WinFillRect. ### I don't think so any more... GpiBox
- *      uses inclusive-inclusive rectangles...
+ *      The specified rectangle is inclusive, that is, the top
+ *      right corner specifies the top right pixel to be drawn.
+ *      This is different from WinFillRect.
  *
  *      Changes to the HPS:
  *      --  the current (foreground) color is changed to
@@ -271,6 +274,7 @@ VOID gpihMarker(HPS hps,
  *
  *      The specified rectangle is inclusive, that is, the top
  *      right corner specifies the top right pixel to be drawn.
+ *      This is different from WinFillRect.
  *
  *      If usWidth > 1, the additional pixels will be drawn towards
  *      the _center_ of the rectangle. prcl thus always specifies
@@ -287,7 +291,7 @@ VOID gpihMarker(HPS hps,
  */
 
 VOID gpihDrawThickFrame(HPS hps,              // in: presentation space for output
-                        PRECTL prcl,          // in: rectangle to draw (exclusive)
+                        PRECTL prcl,          // in: rectangle to draw (inclusive)
                         ULONG ulWidth)       // in: line width (>= 1)
 {
     ULONG ul = 0;
@@ -317,16 +321,18 @@ VOID gpihDrawThickFrame(HPS hps,              // in: presentation space for outp
  *
  *      The specified rectangle is inclusive, that is, the top
  *      right corner specifies the top right pixel to be drawn.
+ *      This is different from WinFillRect.
  *
  *      If usWidth > 1, the additional pixels will be drawn towards
  *      the _center_ of the rectangle. prcl thus always specifies
  *      the bottom left and top right pixels to be drawn.
  *
  *@@changed V0.9.0 [umoeller]: changed function prototype to have colors specified
+ *@@changed V0.9.7 (2000-12-20) [umoeller]: now really using inclusive rectangle...
  */
 
 VOID gpihDraw3DFrame(HPS hps,
-                     PRECTL prcl,       // in: rectangle
+                     PRECTL prcl,       // in: rectangle (inclusive)
                      USHORT usWidth,    // in: line width (>= 1)
                      LONG lColorLeft,   // in: color to use for left and top; e.g. SYSCLR_BUTTONLIGHT
                      LONG lColorRight)  // in: color to use for right and bottom; e.g. SYSCLR_BUTTONDARK
@@ -341,9 +347,9 @@ VOID gpihDraw3DFrame(HPS hps,
         ptl1.x = rcl2.xLeft;
         ptl1.y = rcl2.yBottom;
         GpiMove(hps, &ptl1);
-        ptl1.y = rcl2.yTop-1;
+        ptl1.y = rcl2.yTop;     // V0.9.7 (2000-12-20) [umoeller]
         GpiLine(hps, &ptl1);
-        ptl1.x = rcl2.xRight-1;
+        ptl1.x = rcl2.xRight;   // V0.9.7 (2000-12-20) [umoeller]
         GpiLine(hps, &ptl1);
         GpiSetColor(hps, lColorRight);
         ptl1.y = rcl2.yBottom;
@@ -1062,20 +1068,17 @@ BOOL gpihSetPointSize(HPS hps,          // in: presentation space for output
  *      This might be helpful if you write text to the
  *      screen yourself and need the height of a text
  *      line to advance to the next.
+ *
+ *@@changed V0.9.7 (2000-12-20) [umoeller]: removed psz param
  */
 
-LONG gpihQueryLineSpacing(HPS hps,
-                          PSZ pszText)      // in:  text to output
+LONG gpihQueryLineSpacing(HPS hps)
 {
     FONTMETRICS fm;
-    POINTL aptlText[TXTBOX_COUNT];
-    GpiQueryTextBox(hps, strlen(pszText), pszText,
-                    TXTBOX_COUNT, (PPOINTL)&aptlText);
 
     if (GpiQueryFontMetrics(hps, sizeof(FONTMETRICS), &fm))
         return ( (  fm.lMaxBaselineExt     // max vertical font space
                    +fm.lExternalLeading)    // space advised by font designer
-                 // * 12 / 10
                );
     else
         return (15);

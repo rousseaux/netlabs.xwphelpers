@@ -99,126 +99,132 @@
  *@@changed V0.9.5 (2000-09-22) [umoeller]: fixed ypos of text
  */
 
-VOID PaintProgress(PPROGRESSBARDATA pData, HWND hwndBar, HPS hps)
+VOID PaintProgress(PPROGRESSBARDATA pData,
+                   HWND hwndBar,
+                   PRECTL prclWin,      // in: window rectangle (WinQueryWindowRect)
+                   HPS hps)
 {
-    POINTL  ptl1, ptlText, aptlText[TXTBOX_COUNT];
-    RECTL   rcl, rcl2;
-
+    POINTL  ptlText; // , aptlText[TXTBOX_COUNT];
+    BOOL    fBackgroundPainted = FALSE;
     CHAR    szPercent[10] = "";
+    RECTL   rclInnerButton;
+    LONG    lcolScrollbar = WinQuerySysColor(HWND_DESKTOP,
+                                             SYSCLR_SCROLLBAR,
+                                             0);
 
     // switch to RGB mode
-    GpiCreateLogColorTable(hps, 0, LCOLF_RGB, 0, 0, NULL);
+    gpihSwitchToRGB(hps);
 
     if (pData->ulPaintX <= pData->ulOldPaintX)
     {
-        // draw frame and background only if this is either
-        //    a "real" WM_PAINT (i.e., the window was overlapped
-        //   and needs repainting; then ulPaintX == ulOldPaintX)
-        //   or if ulNow has _de_creased
-        GpiSetColor(hps, WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONDARK, 0));
-        ptl1.x = 0;
-        ptl1.y = 0;
-        GpiMove(hps, &ptl1);
-        ptl1.y = (pData->rclBar.yTop);
-        GpiLine(hps, &ptl1);
-        ptl1.x = (pData->rclBar.xRight);
-        GpiLine(hps, &ptl1);
-        GpiSetColor(hps, WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONLIGHT, 0));
-        ptl1.y = 0;
-        GpiLine(hps, &ptl1);
-        ptl1.x = 0;
-        GpiLine(hps, &ptl1);
+        RECTL rclOuterFrame;        // inclusive
+        rclOuterFrame.xLeft = 0;
+        rclOuterFrame.yBottom = 0;
+        rclOuterFrame.xRight = prclWin->xRight - 1;
+        rclOuterFrame.yTop = prclWin->yTop - 1;
 
-        pData->rclBar.xLeft = 1;
-        pData->rclBar.yBottom = 1;
-        WinFillRect(hps, &(pData->rclBar),
-            WinQuerySysColor(HWND_DESKTOP, SYSCLR_SCROLLBAR, 0));
+        gpihDraw3DFrame(hps,
+                        &rclOuterFrame,     // inclusive
+                        1,
+                        WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONDARK, 0),
+                        WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONLIGHT, 0));
+
+        rclOuterFrame.xLeft++;
+        rclOuterFrame.yBottom++;
+        WinFillRect(hps,
+                    &rclOuterFrame,     // exclusive, top right not drawn
+                    lcolScrollbar);
+        fBackgroundPainted = TRUE;
     }
 
-    // draw percentage?
+    // now draw the actual progress;
+    // rclInnerButton receives an _inclusive_ rectangle
+    rclInnerButton.xLeft = 1;
+    rclInnerButton.xRight = (pData->ulPaintX > (rclInnerButton.xLeft + 3))
+                                 ? pData->ulPaintX
+                                 : rclInnerButton.xLeft +
+                                       ((pData->ulAttr & PBA_BUTTONSTYLE)
+                                           ? 3 : 1);
+    rclInnerButton.yBottom = 1;
+    rclInnerButton.yTop = prclWin->yTop     // exclusive
+                            - 2;            // 1 to make inclusive, 1 for outer frame
+
     if (pData->ulAttr & PBA_PERCENTFLAGS)
     {
-        // make string
+        // percentage desired:
+
+        POINTL  aptlText[TXTBOX_COUNT];
+        LONG    lLineSpacing = 1;
+        FONTMETRICS fm;
+        if (GpiQueryFontMetrics(hps, sizeof(FONTMETRICS), &fm))
+            lLineSpacing = fm.lEmHeight;
+
         sprintf(szPercent, "%lu %%", ((100 * pData->ulNow) / pData->ulMax) );
-
         // calculate string space
-        GpiQueryTextBox(hps, strlen(szPercent), szPercent,
-                TXTBOX_COUNT, (PPOINTL)&aptlText);
+        GpiQueryTextBox(hps,
+                        strlen(szPercent),
+                        szPercent,
+                        TXTBOX_COUNT,
+                        (PPOINTL)&aptlText);
 
-        // calculate coordinates
-        ptlText.x = pData->rclBar.xLeft +
-                        (   (   (pData->rclBar.xRight-pData->rclBar.xLeft)
-                              - (aptlText[TXTBOX_BOTTOMRIGHT].x-aptlText[TXTBOX_BOTTOMLEFT].x)
+        ptlText.x =
+                        (   (   (prclWin->xRight)     // cx
+                              - (aptlText[TXTBOX_BOTTOMRIGHT].x - aptlText[TXTBOX_BOTTOMLEFT].x)
                             )
                         / 2);
-        ptlText.y = 2 + pData->rclBar.yBottom +     // fixed V0.9.5 (2000-09-22) [umoeller]
-                        (   (   (pData->rclBar.yTop-pData->rclBar.yBottom)
-                              - (aptlText[TXTBOX_TOPLEFT].y-aptlText[TXTBOX_BOTTOMLEFT].y)
+        ptlText.y =
+                        (   (   (prclWin->yTop)       // cy
+                              - (lLineSpacing)
                             )
-                        / 2);
+                        / 2) + 2;
 
-        // do we need to repaint the background under the percentage?
-        if (    (   (ptlText.x
-                        + (  aptlText[TXTBOX_BOTTOMRIGHT].x
-                           - aptlText[TXTBOX_BOTTOMLEFT].x)
-                    )
-                  > pData->ulPaintX)
-            &&  (pData->ulPaintX > pData->ulOldPaintX)
-           )
+        if (!fBackgroundPainted)
         {
             // if we haven't drawn the background already,
             // we'll need to do it now for the percentage area
-            rcl.xLeft      = ptlText.x;
-            rcl.xRight     = ptlText.x + (aptlText[TXTBOX_BOTTOMRIGHT].x-aptlText[TXTBOX_BOTTOMLEFT].x);
-            rcl.yBottom    = ptlText.y;
-            rcl.yTop       = ptlText.y + (aptlText[TXTBOX_TOPLEFT].y-aptlText[TXTBOX_BOTTOMLEFT].y);
-            WinFillRect(hps, &rcl,
-                WinQuerySysColor(HWND_DESKTOP, SYSCLR_SCROLLBAR, 0));
+            RECTL rcl2;
+            rcl2.xLeft      = ptlText.x;
+            rcl2.xRight     = ptlText.x + (aptlText[TXTBOX_BOTTOMRIGHT].x-aptlText[TXTBOX_BOTTOMLEFT].x);
+            rcl2.yBottom    = ptlText.y;
+            rcl2.yTop       = ptlText.y + lLineSpacing;
+            WinFillRect(hps,
+                        &rcl2,
+                        lcolScrollbar);
         }
     }
 
-    // now draw the actual progress
-    rcl2.xLeft = pData->rclBar.xLeft;
-    rcl2.xRight = (pData->ulPaintX > (rcl2.xLeft + 3))
-            ? pData->ulPaintX
-            : rcl2.xLeft + ((pData->ulAttr & PBA_BUTTONSTYLE)
-                           ? 3 : 1);
-    rcl2.yBottom = pData->rclBar.yBottom;
-    rcl2.yTop = pData->rclBar.yTop-1;
-
     if (pData->ulAttr & PBA_BUTTONSTYLE)
     {
-        RECTL rcl3 = rcl2;
         // draw "raised" inner rect
-        rcl3.xLeft = rcl2.xLeft;
-        rcl3.yBottom = rcl2.yBottom;
-        rcl3.yTop = rcl2.yTop+1;
-        rcl3.xRight = rcl2.xRight+1;
-        gpihDraw3DFrame(hps, &rcl3, 2,
+        gpihDraw3DFrame(hps,
+                        &rclInnerButton,
+                        2,
                         WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONLIGHT, 0),
                         WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONDARK, 0));
-        // WinInflateRect(WinQueryAnchorBlock(hwndBar), &rcl2, -2, -2);
-        rcl2.xLeft += 2;
-        rcl2.yBottom += 2;
-        rcl2.yTop -= 2;
-        rcl2.xRight -= 2;
     }
 
-    if (rcl2.xRight > rcl2.xLeft)
+    rclInnerButton.xLeft += 2;
+    rclInnerButton.yBottom += 2;
+    rclInnerButton.yTop -= 2;
+    rclInnerButton.xRight -= 2;
+
+    if (rclInnerButton.xRight > rclInnerButton.xLeft)
     {
+        POINTL ptl1;
+        // draw interior of inner rect
         GpiSetColor(hps, WinQuerySysColor(HWND_DESKTOP,
-                    // SYSCLR_HILITEBACKGROUND,
-                    SYSCLR_BUTTONMIDDLE,
-                0));
-        ptl1.x = rcl2.xLeft;
-        ptl1.y = rcl2.yBottom;
+                                          SYSCLR_BUTTONMIDDLE,
+                                          0));
+        ptl1.x = rclInnerButton.xLeft;
+        ptl1.y = rclInnerButton.yBottom;
         GpiMove(hps, &ptl1);
-        ptl1.x = rcl2.xRight;
-        ptl1.y = rcl2.yTop;
-        GpiBox(hps, DRO_FILL | DRO_OUTLINE,
-            &ptl1,
-            0,
-            0);
+        ptl1.x = rclInnerButton.xRight;
+        ptl1.y = rclInnerButton.yTop;
+        GpiBox(hps,
+               DRO_FILL | DRO_OUTLINE,
+               &ptl1,       // inclusive!
+               0,
+               0);
     }
 
     // now print the percentage
@@ -226,9 +232,8 @@ VOID PaintProgress(PPROGRESSBARDATA pData, HWND hwndBar, HPS hps)
     {
         GpiMove(hps, &ptlText);
         GpiSetColor(hps, WinQuerySysColor(HWND_DESKTOP,
-                // SYSCLR_HILITEFOREGROUND,
-                SYSCLR_BUTTONDEFAULT,
-            0));
+                                          SYSCLR_BUTTONDEFAULT,
+                                          0));
         GpiCharString(hps, strlen(szPercent), szPercent);
     }
 
@@ -283,6 +288,8 @@ MRESULT EXPENTRY ctl_fnwpProgressBar(HWND hwndBar, ULONG msg, MPARAM mp1, MPARAM
 
             case WM_UPDATEPROGRESSBAR:
             {
+                RECTL rclWin;
+                WinQueryWindowRect(hwndBar, &rclWin);
                 if (    (ppd->ulNow != (ULONG)mp1)
                      || (ppd->ulMax != (ULONG)mp2)
                    )
@@ -308,7 +315,7 @@ MRESULT EXPENTRY ctl_fnwpProgressBar(HWND hwndBar, ULONG msg, MPARAM mp1, MPARAM
                 // calculate new X position of the progress
                 ppd->ulPaintX =
                     (ULONG)(
-                              (    (ULONG)(ppd->rclBar.xRight - ppd->rclBar.xLeft)
+                              (    (ULONG)(rclWin.xRight - rclWin.xLeft - 2)
                                  * (ULONG)(ppd->ulNow)
                               )
                               /  (ULONG)ppd->ulMax
@@ -318,16 +325,17 @@ MRESULT EXPENTRY ctl_fnwpProgressBar(HWND hwndBar, ULONG msg, MPARAM mp1, MPARAM
                     // X position changed: redraw
                     // WinInvalidateRect(hwndBar, NULL, FALSE);
                     hps = WinGetPS(hwndBar);
-                    PaintProgress(ppd, hwndBar, hps);
+                    PaintProgress(ppd, hwndBar, &rclWin, hps);
                     WinReleasePS(hps);
                 }
             break; }
 
             case WM_PAINT:
             {
-                RECTL rcl;
-                hps = WinBeginPaint(hwndBar, NULLHANDLE, &rcl);
-                PaintProgress(ppd, hwndBar, hps);
+                RECTL rclWin;
+                WinQueryWindowRect(hwndBar, &rclWin);
+                hps = WinBeginPaint(hwndBar, NULLHANDLE, NULL);
+                PaintProgress(ppd, hwndBar, &rclWin, hps);
                 WinEndPaint(hps);
             break; }
 
@@ -400,9 +408,6 @@ BOOL ctlProgressBarFromStatic(HWND hwndChart, ULONG ulAttr)
         pData->ulPaintX = 0;
         pData->ulAttr = ulAttr;
         pData->OldStaticProc = OldStaticProc;
-        WinQueryWindowRect(hwndChart, &(pData->rclBar));
-        (pData->rclBar.xRight)--;
-        (pData->rclBar.yTop)--;
 
         WinSetWindowULong(hwndChart, QWL_USER, (ULONG)pData);
         return (TRUE);

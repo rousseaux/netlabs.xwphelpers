@@ -71,7 +71,6 @@ extern "C" {
                    ulOldPaintX;
         ULONG      ulAttr;
         PFNWP      OldStaticProc;
-        RECTL      rclBar;
     } PROGRESSBARDATA, *PPROGRESSBARDATA;
 
     #define WM_UPDATEPROGRESSBAR    WM_USER+1000

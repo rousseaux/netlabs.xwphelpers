@@ -2475,7 +2475,7 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                                  &hrgnOldClip);        // out: old clip region
                 // reduce clip region to update rectangle
                 GpiIntersectClipRectangle(ptxvd->hps,
-                                          &rcl2Update);
+                                          &rcl2Update);     // exclusive
 
                 // draw little box at the bottom right
                 // (in between scroll bars) if we have
@@ -2501,7 +2501,7 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                 // paint "view paint" rectangle white;
                 // this can be larger than "view text"
                 WinFillRect(ptxvd->hps,
-                            &ptxvd->rclViewPaint,
+                            &ptxvd->rclViewPaint,       // exclusive
                             ptxvd->lBackColor);
 
                 // now reduce clipping rectangle to "view text" rectangle
@@ -2510,7 +2510,7 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                 rclClip.yBottom = ptxvd->rclViewText.yBottom;
                 rclClip.yTop = ptxvd->rclViewText.yTop - 1;
                 GpiIntersectClipRectangle(ptxvd->hps,
-                                          &rclClip);
+                                          &rclClip);    // exclusive
                 // finally, draw text lines in invalid rectangle;
                 // this subfunction is smart enough to redraw only
                 // the lines which intersect with rcl2Update

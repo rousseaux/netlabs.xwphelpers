@@ -1607,6 +1607,8 @@ BOOL winhSaveWindowPos(HWND hwnd,   // in: window to save
  *      window would be positioned outside the visible screen
  *      area and will adjust coordinates accordingly. This can
  *      happen when changing video resolutions.
+ *
+ *@@changed V0.9.7 (2000-12-20) [umoeller]: fixed invalid params if INI key not found
  */
 
 BOOL winhRestoreWindowPos(HWND hwnd,   // in: window to restore
@@ -1616,9 +1618,9 @@ BOOL winhRestoreWindowPos(HWND hwnd,   // in: window to restore
                           ULONG fl)    // in: "fl" parameter for WinSetWindowPos
 {
     BOOL    brc = FALSE;
-    SWP     swp, swpNow;
+    SWP     swp;
     ULONG   cbswp = sizeof(swp);
-    ULONG   fl2 = fl;
+    ULONG   fl2 = (fl & ~SWP_ZORDER);
 
     if (PrfQueryProfileData(hIni, pszApp, pszKey, &swp, &cbswp))
     {
@@ -1630,6 +1632,7 @@ BOOL winhRestoreWindowPos(HWND hwnd,   // in: window to restore
         if ((fl & SWP_SIZE) == 0)
         {
             // if no resize, we need to get the current position
+            SWP swpNow;
             brc = WinQueryWindowPos(hwnd, &swpNow);
             swp.cx = swpNow.cx;
             swp.cy = swpNow.cy;
@@ -1648,8 +1651,11 @@ BOOL winhRestoreWindowPos(HWND hwnd,   // in: window to restore
 
     }
     else
+    {
         // window pos not found in INI: unset SWP_MOVE etc.
+        WinQueryWindowPos(hwnd, &swp);
         fl2 &= ~(SWP_MOVE | SWP_SIZE);
+    }
 
     WinSetWindowPos(hwnd,
                     NULLHANDLE,       // insert-behind window
@@ -2123,13 +2129,14 @@ ULONG winhSetControlsFont(HWND hwndDlg,      // in: dlg to set
  *      used in OS/2.
  *
  *      Example:
- +      PPRESPARAMS ppp = NULL;
- +      CHAR szFont[] = "9.WarpSans";
- +      LONG lColor = CLR_WHITE;
- +      winhStorePresParam(&ppp, PP_FONTNAMESIZE, sizeof(szFont), szFont);
- +      winhStorePresParam(&ppp, PP_BACKGROUNDCOLOR, sizeof(lColor), &lColor);
- +      WinCreateWindow(...., ppp);
- +      free(ppp);
+ *
+ +          PPRESPARAMS ppp = NULL;
+ +          CHAR szFont[] = "9.WarpSans";
+ +          LONG lColor = CLR_WHITE;
+ +          winhStorePresParam(&ppp, PP_FONTNAMESIZE, sizeof(szFont), szFont);
+ +          winhStorePresParam(&ppp, PP_BACKGROUNDCOLOR, sizeof(lColor), &lColor);
+ +          WinCreateWindow(...., ppp);
+ +          free(ppp);
  *
  *@@added V0.9.0 [umoeller]
  */
@@ -2493,6 +2500,7 @@ VOID CallBatchCorrectly(PPROGDETAILS pProgDetails,
  *
  *@@added V0.9.6 (2000-10-16) [umoeller]
  *@@changed V0.9.7 (2000-12-10) [umoeller]: PROGDETAILS.swpInitial no longer zeroed... this broke VIOs
+ *@@changed V0.9.7 (2000-12-17) [umoeller]: PROGDETAILS.pszEnvironment no longer zeroed
  */
 
 HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as with WinStartApp)
@@ -2509,7 +2517,7 @@ HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as wit
             // pointers still point into old prog details buffer
     ProgDetails.Length = sizeof(PROGDETAILS);
     ProgDetails.progt.fbVisible = SHE_VISIBLE;
-    ProgDetails.pszEnvironment = 0;
+    // ProgDetails.pszEnvironment = 0;
 
     // memset(&ProgDetails.swpInitial, 0, sizeof(SWP));
             // this wasn't a good idea... WPProgram stores stuff
@@ -3155,6 +3163,9 @@ ULONG winhEnableControls(HWND hwndDlg,                  // in: dialog window
  *      positioned automatically, using a given
  *      SWP structure (*pswpFrame).
  *
+ *      The client window is created with the frame as
+ *      its parent and owner and gets an ID of FID_CLIENT.
+ *
  *      Alternatively, you can set pswpFrame to NULL
  *      and specify FCF_SHELLPOSITION with flFrameCreateFlags.
  *      If you want the window to be shown, specify
@@ -3214,6 +3225,7 @@ HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
         if (*phwndClient)
         {
             if (pswpFrame)
+            {
                 // position frame
                 WinSetWindowPos(hwndFrame,
                                 pswpFrame->hwndInsertBehind,
@@ -3223,23 +3235,24 @@ HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
                                 pswpFrame->cy,
                                 pswpFrame->fl);
 
-            // position client
-            // WinQueryWindowRect(hwndFrame, &rclClient);
-            // doesn't work because it might be invisible V0.9.7 (2000-12-08) [umoeller]
-            rclClient.xLeft = 0;
-            rclClient.yBottom = 0;
-            rclClient.xRight = pswpFrame->cx;
-            rclClient.yTop = pswpFrame->cy;
-            WinCalcFrameRect(hwndFrame,
-                             &rclClient,
-                             TRUE);     // calc client from frame
-            WinSetWindowPos(*phwndClient,
-                            HWND_TOP,
-                            rclClient.xLeft,
-                            rclClient.yBottom,
-                            rclClient.xRight - rclClient.xLeft,
-                            rclClient.yTop - rclClient.yBottom,
-                            SWP_MOVE | SWP_SIZE | SWP_SHOW);
+                // position client
+                // WinQueryWindowRect(hwndFrame, &rclClient);
+                // doesn't work because it might be invisible V0.9.7 (2000-12-08) [umoeller]
+                rclClient.xLeft = 0;
+                rclClient.yBottom = 0;
+                rclClient.xRight = pswpFrame->cx;
+                rclClient.yTop = pswpFrame->cy;
+                WinCalcFrameRect(hwndFrame,
+                                 &rclClient,
+                                 TRUE);     // calc client from frame
+                WinSetWindowPos(*phwndClient,
+                                HWND_TOP,
+                                rclClient.xLeft,
+                                rclClient.yBottom,
+                                rclClient.xRight - rclClient.xLeft,
+                                rclClient.yTop - rclClient.yBottom,
+                                SWP_MOVE | SWP_SIZE | SWP_SHOW);
+            }
         }
     }
     return (hwndFrame);
@@ -3589,7 +3602,7 @@ ULONG winhDrawFormattedText(HPS hps,     // in: presentation space; its settings
 
     flCmd2 = flCmd | DT_WORDBREAK | DT_TEXTATTRS;
 
-    ulCharHeight = gpihQueryLineSpacing(hps, pszText);
+    ulCharHeight = gpihQueryLineSpacing(hps);
 
     while (   (lDrawn)
            && (lTotalDrawn < ulTextLen)

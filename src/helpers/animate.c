@@ -279,28 +279,28 @@ VOID anmPowerOff(HPS hps,
             rclDraw.xRight = rclLast.xRight;
             rclDraw.yBottom = rclNow.yTop;
             rclDraw.yTop = rclLast.yTop;
-            WinFillRect(hps, &rclDraw, CLR_BLACK);
+            WinFillRect(hps, &rclDraw, CLR_BLACK); // exclusive
 
             // draw black rectangle left of rclNow
             rclDraw.xLeft = rclLast.xLeft;
             rclDraw.xRight = rclNow.xLeft;
             rclDraw.yBottom = rclLast.yBottom;
             rclDraw.yTop = rclLast.yTop;
-            WinFillRect(hps, &rclDraw, CLR_BLACK);
+            WinFillRect(hps, &rclDraw, CLR_BLACK); // exclusive
 
             // draw black rectangle right of rclNow
             rclDraw.xLeft = rclNow.xRight;
             rclDraw.xRight = rclLast.xRight;
             rclDraw.yBottom = rclLast.yBottom;
             rclDraw.yTop = rclLast.yTop;
-            WinFillRect(hps, &rclDraw, CLR_BLACK);
+            WinFillRect(hps, &rclDraw, CLR_BLACK); // exclusive
 
             // draw black rectangle at the bottom of rclNow
             rclDraw.xLeft = rclLast.xLeft;
             rclDraw.xRight = rclLast.xRight;
             rclDraw.yBottom = rclLast.yBottom;
             rclDraw.yTop = rclNow.yBottom;
-            WinFillRect(hps, &rclDraw, CLR_BLACK);
+            WinFillRect(hps, &rclDraw, CLR_BLACK); // exclusive
 
             // remember rclNow for next iteration
             memcpy(&rclLast, &rclNow, sizeof(RECTL));
@@ -364,16 +364,16 @@ VOID anmPowerOff(HPS hps,
             rclDraw.xRight = rclNow.xLeft;
             rclDraw.yBottom = rclLast.yBottom;
             rclDraw.yTop = rclLast.yTop;
-            WinFillRect(hps, &rclDraw, CLR_BLACK);
+            WinFillRect(hps, &rclDraw, CLR_BLACK); // exclusive
 
             // draw black rectangle right of rclNow
             rclDraw.xLeft = rclNow.xRight;
             rclDraw.xRight = rclLast.xRight;
             rclDraw.yBottom = rclLast.yBottom;
             rclDraw.yTop = rclLast.yTop;
-            WinFillRect(hps, &rclDraw, CLR_BLACK);
+            WinFillRect(hps, &rclDraw, CLR_BLACK); // exclusive
 
-            // WinFillRect(hps, &rclNow, CLR_WHITE);
+            // WinFillRect(hps, &rclNow, CLR_WHITE); // exclusive
 
             // remember rclNow for next iteration
             memcpy(&rclLast, &rclNow, sizeof(RECTL));
@@ -390,7 +390,7 @@ VOID anmPowerOff(HPS hps,
                 rclLast.xRight = rclScreen.xRight - rclLast.xLeft;
                 rclLast.yTop = rclScreen.yTop - rclLast.yBottom;
 
-                WinFillRect(hps, &rclLast, CLR_WHITE);
+                WinFillRect(hps, &rclLast, CLR_WHITE); // exclusive
             }
         }
         else if (ulPhase == 3)
@@ -434,14 +434,14 @@ VOID anmPowerOff(HPS hps,
             rclDraw.xRight = rclLast.xRight;
             rclDraw.yBottom = rclNow.yTop;
             rclDraw.yTop = rclLast.yTop;
-            WinFillRect(hps, &rclDraw, CLR_BLACK);
+            WinFillRect(hps, &rclDraw, CLR_BLACK); // exclusive
 
             // draw black rectangle at the bottom of rclNow
             rclDraw.xLeft = rclLast.xLeft;
             rclDraw.xRight = rclLast.xRight;
             rclDraw.yBottom = rclLast.yBottom;
             rclDraw.yTop = rclNow.yBottom;
-            WinFillRect(hps, &rclDraw, CLR_BLACK);
+            WinFillRect(hps, &rclDraw, CLR_BLACK); // exclusive
 
             // remember rclNow for next iteration
             memcpy(&rclLast, &rclNow, sizeof(RECTL));
@@ -472,7 +472,7 @@ VOID anmPowerOff(HPS hps,
 
     // sleep a while
     DosSleep(ulWaitEnd / 2);
-    WinFillRect(hps, &rclScreen, CLR_BLACK);
+    WinFillRect(hps, &rclScreen, CLR_BLACK); // exclusive
     DosSleep(ulWaitEnd / 2);
 
     WinShowPointer(HWND_DESKTOP, TRUE);

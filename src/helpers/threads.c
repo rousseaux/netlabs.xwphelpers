@@ -64,6 +64,7 @@
  *      specified with thrCreate.
  *
  *@@added V0.9.2 (2000-03-05) [umoeller]
+ *@@changed V0.9.7 (2000-12-18) [lafaix]: THRF_TRANSIENT support added
  */
 
 VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
@@ -105,13 +106,21 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
             // "Wait" flag set: delete semaphore
             DosCloseEventSem(pti->hevRunning);
 
-        // thread func returns:
-        pti->fExitComplete = TRUE;
-        pti->tid = NULLHANDLE;
+        // (2000-12-18) [lafaix] clean up pti if thread is transient.
+        if (pti->flFlags & THRF_TRANSIENT)
+            free(pti);
+        else
+        {
+            // for non-transient threads: set exit flags
+            // V0.9.7 (2000-12-20) [umoeller]
+            // thread func returns:
+            pti->fExitComplete = TRUE;
+            pti->tid = NULLHANDLE;
 
-        if (pti->pfRunning)
-            // clear "running" flag
-            *(pti->pfRunning) = FALSE;
+            if (pti->pfRunning)
+                // clear "running" flag
+                *(pti->pfRunning) = FALSE;
+        }
     }
 }
 
@@ -173,6 +182,7 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
  *@@changed V0.9.3 (2000-04-29) [umoeller]: removed stack size param; added fCreateMsgQueue
  *@@changed V0.9.3 (2000-05-01) [umoeller]: added pbRunning and flFlags
  *@@changed V0.9.5 (2000-08-26) [umoeller]: now using PTHREADINFO
+ *@@changed V0.9.7 (2000-12-18) [lafaix]: THRF_TRANSIENT support added
  */
 
 BOOL thrCreate(PTHREADINFO pti,     // out: THREADINFO data
@@ -183,6 +193,15 @@ BOOL thrCreate(PTHREADINFO pti,     // out: THREADINFO data
                ULONG ulData)        // in: user data to be stored in THREADINFO
 {
     BOOL            rc = FALSE;
+
+    // (2000-12-18) [lafaix] TRANSIENT
+    if (flFlags & THRF_TRANSIENT)
+    {
+        if (pti == NULL)
+            pti = (PTHREADINFO) malloc(sizeof(THREADINFO));
+        else
+            return (rc);
+    }
 
     if (pti)
     {

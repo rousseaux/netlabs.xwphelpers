@@ -373,7 +373,8 @@ extern "C" {
                                 PSZ pszVarName);
 
     APIRET doshSetEnvironmentVar(PDOSENVIRONMENT pEnv,
-                                 PSZ pszNewEnv);
+                                 PSZ pszNewEnv,
+                                 BOOL fAddFirst);
 
     APIRET doshConvertEnvironment(PDOSENVIRONMENT pEnv,
                                   PSZ *ppszEnv,
@@ -391,6 +392,8 @@ extern "C" {
      *@@ DOSEXEHEADER:
      *      old DOS EXE header at offset 0
      *      in any EXE file.
+     *
+     *@@changed V0.9.7 (2000-12-20) [umoeller]: fixed NE offset
      */
 
     #pragma pack(1)
@@ -418,7 +421,9 @@ extern "C" {
          ULONG  ulUnused5;              // 30:
          ULONG  ulUnused6;              // 34:
          ULONG  ulUnused7;              // 38:
-         USHORT usNewHeaderOfs;         // new header ofs (if 0x18 > 0x40)
+         ULONG  ulNewHeaderOfs;         // new header ofs (if 0x18 > 0x40)
+                    // fixed this from USHORT, thanks Martin Lafaix
+                    // V0.9.7 (2000-12-20) [umoeller]
     } DOSEXEHEADER, *PDOSEXEHEADER;
 
     // NE and LX OS types
@@ -439,7 +444,7 @@ extern "C" {
     {
         CHAR      achNE[2];             // 00: NE
         BYTE      bLinkerVersion;       // 02: linker version
-        BYTE      bLlinkerRevision;     // 03: linker revision
+        BYTE      bLinkerRevision;      // 03: linker revision
         USHORT    usEntryTblOfs;        // 04: ofs from this to entrytable
         USHORT    usEntryTblLen;        // 06: length of entrytable
         ULONG     ulChecksum;           // 08: MS: reserved, OS/2: checksum

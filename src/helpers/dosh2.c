@@ -551,14 +551,21 @@ PSZ* doshFindEnvironmentVar(PDOSENVIRONMENT pEnv,
  *
  *      If "VARNAME" has already been set to something
  *      in the string array in pEnv, that array item
- *      is replaced. Otherwise a new item is added to
- *      the array, and pEnv->cVars is raised by one.
+ *      is replaced.
+ *
+ *      OTOH, if "VARNAME" has not been set yet, a new
+ *      item is added to the array, and pEnv->cVars is
+ *      raised by one. In that case, fAddFirst determines
+ *      whether the new array item is added to the front
+ *      or the tail of the environment list.
  *
  *@@added V0.9.4 (2000-07-19) [umoeller]
+ *@@changed V0.9.7 (2000-12-17) [umoeller]: added fAddFirst
  */
 
 APIRET doshSetEnvironmentVar(PDOSENVIRONMENT pEnv,
-                             PSZ pszNewEnv)
+                             PSZ pszNewEnv,
+                             BOOL fAddFirst)
 {
     APIRET  arc = NO_ERROR;
     if (!pEnv)
@@ -575,21 +582,40 @@ APIRET doshSetEnvironmentVar(PDOSENVIRONMENT pEnv,
                 // was set already: replace
                 free(*ppszEnvLine);
                 *ppszEnvLine = strdup(pszNewEnv);
+                if (!(*ppszEnvLine))
+                    arc = ERROR_NOT_ENOUGH_MEMORY;
             }
             else
             {
-                PSZ *ppszNew;
-                PSZ *papszNew;
+                PSZ *ppszNew = NULL;
+                PSZ *papszNew = NULL;
                 // not set already:
-                // append
-                // reallocate array and add new string
-                papszNew = (PSZ*)realloc(pEnv->papszVars, sizeof(PSZ) * (pEnv->cVars + 1));
+                if (fAddFirst)
+                {
+                    // add as first entry:
+                    papszNew = (PSZ*)malloc(sizeof(PSZ) * (pEnv->cVars + 1));
+                    // overwrite first entry
+                    ppszNew = papszNew;
+                    // copy old entries
+                    memcpy(papszNew + 1,                // second new entry
+                           pEnv->papszVars,             // first old entry
+                           sizeof(PSZ) * pEnv->cVars);
+                }
+                else
+                {
+                    // append at the tail:
+                    // reallocate array and add new string
+                    papszNew = (PSZ*)realloc(pEnv->papszVars,
+                                             sizeof(PSZ) * (pEnv->cVars + 1));
+                    // overwrite last entry
+                    ppszNew = papszNew + pEnv->cVars;
+                }
+
                 if (!papszNew)
                     arc = ERROR_NOT_ENOUGH_MEMORY;
                 else
                 {
                     pEnv->papszVars = papszNew;
-                    ppszNew = pEnv->papszVars + pEnv->cVars;
                     pEnv->cVars++;
                     *ppszNew = strdup(pszNewEnv);
                 }
@@ -617,7 +643,7 @@ APIRET doshSetEnvironmentVar(PDOSENVIRONMENT pEnv,
 
 APIRET doshConvertEnvironment(PDOSENVIRONMENT pEnv,
                               PSZ *ppszEnv,     // out: environment string
-                              PULONG pulSize)  // out: size of block allocated in *ppszEnv
+                              PULONG pulSize)  // out: size of block allocated in *ppszEnv; ptr can be NULL
 {
     APIRET  arc = NO_ERROR;
     if (!pEnv)
@@ -651,7 +677,8 @@ APIRET doshConvertEnvironment(PDOSENVIRONMENT pEnv,
             else
             {
                 PSZ     pTarget = *ppszEnv;
-                *pulSize = cbNeeded;
+                if (pulSize)
+                    *pulSize = cbNeeded;
                 ppszThis = pEnv->papszVars;
 
                 // now copy each string
@@ -830,7 +857,7 @@ APIRET doshExecOpen(const char* pcszExecutable,
                             // read more bytes from position
                             // specified in header
                             arc = DosSetFilePtr(hFile,
-                                                (*ppExec)->pDosExeHeader->usNewHeaderOfs,
+                                                (*ppExec)->pDosExeHeader->ulNewHeaderOfs,
                                                 FILE_BEGIN,
                                                 &ulLocal);
 
@@ -846,7 +873,7 @@ APIRET doshExecOpen(const char* pcszExecutable,
                                               &ulBytesRead);
                                 // reset file ptr
                                 DosSetFilePtr(hFile,
-                                              (*ppExec)->pDosExeHeader->usNewHeaderOfs,
+                                              (*ppExec)->pDosExeHeader->ulNewHeaderOfs,
                                               FILE_BEGIN,
                                               &ulLocal);
 

@@ -35,6 +35,7 @@ extern "C" {
 
     #define THRF_PMMSGQUEUE     0x0001
     #define THRF_WAIT           0x0002
+    #define THRF_TRANSIENT      0x0004
 
     /*
      *@@ THREADINFO:

@@ -57,8 +57,8 @@ extern "C" {
     typedef void XWPENTRY XSTRINITSET(PXSTRING pxstr, PSZ pszNew);
     typedef XSTRINITSET *PXSTRINITSET;
 
-    void XWPENTRY xstrInitCopy(PXSTRING pxstr, const char *pcszSource);
-    typedef void XWPENTRY XSTRINITCOPY(PXSTRING pxstr, const char *pcszSource);
+    void XWPENTRY xstrInitCopy(PXSTRING pxstr, const char *pcszSource, ULONG ulExtraAllocate);
+    typedef void XWPENTRY XSTRINITCOPY(PXSTRING pxstr, const char *pcszSource, ULONG ulExtraAllocate);
     typedef XSTRINITCOPY *PXSTRINITCOPY;
 
     void XWPENTRY xstrClear(PXSTRING pxstr);

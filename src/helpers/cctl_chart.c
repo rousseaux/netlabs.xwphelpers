@@ -743,7 +743,7 @@ VOID PaintChart(HWND hwndChart,
         CHAR szDebug[200];
         sprintf(szDebug, "Error, no values set");
         WinFillRect(hps,
-                    &rclStatic,
+                    &rclStatic,  // exclusive
                     CLR_WHITE);
         WinDrawText(hps,
                     strlen(szDebug),

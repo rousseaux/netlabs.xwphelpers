@@ -200,10 +200,12 @@ void xstrInitSet(PXSTRING pxstr,
  +          xstrInitCopy(&str, "blah");
  *
  *@@added V0.9.6 (2000-11-01) [umoeller]
+ *@@changed V0.9.7 (2000-12-31) [umoeller]: added ulExtraAllocate
  */
 
 void xstrInitCopy(PXSTRING pxstr,
-                  const char *pcszSource)
+                  const char *pcszSource,
+                  ULONG ulExtraAllocate)          // in: if > 0, extra memory to allocate
 {
     if (pxstr)
     {
@@ -215,7 +217,7 @@ void xstrInitCopy(PXSTRING pxstr,
         if (pxstr->ulLength)
         {
             // we do have a source string:
-            pxstr->cbAllocated = pxstr->ulLength + 1;
+            pxstr->cbAllocated = pxstr->ulLength + 1 + ulExtraAllocate;
             pxstr->psz = (PSZ)malloc(pxstr->cbAllocated);
             strcpy(pxstr->psz, pcszSource);
         }

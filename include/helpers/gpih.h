@@ -153,8 +153,7 @@ extern "C" {
     BOOL gpihSetPointSize(HPS hps,
                           LONG lPointSize);
 
-    LONG gpihQueryLineSpacing(HPS hps,
-                              PSZ pszText);
+    LONG gpihQueryLineSpacing(HPS hps);
 
     /* ******************************************************************
      *

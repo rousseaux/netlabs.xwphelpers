@@ -1117,12 +1117,15 @@ PSZ strhFindKey(const char *pcszSearchIn,   // in: text buffer to search
  *      returns a pointer to the following characters in pszSearchIn
  *      and, if pszCopyTo != NULL, copies the rest of the line to
  *      that buffer, of which cbCopyTo specified the size.
+ *
  *      If the key is not found, NULL is returned.
  *      String search is done by calling strhFindKey.
  *      This is useful for querying CONFIG.SYS settings.
  *
- *      <B>Example:</B> this would return "YES" if you searched
- *      for "PAUSEONERROR=", and "PAUSEONERROR=YES" existed in pszSearchIn.
+ *      <B>Example:</B>
+ *
+ *      this would return "YES" if you searched for "PAUSEONERROR=",
+ *      and "PAUSEONERROR=YES" existed in pszSearchIn.
  */
 
 PSZ strhGetParameter(const char *pcszSearchIn,  // in: text buffer to search

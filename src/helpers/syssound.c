@@ -172,6 +172,7 @@ ULONG sndParseSoundData(PSZ pszSoundData,  // in: INI data from MMPM.INI
  *@@added V0.9.1 (99-12-19) [umoeller]
  *@@changed V0.9.6 (2000-10-16) [umoeller]: now using MMBASE environment variable
  *@@changed V0.9.6 (2000-10-16) [umoeller]: added proper HAB param
+ *@@changed V0.9.7 (2000-12-17) [umoeller]: fixed broken MMBASE handling
  */
 
 HINI sndOpenMmpmIni(HAB hab)
@@ -185,11 +186,15 @@ HINI sndOpenMmpmIni(HAB hab)
     {
         // variable set:
         PSZ p;
-        sprintf(szMMPM, "%s\\MMPM.INI", pszMMPMPath);
+
+        strcpy(szMMPM, pszMMPMPath); // V0.9.7 (2000-12-17) [umoeller]
+
         // kill semicolon if present
         p = strchr(szMMPM, ';');
         if (p)
            *p = 0;
+
+        strcat(szMMPM, "\\MMPM.INI");
     }
     else
         // variable not set (shouldn't happen): try boot drive
@@ -250,6 +255,11 @@ BOOL sndQuerySystemSound(HAB hab,           // in: caller's anchor block
 {
     BOOL    rc = FALSE;
     HINI    hiniMMPM = sndOpenMmpmIni(hab);
+
+    #ifdef DEBUG_SOUNDS
+        _Pmpf((__FUNCTION__ ": entering, hiniMMPM is 0x%lX", hiniMMPM));
+    #endif
+
     if (hiniMMPM)
     {
         CHAR szData[1000];
@@ -539,7 +549,9 @@ APIRET sndLoadSoundScheme(HINI hiniMMPM,      // in: HINI of ?:\MMOS2\MMPM.INI (
 {
     APIRET arc = NO_ERROR;
 
-    _Pmpf(("Entering sndLoadSoundScheme"));
+    #ifdef DEBUG_SOUNDS
+        _Pmpf(("Entering sndLoadSoundScheme"));
+    #endif
 
     if (hiniMMPM)
     {
@@ -549,7 +561,9 @@ APIRET sndLoadSoundScheme(HINI hiniMMPM,      // in: HINI of ?:\MMOS2\MMPM.INI (
                                     MMINIKEY_SOUNDSCHEMES,  // "PM_SOUND_SCHEMES_LIST"
                                     pszScheme,
                                     NULL);
-        _Pmpf(("    pszSchemeAppName: %s", pszSchemeAppName));
+        #ifdef DEBUG_SOUNDS
+            _Pmpf(("    pszSchemeAppName: %s", pszSchemeAppName));
+        #endif
 
         if (pszSchemeAppName)
         {
@@ -649,7 +663,9 @@ APIRET sndLoadSoundScheme(HINI hiniMMPM,      // in: HINI of ?:\MMOS2\MMPM.INI (
     else
         arc = ERROR_INVALID_HANDLE;
 
-    _Pmpf(("End of sndLoadSoundScheme, arc: %d", arc));
+    #ifdef DEBUG_SOUNDS
+        _Pmpf(("End of sndLoadSoundScheme, arc: %d", arc));
+    #endif
     return (arc);
 }
 
