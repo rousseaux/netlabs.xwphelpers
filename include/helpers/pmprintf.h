@@ -130,8 +130,8 @@ ULONG         _System I_PmpfSetMacroHeader(PSZ SourceModule, int LineNumber, PSZ
 /*--- Macros you can conditionally include ----------------------------------*/
 #ifdef  _PMPRINTF_
         /*--- The user wants to include these debug lines -------------------*/
-        #define _Pmpf(FmtAndVariableParmsInBrackets)  Pmpf(FmtAndVariableParmsInBrackets)
-        #define _PmpfF(FmtAndVariableParmsInBrackets) PmpfF(FmtAndVariableParmsInBrackets)
+        #define _Pmpf(FmtAndVariableParmsInBrackets)  PmpfF(FmtAndVariableParmsInBrackets)
+        #define _PmpfF(FmtAndVariableParmsInBrackets) Pmpf(FmtAndVariableParmsInBrackets)
         #define _DebugHereIAm()                       DebugHereIAm()
 #else
         /*--- The user does not wish to include the debug stuff -------------*/
