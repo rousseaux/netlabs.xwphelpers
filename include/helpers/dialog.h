@@ -297,6 +297,10 @@ extern "C" {
             WS_VISIBLE | SS_TEXT | DT_LEFT | DT_TOP | DT_WORDBREAK, \
             id, CTL_COMMON_FONT,  0, {cx, SZL_AUTOSIZE}, COMMON_SPACING }
 
+    #define CONTROLDEF_TEXT_WORDBREAK_CY(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
+            WS_VISIBLE | SS_TEXT | DT_LEFT | DT_TOP | DT_WORDBREAK, \
+            id, CTL_COMMON_FONT,  0, {cx, cy}, COMMON_SPACING }
+
     #define LOADDEF_TEXT_WORDBREAK(id, cx) CONTROLDEF_TEXT_WORDBREAK(LOAD_STRING, id, cx)
 
     #define CONTROLDEF_TEXT_WORDBREAK_MNEMONIC(pcsz, id, cx) { WC_STATIC, pcsz, \
