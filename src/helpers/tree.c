@@ -921,6 +921,10 @@ void* treeFindEQData(TREE **root,
  *      and will receive the "pUser" parameter, which you can use
  *      as a data pointer to some structure for whatever you like.
  *
+ *      WARNING: This function recurses and can use up a lot of
+ *      stack. For very deep trees, traverse the tree using
+ *      treeFirst and treeNext instead. See treeNext for a sample.
+ *
  *      "method" specifies in which order the nodes are traversed.
  *      This can be:
  *
@@ -935,8 +939,8 @@ void treeTraverse(TREE *tree,               // in: root of tree
                   void *pUser,              // in: user param for callback
                   int method)               // in: traversal mode
 {
-    if ((!tree)
-    ||  (tree == TREE_NULL))
+    if (    (!tree)
+         || (tree == TREE_NULL))
         return;
 
     if (method == 1)
@@ -962,6 +966,8 @@ void treeTraverse(TREE *tree,               // in: root of tree
 /*
  *@@ treeFirst:
  *      finds and returns the first node in a (sub-)tree.
+ *
+ *      See treeNext for a sample usage for traversing a tree.
  */
 
 void* treeFirst(TREE *tree)
@@ -969,8 +975,9 @@ void* treeFirst(TREE *tree)
     TREE
        *current;
 
-    if ((!tree)
-    ||  (tree == TREE_NULL))
+    if (    (!tree)
+         || (tree == TREE_NULL)
+       )
         return NULL;
 
     current = tree;
@@ -990,8 +997,8 @@ void* treeLast(TREE *tree)
     TREE
        *current;
 
-    if ((!tree)
-    ||  (tree == TREE_NULL))
+    if (    (!tree)
+         || (tree == TREE_NULL))
         return NULL;
 
     current = tree;
@@ -1004,6 +1011,20 @@ void* treeLast(TREE *tree)
 /*
  *@@ treeNext:
  *      finds and returns the next node in a tree.
+ *
+ *      Example for traversing a whole tree if you don't
+ *      want to use treeTraverse:
+ *
+ +          TREE    *TreeRoot;
+ +          ...
+ +          TREE* pNode = treeFirst(TreeRoot);
+ +          while (pNode)
+ +          {
+ +              ...
+ +              pNode = treeNext(pNode);
+ +          }
+ *
+ *      This runs through the tree items in sorted order.
  */
 
 void* treeNext(TREE *tree)
@@ -1012,8 +1033,9 @@ void* treeNext(TREE *tree)
        *current,
        *child;
 
-    if ((!tree)
-    ||  (tree == TREE_NULL))
+    if (    (!tree)
+         || (tree == TREE_NULL)
+       )
         return NULL;
 
     current = tree;
@@ -1023,8 +1045,9 @@ void* treeNext(TREE *tree)
     {
         current = tree;
         child   = TREE_NULL;
-        while ((current->parent)
-           &&  (current->right == child))
+        while (    (current->parent)
+                && (current->right == child)
+              )
         {
             child = current;
             current = current->parent;
@@ -1047,8 +1070,8 @@ void* treePrev(TREE *tree)
        *current,
        *child;
 
-    if ((!tree)
-    ||  (tree == TREE_NULL))
+    if (    (!tree)
+         || (tree == TREE_NULL))
         return NULL;
 
     current = tree;

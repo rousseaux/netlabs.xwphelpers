@@ -1052,7 +1052,7 @@ XML_Parser XML_ExternalEntityParserCreate(XML_Parser oldParser,
     void *oldExternalEntityRefHandlerArg = externalEntityRefHandlerArg;
 
 #ifdef XML_DTD
-    int oldParamEntityParsing = paramEntityParsing;
+    enum XML_ParamEntityParsing oldParamEntityParsing = paramEntityParsing;
 
 #endif
     int oldns_triplets = ns_triplets;

@@ -61,20 +61,32 @@
  *      of this though which fully implements all the DOM methods.
  *
  *      However, we do implement node management as in the standard.
- *      See xmlCreateNode and xmlDeleteNode.
+ *      See xmlCreateDomNode and xmlDeleteNode.
  *
  *      The main entry point into this is xmlCreateDOM. See remarks
- *      there for details.
+ *      there for how this will be typically used.
  *
  *      <B>Validation</B>
  *
  *      @expat doesn't check XML documents for whether they are @valid.
  *      In other words, expat is a non-validating XML processor.
  *
- *      By contrast, this pseudo-DOM implementation can validate. To
- *      do this, you must pass DF_PARSEDTD to xmlCreateDOM (otherwise
- *      the @DTD entries will not be stored in the DOM nodes). This
- *      will not validate yet; to do this, explicitly call xmlValidate.
+ *      By contrast, this pseudo-DOM implementation can validate to
+ *      a certain extent.
+ *
+ *      -- If you pass DF_PARSEDTD to xmlCreateDOM, the DTD will be
+ *         parsed and the document will be validated against it.
+ *         Validation is working as far as elements and attributes
+ *         are checked for proper nesting. However, we cannot fully
+ *         check for proper ordering etc. in (children) mode of
+ *         @element_declarations. This will only check for whether
+ *         elements may appear in another element at all -- not for
+ *         the correct order.
+ *
+ *      -- Otherwise the @DTD entries will not be stored in the DOM
+ *         nodes, and no validation occurs. Still, if a DTD exists,
+ *         @expat will insert attributes that have a default value
+ *         in their @attribute declaraion and have not been specified.
  *
  *@@header "helpers\xml.h"
  *@@added V0.9.6 (2000-10-29) [umoeller]
@@ -103,6 +115,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "setup.h"                      // code generation and debugging options
 
@@ -133,8 +146,8 @@
  ********************************************************************/
 
 /*
- *@@ CompareCMNodeNodes:
- *      tree comparison func for CMNodes.
+ *@@ CompareNodeBaseNodes:
+ *      tree comparison func for NodeBases.
  *      This works for all trees which contain structures
  *      whose first item is a _NODEBASE because NODEBASE's first
  *      member is a TREE.
@@ -150,8 +163,8 @@
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
 
-int CompareCMNodeNodes(TREE *t1,
-                       TREE *t2)
+int XWPENTRY CompareNodeBaseNodes(TREE *t1,
+                                  TREE *t2)
 {
     PNODEBASE   p1 = (PNODEBASE)t1,
                 p2 = (PNODEBASE)t2;
@@ -159,22 +172,220 @@ int CompareCMNodeNodes(TREE *t1,
 }
 
 /*
- *@@ CompareCMNodeNodes:
+ *@@ CompareNodeBaseNodes:
  *      tree comparison func for element declarations.
  *      Used to find nodes in _DOMDOCTYPENODE.ElementDeclsTree.
  *
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
 
-int CompareCMNodeData(TREE *t1,
-                           void *pData)
+int XWPENTRY CompareNodeBaseData(TREE *t1,
+                                 void *pData)
 {
     PNODEBASE     p1 = (PNODEBASE)t1;
     return (strhcmp(p1->strNodeName.psz, (const char*)pData));
 }
 
 /*
- *@@ xmlCreateNode:
+ *@@ xmlCreateNodeBase:
+ *      creates a new NODEBASE node.
+ *
+ *      Gets called from xmlCreateDomNode also to create
+ *      a DOMNODE, since that in turn has a NODEBASE.
+ *
+ *@@added V0.9.9 (2001-02-16) [umoeller]
+ */
+
+APIRET xmlCreateNodeBase(NODEBASETYPE ulNodeType,     // in: node type
+                         ULONG cb,                    // in: size of struct
+                         const char *pcszNodeName,    // in: node name or NULL
+                         ULONG ulNodeNameLength,      // in: node name length
+                                                      // or 0 to run strlen(pcszNodeName)
+                         PNODEBASE *ppNew)            // out: new node
+{
+    APIRET      arc = NO_ERROR;
+    PNODEBASE   pNewNode = (PNODEBASE)malloc(cb);
+
+    if (!pNewNode)
+        arc = ERROR_NOT_ENOUGH_MEMORY;
+    else
+    {
+        memset(pNewNode, 0, cb);
+        pNewNode->ulNodeType = ulNodeType;
+
+        xstrInit(&pNewNode->strNodeName, 0);
+        if (pcszNodeName)
+            xstrcpy(&pNewNode->strNodeName,
+                    pcszNodeName,
+                    ulNodeNameLength);  // if 0, xstrcpy will do strlen()
+
+
+        *ppNew = pNewNode;
+    }
+
+    return (arc);
+}
+
+/*
+ *@@ xmlDeleteNode:
+ *      deletes a NODEBASE and frees memory that was
+ *      associated with its members.
+ *
+ *      NOTE: If you call this for derived types, call
+ *      this LAST, after you have cleared additional
+ *      members. After calling this, pNode is no longer
+ *      valid.
+ *
+ *@@added V0.9.9 (2001-02-16) [umoeller]
+ */
+
+VOID xmlDeleteNode(PNODEBASE pNode)
+{
+    if (pNode)
+    {
+        PLISTNODE   pNodeThis;
+        PDOMNODE    pDomNode = NULL;
+
+        LINKLIST    llDeleteNodes;          // list that nodes to be deleted
+                                            // can be appended to
+        PLISTNODE   pDelNode;
+        lstInit(&llDeleteNodes, FALSE);
+
+        // now handle special types and their allocations
+        switch (pNode->ulNodeType)
+        {
+            case DOMNODE_ELEMENT:
+            {
+                PDOMNODE pAttrib;
+
+                pDomNode = (PDOMNODE)pNode;
+
+                // delete all attribute nodes
+                pAttrib = (PDOMNODE)treeFirst(pDomNode->AttributesMap);
+                while (pAttrib)
+                {
+                    // call delete recursively
+                    xmlDeleteNode((PNODEBASE)pAttrib);
+                            // this will remove pAttrib from pNode's attrib
+                            // tree and rebalance the tree; treeNext will
+                            // still work #### noooooo
+                    pAttrib = (PDOMNODE)treeNext((TREE*)pAttrib);
+                }
+            break; }
+
+            case DOMNODE_ATTRIBUTE:
+            case DOMNODE_TEXT:
+            case DOMNODE_PROCESSING_INSTRUCTION:
+            case DOMNODE_COMMENT:
+            case DOMNODE_DOCUMENT:
+                pDomNode = (PDOMNODE)pNode;
+            break;
+
+            case DOMNODE_DOCUMENT_TYPE:
+            {
+                PDOMDOCTYPENODE pDocType = (PDOMDOCTYPENODE)pNode;
+                PCMELEMENTDECLNODE pElDecl;
+                PCMATTRIBUTEDECLBASE pAttrDeclBase;
+
+                pDomNode = (PDOMNODE)pNode;
+
+                pElDecl = (PCMELEMENTDECLNODE)treeFirst(pDocType->ElementDeclsTree);
+                while (pElDecl)
+                {
+                    lstAppendItem(&llDeleteNodes, pElDecl);
+                    pElDecl = (PCMELEMENTDECLNODE)treeNext((TREE*)pElDecl);
+                }
+
+                pAttrDeclBase = (PCMATTRIBUTEDECLBASE)treeFirst(pDocType->AttribDeclBasesTree);
+                while (pAttrDeclBase)
+                {
+                    lstAppendItem(&llDeleteNodes, pAttrDeclBase);
+                    pAttrDeclBase = (PCMATTRIBUTEDECLBASE)treeNext((TREE*)pAttrDeclBase);
+                }
+
+                xstrClear(&pDocType->strPublicID);
+                xstrClear(&pDocType->strSystemID);
+            break; }
+
+            case ELEMENTPARTICLE_EMPTY:
+            case ELEMENTPARTICLE_ANY:
+            case ELEMENTPARTICLE_MIXED:
+            case ELEMENTPARTICLE_CHOICE:
+            case ELEMENTPARTICLE_SEQ:
+            case ELEMENTPARTICLE_NAME:
+            {
+                PCMELEMENTPARTICLE pp = (PCMELEMENTPARTICLE)pNode;
+                if (pp->pllSubNodes)
+                {
+                    pDelNode = lstQueryFirstNode(pp->pllSubNodes);
+                    while (pDelNode)
+                    {
+                        PCMELEMENTPARTICLE
+                                pParticle = (PCMELEMENTPARTICLE)pDelNode->pItemData;
+                        xmlDeleteNode((PNODEBASE)pParticle);
+                        //  treeDelete(pp->         ###
+                        pDelNode = pDelNode->pNext;
+                    }
+                }
+            break; }
+
+            // case ATTRIBUTE_DECLARATION_ENUM:     // this is a plain NODEBASE
+
+            case ATTRIBUTE_DECLARATION:
+            {
+                PCMATTRIBUTEDECL pDecl = (PCMATTRIBUTEDECL)pNode;
+            break; }
+
+            case ATTRIBUTE_DECLARATION_BASE:
+            break;
+        }
+
+        if (pDomNode)
+        {
+            // recurse into child nodes
+            while (pNodeThis = lstQueryFirstNode(&pDomNode->llChildren))
+                // recurse!!
+                xmlDeleteNode((PNODEBASE)(pNodeThis->pItemData));
+                            // this updates llChildren
+
+            if (pDomNode->pParentNode)
+            {
+                // node has a parent:
+                if (pNode->ulNodeType == DOMNODE_ATTRIBUTE)
+                    // this is an attribute:
+                    // remove from parent's attributes map
+                    treeDelete(&pDomNode->pParentNode->AttributesMap,
+                               (TREE*)pNode);
+                else
+                    // remove this node from the parent's list
+                    // of child nodes before deleting this node
+                    lstRemoveItem(&pDomNode->pParentNode->llChildren,
+                                  pNode);
+
+                pDomNode->pParentNode = NULL;
+            }
+
+            xstrFree(pDomNode->pstrNodeValue);
+            lstClear(&pDomNode->llChildren);
+        }
+
+        pDelNode = lstQueryFirstNode(&llDeleteNodes);
+        while (pDelNode)
+        {
+            PNODEBASE pNodeBase = (PNODEBASE)pDelNode->pItemData;
+            xmlDeleteNode(pNodeBase);
+            pDelNode = pDelNode->pNext;
+        }
+
+        lstClear(&llDeleteNodes);
+
+        xstrClear(&pNode->strNodeName);
+        free(pNode);
+    }
+}
+
+/*
+ *@@ xmlCreateDomNode:
  *      creates a new DOMNODE with the specified
  *      type and parent. Other than that, the
  *      node fields are zeroed.
@@ -197,9 +408,12 @@ int CompareCMNodeData(TREE *t1,
  *          not have a document node at the root of your tree.
  */
 
-APIRET xmlCreateNode(PDOMNODE pParentNode,        // in: parent node or NULL if root
-                     ULONG ulNodeType,            // in: DOMNODE_* type
-                     PDOMNODE *ppNew)             // out: new node
+APIRET xmlCreateDomNode(PDOMNODE pParentNode,        // in: parent node or NULL if root
+                        NODEBASETYPE ulNodeType,     // in: DOMNODE_* type
+                        const char *pcszNodeName,    // in: node name or NULL
+                        ULONG ulNodeNameLength,      // in: node name length
+                                                     // or 0 to run strlen(pcszNodeName)
+                        PDOMNODE *ppNew)             // out: new node
 {
     PDOMNODE pNewNode = NULL;
     APIRET  arc = NO_ERROR;
@@ -221,15 +435,13 @@ APIRET xmlCreateNode(PDOMNODE pParentNode,        // in: parent node or NULL if 
         break;
     }
 
-    pNewNode = (PDOMNODE)malloc(cb);
-
-    if (!pNewNode)
-        arc = ERROR_NOT_ENOUGH_MEMORY;
-    else
+    arc = xmlCreateNodeBase(ulNodeType,
+                            cb,
+                            pcszNodeName,
+                            ulNodeNameLength,
+                            (PNODEBASE*)&pNewNode);
+    if (arc == NO_ERROR)
     {
-        memset(pNewNode, 0, cb);
-        pNewNode->NodeBase.ulNodeType = ulNodeType;
-        xstrInit(&pNewNode->NodeBase.strNodeName, 0);
         pNewNode->pParentNode = pParentNode;
 
         if (pParentNode)
@@ -241,8 +453,8 @@ APIRET xmlCreateNode(PDOMNODE pParentNode,        // in: parent node or NULL if 
                 // attribute:
                 // add to parent's attributes list
                 if (treeInsertNode(&pParentNode->AttributesMap,
-                                   (TREE*)pNewNode,
-                                   CompareCMNodeNodes,
+                                   &pNewNode->NodeBase.Tree,
+                                   CompareNodeBaseNodes,
                                    FALSE)      // no duplicates
                         == TREE_DUPLICATE)
                     arc = ERROR_DOM_DUPLICATE_ATTRIBUTE;
@@ -282,76 +494,6 @@ APIRET xmlCreateNode(PDOMNODE pParentNode,        // in: parent node or NULL if 
             free(pNewNode);
 
     return (arc);
-}
-
-/*
- *@@ xmlDeleteNode:
- *      deletes the specified node and updates the
- *      parent node's children list.
- *
- *      If the node has child nodes, all of them are deleted
- *      as well. This recurses, if necessary.
- *
- *      As a result, if the node is a document node, this
- *      deletes an entire document, including all of its
- *      child nodes.
- *
- *      This returns the following errors:
- *
- *      -- ERROR_DOM_NOT_FOUND
- */
-
-APIRET xmlDeleteNode(PDOMNODE pNode)
-{
-    ULONG ulrc = 0;
-
-    if (!pNode)
-    {
-        ulrc = ERROR_INVALID_PARAMETER;
-    }
-    else
-    {
-        PLISTNODE   pNodeThis;
-
-        // recurse into child nodes
-        while (pNodeThis  = lstQueryFirstNode(&pNode->llChildren))
-            // recurse!!
-            xmlDeleteNode((PDOMNODE)(pNodeThis->pItemData));
-                        // this updates llChildren
-
-        // recurse into attribute nodes
-        // while (pNodeThis = lstQueryFirstNode(&pNode->llAttributes))
-            // recurse!! ###
-            // xmlDeleteNode((PDOMNODE)(pNodeThis->pItemData));
-                        // this updates llAttributes
-
-        if (pNode->pParentNode)
-        {
-            // node has a parent:
-            if (pNode->NodeBase.ulNodeType == DOMNODE_ATTRIBUTE)
-                // this is an attribute:
-                // remove from parent's attributes map
-                treeDelete(&pNode->pParentNode->AttributesMap,
-                           (TREE*)pNode);
-            else
-                // remove this node from the parent's list
-                // of child nodes before deleting this node
-                lstRemoveItem(&pNode->pParentNode->llChildren,
-                              pNode);
-
-            pNode->pParentNode = NULL;
-        }
-
-        xstrClear(&pNode->NodeBase.strNodeName);
-        xstrFree(pNode->pstrNodeValue);
-
-        lstClear(&pNode->llChildren);
-        // lstClear(&pNode->llAttributes); ###
-
-        free(pNode);
-    }
-
-    return (ulrc);
 }
 
 /*
@@ -437,7 +579,11 @@ const char* xmlDescribeError(int code)
         "Invalid sub-element in parent element",
         "Duplicate element declaration",
         "Duplicate attribute declaration",
-        "Undeclared attribute in element"
+        "Undeclared attribute in element",
+        "Element cannot have content",
+        "Invalid attribute value",
+        "Required attribute is missing",
+        "Subelement in empty element"
     };
 
     int code2 = code - ERROR_XML_FIRST;
@@ -499,16 +645,14 @@ APIRET xmlCreateElementNode(PDOMNODE pParent,         // in: parent node (either
                             PDOMNODE *ppNew)
 {
     PDOMNODE pNew = NULL;
-    APIRET arc = xmlCreateNode(pParent,
+    APIRET arc = xmlCreateDomNode(pParent,
                                DOMNODE_ELEMENT,
+                               pcszElement,
+                               0,
                                &pNew);
 
     if (arc == NO_ERROR)
-    {
-        xstrcpy(&pNew->NodeBase.strNodeName, pcszElement, 0);
-
         *ppNew = pNew;
-    }
 
     return (arc);
 }
@@ -523,7 +667,7 @@ APIRET xmlCreateElementNode(PDOMNODE pParent,         // in: parent node (either
  *
  *      This returns the following errors:
  *
- *      --  Error codes from xmlCreateNode.
+ *      --  Error codes from xmlCreateDomNode.
  *
  *      --  ERROR_DOM_NO_ELEMENT: pElement is invalid or does
  *          not point to an @DOM_ELEMENT node.
@@ -545,12 +689,13 @@ APIRET xmlCreateAttributeNode(PDOMNODE pElement,        // in: element node
     else
     {
         PDOMNODE pNew = NULL;
-        arc = xmlCreateNode(pElement,          // this takes care of adding to the list
+        arc = xmlCreateDomNode(pElement,          // this takes care of adding to the list
                             DOMNODE_ATTRIBUTE,
+                            pcszName,
+                            0,
                             &pNew);
         if (arc == NO_ERROR)
         {
-            xstrcpy(&pNew->NodeBase.strNodeName, pcszName, 0);
             pNew->pstrNodeValue = xstrCreate(0);
             xstrcpy(pNew->pstrNodeValue, pcszValue, 0);
 
@@ -578,16 +723,18 @@ APIRET xmlCreateTextNode(PDOMNODE pParent,         // in: parent element node
                          PDOMNODE *ppNew)
 {
     PDOMNODE pNew = NULL;
-    APIRET arc = xmlCreateNode(pParent,
-                               DOMNODE_TEXT,
-                               &pNew);
+    APIRET arc = xmlCreateDomNode(pParent,
+                                  DOMNODE_TEXT,
+                                  NULL,
+                                  0,
+                                  &pNew);
     if (arc == NO_ERROR)
     {
         PSZ pszNodeValue = (PSZ)malloc(ulLength + 1);
         if (!pszNodeValue)
         {
             arc = ERROR_NOT_ENOUGH_MEMORY;
-            xmlDeleteNode(pNew);
+            xmlDeleteNode((PNODEBASE)pNew);
         }
         else
         {
@@ -616,8 +763,10 @@ APIRET xmlCreateCommentNode(PDOMNODE pParent,         // in: parent element node
                             PDOMNODE *ppNew)
 {
     PDOMNODE pNew = NULL;
-    APIRET arc = xmlCreateNode(pParent,
+    APIRET arc = xmlCreateDomNode(pParent,
                                DOMNODE_COMMENT,
+                               NULL,
+                               0,
                                &pNew);
     if (arc == NO_ERROR)
     {
@@ -643,12 +792,13 @@ APIRET xmlCreatePINode(PDOMNODE pParent,         // in: parent element node
                        PDOMNODE *ppNew)
 {
     PDOMNODE pNew = NULL;
-    APIRET arc = xmlCreateNode(pParent,
+    APIRET arc = xmlCreateDomNode(pParent,
                                DOMNODE_PROCESSING_INSTRUCTION,
+                               pcszTarget,
+                               0,
                                &pNew);
     if (arc == NO_ERROR)
     {
-        xstrcpy(&pNew->NodeBase.strNodeName, pcszTarget, 0);
         pNew->pstrNodeValue = xstrCreate(0);
         xstrcpy(pNew->pstrNodeValue, pcszData, 0);
 
@@ -682,8 +832,10 @@ APIRET xmlCreateDocumentTypeNode(PDOMDOCUMENTNODE pDocumentNode,            // i
     {
         // create doctype node
         PDOMDOCTYPENODE pNew = NULL;
-        arc = xmlCreateNode((PDOMNODE)pDocumentNode,
+        arc = xmlCreateDomNode((PDOMNODE)pDocumentNode,
                             DOMNODE_DOCUMENT_TYPE,
+                            NULL,
+                            0,
                             (PDOMNODE*)&pNew);
 
         if (!arc)
@@ -763,32 +915,32 @@ APIRET SetupParticleAndSubs(PCMELEMENTPARTICLE pParticle,
     switch (pModel->type)
     {
         case XML_CTYPE_EMPTY: // that's easy
-            pParticle->CMNode.ulNodeType = ELEMENTPARTICLE_EMPTY;
+            pParticle->NodeBase.ulNodeType = ELEMENTPARTICLE_EMPTY;
         break;
 
         case XML_CTYPE_ANY:   // that's easy
-            pParticle->CMNode.ulNodeType = ELEMENTPARTICLE_ANY;
+            pParticle->NodeBase.ulNodeType = ELEMENTPARTICLE_ANY;
         break;
 
         case XML_CTYPE_NAME:   // that's easy
-            pParticle->CMNode.ulNodeType = ELEMENTPARTICLE_NAME;
-            xstrInitCopy(&pParticle->CMNode.strNodeName, pModel->name, 0);
+            pParticle->NodeBase.ulNodeType = ELEMENTPARTICLE_NAME;
+            xstrInitCopy(&pParticle->NodeBase.strNodeName, pModel->name, 0);
             treeInsertNode(ppElementNamesTree,
-                           &pParticle->CMNode.Tree,
-                           CompareCMNodeNodes,
+                           &pParticle->NodeBase.Tree,
+                           CompareNodeBaseNodes,
                            TRUE);       // allow duplicates here
         break;
 
         case XML_CTYPE_MIXED:
-            pParticle->CMNode.ulNodeType = ELEMENTPARTICLE_MIXED;
+            pParticle->NodeBase.ulNodeType = ELEMENTPARTICLE_MIXED;
         break;
 
         case XML_CTYPE_CHOICE:
-            pParticle->CMNode.ulNodeType = ELEMENTPARTICLE_CHOICE;
+            pParticle->NodeBase.ulNodeType = ELEMENTPARTICLE_CHOICE;
         break;
 
         case XML_CTYPE_SEQ:
-            pParticle->CMNode.ulNodeType = ELEMENTPARTICLE_SEQ;
+            pParticle->NodeBase.ulNodeType = ELEMENTPARTICLE_SEQ;
         break;
     }
 
@@ -805,23 +957,28 @@ APIRET SetupParticleAndSubs(PCMELEMENTPARTICLE pParticle,
              ul++)
         {
             PXMLCONTENT pSubModel = &pModel->children[ul];
-            PCMELEMENTPARTICLE pSubNew
-                = (PCMELEMENTPARTICLE)malloc(sizeof(*pSubNew));
-            if (!pSubNew)
-                arc = ERROR_NOT_ENOUGH_MEMORY;
-            else
+            PCMELEMENTPARTICLE pSubNew = NULL;
+            arc = xmlCreateNodeBase(TYPE_UNKNOWN, //       node type... for now
+                                    sizeof(CMELEMENTPARTICLE),
+                                    0,
+                                    0,
+                                    (PNODEBASE*)&pSubNew);
+            if (!arc)
             {
-                memset(pSubNew, 0, sizeof(*pSubNew));
-
                 arc = SetupParticleAndSubs(pSubNew,
                                            pSubModel,
                                            ppElementNamesTree);
 
                 if (!arc)
+                {
                     // no error: append sub-particle to this particle's
                     // children list
                     lstAppendItem(pParticle->pllSubNodes,
                                   pSubNew);
+                    // and store this particle as the parent in the
+                    // sub-particle
+                    pSubNew->pParentParticle = pParticle;
+                }
             }
 
             if (arc)
@@ -846,17 +1003,16 @@ APIRET xmlCreateElementDecl(const char *pcszName,
                             PCMELEMENTDECLNODE *ppNew)
 {
     APIRET arc = NO_ERROR;
-    PCMELEMENTDECLNODE pNew = (PCMELEMENTDECLNODE)malloc(sizeof(*pNew));
-    if (!pNew)
-        arc = ERROR_NOT_ENOUGH_MEMORY;
-    else
+    PCMELEMENTDECLNODE pNew = NULL;
+
+    arc = xmlCreateNodeBase(TYPE_UNKNOWN,      // for now
+                            sizeof(CMELEMENTDECLNODE),
+                            pcszName,
+                            0,
+                            (PNODEBASE*)&pNew);
+
+    if (!arc)
     {
-        memset(pNew, 0, sizeof(CMELEMENTDECLNODE));
-
-        // pNew->Particle.CMNode.ulNodeType = ELEMENT_DECLARATION;
-
-        xstrcpy(&pNew->Particle.CMNode.strNodeName, pcszName, 0);
-
         treeInit(&pNew->ParticleNamesTree);
 
         // set up the "particle" member and recurse into sub-particles
@@ -892,9 +1048,10 @@ PCMELEMENTDECLNODE xmlFindElementDecl(PXMLDOM pDom,
          && (pstrElementName->ulLength)
        )
     {
-        pElementDecl = treeFindEQData(&pDocTypeNode->ElementDeclsTree,
+        pElementDecl = (PCMELEMENTDECLNODE)treeFindEQData(
+                                      &pDocTypeNode->ElementDeclsTree,
                                       (void*)pstrElementName->psz,
-                                      CompareCMNodeData);
+                                      CompareNodeBaseData);
     }
 
     return (pElementDecl);
@@ -902,7 +1059,7 @@ PCMELEMENTDECLNODE xmlFindElementDecl(PXMLDOM pDom,
 
 /*
  *@@ xmlFindAttribDeclBase:
- *      returns the _CMATTRIBUTEDEDECLBASE for the specified
+ *      returns the _CMATTRIBUTEDECLBASE for the specified
  *      element name, or NULL if none exists.
  *
  *      To find a specific attribute declaration from both
@@ -912,10 +1069,10 @@ PCMELEMENTDECLNODE xmlFindElementDecl(PXMLDOM pDom,
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
 
-PCMATTRIBUTEDEDECLBASE xmlFindAttribDeclBase(PXMLDOM pDom,
+PCMATTRIBUTEDECLBASE xmlFindAttribDeclBase(PXMLDOM pDom,
                                              const XSTRING *pstrElementName)
 {
-    PCMATTRIBUTEDEDECLBASE pAttribDeclBase = NULL;
+    PCMATTRIBUTEDECLBASE pAttribDeclBase = NULL;
 
     PDOMDOCTYPENODE pDocTypeNode = pDom->pDocTypeNode;
     if (    (pDocTypeNode)
@@ -923,9 +1080,10 @@ PCMATTRIBUTEDEDECLBASE xmlFindAttribDeclBase(PXMLDOM pDom,
          && (pstrElementName->ulLength)
        )
     {
-        pAttribDeclBase = treeFindEQData(&pDocTypeNode->AttribDeclBasesTree,
-                                         (void*)pstrElementName->psz,
-                                         CompareCMNodeData);
+        pAttribDeclBase = (PCMATTRIBUTEDECLBASE)treeFindEQData(
+                                        &pDocTypeNode->AttribDeclBasesTree,
+                                        (void*)pstrElementName->psz,
+                                        CompareNodeBaseData);
     }
 
     return (pAttribDeclBase);
@@ -941,18 +1099,25 @@ PCMATTRIBUTEDEDECLBASE xmlFindAttribDeclBase(PXMLDOM pDom,
 
 PCMATTRIBUTEDECL xmlFindAttribDecl(PXMLDOM pDom,
                                    const XSTRING *pstrElementName,
-                                   const XSTRING *pstrAttribName)
+                                   const XSTRING *pstrAttribName,
+                                   PCMATTRIBUTEDECLBASE *ppAttribDeclBase)
+                                            // in/out: attr decl base cache;
+                                            // the pointer pointed to by this
+                                            // must be NULL on the first call
 {
     PCMATTRIBUTEDECL pAttribDecl = NULL;
     if (pstrElementName && pstrAttribName)
     {
-        PCMATTRIBUTEDEDECLBASE pAttribDeclBase = xmlFindAttribDeclBase(pDom,
-                                                                       pstrElementName);
-        if (pAttribDeclBase)
+        if (!*ppAttribDeclBase)
+            // first call for this:
+            *ppAttribDeclBase = xmlFindAttribDeclBase(pDom,
+                                                      pstrElementName);
+        if (*ppAttribDeclBase)
         {
-            pAttribDecl = treeFindEQData(&pAttribDeclBase->AttribDeclsTree,
+            pAttribDecl = (PCMATTRIBUTEDECL)treeFindEQData(
+                                         &((**ppAttribDeclBase).AttribDeclsTree),
                                          (void*)pstrAttribName->psz,
-                                         CompareCMNodeData);
+                                         CompareNodeBaseData);
         }
     }
 
@@ -960,18 +1125,19 @@ PCMATTRIBUTEDECL xmlFindAttribDecl(PXMLDOM pDom,
 }
 
 /*
- *@@ ValidateElement:
- *      validates the specified element against the document's
- *      @DTD.
+ *@@ ValidateElementChildren
+ *      validates the specified element against the document's @DTD,
+ *      more specifically, against the element declaration of the
+ *      new element's parent.
  *
  *      This sets arcDOM in XMLDOM on errors.
  *
  *      According to the XML spec, an element is valid if there
  *      is a declaration matching the element declaration where the
  *      element's name matches the element type, and _one_ of the
- *      following holds: ###
+ *      following holds:
  *
- *      (1) The declaration matches EMPTY and the element has no @content.
+ *      (1) The declaration matches EMPTY and the element has no @content. (done)
  *
  *      (2) The declaration matches (children) (see @element_declaration)
  *          and the sequence of child elements belongs to the language
@@ -980,23 +1146,99 @@ PCMATTRIBUTEDECL xmlFindAttribDecl(PXMLDOM pDom,
  *          element, between child elements, or between the last
  *          child element and the end-tag. Note that a CDATA section
  *          is never considered "whitespace", even if it contains
- *          white space only.
+ *          white space only. @@todo
  *
  *      (3) The declaration matches (mixed) (see @element_declaration)
  *          and the content consists of @content and child elements
- *          whose types match names in the content model.
+ *          whose types match names in the content model. (done)
  *
  *      (4) The declaration matches ANY, and the types of any child
  *          elements have been declared. (done)
+ *
+ *      Preconditions: The element must already have been inserted
+ *      into the parent element's list, or we cannot validate sequences.
  *
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
 
 VOID ValidateElement(PXMLDOM pDom,
-                     PDOMNODE pElement)
+                     PDOMNODE pNewElement,     // in: new element
+                     PCMELEMENTDECLNODE pParentElementDecl)
+                                               // in: element decl of element's parent
 {
+    if (pDom && pNewElement)
+    {
+        if (!pParentElementDecl)
+        {
+            // this is always missing for the root element, of course,
+            // because the parent is the document
+            if (pNewElement->pParentNode == (PDOMNODE)pDom->pDocumentNode)
+                return;     // that's OK
+            else
+                pDom->arcDOM = ERROR_DOM_DOCTYPE_STRUCTURE;
+        }
+        else
+        {
+            ULONG ulDeclType = pParentElementDecl->Particle.NodeBase.ulNodeType;
+
+            switch (ulDeclType)
+            {
+                case ELEMENTPARTICLE_EMPTY:
+                    // this is an error for sure
+                    xmlSetError(pDom,
+                                ERROR_DOM_SUBELEMENT_IN_EMPTY_ELEMENT,
+                                pNewElement->NodeBase.strNodeName.psz,
+                                TRUE);
+                break;
+
+                case ELEMENTPARTICLE_ANY:
+                    // that's always OK
+                break;
+
+                case ELEMENTPARTICLE_MIXED:
+                case ELEMENTPARTICLE_CHOICE:
+                case ELEMENTPARTICLE_SEQ:
+                {
+                    const char *pcszNewElementName
+                        = pNewElement->NodeBase.strNodeName.psz;
+
+                    // for all these, we first need to check if
+                    // the element is allowed at all
+                    PCMELEMENTPARTICLE pParticle
+                        = (PCMELEMENTPARTICLE)treeFindEQData(
+                                         &pParentElementDecl->ParticleNamesTree,
+                                         (void*)pcszNewElementName,
+                                         CompareNodeBaseData);
+                    if (!pParticle)
+                        // not found: then this element is not allowed within this
+                        // parent
+                        xmlSetError(pDom,
+                                    ERROR_DOM_INVALID_SUBELEMENT,
+                                    pcszNewElementName,
+                                    TRUE);
+                    else
+                    {
+                        // the element is allowed at all: now check for the
+                        // lists case...
+                        switch (ulDeclType)
+                        {
+                            case ELEMENTPARTICLE_CHOICE:
+                            break;
+
+                            case ELEMENTPARTICLE_SEQ:
+                            break;
+                        }
+                    }
+
+                break; }
+            }
+        }
+    }
+    else
+        pDom->arcDOM = ERROR_INVALID_PARAMETER;
+
     // yes: get the element decl from the tree
-    PCMELEMENTDECLNODE pElementDecl = xmlFindElementDecl(pDom,
+    /* PCMELEMENTDECLNODE pElementDecl = xmlFindElementDecl(pDom,
                                                          &pElement->NodeBase.strNodeName);
     if (!pElementDecl)
     {
@@ -1050,7 +1292,7 @@ VOID ValidateElement(PXMLDOM pDom,
                     PCMELEMENTPARTICLE pParticle
                         = treeFindEQData(&pParentElementDecl->ParticleNamesTree,
                                          (void*)pElement->NodeBase.strNodeName.psz,
-                                         CompareCMNodeData);
+                                         CompareNodeBaseData);
                     if (!pParticle)
                         // not found: then this element is not allowed within this
                         // parent
@@ -1062,31 +1304,203 @@ VOID ValidateElement(PXMLDOM pDom,
             break; }
         }
     }
+    */
 }
 
 /*
- *@@ ValidateAttribute:
- *      validates the specified element against the document's
- *      @DTD.
+ *@@ ValidateAttributeType:
+ *      validates the specified attribute's type against the
+ *      document's @DTD.
  *
  *      This sets arcDOM in XMLDOM on errors.
  *
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
 
-VOID ValidateAttribute(PXMLDOM pDom,
-                       PDOMNODE pAttrib)
+VOID ValidateAttributeType(PXMLDOM pDom,
+                           PDOMNODE pAttrib,
+                           PCMATTRIBUTEDECLBASE *ppAttribDeclBase)
 {
     PDOMNODE pElement = pAttrib->pParentNode;
 
     PCMATTRIBUTEDECL pAttribDecl = xmlFindAttribDecl(pDom,
                                                      &pElement->NodeBase.strNodeName,
-                                                     &pAttrib->NodeBase.strNodeName);
+                                                     &pAttrib->NodeBase.strNodeName,
+                                                     ppAttribDeclBase);
     if (!pAttribDecl)
         xmlSetError(pDom,
                     ERROR_DOM_UNDECLARED_ATTRIBUTE,
                     pAttrib->NodeBase.strNodeName.psz,
                     TRUE);
+    else
+    {
+        // check if the attribute value is allowed
+        switch (pAttribDecl->ulAttrType)
+        {
+            case CMAT_CDATA:
+            case CMAT_ID:
+            case CMAT_IDREF:
+            case CMAT_IDREFS:       // ###
+            case CMAT_ENTITY:
+            case CMAT_ENTITIES:
+            case CMAT_NMTOKEN:
+            case CMAT_NMTOKENS:
+            break;
+
+            case CMAT_ENUM:
+            {
+                // enumeration: then check if it has one of the
+                // allowed values
+                PNODEBASE pValue = (PNODEBASE)treeFindEQData(
+                                                &pAttribDecl->ValuesTree,
+                                                (void*)pAttrib->pstrNodeValue->psz,
+                                                CompareNodeBaseData);
+                if (!pValue)
+                    xmlSetError(pDom,
+                                ERROR_DOM_INVALID_ATTRIB_VALUE,
+                                pAttrib->NodeBase.strNodeName.psz,
+                                TRUE);
+            }
+        }
+
+        if (pAttribDecl->ulConstraint == CMAT_FIXED_VALUE)
+            if (strcmp(pAttrib->pstrNodeValue->psz, pAttribDecl->pstrDefaultValue->psz))
+                // fixed value doesn't match:
+                xmlSetError(pDom,
+                            ERROR_DOM_INVALID_ATTRIB_VALUE,
+                            pAttrib->NodeBase.strNodeName.psz,
+                            TRUE);
+    }
+}
+
+/*
+ *@@ ValidateAllAttributes:
+ *      validates the constraints of all attributes of the specified
+ *      element against the document's @DTD.
+ *
+ *@@added V0.9.9 (2001-02-16) [umoeller]
+ */
+
+VOID ValidateAllAttributes(PXMLDOM pDom,
+                           PCMATTRIBUTEDECLBASE pAttribDeclBase,
+                           PDOMNODE pNewElement)
+{
+    PCMATTRIBUTEDECL pDeclThis
+        = (PCMATTRIBUTEDECL)treeFirst(pAttribDeclBase->AttribDeclsTree);
+
+    while ((pDeclThis) && (!pDom->arcDOM))
+    {
+        // if attribute is all optional: then we don't need
+        // to check for whether it's here
+        if (    (pDeclThis->ulConstraint != CMAT_IMPLIED)
+             && (pDeclThis->ulConstraint != CMAT_DEFAULT_VALUE)
+                    // we don't have to check this case because expat
+                    // already adds default attributes for us
+           )
+        {
+            // for all others , we need to find the attribute
+            PSZ pszAttrNameThis = pDeclThis->NodeBase.strNodeName.psz;
+            PDOMNODE pAttrNode = (PDOMNODE)treeFindEQData(
+                                            &pNewElement->AttributesMap,
+                                            (void*)pszAttrNameThis,
+                                            CompareNodeBaseData);
+
+            // now switch again
+            switch (pDeclThis->ulConstraint)
+            {
+                case CMAT_REQUIRED:
+                    if (!pAttrNode)
+                        // required, but no attribute with this name exists:
+                        xmlSetError(pDom,
+                                    ERROR_DOM_REQUIRED_ATTRIBUTE_MISSING,
+                                    pszAttrNameThis,
+                                    TRUE);
+                break;
+            }
+        }
+
+        pDeclThis = (PCMATTRIBUTEDECL)treeNext((TREE*)pDeclThis);
+    }
+}
+
+/* ******************************************************************
+ *
+ *   Expat stack
+ *
+ ********************************************************************/
+
+/*
+ *@@ DOMSTACKITEM:
+ *
+ *@@added V0.9.9 (2001-02-16) [umoeller]
+ */
+
+typedef struct _DOMSTACKITEM
+{
+    PDOMNODE                pDomNode;
+    PCMELEMENTDECLNODE      pElementDecl;
+
+} DOMSTACKITEM, *PDOMSTACKITEM;
+
+/*
+ *@@ PopElementStack:
+ *
+ *      NOTE:
+ *
+ *@@added V0.9.9 (2001-02-16) [umoeller]
+ */
+
+PDOMSTACKITEM PopElementStack(PXMLDOM pDom,
+                              PLISTNODE *ppListNode)
+{
+    PDOMSTACKITEM   pStackItem = NULL;
+    PLISTNODE       pParentLN = lstPop(&pDom->llElementStack);
+
+    if (!pParentLN)
+        pDom->arcDOM = ERROR_DOM_NO_ELEMENT;
+    else
+    {
+        // we have at least one node:
+        pStackItem = (PDOMSTACKITEM)pParentLN->pItemData;
+
+        if (ppListNode)
+            *ppListNode = pParentLN;
+    }
+
+    return (pStackItem);
+}
+
+/*
+ *@@ PushElementStack:
+ *
+ *      NOTE: pDomNode will most frequently be an element
+ *      node, but will also be the document for root and
+ *      a DOCTYPE node while parsing the DTD.
+ *
+ *@@added V0.9.9 (2001-02-16) [umoeller]
+ */
+
+VOID PushElementStack(PXMLDOM pDom,
+                      PDOMNODE pDomNode)
+{
+    PDOMSTACKITEM pNew = (PDOMSTACKITEM)malloc(sizeof(*pNew));
+    if (!pNew)
+        pDom->arcDOM = ERROR_NOT_ENOUGH_MEMORY;
+    else
+    {
+        memset(pNew, 0, sizeof(*pNew));
+        pNew->pDomNode = pDomNode;
+
+        // shall we validate?
+        if (    (pDom->pDocTypeNode)
+             && (pDomNode->NodeBase.ulNodeType == DOMNODE_ELEMENT)
+           )
+            pNew->pElementDecl = xmlFindElementDecl(pDom,
+                                                    &pDomNode->NodeBase.strNodeName);
+
+        lstPush(&pDom->llElementStack,
+                pNew);
+    }
 }
 
 /* ******************************************************************
@@ -1117,58 +1531,70 @@ void EXPATENTRY StartElementHandler(void *pUserData,      // in: our PXMLDOM rea
     {
         ULONG       i;
 
-        PDOMNODE    pParent = NULL,
-                    pNew = NULL;
-
-        PLISTNODE   pParentNode = lstPop(&pDom->llStack);
-
-        if (!pParentNode)
-            pDom->arcDOM = ERROR_DOM_NO_DOCUMENT;
-        else
+        PDOMSTACKITEM pSI = PopElementStack(pDom,
+                                            NULL);     // no free
+        if (!pDom->arcDOM)
         {
-            // we have at least one node:
-            pParent = (PDOMNODE)pParentNode->pItemData;
+            PDOMNODE    pParent = pSI->pDomNode,
+                        pNew = NULL;
 
             pDom->arcDOM = xmlCreateElementNode(pParent,
                                                 pcszElement,
                                                 &pNew);
 
             if (!pDom->arcDOM)
+                // OK, node is valid:
+                // push this on the stack so we can add child elements
+                PushElementStack(pDom,
+                                 pNew);
+
+            // shall we validate?
+            if (    (!pDom->arcDOM)
+                 && (pDom->pDocTypeNode)
+               )
+                ValidateElement(pDom,
+                                pNew,                // new element
+                                pSI->pElementDecl);  // parent's elem decl
+
+            if (!pDom->arcDOM)
             {
+                PCMATTRIBUTEDECLBASE pAttribDeclBase = NULL;
+
                 // shall we validate?
                 if (pDom->pDocTypeNode)
+                    // yes: get attrib decl base for speed
+                    pAttribDeclBase
+                        = xmlFindAttribDeclBase(pDom,
+                                                &pNew->NodeBase.strNodeName);
+
+                // now for the attribs
+                for (i = 0;
+                     (papcszAttribs[i]) && (!pDom->arcDOM);
+                     i += 2)
                 {
-                    // yes:
-                    ValidateElement(pDom,
-                                    pNew);
+                    PDOMNODE pAttrib;
+                    pDom->arcDOM = xmlCreateAttributeNode(pNew,                    // element,
+                                                          papcszAttribs[i],        // attr name
+                                                          papcszAttribs[i + 1],    // attr value
+                                                          &pAttrib);
+
+                    // shall we validate?
+                    if (pDom->pDocTypeNode)
+                        ValidateAttributeType(pDom,
+                                              pAttrib,
+                                              &pAttribDeclBase);
                 }
 
-                if (!pDom->arcDOM)
-                {
-                    // OK, node is valid:
-                    // push this on the stack so we can add child elements
-                    lstPush(&pDom->llStack, pNew);
-
-                    // now for the attribs
-                    for (i = 0;
-                         (papcszAttribs[i]) && (!pDom->arcDOM);
-                         i += 2)
-                    {
-                        PDOMNODE pAttrib;
-
-                        pDom->arcDOM = xmlCreateAttributeNode(pNew,                    // element,
-                                                              papcszAttribs[i],        // attr name
-                                                              papcszAttribs[i + 1],    // attr value
-                                                              &pAttrib);
-
-                        // shall we validate?
-                        if (pDom->pDocTypeNode)
-                        {
-                            ValidateAttribute(pDom,
-                                              pAttrib);
-                        }
-                    }
-                }
+                // OK, now we got all attributes:
+                // now look for defaults in the DTD,
+                // if we shall validate
+                if (    (pDom->pDocTypeNode)
+                     && (!pDom->arcDOM)
+                     && (pAttribDeclBase)
+                   )
+                    ValidateAllAttributes(pDom,
+                                          pAttribDeclBase,
+                                          pNew);
             }
         }
 
@@ -1189,9 +1615,22 @@ void EXPATENTRY EndElementHandler(void *pUserData,      // in: our PXMLDOM reall
     // continue parsing only if we had no errors so far
     if (!pDom->arcDOM)
     {
-        PLISTNODE   pNode = lstPop(&pDom->llStack);
-        if (pNode)
-            lstRemoveNode(&pDom->llStack, pNode);
+        PLISTNODE pStackLN = NULL;
+        PDOMSTACKITEM pSI = PopElementStack(pDom,
+                                            &pStackLN);
+
+        if (!pDom->arcDOM)
+        {
+            // shall we validate?
+            /* if (pDom->pDocTypeNode)
+                // yes:
+                ValidateElementChildren(pDom,
+                                        pSI->pDomNode); */
+
+            lstRemoveNode(&pDom->llElementStack, pStackLN); // auto-free
+        }
+        else
+            pDom->arcDOM = ERROR_DOM_INTEGRITY;
 
         pDom->pLastWasTextNode = NULL;
     }
@@ -1218,27 +1657,78 @@ void EXPATENTRY CharacterDataHandler(void *pUserData,      // in: our PXMLDOM re
 
         if (len)
         {
-            if (pDom->pLastWasTextNode)
+            // we need a new text node:
+            PDOMSTACKITEM pSI = PopElementStack(pDom,
+                                                NULL);     // no free
+            if (!pDom->arcDOM)
             {
-                // we had a text node, and no elements or other
-                // stuff in between:
-                xstrcat(pDom->pLastWasTextNode->pstrNodeValue,
-                        s,
-                        len);
-            }
-            else
-            {
-                // we need a new text node:
-                PDOMNODE pNew,
-                         pParent;
-                // non-root level:
-                PLISTNODE pParentNode = lstPop(&pDom->llStack);
-                pParent = (PDOMNODE)pParentNode->pItemData;
+                PDOMNODE    pParent = pSI->pDomNode,
+                            pNew = NULL;
 
-                pDom->arcDOM = xmlCreateTextNode(pParent,
-                                                 s,
-                                                 len,
-                                                 &pDom->pLastWasTextNode);
+                // shall we validate?
+                if (pDom->pDocTypeNode)
+                {
+                    // yes: check if the parent element allows
+                    // for content at all (must be "mixed" model)
+
+                    // get the element decl from the tree
+                    PCMELEMENTDECLNODE pElementDecl = pSI->pElementDecl;
+
+                    if (pElementDecl)
+                    {
+                        switch (pElementDecl->Particle.NodeBase.ulNodeType)
+                        {
+                            case ELEMENTPARTICLE_ANY:
+                            case ELEMENTPARTICLE_MIXED:
+                                // those two are okay
+                            break;
+
+                            case ELEMENTPARTICLE_EMPTY:
+                                // that's an error for sure
+                                pDom->arcDOM = ERROR_ELEMENT_CANNOT_HAVE_CONTENT;
+                            break;
+
+                            default:
+                            {
+                                // ELEMENTPARTICLE_CHOICE:
+                                // ELEMENTPARTICLE_SEQ:
+                                // with these two, we accept whitespace, but nothing
+                                // else... so if we have characters other than
+                                // whitespace, terminate
+                                ULONG ul;
+                                const char *p = s;
+                                for (ul = 0;
+                                     ul < len;
+                                     ul++, p++)
+                                    if (!strchr("\r\n\t ", *p))
+                                    {
+                                        // other character:
+                                        xmlSetError(pDom,
+                                                    ERROR_ELEMENT_CANNOT_HAVE_CONTENT,
+                                                    pParent->NodeBase.strNodeName.psz,
+                                                    TRUE);
+                                        break;
+                                    }
+                            }
+                        }
+                    }
+                }
+
+                if (pDom->pLastWasTextNode)
+                {
+                    // we had a text node, and no elements or other
+                    // stuff in between:
+                    xstrcat(pDom->pLastWasTextNode->pstrNodeValue,
+                            s,
+                            len);
+                }
+                else
+                {
+                    pDom->arcDOM = xmlCreateTextNode(pParent,
+                                                     s,
+                                                     len,
+                                                     &pDom->pLastWasTextNode);
+                }
             }
         }
     }
@@ -1262,17 +1752,17 @@ void EXPATENTRY CommentHandler(void *pUserData,      // in: our PXMLDOM really
     // continue parsing only if we had no errors so far
     if (!pDom->arcDOM)
     {
-        PLISTNODE   pParentNode = lstPop(&pDom->llStack);
-
-        if (pParentNode)
+        // we need a new text node:
+        PDOMSTACKITEM pSI = PopElementStack(pDom,
+                                            NULL);     // no free
+        if (!pDom->arcDOM)
         {
-            // non-root level:
-            PDOMNODE pParent = (PDOMNODE)pParentNode->pItemData;
-            PDOMNODE pComment;
+            PDOMNODE    pParent = pSI->pDomNode,
+                        pNew = NULL;
 
             pDom->arcDOM = xmlCreateCommentNode(pParent,
                                                 data,
-                                                &pComment);
+                                                &pNew);
         }
     }
 }
@@ -1306,15 +1796,18 @@ void EXPATENTRY StartDoctypeDeclHandler(void *pUserData,
             pDom->arcDOM = ERROR_DOM_NO_DOCUMENT;
         else
         {
-            pDom->arcDOM = xmlCreateDocumentTypeNode(pDocumentNode,
-                                                     pcszDoctypeName,
-                                                     pcszSysid,
-                                                     pcszPubid,
-                                                     fHasInternalSubset,
-                                                     &pDom->pDocTypeNode);
-
-            // push this on the stack so we can add child elements
-            lstPush(&pDom->llStack, pDom->pDocTypeNode);
+            // doctype must be null
+            if (pDom->pDocTypeNode)
+                pDom->arcDOM = ERROR_DOM_DUPLICATE_DOCTYPE;
+            else
+            {
+                pDom->arcDOM = xmlCreateDocumentTypeNode(pDocumentNode,
+                                                         pcszDoctypeName,
+                                                         pcszSysid,
+                                                         pcszPubid,
+                                                         fHasInternalSubset,
+                                                         &pDom->pDocTypeNode);
+            }
         }
     }
 }
@@ -1331,28 +1824,30 @@ void EXPATENTRY EndDoctypeDeclHandler(void *pUserData)      // in: our PXMLDOM r
 {
     PXMLDOM     pDom = (PXMLDOM)pUserData;
 
-    PLISTNODE pListNode = lstPop(&pDom->llStack);
-    if (!pListNode)
-        pDom->arcDOM = ERROR_DOM_DOCTYPE_STRUCTURE;
-    else
-    {
-        PDOMNODE pDomNode = (PDOMNODE)pListNode->pItemData;
-        if (pDomNode->NodeBase.ulNodeType != DOMNODE_DOCUMENT_TYPE)
-            pDom->arcDOM = ERROR_DOM_DOCTYPE_STRUCTURE;
-
-        lstRemoveNode(&pDom->llStack, pListNode);
-    }
-
     // continue parsing only if we had no errors so far
-    if (!pDom->arcDOM)
+    /* if (!pDom->arcDOM)
     {
+        PLISTNODE pStackLN = NULL;
+        PDOMSTACKITEM pSI = PopElementStack(pDom,
+                                            &pStackLN);
 
-    }
+        if (pDom->arcDOM)
+            pDom->arcDOM = ERROR_DOM_DOCTYPE_STRUCTURE;
+        else
+        {
+            if (pSI->pDomNode->NodeBase.ulNodeType != DOMNODE_DOCUMENT_TYPE)
+                pDom->arcDOM = ERROR_DOM_DOCTYPE_STRUCTURE;
+
+            lstRemoveNode(&pDom->llElementStack, pStackLN); // auto-free
+        }
+    } */
 }
 
 /*
  *@@ NotationDeclHandler:
  *      @expat handler for @notation_declarations.
+ *
+ *      ###
  *
  *@@added V0.9.9 (2001-02-14) [umoeller]
  */
@@ -1392,7 +1887,8 @@ void EXPATENTRY NotationDeclHandler(void *pUserData,      // in: our PXMLDOM rea
  *      declaration and may be null.
  *
  *      The pcszSystemId is the system identifier specified in the
- *      entity declaration and is never null.
+ *      entity declaration and is never null. This is an exact copy
+ *      of what was specified in the reference.
  *
  *      There are a couple of ways in which this handler differs
  *      from others. First, this handler returns an integer. A
@@ -1429,7 +1925,11 @@ int EXPATENTRY ExternalEntityRefHandler(XML_Parser parser,
                                         const XML_Char *pcszSystemId,
                                         const XML_Char *pcszPublicId)
 {
-    int i = 1;
+    int i = 0;
+
+    FILE *f = fopen("log", "w");
+    fprintf(f, "sysid: %s\n", pcszSystemId);
+    fclose(f);
 
     /* PXMLDOM     pDom = (PXMLDOM)pUserData;
 
@@ -1466,44 +1966,36 @@ void EXPATENTRY ElementDeclHandler(void *pUserData,      // in: our PXMLDOM real
     // continue parsing only if we had no errors so far
     if (!pDom->arcDOM)
     {
-        // pop the last DOMNODE off the stack and check if it's a DOCTYPE
-        PLISTNODE pListNode = lstPop(&pDom->llStack);
-        if (!pListNode)
+        // OK, we're in a DOCTYPE node:
+        PDOMDOCTYPENODE pDocType = pDom->pDocTypeNode;
+        if (!pDocType)
             pDom->arcDOM = ERROR_DOM_DOCTYPE_STRUCTURE;
         else
         {
-            PDOMNODE pDomNode = (PDOMNODE)pListNode->pItemData;
-            if (pDomNode->NodeBase.ulNodeType != DOMNODE_DOCUMENT_TYPE)
-                pDom->arcDOM = ERROR_DOM_DOCTYPE_STRUCTURE;
-            else
+            // create an element declaration and push it unto the
+            // declarations tree
+            PCMELEMENTDECLNODE pNew = NULL;
+            pDom->arcDOM = xmlCreateElementDecl(pcszName,
+                                                pModel,
+                                                &pNew);
+                                    // this recurses!!
+                                    // after this, pModel is invalid
+
+            if (pDom->arcDOM == NO_ERROR)
             {
-                // OK, we're in a DOCTYPE node:
-                PDOMDOCTYPENODE pDocType = (PDOMDOCTYPENODE)pDomNode;
-
-                // create an element declaration and push it unto the
-                // declarations tree
-                PCMELEMENTDECLNODE pNew = NULL;
-                pDom->arcDOM = xmlCreateElementDecl(pcszName,
-                                                    pModel,
-                                                    &pNew);
-                                        // this recurses!!
-
-                if (pDom->arcDOM == NO_ERROR)
-                {
-                    // add this to the doctype's declarations tree
-                    if (treeInsertNode(&pDocType->ElementDeclsTree,
-                                       (TREE*)pNew,
-                                       CompareCMNodeNodes,
-                                       FALSE)
-                            == TREE_DUPLICATE)
-                        // element already declared:
-                        // according to the XML specs, this is a validity
-                        // constraint, so we report a validation error
-                        xmlSetError(pDom,
-                                    ERROR_DOM_DUPLICATE_ELEMENT_DECL,
-                                    pNew->Particle.CMNode.strNodeName.psz,
-                                    TRUE);
-                }
+                // add this to the doctype's declarations tree
+                if (treeInsertNode(&pDocType->ElementDeclsTree,
+                                   (TREE*)pNew,
+                                   CompareNodeBaseNodes,
+                                   FALSE)
+                        == TREE_DUPLICATE)
+                    // element already declared:
+                    // according to the XML specs, this is a validity
+                    // constraint, so we report a validation error
+                    xmlSetError(pDom,
+                                ERROR_DOM_DUPLICATE_ELEMENT_DECL,
+                                pNew->Particle.NodeBase.strNodeName.psz,
+                                TRUE);
             }
         }
     }
@@ -1515,20 +2007,24 @@ void EXPATENTRY ElementDeclHandler(void *pUserData,      // in: our PXMLDOM real
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
 
-VOID AddEnum(PCMATTRIBUTEDECL pNew,
-             const char *p,
-             const char *pNext)
+APIRET AddEnum(PCMATTRIBUTEDECL pDecl,
+               const char *p,           // in: start of name
+               const char *pNext)       // in: end of name (not included)
 {
-    PSZ pszType = strhSubstr(p, pNext);
-    PNODEBASE pCMNode = (PNODEBASE)malloc(sizeof(*pCMNode));
-    memset(pCMNode, 0, sizeof(*pCMNode));
-    pCMNode->ulNodeType = ATTRIBUTE_DECLARATION_ENUM;
-    xstrInitSet(&pCMNode->strNodeName, pszType);
+    // PSZ pszType = strhSubstr(p, pNext);
+    PNODEBASE pNew = NULL;
+    APIRET arc = xmlCreateNodeBase(ATTRIBUTE_DECLARATION_ENUM,
+                                   sizeof(NODEBASE),
+                                   p,
+                                   (pNext - p),
+                                   &pNew);
+    if (!arc)
+        treeInsertNode(&pDecl->ValuesTree,
+                       (TREE*)pNew,
+                       CompareNodeBaseNodes,
+                       FALSE);
 
-    treeInsertNode(&pNew->ValuesTree,
-                   (TREE*)pCMNode,
-                   CompareCMNodeNodes,
-                   FALSE);
+    return (arc);
 }
 
 /*
@@ -1571,124 +2067,115 @@ void EXPATENTRY AttlistDeclHandler(void *pUserData,      // in: our PXMLDOM real
     // continue parsing only if we had no errors so far
     if (!pDom->arcDOM)
     {
-        // pop the last DOMNODE off the stack and check if it's a DOCTYPE
-        PLISTNODE pListNode = lstPop(&pDom->llStack);
-        if (!pListNode)
+        // OK, we're in a DOCTYPE node:
+        PDOMDOCTYPENODE pDocType = pDom->pDocTypeNode;
+        if (!pDocType)
             pDom->arcDOM = ERROR_DOM_DOCTYPE_STRUCTURE;
         else
         {
-            PDOMNODE pDomNode = (PDOMNODE)pListNode->pItemData;
-            if (pDomNode->NodeBase.ulNodeType != DOMNODE_DOCUMENT_TYPE)
-                pDom->arcDOM = ERROR_DOM_DOCTYPE_STRUCTURE;
-            else
-            {
-                // OK, we're in a DOCTYPE node:
-                PDOMDOCTYPENODE pDocType = (PDOMDOCTYPENODE)pDomNode;
-                PCMATTRIBUTEDEDECLBASE    pThis = NULL,
-                                        pCache = pDom->pAttListDeclCache;
+            PCMATTRIBUTEDECLBASE    pThis = NULL,
+                                    pCache = pDom->pAttListDeclCache;
 
-                // check if this is for the same attlist as the previous
-                // call (we cache the pointer for speed)
-                if (    (pCache)
-                     && (!strhcmp(pCache->CMNode.strNodeName.psz,
-                                  pcszElementName))
-                   )
-                    // this attdecl is for the same element:
-                    // use that (we won't have to search the tree)
-                    pThis = pDom->pAttListDeclCache;
+            // check if this is for the same attlist as the previous
+            // call (we cache the pointer for speed)
+            if (    (pCache)
+                 && (!strhcmp(pCache->NodeBase.strNodeName.psz,
+                              pcszElementName))
+               )
+                // this attdecl is for the same element:
+                // use that (we won't have to search the tree)
+                pThis = pDom->pAttListDeclCache;
+
+            if (!pThis)
+            {
+                // cache didn't match: look up attributes tree then
+                pThis = (PCMATTRIBUTEDECLBASE)treeFindEQData(
+                                    &pDocType->AttribDeclBasesTree,
+                                    (void*)pcszElementName,
+                                    CompareNodeBaseData);
 
                 if (!pThis)
                 {
-                    // cache didn't match: look up attributes tree then
-                    pThis = treeFindEQData(&pDocType->AttribDeclBasesTree,
-                                           (void*)pcszElementName,
-                                           CompareCMNodeData);
-
-                    if (!pThis)
+                    // still not found:
+                    // we need a new node then
+                    pDom->arcDOM = xmlCreateNodeBase(ATTRIBUTE_DECLARATION_BASE,
+                                                     sizeof(CMATTRIBUTEDECLBASE),
+                                                     pcszElementName,
+                                                     0,
+                                                     (PNODEBASE*)&pThis);
+                    if (!pDom->arcDOM)
                     {
-                        // still not found:
-                        // we need a new node then
-                        pThis = (PCMATTRIBUTEDEDECLBASE)malloc(sizeof(*pThis));
-                        if (!pThis)
-                            pDom->arcDOM = ERROR_NOT_ENOUGH_MEMORY;
-                        else
-                        {
-                            pThis->CMNode.ulNodeType = ATTRIBUTE_DECLARATION_BASE;
-                            xstrInitCopy(&pThis->CMNode.strNodeName, pcszElementName, 0);
+                        // initialize the subtree
+                        treeInit(&pThis->AttribDeclsTree);
 
-                            // initialize the subtree
-                            treeInit(&pThis->AttribDeclsTree);
-
-                            treeInsertNode(&pDocType->AttribDeclBasesTree,
-                                           (TREE*)pThis,
-                                           CompareCMNodeNodes,
-                                           FALSE);
-                        }
+                        treeInsertNode(&pDocType->AttribDeclBasesTree,
+                                       (TREE*)pThis,
+                                       CompareNodeBaseNodes,
+                                       FALSE);
                     }
-
-                    pDom->pAttListDeclCache = pThis;
                 }
 
-                if (pThis)
+                pDom->pAttListDeclCache = pThis;
+            }
+
+            if (pThis)
+            {
+                // pThis now has either an existing or a new CMATTRIBUTEDECLBASE;
+                // add a new attribute def (CMATTRIBUTEDEDECL) to that
+                PCMATTRIBUTEDECL  pNew = NULL;
+                pDom->arcDOM = xmlCreateNodeBase(ATTRIBUTE_DECLARATION,
+                                                 sizeof(CMATTRIBUTEDECL),
+                                                 pcszAttribName,
+                                                 0,
+                                                 (PNODEBASE*)&pNew);
+                if (!pDom->arcDOM)
                 {
-                    // pThis now has either an existing or a new CMATTRIBUTEDEDECLBASE;
-                    // add a new attribute def (CMATTRIBUTEDEDECL) to that
-                    PCMATTRIBUTEDECL  pNew = (PCMATTRIBUTEDECL)malloc(sizeof(*pNew));
-                    if (!pNew)
-                        pDom->arcDOM = ERROR_NOT_ENOUGH_MEMORY;
-                    else
+                    treeInit(&pNew->ValuesTree);
+
+                    // check the type... expat is too lazy to parse this for
+                    // us, so we must check manually. Expat only normalizes
+                    // the "type" string to kick out whitespace, so we get:
+                    // (TYPE1|TYPE2|TYPE3)
+                    if (*pcszAttribType == '(')
                     {
-                        memset(pNew, 0, sizeof(*pNew));
-                        pNew->CMNode.ulNodeType = ATTRIBUTE_DECLARATION;
-
-                        xstrInitCopy(&pNew->CMNode.strNodeName,
-                                     pcszAttribName,
-                                     0);
-
-                        // fill the other fields
-                        /* xstrInitCopy(&pNew->strType,
-                                     pcszAttribType,
-                                     0); */
-
-                        treeInit(&pNew->ValuesTree);
-
-                        // check the type... expat is too lazy to parse this for
-                        // us, so we must check manually. Expat only normalizes
-                        // the "type" string to kick out whitespace, so we get:
-                        // (TYPE1|TYPE2|TYPE3)
-                        if (*pcszAttribType == '(')
+                        // enumeration:
+                        const char *p = pcszAttribType + 1,
+                                   *pNext;
+                        while (    (pNext = strchr(p, '|'))
+                                && (!pDom->arcDOM)
+                              )
                         {
-                            // enumeration:
-                            const char *p = pcszAttribType + 1,
-                                       *pNext;
-                            while (pNext = strchr(p, '|'))
-                            {
-                                AddEnum(pNew, p, pNext);
-                                p = pNext + 1;
-                            }
+                            pDom->arcDOM = AddEnum(pNew, p, pNext);
+                            p = pNext + 1;
+                        }
 
+                        if (!pDom->arcDOM)
+                        {
                             pNext = strchr(p, ')');
                             AddEnum(pNew, p, pNext);
 
                             pNew->ulAttrType = CMAT_ENUM;
                         }
-                        else if (!strcmp(pcszAttribType, "CDATA"))
-                            pNew->ulAttrType = CMAT_CDATA;
-                        else if (!strcmp(pcszAttribType, "ID"))
-                            pNew->ulAttrType = CMAT_ID;
-                        else if (!strcmp(pcszAttribType, "IDREF"))
-                            pNew->ulAttrType = CMAT_IDREF;
-                        else if (!strcmp(pcszAttribType, "IDREFS"))
-                            pNew->ulAttrType = CMAT_IDREFS;
-                        else if (!strcmp(pcszAttribType, "ENTITY"))
-                            pNew->ulAttrType = CMAT_ENTITY;
-                        else if (!strcmp(pcszAttribType, "ENTITIES"))
-                            pNew->ulAttrType = CMAT_ENTITIES;
-                        else if (!strcmp(pcszAttribType, "NMTOKEN"))
-                            pNew->ulAttrType = CMAT_NMTOKEN;
-                        else if (!strcmp(pcszAttribType, "NMTOKENS"))
-                            pNew->ulAttrType = CMAT_NMTOKENS;
+                    }
+                    else if (!strcmp(pcszAttribType, "CDATA"))
+                        pNew->ulAttrType = CMAT_CDATA;
+                    else if (!strcmp(pcszAttribType, "ID"))
+                        pNew->ulAttrType = CMAT_ID;
+                    else if (!strcmp(pcszAttribType, "IDREF"))
+                        pNew->ulAttrType = CMAT_IDREF;
+                    else if (!strcmp(pcszAttribType, "IDREFS"))
+                        pNew->ulAttrType = CMAT_IDREFS;
+                    else if (!strcmp(pcszAttribType, "ENTITY"))
+                        pNew->ulAttrType = CMAT_ENTITY;
+                    else if (!strcmp(pcszAttribType, "ENTITIES"))
+                        pNew->ulAttrType = CMAT_ENTITIES;
+                    else if (!strcmp(pcszAttribType, "NMTOKEN"))
+                        pNew->ulAttrType = CMAT_NMTOKEN;
+                    else if (!strcmp(pcszAttribType, "NMTOKENS"))
+                        pNew->ulAttrType = CMAT_NMTOKENS;
 
+                    if (!pDom->arcDOM)
+                    {
                         if (pcszDefault)
                         {
                             // fixed or default:
@@ -1710,7 +2197,7 @@ void EXPATENTRY AttlistDeclHandler(void *pUserData,      // in: our PXMLDOM real
 
                         if (treeInsertNode(&pThis->AttribDeclsTree,
                                            (TREE*)pNew,
-                                           CompareCMNodeNodes,
+                                           CompareNodeBaseNodes,
                                            FALSE)
                                 == TREE_DUPLICATE)
                             xmlSetError(pDom,
@@ -1819,12 +2306,14 @@ APIRET xmlCreateDOM(ULONG flParserFlags,
 
         memset(pDom, 0, sizeof(XMLDOM));
 
-        lstInit(&pDom->llStack,
-                FALSE);                 // no auto-free
+        lstInit(&pDom->llElementStack,
+                TRUE);                 // auto-free
 
         // create the document node
-        arc = xmlCreateNode(NULL, // no parent
+        arc = xmlCreateDomNode(NULL, // no parent
                             DOMNODE_DOCUMENT,
+                            NULL,
+                            0,
                             &pDocument);
 
         if (arc == NO_ERROR)
@@ -1834,8 +2323,8 @@ APIRET xmlCreateDOM(ULONG flParserFlags,
 
             // push the document on the stack so the handlers
             // will append to that
-            lstPush(&pDom->llStack,
-                    pDom->pDocumentNode);
+            PushElementStack(pDom,
+                             pDocument);
 
             pDom->pParser = XML_ParserCreate(NULL);
 
@@ -1957,7 +2446,7 @@ APIRET xmlParse(PXMLDOM pDom,
 
             if (pDom->pDocumentNode)
             {
-                xmlDeleteNode((PDOMNODE)pDom->pDocumentNode);
+                xmlDeleteNode((PNODEBASE)pDom->pDocumentNode);
                 pDom->pDocumentNode = NULL;
             }
 
@@ -1982,7 +2471,7 @@ APIRET xmlParse(PXMLDOM pDom,
             pDom->pParser = NULL;
 
             // clean up the stack (but not the DOM itself)
-            lstClear(&pDom->llStack);
+            lstClear(&pDom->llElementStack);
         }
     }
 

@@ -623,12 +623,11 @@ enum XML_ParamEntityParsing {
 int XMLPARSEAPI XML_SetParamEntityParsing(XML_Parser parser,
                                           enum XML_ParamEntityParsing parsing);
 
-#define ERROR_EXPAT_NONE        0   // explicitly added V0.9.9 (2001-02-14) [umoeller]
-
 #define ERROR_XML_FIRST         40000   // first error code used
 
 typedef enum _XMLERROR
 {
+    ERROR_EXPAT_NONE = 0,
     // ERROR_EXPAT_NONE,            // removed to adhere with APIRET V0.9.9 (2001-02-14) [umoeller]
     ERROR_EXPAT_NO_MEMORY = ERROR_XML_FIRST,
     ERROR_EXPAT_SYNTAX,

@@ -51,6 +51,13 @@ extern "C" {
         ERROR_DOM_DUPLICATE_ATTRIBUTE_DECL,
                 // more than one declaration for an attribute type
         ERROR_DOM_UNDECLARED_ATTRIBUTE,
+        ERROR_ELEMENT_CANNOT_HAVE_CONTENT,
+                // element was declared "empty" and contains text anyway,
+                // or was declared "children" and contains something other
+                // than whitespace
+        ERROR_DOM_INVALID_ATTRIB_VALUE,
+        ERROR_DOM_REQUIRED_ATTRIBUTE_MISSING,
+        ERROR_DOM_SUBELEMENT_IN_EMPTY_ELEMENT,
 // END MATCHING ERROR MESSAGES (xmlDescribeError)
 
         // error categories:
@@ -59,7 +66,7 @@ extern "C" {
 
         // additional DOM errors
         ERROR_DOM_NODETYPE_NOT_SUPPORTED,
-                // invalid node type in xmlCreateNode
+                // invalid node type in xmlCreateDomNode
         ERROR_DOM_NO_DOCUMENT,
                 // cannot find document node
         ERROR_DOM_NO_ELEMENT,
@@ -79,6 +86,8 @@ extern "C" {
     // content model node types:
     typedef enum _NODEBASETYPE
     {
+        TYPE_UNKNOWN,
+
         DOMNODE_ELEMENT,                // node is a DOM ELEMENT
         DOMNODE_ATTRIBUTE,              // node is a DOM ATTRIBUTE
         DOMNODE_TEXT,                   // node is a DOM TEXT node
@@ -218,7 +227,6 @@ extern "C" {
     {
         NODEBASE        NodeBase;
 
-        // PXSTRING    pstrNodeName;            // ptr is NULL if none
         PXSTRING        pstrNodeValue;           // ptr is NULL if none
 
         struct _DOMNODE *pParentNode;
@@ -269,7 +277,7 @@ extern "C" {
                     // tree with pointers to _CMELEMENTDECLNODE nodes
 
         TREE        *AttribDeclBasesTree;
-                    // tree with pointers to _CMATTRIBUTEDEDECLBASE nodes
+                    // tree with pointers to _CMATTRIBUTEDECLBASE nodes
 
     } DOMDOCTYPENODE, *PDOMDOCTYPENODE;
 
@@ -290,11 +298,13 @@ extern "C" {
 
     } DOMDOCUMENTNODE, *PDOMDOCUMENTNODE;
 
-    APIRET xmlCreateNode(PDOMNODE pParentNode,
-                         ULONG ulNodeType,
-                         PDOMNODE *ppNew);
+    APIRET xmlCreateDomNode(PDOMNODE pParentNode,
+                            NODEBASETYPE ulNodeType,
+                            const char *pcszNodeName,
+                            ULONG ulNodeNameLength,
+                            PDOMNODE *ppNew);
 
-    ULONG xmlDeleteNode(PDOMNODE pNode);
+    VOID xmlDeleteNode(PNODEBASE pNode);
 
     /* ******************************************************************
      *
@@ -327,8 +337,8 @@ extern "C" {
 
     typedef struct _CMELEMENTPARTICLE
     {
-        NODEBASE          CMNode;         // has TREE* as first item in turn
-                    // NODEBASE.ulCMNodeType may be one of these:
+        NODEBASE          NodeBase;       // has TREE* as first item in turn
+                    // NODEBASE.ulNodeType may be one of these:
                     // -- ELEMENTPARTICLE_EMPTY:
                     //          ulRepeater will be XML_CQUANT_NONE, rest is NULL
                     // -- ELEMENTPARTICLE_ANY:
@@ -352,6 +362,9 @@ extern "C" {
                     // -- XML_CQUANT_OPT,
                     // -- XML_CQUANT_REP,
                     // -- XML_CQUANT_PLUS
+
+        struct _CMELEMENTPARTICLE *pParentParticle;     // or NULL if this is in the
+                                                        // CMELEMENTDECLNODE
 
         PLINKLIST       pllSubNodes;
                     // linked list of sub-CMELEMENTPARTICLE structs
@@ -377,7 +390,7 @@ extern "C" {
      *      _CMELEMENTPARTICLE structs only.
      *
      *      For the "root" element declaration in the DTD,
-     *      Particle.NODEBASE.ulCMNodeType will always be one of the following:
+     *      Particle.NODEBASE.ulNodeType will always be one of the following:
      *
      *      -- ELEMENTPARTICLE_EMPTY: element must be empty.
      *
@@ -437,17 +450,15 @@ extern "C" {
     /*
      *@@ CMATTRIBUTEDECL:
      *      single attribute declaration within the attribute
-     *      declarations tree in _CMATTRIBUTEDEDECLBASE.
+     *      declarations tree in _CMATTRIBUTEDECLBASE.
      *
      *@@added V0.9.9 (2001-02-16) [umoeller]
      */
 
     typedef struct _CMATTRIBUTEDECL
     {
-        NODEBASE          CMNode;         // has TREE* as first item in turn
-                    // CMNode.strName is attribute name
-
-        // XSTRING         strType;
+        NODEBASE          NodeBase;       // has TREE* as first item in turn
+                    // NodeBase.strName is attribute name
 
         ATTRIBTYPE      ulAttrType;
                     // one of:
@@ -462,7 +473,8 @@ extern "C" {
                     // -- CMAT_ENUM: pllEnum lists the allowed values.
         TREE            *ValuesTree;
                     // enumeration of allowed values, if CMAT_ENUM;
-                    // tree entries are plain NODEBASEs
+                    // tree entries are plain NODEBASEs with
+                    // ATTRIBUTE_DECLARATION_ENUM type
 
         ATTRIBCONSTRAINT    ulConstraint;
                     // one of:
@@ -478,7 +490,7 @@ extern "C" {
     } CMATTRIBUTEDECL, *PCMATTRIBUTEDECL;
 
     /*
-     *@@ CMATTRIBUTEDEDECLBASE:
+     *@@ CMATTRIBUTEDECLBASE:
      *      representation of an @attribute_declaration.
      *
      *      I'd love to have stored the attribute declarations with
@@ -492,15 +504,15 @@ extern "C" {
      *@@added V0.9.9 (2001-02-14) [umoeller]
      */
 
-    typedef struct _CMATTRIBUTEDEDECLBASE
+    typedef struct _CMATTRIBUTEDECLBASE
     {
-        NODEBASE        CMNode;         // has TREE* as first item in turn
-                    // CMNode.strName is element name
+        NODEBASE        NodeBase;         // has TREE* as first item in turn
+                    // NodeBase.strName is element name
 
         TREE            *AttribDeclsTree;
                             // root of tree with CMATTRIBUTEDECL;
 
-    } CMATTRIBUTEDEDECLBASE, *PCMATTRIBUTEDEDECLBASE;
+    } CMATTRIBUTEDECLBASE, *PCMATTRIBUTEDECLBASE;
 
     /*
      *@@ CMENTITYDECLNODE:
@@ -512,7 +524,7 @@ extern "C" {
 
     typedef struct _CMENTITYDECLNODE
     {
-        NODEBASE          CMNode;
+        NODEBASE          NodeBase;
     } CMENTITYDECLNODE, *PCMENTITYDECLNODE;
 
     /*
@@ -525,7 +537,7 @@ extern "C" {
 
     typedef struct _CMNOTATIONDECLNODE
     {
-        NODEBASE          CMNode;
+        NODEBASE          NodeBase;
     } CMNOTATIONDECLNODE, *PCMNOTATIONDECLNODE;
 
     /* ******************************************************************
@@ -567,13 +579,13 @@ extern "C" {
         XML_Parser      pParser;
                             // expat parser instance
 
-        LINKLIST        llStack;
+        LINKLIST        llElementStack;
                             // stack for maintaining the current items;
-                            // these point to the NODERECORDs (no auto-free)
+                            // these point to DOMSTACKITEMs (auto-free)
 
         PDOMNODE        pLastWasTextNode;
 
-        PCMATTRIBUTEDEDECLBASE pAttListDeclCache;
+        PCMATTRIBUTEDECLBASE pAttListDeclCache;
                             // cache for attribute declarations according
                             // to attdecl element name
     } XMLDOM, *PXMLDOM;
@@ -594,12 +606,13 @@ extern "C" {
     PCMELEMENTDECLNODE xmlFindElementDecl(PXMLDOM pDom,
                                           const XSTRING *pstrElementName);
 
-    PCMATTRIBUTEDEDECLBASE xmlFindAttribDeclBase(PXMLDOM pDom,
+    PCMATTRIBUTEDECLBASE xmlFindAttribDeclBase(PXMLDOM pDom,
                                                  const XSTRING *pstrElementName);
 
     PCMATTRIBUTEDECL xmlFindAttribDecl(PXMLDOM pDom,
                                        const XSTRING *pstrElementName,
-                                       const XSTRING *pstrAttribName);
+                                       const XSTRING *pstrAttribName,
+                                       PCMATTRIBUTEDECLBASE *ppAttribDeclBase);
 
 #endif
 

@@ -375,9 +375,13 @@ ULONG xstrset(PXSTRING pxstr,               // in/out: string
  *
  *      With ulSourceLength, specify the length of pcszSource.
  *      If you specify 0, this function will run strlen(pcszSource)
- *      itself. If you already know the length of pcszSource (or
- *      only want to copy a substring), you can speed this function
- *      up a bit this way.
+ *      itself.
+ *
+ *      If you already know the length of pcszSource, you can
+ *      speed this function up a bit this way.
+ *
+ *      You are required to specify ulSourceLength if you only want
+ *      to copy a substring, or pcszSource is not zero-terminated.
  *
  *      Returns the length of the new string (excluding the null
  *      terminator), or null upon errors.
@@ -395,6 +399,7 @@ ULONG xstrset(PXSTRING pxstr,               // in/out: string
  *@@changed V0.9.7 (2001-01-15) [umoeller]: added ulSourceLength
  *@@changed V0.9.9 (2001-01-28) [lafaix]: fixed memory leak and NULL source behavior
  *@@changed V0.9.9 (2001-02-14) [umoeller]: fixed NULL target crash
+ *@@changed V0.9.9 (2001-02-16) [umoeller]: now supporting non-zero-terminated pcszSource
  */
 
 ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
@@ -431,10 +436,13 @@ ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
         }
         // else: we have enough memory
 
-        // strcpy(pxstr->psz, pcszSource);
         memcpy(pxstr->psz,
                pcszSource,
-               ulSourceLength + 1); // V0.9.9 (2001-01-31) [umoeller]
+               ulSourceLength);
+        *(pxstr->psz + ulSourceLength) = '\0';
+                // V0.9.9 (2001-02-16) [umoeller]
+                // we must do this or otherwise we require pcszSource
+                // to be zero-terminated... not a good idea
     }
     else
     {
@@ -479,9 +487,13 @@ ULONG xstrcpys(PXSTRING pxstr,
  *
  *      With ulSourceLength, specify the length of pcszSource.
  *      If you specify 0, this function will run strlen(pcszSource)
- *      itself. If you already know the length of pcszSource (or
- *      only want to copy a substring), you can speed this function
- *      up a bit this way.
+ *      itself.
+ *
+ *      If you already know the length of pcszSource, you can
+ *      speed this function up a bit this way.
+ *
+ *      You are required to specify ulSourceLength if you only want
+ *      to copy a substring, or pcszSource is not zero-terminated.
  *
  *      Returns the length of the new string (excluding the null
  *      terminator) if the string was changed, or 0 if nothing
@@ -507,6 +519,7 @@ ULONG xstrcpys(PXSTRING pxstr,
  *@@changed V0.9.6 (2000-11-01) [umoeller]: rewritten
  *@@changed V0.9.7 (2000-12-10) [umoeller]: return value was wrong
  *@@changed V0.9.7 (2001-01-15) [umoeller]: added ulSourceLength
+ *@@changed V0.9.9 (2001-02-16) [umoeller]: now supporting non-zero-terminated pcszSource
  */
 
 ULONG xstrcat(PXSTRING pxstr,               // in/out: string
@@ -558,7 +571,12 @@ ULONG xstrcat(PXSTRING pxstr,               // in/out: string
                 // 2) append source string:
                 memcpy(pxstr->psz + pxstr->ulLength,
                        pcszSource,
-                       ulSourceLength + 1);     // null terminator
+                       ulSourceLength);     // null terminator
+
+                *(pxstr->psz + pxstr->ulLength + ulSourceLength) = '\0';
+                        // V0.9.9 (2001-02-16) [umoeller]
+                        // we must do this or otherwise we require pcszSource
+                        // to be zero-terminated... not a good idea
 
                 // in all cases, set new length
                 pxstr->ulLength += ulSourceLength;

@@ -699,9 +699,9 @@
  *
  *      --  A "list" is defined as an enumeration of content particles,
  *          enclosed in parentheses, where the content particles are
- *          separated by list separators.
+ *          separated by "connectors".
  *
- *      There are two types of list separators:
+ *      There are two types of "connectors":
  *
  *      --  Commas (",") indicate that the elements must appear
  *          in the specified order ("sequence").
@@ -709,7 +709,7 @@
  *      --  Vertical bars ("|") specify that the elements may
  *          occur alternatively ("choice").
  *
- *      The list separators cannot be mixed; the list must be
+ *      The connectors cannot be mixed; the list must be
  *      either completely "sequence" or "choice".
  *
  *      Examples of content particles:
@@ -742,6 +742,19 @@
  *      Optionally ("?"), there can be "applause" at the end.
  *
  *      Now, a nested example:
+ *
+ +          <!ELEMENT poem (title?, (stanza+ | couplet+ | line+) ) >
+ *
+ *      That is, a poem consists of an optional title, followed by one or
+ *      several stanzas, or one or several couplets, or one or several lines.
+ *      This is different from:
+ *
+ +          <!ELEMENT poem (title?, (stanza | couplet | line)+ ) >
+ *
+ *      The latter allows for a single poem to contain a mixture of stanzas,
+ *      couplets or lines.
+ *
+ *      And for WarpIN:
  *
  +          <!ELEMENT WARPIN (REXX*, VARPROMPT*, MSG?, TITLE?, (GROUP | PCK)+), PAGE+) >
  *

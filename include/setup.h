@@ -16,8 +16,6 @@
         #define XWPENTRY _Optlink
     #endif
 
-    #error This file shouldn't be included.
-
     /*************************************************************
      *                                                           *
      *   Additional stuff for EMX                                *
