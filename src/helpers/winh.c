@@ -3533,8 +3533,7 @@ PSZ winhQueryWindowText(HWND hwnd)
                                     // additional null character
     if (cbText)
     {
-        pszText = (PSZ)malloc(cbText + 1);
-        if (pszText)
+        if (pszText = (PSZ)malloc(cbText + 1))
             WinQueryWindowText(hwnd,
                                cbText + 1,
                                pszText);

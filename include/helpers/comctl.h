@@ -1058,6 +1058,16 @@ extern "C" {
 
     BOOL ctlMakeHotkeyEntryField(HWND hwndHotkeyEntryField);
 
+    /* ******************************************************************
+     *
+     *   Color rectangle
+     *
+     ********************************************************************/
+
+    BOOL ctlMakeColorRect(HWND hwndStatic);
+    typedef BOOL CTLMAKECOLORRECT(HWND hwndStatic);
+    typedef CTLMAKECOLORRECT *PCTLMAKECOLORRECT;
+
 #endif
 
 #if __cplusplus

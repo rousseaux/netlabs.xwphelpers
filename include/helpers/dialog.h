@@ -478,14 +478,21 @@ extern "C" {
                                         // dialog formatter
     } DLGARRAY, *PDLGARRAY;
 
-    APIRET dlghCreateArray(ULONG cMaxItems,
-                           PDLGARRAY *ppArray);
+    APIRET dlghCreateArray(ULONG cMaxItems, PDLGARRAY *ppArray);
+    typedef APIRET DLGHCREATEARRAY(ULONG cMaxItems, PDLGARRAY *ppArray);
+    typedef DLGHCREATEARRAY *PDLGHCREATEARRAY;
 
     APIRET dlghFreeArray(PDLGARRAY *ppArray);
+    typedef APIRET DLGHFREEARRAY(PDLGARRAY *ppArray);
+    typedef DLGHFREEARRAY *PDLGHFREEARRAY;
 
     APIRET dlghAppendToArray(PDLGARRAY pArray,
                              PCDLGHITEM paItems,
                              ULONG cItems);
+    typedef APIRET DLGHAPPENDTOARRAY(PDLGARRAY pArray,
+                                     PCDLGHITEM paItems,
+                                     ULONG cItems);
+    typedef DLGHAPPENDTOARRAY *PDLGHAPPENDTOARRAY;
 
     /* ******************************************************************
      *
