@@ -1371,10 +1371,8 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
         FRAMECDATA      fcData = {0};
         ULONG           flStyle = 0;
 
-        #define FCF_DIALOGBOX   0x40000000L
-
         fcData.cb = sizeof(FRAMECDATA);
-        fcData.flCreateFlags = flCreateFlags | FCF_DIALOGBOX;
+        fcData.flCreateFlags = flCreateFlags | 0x40000000L;
 
         if (flCreateFlags & FCF_SIZEBORDER)
             // dialog has size border:
@@ -1542,6 +1540,7 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
  *@@ dlghCreateMessageBox:
  *
  *@@added V0.9.13 (2001-06-21) [umoeller]
+ *@@changed V0.9.14 (2001-07-26) [umoeller]: fixed missing focus on buttons
  */
 
 APIRET dlghCreateMessageBox(HWND *phwndDlg,
@@ -1580,7 +1579,7 @@ APIRET dlghCreateMessageBox(HWND *phwndDlg,
                         {
                             WC_BUTTON,
                             NULL,       // text, set below
-                            WS_VISIBLE | BS_PUSHBUTTON,
+                            WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
                             1,          // ID
                             CTL_COMMON_FONT,  // no font
                             0,
@@ -1590,7 +1589,7 @@ APIRET dlghCreateMessageBox(HWND *phwndDlg,
                         {
                             WC_BUTTON,
                             NULL,       // text, set below
-                            WS_VISIBLE | BS_PUSHBUTTON,
+                            WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
                             2,          // ID
                             CTL_COMMON_FONT,  // no font
                             0,
@@ -1600,7 +1599,7 @@ APIRET dlghCreateMessageBox(HWND *phwndDlg,
                         {
                             WC_BUTTON,
                             NULL,       // text, set below
-                            WS_VISIBLE | BS_PUSHBUTTON,
+                            WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
                             3,          // ID
                             CTL_COMMON_FONT,  // no font
                             0,
