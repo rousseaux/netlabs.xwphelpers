@@ -1528,34 +1528,41 @@ BOOL cnrhIsChildOf(HWND hwndCnr,
 
 /*
  *@@ cnrhForAllRecords:
- *      this monster function calls pfnwpCallback
- *      for really all the records in the container,
- *      including child records in tree view.
+ *      this monster function calls the given callback
+ *      function for really all the records in the
+ *      container, including child records in tree view.
  *
  *      This is extremely useful for cleaning up
  *      all record cores before a container window
  *      gets destroyed.
  *
  *      This function recurses for child records.
- *      On the first call, preccParent should be
+ *      On the first call, precParent should be
  *      NULL; you may however specify a certain
  *      record, and this function will call the
  *      callback only for that record and children.
  *
- *      pfnwpCallback gets called with the following
+ *      As a special argument, if precParent is -1,
+ *      we do not recurse into child records. This
+ *      is useful if you _know_ that your container
+ *      does not contain child records and you want
+ *      to speed up processing.
+ *
+ *      The callback function pfncb must be declared as
+ *      follows:
+ *
+ +          ULONG XWPENTRY fncb(HWND hwndCnr,
+ +                              PRECORDCORE precc,
+ +                              ULONG ulUser)
+ *
+ *      It gets called for every record with the following
  *      parameters:
  *
- *      -- HWND hwnd: hwndCnr, as passed to this func
- *      -- PRECORDCORE precc: current record core, as
- *                     determined by this func.
- *      -- ULONG ulUser1/2: what you have specified here.
+ *      -- HWND hwndCnr, as passed to this function
  *
- *      It must be declared as follows:
+ *      -- PRECORDCORE precc: current record core
  *
- +          ULONG EXPENTRY fncb(HWND hwndCnr,
- +                              PRECORDCORE precc,
- +                              ULONG ulUser1,
- +                              ULONG ulUser2)
+ *      -- ULONG ulUser: what was given to this function.
  *
  *      If the callback returns anything != 0, this
  *      function stops even before all records have
@@ -1571,73 +1578,74 @@ BOOL cnrhIsChildOf(HWND hwndCnr,
  *      for the child records before the parent record.
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.21 (2002-09-09) [umoeller]: rewritten to support deletion in callback
+ *@@changed V0.9.21 (2002-09-09) [umoeller]: added support for precParent = -1
+ *@@changed V0.9.21 (2002-09-09) [umoeller]: changed prototype and callback prototype
  */
 
 ULONG cnrhForAllRecords(HWND hwndCnr,
-                        PRECORDCORE preccParent,    // in: NULL for root
-                        PFNCBRECC pfncbRecc,        // in: callback
-                        ULONG ulUser1,
-                        ULONG ulUser2)
+                        PRECORDCORE precParent,     // in: parent rec to start with, or NULL, or -1
+                        PFNCBRECC pfncb,            // in: callback function
+                        ULONG ulUser)               // in: user argument for callback
 {
-    PRECORDCORE precc2 = preccParent;
     ULONG       ulrc = 0;
-    USHORT      usQuery;
-    BOOL        fFirstCall = TRUE;
 
-    while (TRUE)
+    // get first record or first child record
+    PRECORDCORE prec2;
+
+    BOOL        fRecurse = TRUE;
+
+    if ((ULONG)precParent == -1)
     {
-        if (fFirstCall)
-        {
-            // first call:
-            if (preccParent)
-                // non-root:
-                usQuery = CMA_FIRSTCHILD;
-            else
-                // NULL == root:
-                usQuery = CMA_FIRST;
-        }
-        else
-            // subsequent calls:
-            usQuery = CMA_NEXT;     // works as CMA_NEXTCHILD also
+        fRecurse = FALSE;
+        precParent = NULL;
+    }
 
-        precc2 =
-            (PRECORDCORE)WinSendMsg(hwndCnr,
+    prec2 = (PRECORDCORE)WinSendMsg(hwndCnr,
                                     CM_QUERYRECORD,
-                                    (MPARAM)((fFirstCall)
-                                         // first call (CMA_FIRSTCHILD or CMA_FIRST):
-                                         ? preccParent   // ignored for CMA_FIRST
-                                         // subsequent calls (CMA_NEXTCHILD or CMA_NEXT):
-                                         : precc2),  // what we queried last
+                                    (MPARAM)precParent,
+                                            // ignored for CMA_FIRST
                                     MPFROM2SHORT(
-                                            usQuery,    // set above
+                                            (precParent)
+                                                    ? CMA_FIRSTCHILD
+                                                    : CMA_FIRST,
                                             CMA_ITEMORDER)
                                     );
 
-        if ((precc2) && ((ULONG)precc2 != -1))
-        {
-            // record found:
-            // recurse for that record
+    // loop while we have records
+    while (    (prec2)
+            && ((ULONG)prec2 != -1)
+          )
+    {
+        // record found:
+
+        // get the next record BEFORE calling the callback
+        // in case the callback removes the record
+        // V0.9.21 (2002-09-09) [umoeller]
+        PRECORDCORE precNext = (PRECORDCORE)WinSendMsg(hwndCnr,
+                                                       CM_QUERYRECORD,
+                                                       (MPARAM)prec2,
+                                                       MPFROM2SHORT(CMA_NEXT,
+                                                                    CMA_ITEMORDER));
+
+        if (fRecurse)   // V0.9.21 (2002-09-09) [umoeller]
+            // recurse for the record we found
             ulrc += cnrhForAllRecords(hwndCnr,
-                                      precc2,        // new parent to search
-                                      pfncbRecc,
-                                      ulUser1,
-                                      ulUser2);
+                                      prec2,        // new parent to search
+                                      pfncb,
+                                      ulUser);
 
-            // _Pmpf(("Calling callback for %s", precc2->pszIcon));
-
-            // call callback
-            if (pfncbRecc)
-                if ((*pfncbRecc)(hwndCnr, precc2, ulUser1, ulUser2))
-                    // returns something != NULL:
-                    // stop
-                    break;
-            ulrc++;
-        }
-        else
-            // no more records or error: get outta here
+        // call callback
+        if (    (pfncb)
+             && (pfncb(hwndCnr, prec2, ulUser))
+           )
+            // returns something != NULL:
+            // stop
             break;
 
-        fFirstCall = FALSE;
+        ulrc++;
+
+        prec2 = precNext;
     }
 
     return ulrc;

@@ -860,6 +860,18 @@ BOOL ctlMakeCheckboxContainer(HWND hwndCnrOwner,    // in: owner (and parent) of
 }
 
 /*
+ *@@ FINDCHECKRECORD:
+ *
+ *@@added V0.9.21 (2002-09-09) [umoeller]
+ */
+
+typedef struct _FINDCHECKRECORD
+{
+    ULONG               ulItemID;
+    PCHECKBOXRECORDCORE precFound;
+} FINDCHECKRECORD, *PFINDCHECKRECORD;
+
+/*
  *@@ fncbFindCheckRecord:
  *      helper callback for finding a checkbox
  *      record according to an item ID. Used
@@ -869,29 +881,22 @@ BOOL ctlMakeCheckboxContainer(HWND hwndCnrOwner,    // in: owner (and parent) of
  *      cnrhForAllRecords stop searching.
  *
  *@@added V0.9.0 (99-11-28) [umoeller]
+ *@@changed V0.9.21 (2002-09-09) [umoeller]: adjusted for cnrhForAllRecords updates
  */
 
-STATIC ULONG EXPENTRY fncbFindCheckRecord(HWND hwndCnr,             // in: container
+STATIC ULONG XWPENTRY fncbFindCheckRecord(HWND hwndCnr,             // in: container
                                           PRECORDCORE preccThis,    // in: current record (from cnrhForAllRecords)
-                                          ULONG ulItemID,           // in: item ID to find
-                                          ULONG ulppRecc)           // out: PRECORDCORE* if found
+                                          ULONG ulUser)
 {
-    ULONG   ulrc = 0;
-    PCHECKBOXRECORDCORE precc = (PCHECKBOXRECORDCORE)preccThis;
-    if (precc)
+    if (((PCHECKBOXRECORDCORE)preccThis)->ulItemID == ((PFINDCHECKRECORD)ulUser)->ulItemID)
     {
-        if (precc->ulItemID == ulItemID)
-        {
-            // found:
-            PCHECKBOXRECORDCORE *pprecc = (PCHECKBOXRECORDCORE*)ulppRecc;
-            // store
-            *pprecc = precc;
-            // and stop
-            ulrc = 1;
-        }
+        // found: store found record
+        ((PFINDCHECKRECORD)ulUser)->precFound = (PCHECKBOXRECORDCORE)preccThis;
+        // and stop
+        return 1;
     }
 
-    return ulrc;
+    return 0;
 }
 
 /*
@@ -901,20 +906,23 @@ STATIC ULONG EXPENTRY fncbFindCheckRecord(HWND hwndCnr,             // in: conta
  *      ID. Returns NULL if not found.
  *
  *@@added V0.9.1 (99-12-03) [umoeller]
+ *@@changed V0.9.21 (2002-09-09) [umoeller]: adjusted for cnrhForAllRecords updates
  */
 
 PCHECKBOXRECORDCORE ctlFindCheckRecord(HWND hwndCnr,
                                        ULONG ulItemID)
 {
-    PCHECKBOXRECORDCORE precc = 0;
+    FINDCHECKRECORD fcr;
+
+    fcr.ulItemID = ulItemID;
+    fcr.precFound = NULL;
 
     cnrhForAllRecords(hwndCnr,
                       NULL,         // start with root
                       fncbFindCheckRecord,
-                      (ULONG)ulItemID,          // input
-                      (ULONG)&precc);
+                      (ULONG)&fcr);
 
-    return precc;
+    return fcr.precFound;
 }
 
 /*

@@ -549,9 +549,6 @@ extern "C" {
                        PRECORDCORE precTest,
                        PRECORDCORE precParent);
 
-    typedef ULONG EXPENTRY FNCBRECC(HWND, PRECORDCORE, ULONG, ULONG);
-    typedef FNCBRECC *PFNCBRECC;
-
     /*
      *@@ cnrhQueryParentRecord:
      *      this returns the parent record of precc.
@@ -584,28 +581,13 @@ extern "C" {
                     (MPARAM)precc,                                  \
                     MPFROM2SHORT(CMA_FIRSTCHILD, CMA_ITEMORDER))
 
+    typedef ULONG XWPENTRY FNCBRECC(HWND, PRECORDCORE, ULONG);
+    typedef FNCBRECC *PFNCBRECC;
+
     ULONG cnrhForAllRecords(HWND hwndCnr,
                             PRECORDCORE preccParent,
                             PFNCBRECC pfncbRecc,
-                            ULONG ulUser1,
-                            ULONG ulUser2);
-
-    /* VOID cnrhForAllChildRecords(HWND hwndCnr,
-                                PRECORDCORE precc,
-                                PFNCBRECC pfncbRecc,
-                                ULONG ulp1,
-                                ULONG ulp2);
-
-    VOID cnrhForAllRecords2(HWND hwndCnr,
-                            PFNCBRECC pfncbRecc,
-                            ULONG ulp1,
-                            ULONG ulp2);
-
-    VOID cnrhForAllParentRecords(HWND hwndCnr,
-                                 PRECORDCORE precc,
-                                 PFNCBRECC pfncbRecc,
-                                 ULONG ulp1,
-                                 ULONG ulp2); */
+                            ULONG ulUser);
 
     /* ******************************************************************
      *
