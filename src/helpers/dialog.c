@@ -339,6 +339,8 @@ static VOID SetDlgFont(const CONTROLDEF *pControlDef,
 
 /*
  *@@ CalcAutoSizeText:
+ *      implementation for CalcAutoSize for static
+ *      text, single and multi-line.
  *
  *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed various things with statics
  *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed broken fonts
@@ -402,10 +404,126 @@ static APIRET CalcAutoSizeText(const CONTROLDEF *pControlDef,
 }
 
 /*
+ *@@ CalcAutoSizeTextView:
+ *      implementation for CalcAutoSize for the XTextView
+ *      control.
+ *
+ *      This is slightly sick. We create the control already
+ *      here in order to be able to have it format the text
+ *      and then send TXM_QUERYTEXTEXTENT to it. The control
+ *      that was created here will then be used by
+ *      ColumnCreateControls and not be recreated, which would
+ *      be way too expensive.
+ *
+ *@@added V0.9.20 (2002-08-10) [umoeller]
+ */
+
+static APIRET CalcAutoSizeTextView(const CONTROLDEF *pControlDef,
+                                   ULONG ulWidth,            // in: proposed width of control
+                                   PSIZEL pszlAuto,          // out: computed size
+                                   PDLGPRIVATE pDlgData)
+{
+    APIRET arc = NO_ERROR;
+
+    HWND hwnd = NULLHANDLE;
+    PCSZ pcszTitle;
+
+    PLISTNODE pTempNode;
+    HWND hwndFound = NULLHANDLE;
+    FOR_ALL_NODES(&pDlgData->llTempControls, pTempNode)
+    {
+        HWND hwndThis = (HWND)pTempNode->pItemData;
+        if (WinQueryWindowUShort(hwndThis, QWS_ID) == pControlDef->usID)
+        {
+            hwnd = hwndThis;
+
+            // resize it to what we really need
+            WinSetWindowPos(hwndThis,
+                            HWND_BOTTOM,
+                            0,
+                            0,
+                            ulWidth,
+                            2000,
+                            SWP_SIZE);
+            break;
+        }
+    }
+
+    if (!hwnd)
+    {
+        if (hwnd = WinCreateWindow(pDlgData->hwndDlg,   // parent
+                                   (PSZ)pControlDef->pcszClass,
+                                   NULL,
+                                   pControlDef->flStyle,
+                                   0,
+                                   0,
+                                   ulWidth,
+                                   2000,         // cy, for now
+                                   pDlgData->hwndDlg,   // owner
+                                   HWND_BOTTOM,
+                                   pControlDef->usID,
+                                   pControlDef->pvCtlData,
+                                   NULL))
+        {
+            PCSZ pcszFont = pControlDef->pcszFont;
+                            // can be NULL, or CTL_COMMON_FONT
+            if (pcszFont == CTL_COMMON_FONT)
+                pcszFont = pDlgData->pcszControlsFont;
+
+            if (pcszFont)
+                winhSetWindowFont(hwnd,
+                                  pcszFont);
+
+            WinSetWindowText(hwnd,
+                             (pcszTitle = pControlDef->pcszText)
+                                 ? (PSZ)pcszTitle
+                                 : "");
+
+            // store the window we have created in the temp
+            // windows list so it can be reused in
+            // ColumnCreateControls
+            lstAppendItem(&pDlgData->llTempControls,
+                          (PVOID)hwnd);
+        }
+        else
+            arc = DLGERR_CANNOT_CREATE_CONTROL;
+    }
+
+    if (hwnd)
+    {
+        SIZEL szlTemp;
+        WinSendMsg(hwnd,
+                   TXM_QUERYTEXTEXTENT,
+                   (MPARAM)&szlTemp,
+                   0);
+
+        pszlAuto->cy = szlTemp.cy;
+    }
+
+    return arc;
+}
+
+/*
  *@@ CalcAutoSize:
+ *      helper func that gets called from ColumnCalcSizes for
+ *      every control that has set SZL_AUTOSIZE for its size.
+ *
+ *      We try to be smart and set a correct size for the
+ *      control, depending on its class and data.
+ *
+ *      Presently this works for
+ *
+ *      --  static text, single and multiline
+ *
+ *      --  static icons and bitmaps
+ *
+ *      --  pushbuttons, radio buttons, and checkboxes
+ *
+ *      --  the XTextView control (yes! V0.9.20).
  *
  *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed various things with statics
  *@@changed V0.9.16 (2001-10-15) [umoeller]: added APIRET
+ *@@changed V0.9.20 (2002-08-10) [umoeller]: added support for textview
  */
 
 static APIRET CalcAutoSize(const CONTROLDEF *pControlDef,
@@ -487,82 +605,15 @@ static APIRET CalcAutoSize(const CONTROLDEF *pControlDef,
         break;
 
         default:
-            if (!strcmp(pControlDef->pcszClass, WC_XTEXTVIEW))
+            // added support for textview V0.9.20 (2002-08-10) [umoeller]
+            if (    (((ULONG)pControlDef->pcszClass & 0xFFFF0000) != 0xFFFF0000)
+                 && (!strcmp(pControlDef->pcszClass, WC_XTEXTVIEW))
+               )
             {
-                HWND hwnd = NULLHANDLE;
-                PCSZ pcszTitle;
-
-                PLISTNODE pTempNode;
-                HWND hwndFound = NULLHANDLE;
-                FOR_ALL_NODES(&pDlgData->llTempControls, pTempNode)
-                {
-                    HWND hwndThis = (HWND)pTempNode->pItemData;
-                    if (WinQueryWindowUShort(hwndThis, QWS_ID) == pControlDef->usID)
-                    {
-                        hwnd = hwndThis;
-
-                        // resize it to what we really need
-                        WinSetWindowPos(hwndThis,
-                                        HWND_BOTTOM,
-                                        0,
-                                        0,
-                                        ulWidth,
-                                        2000,
-                                        SWP_SIZE);
-                        break;
-                    }
-                }
-
-                if (!hwnd)
-                {
-                    if (hwnd = WinCreateWindow(pDlgData->hwndDlg,   // parent
-                                               (PSZ)pControlDef->pcszClass,
-                                               NULL,
-                                               pControlDef->flStyle,
-                                               0,
-                                               0,
-                                               ulWidth,
-                                               2000,         // cy, for now
-                                               pDlgData->hwndDlg,   // owner
-                                               HWND_BOTTOM,
-                                               pControlDef->usID,
-                                               pControlDef->pvCtlData,
-                                               NULL))
-                    {
-                        PCSZ pcszFont = pControlDef->pcszFont;
-                                        // can be NULL, or CTL_COMMON_FONT
-                        if (pcszFont == CTL_COMMON_FONT)
-                            pcszFont = pDlgData->pcszControlsFont;
-
-                        if (pcszFont)
-                            winhSetWindowFont(hwnd,
-                                              pcszFont);
-
-                        WinSetWindowText(hwnd,
-                                         (pcszTitle = pControlDef->pcszText)
-                                             ? (PSZ)pcszTitle
-                                             : "");
-
-                        // store the window we have created in the temp
-                        // windows list so it can be reused in
-                        // ColumnCreateControls
-                        lstAppendItem(&pDlgData->llTempControls,
-                                      (PVOID)hwnd);
-                    }
-                    else
-                        arc = DLGERR_CANNOT_CREATE_CONTROL;
-                }
-
-                if (hwnd)
-                {
-                    SIZEL szlTemp;
-                    WinSendMsg(hwnd,
-                               TXM_QUERYTEXTEXTENT,
-                               (MPARAM)&szlTemp,
-                               0);
-
-                    pszlAuto->cy = szlTemp.cy;
-                }
+                arc = CalcAutoSizeTextView(pControlDef,
+                                           ulWidth,
+                                           pszlAuto,
+                                           pDlgData);
             }
             else
             {
