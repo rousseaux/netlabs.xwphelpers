@@ -1576,6 +1576,10 @@ void BSCreateWPSObject::CreateObject(BSUniCodec &codecProcess, // in: codec for 
         throw BSConfigExcpt(WPOEXCPT_CREATE, _ustrTitle);
     }
 
+    // V1.0.5 (2005-02-17) [pr]
+    // We now save the object synchronously to prevent objects getting lost if we
+    // restart the WPS imminently due to a class registration for example. @@fixes 634.
+    WinSaveObject (_hobj, FALSE);
     if (pLogFile)
     {
         pLogFile->Write("Created WPS object \"%s\", class \"%s\", location \"%s\", setup \"%s\"",

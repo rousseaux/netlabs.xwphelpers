@@ -1070,6 +1070,8 @@ extern "C" {
 
     BOOL XWPENTRY winhIsClassRegistered(const char *pcszClass);
 
+    extern BOOL32 APIENTRY WinRestartWorkplace(void);
+
     ULONG XWPENTRY winhResetWPS(HAB hab);
 
 #endif

@@ -5374,11 +5374,16 @@ BOOL winhIsClassRegistered(const char *pcszClass)
  *      -- 3: malloc() failed.
  *
  *@@added V0.9.4 (2000-07-01) [umoeller]
+ *@@changed V1.0.5 (2005-02-17) [pr]: replaced this with something less brutal
  */
 
 ULONG winhResetWPS(HAB hab)
 {
     ULONG ulrc = 0;
+
+#if 1
+    WinRestartWorkplace();
+#else
     // find out current profile names
     PRFPROFILE Profiles;
     Profiles.cchUserName = Profiles.cchSysName = 0;
@@ -5410,7 +5415,7 @@ ULONG winhResetWPS(HAB hab)
     }
     else
         ulrc = 4;
+#endif
 
     return ulrc;
 }
-
