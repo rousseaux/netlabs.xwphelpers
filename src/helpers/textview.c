@@ -809,7 +809,7 @@ PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current position; 
         case 6:     // A or /A HREF= (link)
         {
             // four characters with hex anchor index (>=1)
-            // or ####
+            // or "####"
             if (  *( (*ppCurrent)+2 )
                   == '#'
                )
@@ -1070,6 +1070,7 @@ PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current position; 
  *      All coordinates are in world space (PU_PELS).
  *
  *@@changed V0.9.3 (2000-05-06) [umoeller]: largely rewritten; now handling paragraph and character formats
+ *@@todo TXVWORDF_GLUEWITHNEXT
  */
 
 VOID txvFormatText(HPS hps,             // in: HPS whose font is used for

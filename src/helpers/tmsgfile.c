@@ -291,7 +291,7 @@ APIRET tmfGetMessage(PCHAR* pTable,    // in: pointer table for string insertion
         if (cTable)
         {
             // create a temporary buffer for replacements
-            PSZ             pszTemp = (PSZ)malloc(cbBuffer); // ### memory leak here!
+            PSZ             pszTemp = (PSZ)malloc(cbBuffer);
 
             if (!pszTemp)
                 rc = ERROR_NOT_ENOUGH_MEMORY;
@@ -372,7 +372,9 @@ APIRET tmfGetMessage(PCHAR* pTable,    // in: pointer table for string insertion
                 }                   // end for (ulCount = 0) ...
 
                 ulBytesRead = ulTargetWritten;
-            }
+
+                free(pszTemp);      // V0.9.9 (2001-03-13) [umoeller]
+            } // if pszTemp
         }                           // end if (cTable)
 
     // report bytes written (*UM)
@@ -477,6 +479,7 @@ APIRET tmfGetMessageExt(PCHAR* pTable,    // in: pointer table for string insert
  *@@changed V0.9.1 (99-12-12) [umoeller]: fixed realloc failure
  *@@changed V0.9.1 (99-12-12) [umoeller]: file last-write date is now reset when EAs are written
  *@@changed V0.9.1 (2000-02-01) [umoeller]: now skipping leading spaces in msg
+ *@@todo handle 64KB EA limit
  */
 
 APIRET CompileMsgTable(PSZ pszMessageFile,     // in: file to compile
@@ -765,7 +768,7 @@ APIRET CompileMsgTable(PSZ pszMessageFile,     // in: file to compile
         }  // while (pszCurrentNameStart)
 
         // write new timestamp and table
-        // ### handle 64 kb limit here !!!
+        // @@todo handle 64 kb limit here !!!
         if (rc == NO_ERROR)
         {
             FILESTATUS3 fs3Tmp;

@@ -966,7 +966,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              *          "hwndToolOwner" member of TOOLINFO must specify the handle
              *          of the window that contains the area, and the "rect" member must
              *          specify the client coordinates of the area's bounding
-             *          rectangle. ### not implemented yet
+             *          rectangle.
              *
              *      --  When you add a tool implemented as a window, the "hwndTool"
              *          member of TOOLINFO must contain the window handle of the
@@ -987,6 +987,8 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              *      fill the TOOLTIPTEXT structure with the tool text.
              *
              *      To retrieve the text for a tool, use the TTM_GETTEXT message.
+             *
+             *@@todo: add tool rectangles
              */
 
             case TTM_ADDTOOL:       // done
@@ -1285,6 +1287,8 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              *
              *      Additional note: On input, if TOOLINFO.lpszText == PSZ_TEXTCALLBACK,
              *      this sends the TTN_NEEDTEXT notification to TOOLINFO.hwnd.
+             *
+             *@@todo add TTFMT_STRINGRES
              */
 
             case TTM_GETTEXT:       // done, I think
@@ -1317,7 +1321,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
                         break;
 
                         case TTFMT_STRINGRES:
-                            // ### not supported yet
+
                         break;
                     }
                 }

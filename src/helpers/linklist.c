@@ -14,15 +14,27 @@
  *
  *      <B>Usage:</B>
  *
+ *      Linked lists are implemented through the LINKLIST structure.
+ *      This can either be created on the stack or as a global variable
+ *      (and must then be initialized using lstInit) or from the heap
+ *      with lstCreate.
+ *
  *      Each list item is stored in a LISTNODE structure, which in
  *      turn has a pItemData field, which you can use to get your
- *      data. So a typical list would be coded like this:
+ *      data. So a typical list would be coded like this (this is
+ *      a heap list):
  *
+ +
+ +          typedef struct _YOURDATA
+ +          {
+ +              ULONG ulWhatever;
+ +          } YOURDATA, *PYOURDATA
+ +
  +          // fill the list
  +          PLINKLIST pll = lstCreate(TRUE or FALSE);
  +          while ...
  +          {
- +              PYOURDATA pYourData = ...
+ +              PYOURDATA pYourData = (PYOURDATA)malloc(sizeof(YOURDATA));
  +              lstAppendItem(pll, pYourData);  // store the data in a new node
  +          }
  +
@@ -55,7 +67,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2000 Ulrich M”ller.
+ *      Copyright (C) 1997-2001 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -119,12 +131,15 @@ void* lstStrDup(const char *pcsz)
 
 /*
  *@@ lstInit:
- *      this initializes a given linked list.
+ *      this initializes a given LINKLIST structure.
+ *
  *      This is useful only if you have a static
- *      LINKLIST structure in your sources and don't
- *      use lstCreate/lstFree to have lists created
- *      dynamically. In that case, use this function
- *      as follows:
+ *      LINKLIST structure in your sources (either as
+ *      a global variable or as a stack variable) and
+ *      don't use lstCreate/lstFree to have lists created
+ *      from the heap.
+ *
+ *      In that case, use this function as follows:
  +
  +          LINKLIST llWhatever;
  +          lstInit(&llWhatever);
@@ -137,21 +152,23 @@ void* lstStrDup(const char *pcsz)
  *      If (fItemsFreeable == TRUE), free() will be
  *      invoked on list items automatically in lstClear,
  *      lstRemoveNode, and lstRemoveItem.
- *      Set this to TRUE if you have created the
- *      list items yourself. Set this to FALSE if
- *      you're storing other objects, such as numbers
- *      or other static items.
  *
- *      This of course will be a "flat" free(). If
- *      you store structures in the list using other
- *      heap pointers, auto-free would cause memory leaks.
+ *      --  Set this to TRUE if you have created the
+ *          list items yourself using malloc().
  *
- *      Also, auto-free only works if the malloc() that
- *      has been used on the list item is in the same C
- *      runtime as with the linklist functions. If the
- *      caller uses a different runtime (e.g. from a DLL),
- *      it can use lstMalloc() for allocating the list
- *      item and still use auto-free.
+ *          This of course will be a "flat" free(). If
+ *          you store structures in the list using other
+ *          heap pointers, auto-free would cause memory leaks.
+ *
+ *          Also, auto-free only works if the malloc() that
+ *          has been used on the list item is in the same C
+ *          runtime as with the linklist functions. If the
+ *          caller uses a different runtime (e.g. from a DLL),
+ *          it  can use lstMalloc() for allocating the list
+ *          item and still use auto-free.
+ *
+ *      --  Set this to FALSE if you're storing other
+ *          objects, such as numbers or other static items.
  *
  *      Note: You better call lstInit only once per list,
  *      because we don't check here if the list
@@ -184,7 +201,7 @@ void lstInit(PLINKLIST pList,
  *      If fItemsFreeable had been specified as TRUE
  *      when the list was initialized (lstInit), free()
  *      will be invoked on all data item pointers also.
- *      See the remarks there.
+ *      See the remarks for lstInit.
  *
  *      Returns FALSE only upon errors, e.g. because
  *      integrity checks failed.
@@ -258,13 +275,7 @@ PLINKLIST lstCreateDebug(BOOL fItemsFreeable,
  *      The list which is created here must be destroyed
  *      using lstFree.
  *
- *      If (fItemsFreeable == TRUE), free() will be
- *      invoked on list items automatically in lstFree,
- *      lstRemoveNode, and lstRemoveItem.
- *      Set this to TRUE if you have created the
- *      list items yourself. Set this to FALSE if
- *      you're storing other objects, such as numbers
- *      or other static items.
+ *      See lstInit for the description of fItemsFreeable.
  *
  *      Returns NULL upon errors.
  *
@@ -297,9 +308,9 @@ PLINKLIST lstCreate(BOOL fItemsFreeable)    // in: invoke free() on the data
  *      If fItemsFreeable had been specified as TRUE
  *      when the list was created (lstCreate), free()
  *      will be invoked on all data item pointers also.
- *      See the remarks there.
+ *      See the remarks for lstInit.
  *
- *      This must only be used with dynamic lists created
+ *      This must only be used with heap lists created
  *      with lstCreate.
  */
 

@@ -1847,7 +1847,7 @@ void EXPATENTRY EndDoctypeDeclHandler(void *pUserData)      // in: our PXMLDOM r
  *@@ NotationDeclHandler:
  *      @expat handler for @notation_declarations.
  *
- *      ###
+ *      @@todo
  *
  *@@added V0.9.9 (2001-02-14) [umoeller]
  */
@@ -1949,7 +1949,7 @@ int EXPATENTRY ExternalEntityRefHandler(XML_Parser parser,
  *      the element model.
  *
  *      It is the application's responsibility to free this data
- *      structure. ###
+ *      structure. @@todo
  *
  *      The XML spec defines that no element may be declared more
  *      than once.

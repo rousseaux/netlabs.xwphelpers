@@ -982,7 +982,7 @@ LABEL_CFGRPL_ADD:
                 case CFGRPL_REMOVEPART:
                     if (pszDeletedLine)
                     {
-                        // did we delete a line?  ###
+                        // did we delete a part?
                         xstrcat(pstrChanged, "DLP ", 0);
                         xstrcat(pstrChanged, pManip->pszNewLine, 0);
                         xstrcatc(pstrChanged, '\n');

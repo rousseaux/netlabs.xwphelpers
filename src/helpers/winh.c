@@ -2872,6 +2872,7 @@ APIRET winhQueryAppType(const char *pcszExecutable,
  *@@changed V0.9.7 (2000-12-10) [umoeller]: PROGDETAILS.swpInitial no longer zeroed... this broke VIOs
  *@@changed V0.9.7 (2000-12-17) [umoeller]: PROGDETAILS.pszEnvironment no longer zeroed
  *@@changed V0.9.9 (2001-01-27) [umoeller]: crashed if PROGDETAILS.pszExecutable was NULL
+ *@@todo PROG_DEFAULT ain't working; test winhQueryAppType
  */
 
 HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as with WinStartApp)
@@ -2917,7 +2918,7 @@ HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as wit
         {
             case ((ULONG)-1):       // we get that sometimes...
             case PROG_DEFAULT:
-                // ###
+                // @@todo
             break;
         }
 
