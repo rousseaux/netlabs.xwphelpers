@@ -12,6 +12,7 @@
 #define INCL_WINMENUS
 #define INCL_WINBUTTONS
 #define INCL_WINPOINTERS
+#define INCL_WINSTDCNR
 #define INCL_WINSTDFILE
 
 #include <os2.h>
@@ -25,6 +26,7 @@
 #include "..\..\..\xworkplace\include\xwpapi.h"
 
 #include "helpers\call_file_dlg.c"
+#include "helpers\cnrh.h"
 #include "helpers\comctl.h"
 #include "helpers\standards.h"
 #include "helpers\winh.h"
@@ -89,35 +91,19 @@ VOID ShowFileDlg(HWND hwndFrame)
 }
 
 /*
- *@@ fnwpClient:
+ *@@ GROUPRECORD:
  *
  */
 
-MRESULT EXPENTRY fnwpClient(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
+typedef struct _GROUPRECORD
 {
-    MRESULT mrc = 0;
+    RECORDCORE      recc;
 
-    switch (msg)
-    {
-        case WM_PAINT:
-        {
-            HPS hps;
-            RECTL rcl;
-            if (hps = WinBeginPaint(hwnd, NULLHANDLE, &rcl))
-            {
-                gpihSwitchToRGB(hps);
-                WinFillRect(hps, &rcl, RGBCOL_DARKGRAY);
-                WinEndPaint(hps);
-            }
-        }
-        break;
+    ULONG           gid;
+    CHAR            szGroupName[100];    // group name
+    PSZ             pszMembers;
 
-        default:
-            mrc = WinDefWindowProc(hwnd, msg, mp1, mp2);
-    }
-
-    return mrc;
-}
+} GROUPRECORD, *PGROUPRECORD;
 
 /*
  *@@ main:
@@ -216,11 +202,15 @@ int main(int argc, char *argv[])
                   | FCF_NOBYTEALIGN
                   | FCF_SHELLPOSITION
                   | FCF_TASKLIST,
-            XFCF_TOOLBAR | XFCF_FORCETBOWNER | XFCF_STATUSBAR,
+            0, // XFCF_TOOLBAR | XFCF_FORCETBOWNER | XFCF_STATUSBAR,
             WS_VISIBLE,                         // ulFrameStyle
             "Test File Dialog",                 // pcszFrameTitle
             0,                                  // ulResourcesID
-            WC_CLIENT,                          // pcszClassClient
+#if 1
+            WC_CCTL_CNR,
+#else
+            WC_CONTAINER,
+#endif
             WS_VISIBLE,                         // flStyleClient
             0,                                  // ulID
             NULL,
@@ -247,12 +237,7 @@ int main(int argc, char *argv[])
 
     ctlRegisterToolbar(hab);
     ctlRegisterSeparatorLine(hab);
-
-    WinRegisterClass(hab,
-                     (PSZ)WC_CLIENT,
-                     fnwpClient,
-                     0,
-                     4);
+    ctlRegisterXCnr(hab);
 
     sprintf(szOpen,
             "#%d#Open",
@@ -274,28 +259,71 @@ int main(int argc, char *argv[])
     WinSetWindowText(hwndToolBar, "Tool bar");
     WinSetWindowText(hwndStatusBar, "Status bar");
 
-    /* hwndMenu = WinCreateMenu(hwndFrame,
-                             NULL);
-
-    hwndSubmenu = winhInsertSubmenu(hwndMenu,
-                                    MIT_END,
-                                    1,
-                                    "~File",
-                                    MIS_TEXT | MIS_SUBMENU,
-                                    1000,
-                                    "Open...",
-                                    MIS_TEXT,
-                                    0);
-
-    winhInsertMenuItem(hwndSubmenu,
-                       MIT_END,
-                       SC_CLOSE,
-                       "~Quit",
-                       MIS_SYSCOMMAND | MIS_TEXT,
-                       0);
-    */
-
     WinSendMsg(hwndFrame, WM_UPDATEFRAME, MPNULL, MPNULL);
+
+    {
+        XFIELDINFO  xfi[4];
+        PFIELDINFO      pfi = NULL;
+        int i = 0;
+        PGROUPRECORD preccFirst;
+
+        // set up cnr details view
+        xfi[i].ulFieldOffset = FIELDOFFSET(GROUPRECORD, gid);
+        xfi[i].pszColumnTitle = "Group ID";     // @@todo localize
+        xfi[i].ulDataType = CFA_ULONG;
+        xfi[i++].ulOrientation = CFA_RIGHT;
+
+        xfi[i].ulFieldOffset = FIELDOFFSET(GROUPRECORD, recc.pszIcon);
+        xfi[i].pszColumnTitle = "Group name";   // @@todo localize
+        xfi[i].ulDataType = CFA_STRING;
+        xfi[i++].ulOrientation = CFA_CENTER;
+
+        xfi[i].ulFieldOffset = FIELDOFFSET(GROUPRECORD, pszMembers);
+        xfi[i].pszColumnTitle = "Members";   // @@todo localize
+        xfi[i].ulDataType = CFA_STRING;
+        xfi[i++].ulOrientation = CFA_LEFT;
+
+        pfi = cnrhSetFieldInfos(hwndClient,
+                                xfi,
+                                i,             // array item count
+                                TRUE,          // draw lines
+                                0);            // return first column
+
+        BEGIN_CNRINFO()
+        {
+            cnrhSetView(CV_DETAIL | CA_DETAILSVIEWTITLES);
+            CnrInfo_.cyLineSpacing = 10;
+            ulSendFlags_ |= CMA_LINESPACING;
+        } END_CNRINFO(hwndClient);
+
+        #define RECORD_COUNT        200
+
+        if (preccFirst = (PGROUPRECORD)cnrhAllocRecords(hwndClient,
+                                                        sizeof(GROUPRECORD),
+                                                        RECORD_COUNT))
+        {
+            PGROUPRECORD preccThis = preccFirst;
+            ULONG   ul = 0;
+            while (preccThis)
+            {
+                preccThis->gid = ul++;
+                sprintf(preccThis->szGroupName, "group %d", preccThis->gid);
+                preccThis->recc.pszIcon = preccThis->szGroupName;
+
+                preccThis->pszMembers = "longer string than title";
+
+                preccThis = (PGROUPRECORD)preccThis->recc.preccNextRecord;
+            }
+
+            cnrhInsertRecords(hwndClient,
+                              NULL,
+                              (PRECORDCORE)preccFirst,
+                              TRUE,
+                              NULL,
+                              CRA_RECORDREADONLY,
+                              RECORD_COUNT);
+        }
+    }
 
     while (WinGetMsg(hab, &qmsg, NULLHANDLE, 0, 0))
     {

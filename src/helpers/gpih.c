@@ -60,8 +60,9 @@
 #undef WINH_STANDARDWRAPPERS
 #endif
 #include "helpers\dosh.h"
-#include "helpers\winh.h"
 #include "helpers\gpih.h"
+#include "helpers\winh.h"
+#include "helpers\stringh.h"
 
 #pragma hdrstop
 
@@ -458,9 +459,9 @@ VOID gpihMarker(HPS hps,
  *@@added V0.9.7 (2000-12-06) [umoeller]
  */
 
-VOID gpihDrawThickFrame(HPS hps,              // in: presentation space for output
-                        PRECTL prcl,          // in: rectangle to draw (inclusive)
-                        ULONG ulWidth)       // in: line width (>= 1)
+VOID gpihDrawThickFrame(HPS hps,            // in: presentation space for output
+                        PRECTL prcl,        // in: rectangle to draw (inclusive)
+                        ULONG ulWidth)      // in: line width (>= 1)
 {
     ULONG ul = 0;
     for (;
@@ -505,11 +506,11 @@ VOID gpihDrawThickFrame(HPS hps,              // in: presentation space for outp
  *@@changed V1.0.0 (2002-08-24) [umoeller]: renamed, now modifying prcl on output
  */
 
-VOID gpihDraw3DFrame2(HPS hps,
-                      PRECTL prcl,       // in: rectangle (inclusive)
-                      USHORT usWidth,    // in: line width (>= 1)
-                      LONG lColorLeft,   // in: color to use for left and top; e.g. SYSCLR_BUTTONLIGHT
-                      LONG lColorRight)  // in: color to use for right and bottom; e.g. SYSCLR_BUTTONDARK
+VOID gpihDraw3DFrame2(HPS hps,              // in: presentation space for output
+                      PRECTL prcl,          // in: rectangle (inclusive)
+                      USHORT usWidth,       // in: line width (>= 1)
+                      LONG lColorLeft,      // in: color to use for left and top; e.g. SYSCLR_BUTTONLIGHT
+                      LONG lColorRight)     // in: color to use for right and bottom; e.g. SYSCLR_BUTTONDARK
 {
     USHORT us;
     POINTL ptl1;
@@ -552,7 +553,7 @@ VOID gpihDraw3DFrame2(HPS hps,
  *@@added V1.0.0 (2002-08-24) [umoeller]
  */
 
-VOID gpihDraw3DFrame(HPS hps,
+VOID gpihDraw3DFrame(HPS hps,           // in: presentation space for output
                      PRECTL prcl,       // in: rectangle (inclusive)
                      USHORT usWidth,    // in: line width (>= 1)
                      LONG lColorLeft,   // in: color to use for left and top; e.g. SYSCLR_BUTTONLIGHT
@@ -575,7 +576,7 @@ VOID gpihDraw3DFrame(HPS hps,
  *@@changed V0.9.20 (2002-08-10) [umoeller]: fixed underline for bitmap fonts, which never worked
  */
 
-LONG gpihCharStringPosAt(HPS hps,
+LONG gpihCharStringPosAt(HPS hps,               // in: presentation space for output
                          PPOINTL pptlStart,
                          PRECTL prclRect,
                          ULONG flOptions,
@@ -627,6 +628,173 @@ LONG gpihCharStringPosAt(HPS hps,
 }
 
 /*
+ *@@ gpihCalcTextExtent:
+ *
+ *@@added V1.0.1 (2003-01-17) [umoeller]
+ */
+
+VOID gpihCalcTextExtent(HPS hps,            // in: presentation space for output
+                        PCSZ pcsz,          // in: string to test
+                        PLONG pcx,          // out: max width occupied by a line in the string
+                        PULONG pcLines)     // out: no. of lines
+{
+    LONG    cxLineThis;
+    PCSZ    pThis = pcsz;
+    *pcx = 0;
+
+    *pcLines = 0;
+
+    if (!pThis)
+        return;
+
+    while (*pThis)
+    {
+        ULONG lenThis;
+        PCSZ pNext = strhFindEOL(pThis, &lenThis);
+
+        ++(*pcLines);
+
+        if (lenThis)
+        {
+            POINTL aptl[TXTBOX_COUNT];
+            GpiQueryTextBox(hps,
+                            lenThis,
+                            (PCH)pThis,
+                            TXTBOX_COUNT,
+                            aptl);
+
+            cxLineThis = aptl[TXTBOX_TOPRIGHT].x - aptl[TXTBOX_BOTTOMLEFT].x;
+
+            if (cxLineThis > *pcx)
+                *pcx = cxLineThis;
+        }
+
+        if (*pNext == '\r')
+            pNext++;
+        pThis = pNext;
+    }
+}
+
+/*
+ *@@ gpihDrawString:
+ *      replacement for WinDrawText that can still align
+ *      properly with multi-line strings.
+ *
+ *      fl works as with WinDrawText, that is:
+ *
+ *      --  specify one of DT_LEFT, DT_CENTER, DT_RIGHT;
+ *
+ *      --  specifiy one of DT_TOP, DT_VCENTER, DT_BOTTOM.
+ *
+ *      The alignment definitions are:
+ *
+ *      --  DT_LEFT                    0x00000000
+ *      --  DT_CENTER                  0x00000100
+ *      --  DT_RIGHT                   0x00000200
+ *      --  DT_TOP                     0x00000000
+ *      --  DT_VCENTER                 0x00000400
+ *      --  DT_BOTTOM                  0x00000800
+ *
+ *      Other flags:
+ *
+ *      --  DT_QUERYEXTENT             0x00000002   (not supported)
+ *      --  DT_UNDERSCORE              0x00000010   (not supported)
+ *      --  DT_STRIKEOUT               0x00000020   (not supported)
+ *      --  DT_TEXTATTRS               0x00000040   (always enabled)
+ *      --  DT_EXTERNALLEADING         0x00000080   (not supported)
+ *      --  DT_HALFTONE                0x00001000   (not supported)
+ *      --  DT_MNEMONIC                0x00002000   (not supported)
+ *      --  DT_WORDBREAK               0x00004000   (always enabled)
+ *      --  DT_ERASERECT               0x00008000   (not supported)
+ *
+ *@@added V1.0.1 (2003-01-17) [umoeller]
+ */
+
+VOID gpihDrawString(HPS hps,                // in: presentation space for output
+                    PCSZ pcsz,              // in: string to test
+                    PRECTL prcl,            // in: clipping rectangle (inclusive!)
+                    ULONG fl,               // in: alignment flags
+                    PFONTMETRICS pfm)
+{
+    PCSZ    pThis = pcsz;
+    POINTL  ptlRun,
+            ptlUse;
+    LONG    cxRect,
+            cyRect,
+            cyString;
+
+    if (!pThis || !prcl || !pfm)
+        return;
+
+    ptlRun.x = prcl->xLeft;
+    ptlRun.y = prcl->yTop;
+
+    cxRect = prcl->xRight - prcl->xLeft + 1;
+    cyRect = prcl->yTop - prcl->yBottom + 1;
+
+    // vertical alignment:
+    if (fl & (DT_VCENTER | DT_BOTTOM))
+    {
+        ULONG cLines = strhCount(pcsz, '\n') + 1;
+        cyString = cLines * (pfm->lMaxBaselineExt + pfm->lExternalLeading);
+
+        if (fl & DT_VCENTER)
+            ptlRun.y += (cyRect - cyString) / 2;
+        else
+            ptlRun.y += cyRect - cyString;
+    }
+
+    while (*pThis)
+    {
+        ULONG lenThis;
+        PCSZ pNext = strhFindEOL(pThis, &lenThis);
+
+        ptlRun.y -= pfm->lMaxBaselineExt;
+
+        if (lenThis)
+        {
+            // horizontal alignment:
+            if (!(fl & (DT_CENTER | DT_RIGHT)))
+                ptlUse.x = ptlRun.x;
+            else
+            {
+                POINTL  aptl[TXTBOX_COUNT];
+                LONG    cxString;
+                GpiQueryTextBox(hps,
+                                lenThis,
+                                (PCH)pThis,
+                                TXTBOX_COUNT,
+                                aptl);
+
+                cxString = aptl[TXTBOX_TOPRIGHT].x - aptl[TXTBOX_BOTTOMLEFT].x;
+
+                if (fl & DT_CENTER)
+                    ptlUse.x = ptlRun.x + (cxRect - cxString) / 2;
+                else
+                    // right
+                    ptlUse.x = ptlRun.x + cxRect - cxString;
+            }
+
+            ptlUse.y = ptlRun.y + pfm->lMaxDescender;
+
+            GpiCharStringPosAt(hps,
+                               &ptlUse,
+                               prcl,
+                               CHS_CLIP,
+                               lenThis,
+                               (PCH)pThis,
+                               NULL);
+        }
+
+        ptlRun.y -= pfm->lExternalLeading;
+
+        if (*pNext == '\r')
+            pNext++;
+        pThis = pNext;
+    }
+}
+
+/*
  *@@ gpihFillBackground:
  *      fills the specified rectangle in the way
  *      that is specified by the given BKGNDINFO
@@ -646,7 +814,7 @@ LONG gpihCharStringPosAt(HPS hps,
  *@@added V0.9.19 (2002-05-07) [umoeller]
  */
 
-VOID gpihFillBackground(HPS hps,            // in: PS to paint into
+VOID gpihFillBackground(HPS hps,            // in: presentation space for output
                         PRECTL prcl,        // in: rectangle (inclusive!)
                         PBKGNDINFO pInfo)   // in: background into
 {
@@ -817,18 +985,18 @@ VOID gpihFillBackground(HPS hps,            // in: PS to paint into
  *@@changed V0.9.14 (2001-08-03) [umoeller]: fixed a few weirdos with outline fonts
  */
 
-BOOL gpihMatchFont(HPS hps,
-                   LONG lSize,            // in: font point size
-                   BOOL fFamily,          // in: if TRUE, pszName specifies font family;
-                                          //     if FALSE, pszName specifies font face
-                   const char *pcszName,  // in: font family or face name (without point size)
-                   USHORT usFormat,       // in: none, one or several of:
-                                          // -- FATTR_SEL_ITALIC
-                                          // -- FATTR_SEL_UNDERSCORE (underline)
-                                          // -- FATTR_SEL_BOLD
-                                          // -- FATTR_SEL_STRIKEOUT
-                                          // -- FATTR_SEL_OUTLINE (hollow)
-                   FATTRS *pfa,           // out: font attributes if found
+BOOL gpihMatchFont(HPS hps,                 // in: presentation space for output
+                   LONG lSize,              // in: font point size
+                   BOOL fFamily,            // in: if TRUE, pszName specifies font family;
+                                            //     if FALSE, pszName specifies font face
+                   const char *pcszName,    // in: font family or face name (without point size)
+                   USHORT usFormat,         // in: none, one or several of:
+                                            // -- FATTR_SEL_ITALIC
+                                            // -- FATTR_SEL_UNDERSCORE (underline)
+                                            // -- FATTR_SEL_BOLD
+                                            // -- FATTR_SEL_STRIKEOUT
+                                            // -- FATTR_SEL_OUTLINE (hollow)
+                   FATTRS *pfa,             // out: font attributes if found
                    PFONTMETRICS pFontMetrics) // out: font metrics of created font (optional)
 {
     // first find out how much memory we need to allocate
@@ -1129,7 +1297,7 @@ VOID gpihUnlockLCIDs(VOID)
  *@@changed V0.9.9 (2001-04-01) [umoeller]: removed all those sick sub-allocs
  */
 
-LONG gpihQueryNextFontID(HPS hps)
+LONG gpihQueryNextFontID(HPS hps)       // in: presentation space for output
 {
     LONG    lcidNext = -1;
 
@@ -1227,7 +1395,7 @@ LONG gpihQueryNextFontID(HPS hps)
  *@@added V0.9.14 (2001-08-03) [umoeller]
  */
 
-LONG gpihCreateFont(HPS hps,
+LONG gpihCreateFont(HPS hps,            // in: presentation space for output
                     FATTRS *pfa)
 {
     LONG lLCIDReturn = 0;
@@ -1403,7 +1571,7 @@ LONG gpihCreateFont(HPS hps,
  *@@changed V0.9.14 (2001-08-01) [umoeller]: some optimizations
  */
 
-LONG gpihFindFont(HPS hps,               // in: HPS for font selection
+LONG gpihFindFont(HPS hps,               // in: presentation space for output
                   LONG lSize,            // in: font point size
                   BOOL fFamily,          // in: if TRUE, pszName specifies font family;
                                          //     if FALSE, pszName specifies font face
@@ -1594,7 +1762,7 @@ BOOL gpihSetPointSize(HPS hps,          // in: presentation space for output
  *@@changed V0.9.7 (2000-12-20) [umoeller]: removed psz param
  */
 
-LONG gpihQueryLineSpacing(HPS hps)
+LONG gpihQueryLineSpacing(HPS hps)      // in: presentation space for output
 {
     FONTMETRICS fm;
 

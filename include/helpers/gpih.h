@@ -194,6 +194,17 @@ extern "C" {
                                               PCH pchString);
     typedef GPIHCHARSTRINGPOSAT *PGPIHCHARSTRINGPOSAT;
 
+    VOID XWPENTRY gpihCalcTextExtent(HPS hps,
+                                     PCSZ pcsz,
+                                     PLONG pcx,
+                                     PULONG pcLines);
+
+    VOID XWPENTRY gpihDrawString(HPS hps,
+                                 PCSZ pcsz,
+                                 PRECTL prcl,
+                                 ULONG fl,
+                                 PFONTMETRICS pfm);
+
     /*
      *@@ BKGNDINFO:
      *      background information passed into

@@ -16,6 +16,7 @@
 #define INCL_DOSERRORS
 
 #define INCL_KBD
+#define INCL_WINPROGRAMLIST     // needed for PROGDETAILS, wppgm.h
 #include <os2.h>
 
 #include <stdlib.h>
@@ -47,11 +48,38 @@ int main (int argc, char *argv[])
     {
         if (!(arc = exehOpen(argv[1], &pExe)))
         {
+            APIRET  arc2;
+            ULONG   progt;
+
+            printf("exeh: dumping base info of \"%s\"\n", argv[1]);
+            printf("    cbDosExeHeader    %d\n", pExe->cbDosExeHeader);
+            printf("    ulExeFormat       %d (%s)\n",
+                    pExe->ulExeFormat,
+                    (pExe->ulExeFormat == EXEFORMAT_OLDDOS) ? "EXEFORMAT_OLDDOS"
+                    : (pExe->ulExeFormat == EXEFORMAT_NE) ? "EXEFORMAT_NE"
+                    : (pExe->ulExeFormat == EXEFORMAT_PE) ? "EXEFORMAT_PE"
+                    : (pExe->ulExeFormat == EXEFORMAT_LX) ? "EXEFORMAT_LX"
+                    : (pExe->ulExeFormat == EXEFORMAT_TEXT_BATCH) ? "EXEFORMAT_TEXT_BATCH"
+                    : (pExe->ulExeFormat == EXEFORMAT_TEXT_CMD) ? "EXEFORMAT_TEXT_CMD"
+                    : (pExe->ulExeFormat == EXEFORMAT_COM) ? "EXEFORMAT_COM"
+                    : "unknown"
+                  );
+            if (pExe->pLXHeader)
+                printf("    LX flags:         0x%lX\n", pExe->pLXHeader->ulFlags);
+            else if (pExe->pNEHeader)
+                printf("    NE flags:         0x%lX\n", pExe->pNEHeader->usFlags);
+            printf("    fLibrary          %d\n", pExe->fLibrary);
+            printf("    f32Bits           %d\n", pExe->f32Bits);
+            if (!(arc2 = exehQueryProgType(pExe, &progt)))
+                printf("    progtype:         %d (%s)\n", progt, exehDescribeProgType(progt));
+            else
+                printf("    exehQueryProgType returned %d\n", arc2);
+            printf("exeh: dumping bldlevel of \"%s\"\n", argv[1]);
+
             if (!(arc = exehQueryBldLevel(pExe)))
             {
                 #define STRINGORNA(p) ((pExe->p) ? (pExe->p) : "n/a")
 
-                printf("exeh: dumping bldlevel of \"%s\"\n", argv[1]);
                 printf("    Description:      \"%s\"\n", STRINGORNA(pszDescription));
                 printf("    Vendor:           \"%s\"\n", STRINGORNA(pszVendor));
                 printf("    Version:          \"%s\"\n", STRINGORNA(pszVersion));

@@ -233,7 +233,10 @@ DIALOG_TEST_OBJS = \
     $(TESTCASE_DIR)\tmsgfile.obj \
     $(TESTCASE_DIR)\datetime.obj \
     $(TESTCASE_DIR)\tree.obj \
-    $(TESTCASE_DIR)\gpih.obj
+    $(TESTCASE_DIR)\gpih.obj \
+    $(TESTCASE_DIR)\prfh.obj \
+    $(TESTCASE_DIR)\nls.obj \
+    $(TESTCASE_DIR)\nlscache.obj
 
 $(TESTCASE_DIR)\dialog.obj: ..\..\include\helpers\dialog.h
 $(TESTCASE_DIR)\_test_dialog.obj: ..\..\include\helpers\dialog.h
@@ -263,15 +266,22 @@ exeh.exe: $(EXEH_TEST_OBJS)
 # fdlg.exe
 FDLG_TEST_OBJS = \
     $(TESTCASE_DIR)\comctl.obj \
+    $(TESTCASE_DIR)\cctl_cnr.obj \
+    $(TESTCASE_DIR)\cctl_cnr_dtls.obj \
     $(TESTCASE_DIR)\cctl_toolbar.obj \
     $(TESTCASE_DIR)\cctl_tooltip.obj \
     $(TESTCASE_DIR)\cctl_xframe.obj \
+    $(TESTCASE_DIR)\cnrh.obj \
     $(TESTCASE_DIR)\dosh.obj \
     $(TESTCASE_DIR)\gpih.obj \
     $(TESTCASE_DIR)\linklist.obj \
     $(TESTCASE_DIR)\winh.obj \
     $(TESTCASE_DIR)\stringh.obj \
     $(TESTCASE_DIR)\xstring.obj \
+    $(TESTCASE_DIR)\prfh.obj \
+    $(TESTCASE_DIR)\tree.obj \
+    $(TESTCASE_DIR)\nls.obj \
+    $(TESTCASE_DIR)\nlscache.obj \
     $(TESTCASE_DIR)\_call_filedlg.obj
 
 fdlg.exe: $(FDLG_TEST_OBJS)

@@ -44,6 +44,8 @@
 #define INCL_DOSDEVICES
 #define INCL_DOSDEVIOCTL
 #define INCL_DOSERRORS
+
+#define INCL_WINPROGRAMLIST
 #include <os2.h>
 
 // #include <stdlib.h>
@@ -834,92 +836,319 @@ STATIC VOID ParseBldLevel(PEXECUTABLE pExec)
 APIRET exehQueryBldLevel(PEXECUTABLE pExec)
 {
     APIRET      arc = NO_ERROR;
+    PXFILE      pFile;
+    ULONG       ulNRNTOfs = 0;
 
     if (!pExec)
-        arc = ERROR_INVALID_PARAMETER;
-    else
+        return ERROR_INVALID_PARAMETER;
+
+    pFile = pExec->pFile;
+    if (pExec->ulExeFormat == EXEFORMAT_LX)
     {
-        PXFILE      pFile = pExec->pFile;
-
-        ULONG       ulNRNTOfs = 0;
-
-        if (pExec->ulExeFormat == EXEFORMAT_LX)
-        {
-            // OK, LX format:
-            // check if we have a non-resident name table
-            if (pExec->pLXHeader == NULL)
-                arc = ERROR_INVALID_DATA;
-            else if (pExec->pLXHeader->ulNonResdNameTblOfs == 0)
-                arc = ERROR_INVALID_DATA;
-            else
-                ulNRNTOfs = pExec->pLXHeader->ulNonResdNameTblOfs;
-        }
-        else if (pExec->ulExeFormat == EXEFORMAT_NE)
-        {
-            // OK, NE format:
-            // check if we have a non-resident name table
-            if (pExec->pNEHeader == NULL)
-                arc = ERROR_INVALID_DATA;
-            else if (pExec->pNEHeader->ulNonResdTblOfs == 0)
-                arc = ERROR_INVALID_DATA;
-            else
-                ulNRNTOfs = pExec->pNEHeader->ulNonResdTblOfs;
-        }
+        // OK, LX format:
+        // check if we have a non-resident name table
+        if (pExec->pLXHeader == NULL)
+            arc = ERROR_INVALID_DATA;
+        else if (pExec->pLXHeader->ulNonResdNameTblOfs == 0)
+            arc = ERROR_INVALID_DATA;
         else
-            // neither LX nor NE: stop
-            arc = ERROR_INVALID_EXE_SIGNATURE;
+            ulNRNTOfs = pExec->pLXHeader->ulNonResdNameTblOfs;
+    }
+    else if (pExec->ulExeFormat == EXEFORMAT_NE)
+    {
+        // OK, NE format:
+        // check if we have a non-resident name table
+        if (pExec->pNEHeader == NULL)
+            arc = ERROR_INVALID_DATA;
+        else if (pExec->pNEHeader->ulNonResdTblOfs == 0)
+            arc = ERROR_INVALID_DATA;
+        else
+            ulNRNTOfs = pExec->pNEHeader->ulNonResdTblOfs;
+    }
+    else
+        // neither LX nor NE: stop
+        arc = ERROR_INVALID_EXE_SIGNATURE;
 
-        if (    (!arc)
-             && (ulNRNTOfs)
-           )
+    if (    (!arc)
+         && (ulNRNTOfs)
+       )
+    {
+        ULONG       cb = 2000;
+
+        PSZ         pszNameTable;
+
+        if (!(pszNameTable = (PSZ)malloc(2001)))
+            arc = ERROR_NOT_ENOUGH_MEMORY;
+        else
         {
-            ULONG       cb = 2000;
+            // V0.9.16 (2002-01-05) [umoeller]: rewrote the following
 
-            PSZ         pszNameTable;
-
-            if (!(pszNameTable = (PSZ)malloc(2001)))
-                arc = ERROR_NOT_ENOUGH_MEMORY;
-            else
+            // read from offset of non-resident name table
+            if (!(arc = doshReadAt(pFile,           // file is still open
+                                   ulNRNTOfs,       // ofs determined above
+                                   &cb,             // 2000
+                                   pszNameTable,
+                                   0)))
             {
-                // V0.9.16 (2002-01-05) [umoeller]: rewrote the following
-
-                // read from offset of non-resident name table
-                if (!(arc = doshReadAt(pFile,           // file is still open
-                                       ulNRNTOfs,       // ofs determined above
-                                       &cb,             // 2000
-                                       pszNameTable,
-                                       0)))
+                // the string is in Pascal format, so the
+                // first byte has the length
+                BYTE bLen;
+                if (!(bLen = *pszNameTable))
+                    // length byte is null:
+                    arc = ERROR_INVALID_DATA;
+                else
                 {
-                    // the string is in Pascal format, so the
-                    // first byte has the length
-                    BYTE bLen;
-                    if (!(bLen = *pszNameTable))
-                        // length byte is null:
-                        arc = ERROR_INVALID_DATA;
+                    // now copy the string
+                    if (!(pExec->pszDescription = (PSZ)malloc(bLen + 1)))
+                        arc = ERROR_NOT_ENOUGH_MEMORY;
                     else
                     {
-                        // now copy the string
-                        if (!(pExec->pszDescription = (PSZ)malloc(bLen + 1)))
-                            arc = ERROR_NOT_ENOUGH_MEMORY;
-                        else
-                        {
-                            memcpy(pExec->pszDescription,
-                                   pszNameTable + 1,    // skip length byte
-                                   bLen);               // length byte
-                            // terminate string
-                            pExec->pszDescription[bLen] = 0;
+                        memcpy(pExec->pszDescription,
+                               pszNameTable + 1,    // skip length byte
+                               bLen);               // length byte
+                        // terminate string
+                        pExec->pszDescription[bLen] = 0;
 
-                            ParseBldLevel(pExec);
-                        }
+                        ParseBldLevel(pExec);
                     }
                 }
-
-                free(pszNameTable);
             }
+
+            free(pszNameTable);
         }
-    } // end if (!pExec)
+    }
 
     return arc;
+}
+
+/*
+ *@@ exehQueryProgType:
+ *      attempts to sets *pulProgType to a PROGTYPE constant.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR
+ *
+ *      --  ERROR_INVALID_PARAMETER;
+ *
+ *@@added V1.0.1 (2003-01-17) [umoeller]
+ *@@changed V1.0.1 (2003-01-17) [umoeller]: now correctly returning PROG_PDD/VDD for NE and LX @@fixes 343
+ */
+
+APIRET exehQueryProgType(const EXECUTABLE *pExec,
+                         PROGCATEGORY *pulProgType)
+{
+    APIRET      arc = NO_ERROR;
+
+    if (!pExec)
+        return ERROR_INVALID_PARAMETER;
+
+    // now we have the PEXECUTABLE:
+    // check what we found
+    switch (pExec->ulOS)
+    {
+        case EXEOS_DOS3:
+        case EXEOS_DOS4:
+            *pulProgType = PROG_WINDOWEDVDM;
+        break;
+
+        case EXEOS_OS2:
+            switch (pExec->ulExeFormat)
+            {
+                case EXEFORMAT_LX:
+                    switch (pExec->pLXHeader->ulFlags & E32MODMASK)
+                    {
+                        case E32MODPDEV:
+                            *pulProgType = PROG_PDD;
+                        break;
+
+                        case E32MODVDEV:
+                            *pulProgType = PROG_VDD;
+                        break;
+
+                        case E32MODDLL:
+                        case E32MODPROTDLL:
+                            *pulProgType = PROG_DLL;
+                        break;
+
+                        default:
+                            // all bits clear: --> real executable
+                            switch (pExec->pLXHeader->ulFlags & E32APPMASK)
+                            {
+                                case E32PMAPI:
+                                    // _Pmpf(("  LX OS2 PM"));
+                                    *pulProgType = PROG_PM;
+                                break;
+
+                                case E32PMW:
+                                    // _Pmpf(("  LX OS2 VIO"));
+                                    *pulProgType = PROG_WINDOWABLEVIO;
+                                break;
+
+                                case E32NOPMW:
+                                    // _Pmpf(("  LX OS2 FULLSCREEN"));
+                                    *pulProgType = PROG_FULLSCREEN;
+                                break;
+
+                                default:
+                                    // _Pmpf(("  LX OS2 FULLSCREEN"));
+                                    *pulProgType = PROG_FULLSCREEN;
+                                break;
+                            }
+                        break;      // executable
+                    }
+                break;
+
+                case EXEFORMAT_NE:
+                    if (pExec->fLibrary)
+                    {
+                        // there is no flag in the NE header for whether
+                        // this is a device driver, so rely on extension
+                        // V1.0.1 (2003-01-17) [umoeller]
+                        PSZ p;
+                        if (    (p = doshGetExtension(pExec->pFile->pszFilename))
+                             && (    (!stricmp(p, "ADD"))
+                                  || (!stricmp(p, "DMD"))
+                                  || (!stricmp(p, "FLT"))
+                                  || (!stricmp(p, "IFS"))
+                                  || (!stricmp(p, "SNP"))
+                                  || (!stricmp(p, "SYS"))
+                                )
+                           )
+                            *pulProgType = PROG_PDD;
+                                    // there can be no 16-bit VDDs, so this must be a PDD
+                        else
+                            *pulProgType = PROG_DLL;
+                    }
+                    else switch (pExec->pNEHeader->usFlags & NEAPPTYP)
+                    {
+                        case NEWINCOMPAT:
+                            // _Pmpf(("  NE OS2 VIO"));
+                            *pulProgType = PROG_WINDOWABLEVIO;
+                        break;
+
+                        case NEWINAPI:
+                            // _Pmpf(("  NE OS2 PM"));
+                            *pulProgType = PROG_PM;
+                        break;
+
+                        case NENOTWINCOMPAT:
+                        default:
+                            // _Pmpf(("  NE OS2 FULLSCREEN"));
+                            *pulProgType = PROG_FULLSCREEN;
+                        break;
+                    }
+                break;
+
+                case EXEFORMAT_COM:
+                    *pulProgType = PROG_WINDOWABLEVIO;
+                break;
+
+                default:
+                    arc = ERROR_INVALID_EXE_SIGNATURE;
+            }
+        break;
+
+        case EXEOS_WIN16:
+        case EXEOS_WIN386:
+            // _Pmpf(("  WIN16"));
+            *pulProgType = PROG_31_ENHSEAMLESSCOMMON;
+        break;
+
+        case EXEOS_WIN32_GUI:
+        case EXEOS_WIN32_CLI:
+            // _Pmpf(("  WIN32"));
+            *pulProgType = PROG_WIN32;
+        break;
+
+        default:
+            arc = ERROR_INVALID_EXE_SIGNATURE;
+    }
+
+    return arc;
+}
+
+/*
+ *@@ PROGTYPESTRING:
+ *
+ *@@added V0.9.16 (2002-01-13) [umoeller]
+ */
+
+typedef struct _PROGTYPESTRING
+{
+    PROGCATEGORY    progc;
+    PCSZ            pcsz;
+} PROGTYPESTRING, *PPROGTYPESTRING;
+
+PROGTYPESTRING G_aProgTypes[] =
+    {
+        PROG_DEFAULT, "PROG_DEFAULT",
+        PROG_FULLSCREEN, "PROG_FULLSCREEN",
+        PROG_WINDOWABLEVIO, "PROG_WINDOWABLEVIO",
+        PROG_PM, "PROG_PM",
+        PROG_GROUP, "PROG_GROUP",
+        PROG_VDM, "PROG_VDM",
+            // same as PROG_REAL, "PROG_REAL",
+        PROG_WINDOWEDVDM, "PROG_WINDOWEDVDM",
+        PROG_DLL, "PROG_DLL",
+        PROG_PDD, "PROG_PDD",
+        PROG_VDD, "PROG_VDD",
+        PROG_WINDOW_REAL, "PROG_WINDOW_REAL",
+        PROG_30_STD, "PROG_30_STD",
+            // same as PROG_WINDOW_PROT, "PROG_WINDOW_PROT",
+        PROG_WINDOW_AUTO, "PROG_WINDOW_AUTO",
+        PROG_30_STDSEAMLESSVDM, "PROG_30_STDSEAMLESSVDM",
+            // same as PROG_SEAMLESSVDM, "PROG_SEAMLESSVDM",
+        PROG_30_STDSEAMLESSCOMMON, "PROG_30_STDSEAMLESSCOMMON",
+            // same as PROG_SEAMLESSCOMMON, "PROG_SEAMLESSCOMMON",
+        PROG_31_STDSEAMLESSVDM, "PROG_31_STDSEAMLESSVDM",
+        PROG_31_STDSEAMLESSCOMMON, "PROG_31_STDSEAMLESSCOMMON",
+        PROG_31_ENHSEAMLESSVDM, "PROG_31_ENHSEAMLESSVDM",
+        PROG_31_ENHSEAMLESSCOMMON, "PROG_31_ENHSEAMLESSCOMMON",
+        PROG_31_ENH, "PROG_31_ENH",
+        PROG_31_STD, "PROG_31_STD",
+
+// Warp 4 toolkit defines, whatever these were designed for...
+#ifndef PROG_DOS_GAME
+    #define PROG_DOS_GAME            (PROGCATEGORY)21
+#endif
+#ifndef PROG_WIN_GAME
+    #define PROG_WIN_GAME            (PROGCATEGORY)22
+#endif
+#ifndef PROG_DOS_MODE
+    #define PROG_DOS_MODE            (PROGCATEGORY)23
+#endif
+
+        PROG_DOS_GAME, "PROG_DOS_GAME",
+        PROG_WIN_GAME, "PROG_WIN_GAME",
+        PROG_DOS_MODE, "PROG_DOS_MODE",
+
+        // added this V0.9.16 (2001-12-08) [umoeller]
+        PROG_WIN32, "PROG_WIN32"
+    };
+
+/*
+ *@@ exehDescribeProgType:
+ *      returns a "PROG_*" string for the given
+ *      program type. Useful for WPProgram setup
+ *      strings and such.
+ *
+ *@@added V0.9.16 (2001-10-06)
+ *@@changed V1.0.1 (2003-01-17) [umoeller]: moved this here from apps.c
+ */
+
+PCSZ exehDescribeProgType(PROGCATEGORY progc)        // in: from PROGDETAILS.progc
+{
+    ULONG ul;
+    for (ul = 0;
+         ul < ARRAYITEMCOUNT(G_aProgTypes);
+         ul++)
+    {
+        if (G_aProgTypes[ul].progc == progc)
+            return G_aProgTypes[ul].pcsz;
+    }
+
+    return NULL;
 }
 
 /*

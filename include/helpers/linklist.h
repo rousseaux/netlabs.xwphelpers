@@ -133,9 +133,9 @@ extern "C" {
                                           unsigned long line,
                                           const char *function);
         typedef PLINKLIST XWPENTRY LSTCREATEDEBUG(BOOL fItemsFreeable,
-                                          const char *file,
-                                          unsigned long line,
-                                          const char *function);
+                                                  const char *file,
+                                                  unsigned long line,
+                                                  const char *function);
         typedef LSTCREATEDEBUG *PLSTCREATEDEBUG;
 
         #define lstCreate(b) lstCreateDebug((b), __FILE__, __LINE__, __FUNCTION__)
@@ -198,9 +198,17 @@ extern "C" {
                                            void* pNewItemData,
                                            unsigned long ulIndex);
     typedef PLISTNODE XWPENTRY LSTINSERTITEMBEFORE(PLINKLIST pList,
-                                           void* pNewItemData,
-                                           unsigned long ulIndex);
+                                                   void* pNewItemData,
+                                                   unsigned long ulIndex);
     typedef LSTINSERTITEMBEFORE *PLSTINSERTITEMBEFORE;
+
+    PLISTNODE XWPENTRY lstInsertItemAfterNode(PLINKLIST pList,
+                                              void* pNewItemData,
+                                              PLISTNODE pNodeInsertAfter);
+    typedef PLISTNODE XWPENTRY LSTINSERTITEMAFTERNODE(PLINKLIST pList,
+                                                      void* pNewItemData,
+                                                      PLISTNODE pNodeInsertAfter);
+    typedef LSTINSERTITEMAFTERNODE *PLSTINSERTITEMAFTERNODE;
 
     BOOL XWPENTRY lstRemoveNode(PLINKLIST pList, PLISTNODE pRemoveNode);
     typedef BOOL XWPENTRY LSTREMOVENODE(PLINKLIST pList, PLISTNODE pRemoveNode);

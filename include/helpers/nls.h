@@ -89,7 +89,36 @@ extern "C" {
                             // thousands separator (e.g. ',')
         } COUNTRYSETTINGS, *PCOUNTRYSETTINGS;
 
-        VOID XWPENTRY nlsQueryCountrySettings(PCOUNTRYSETTINGS pcs);
+        /*
+         *@@ COUNTRYAMPM:
+         *
+         *@@added V1.0.1 (2003-01-17) [umoeller]
+         */
+
+        typedef struct _COUNTRYAMPM
+        {
+            CHAR            sz2359[10],
+                            sz1159[10];
+        } COUNTRYAMPM, *PCOUNTRYAMPM;
+
+        /*
+         *@@ COUNTRYSETTINGS:
+         *      second structure to finally get the AM/PM
+         *      stuff right too. I suspect people have used
+         *      this structure in XCenter DLLs and such so
+         *      I cannot easily change it... hence a second
+         *      one.
+         *
+         *@@changed V1.0.1 (2003-01-17) [umoeller]
+         */
+
+        typedef struct _COUNTRYSETTINGS2
+        {
+            COUNTRYSETTINGS cs;
+            COUNTRYAMPM     ampm;
+        } COUNTRYSETTINGS2, *PCOUNTRYSETTINGS2;
+
+        VOID XWPENTRY nlsQueryCountrySettings(PCOUNTRYSETTINGS2 pcs);
 
         PSZ XWPENTRY nlsThousandsULong(PSZ pszTarget, ULONG ul, CHAR cThousands);
         typedef PSZ XWPENTRY NLSTHOUSANDSULONG(PSZ pszTarget, ULONG ul, CHAR cThousands);
@@ -102,35 +131,55 @@ extern "C" {
                                        PCSZ pszUnits,
                                        CHAR cThousands);
 
+        VOID XWPENTRY nlsDate(const COUNTRYSETTINGS2 *pcs2,
+                              PSZ pszDate,
+                              USHORT year,
+                              BYTE month,
+                              BYTE day);
+
+        VOID XWPENTRY nlsTime(const COUNTRYSETTINGS2 *pcs,
+                              PSZ pszTime,
+                              BYTE hours,
+                              BYTE minutes,
+                              BYTE seconds);
+
         VOID XWPENTRY nlsFileDate(PSZ pszBuf,
-                                  FDATE *pfDate,
-                                  ULONG ulDateFormat,
-                                  CHAR cDateSep);
+                                  const FDATE *pfDate,
+                                  const COUNTRYSETTINGS2 *pcs);
 
         VOID XWPENTRY nlsFileTime(PSZ pszBuf,
-                                  FTIME *pfTime,
-                                  ULONG ulTimeFormat,
-                                  CHAR cTimeSep);
+                                  const FTIME *pfTime,
+                                  const COUNTRYSETTINGS2 *pcs);
 
         VOID XWPENTRY nlsDateTime(PSZ pszDate,
                                   PSZ pszTime,
-                                  DATETIME *pDateTime,
+                                  const DATETIME *pDateTime,
                                   ULONG ulDateFormat,
                                   CHAR cDateSep,
                                   ULONG ulTimeFormat,
                                   CHAR cTimeSep);
         typedef VOID XWPENTRY NLSDATETIME(PSZ pszDate,
                                           PSZ pszTime,
-                                          DATETIME *pDateTime,
+                                          const DATETIME *pDateTime,
                                           ULONG ulDateFormat,
                                           CHAR cDateSep,
                                           ULONG ulTimeFormat,
                                           CHAR cTimeSep);
         typedef NLSDATETIME *PNLSDATETIME;
 
-        ULONG nlsUpper(PSZ psz);
+        VOID XWPENTRY nlsDateTime2(PSZ pszDate,
+                                   PSZ pszTime,
+                                   const DATETIME *pDateTime,
+                                   const COUNTRYSETTINGS2 *pcs2);
+        typedef VOID XWPENTRY NLSDATETIME2(PSZ pszDate,
+                                           PSZ pszTime,
+                                           const DATETIME *pDateTime,
+                                           const COUNTRYSETTINGS2 *pcs2);
+        typedef NLSDATETIME2 *PNLSDATETIME2;
 
     #endif
+
+    ULONG nlsUpper(PSZ psz);
 
 #endif
 

@@ -6,6 +6,7 @@
  *      Note: Version numbering in this file relates to XWorkplace version
  *            numbering.
  *
+ *@@include #define INCL_WINPROGRAMLIST         // for some funcs only
  *@@include #include <os2.h>
  *@@include #include "helpers\dosh.h"
  *@@include #include "helpers\exeh.h"
@@ -230,7 +231,7 @@ extern "C" {
 
     typedef struct _LXHEADER
     {
-        CHAR        achLX[2];           // 00: e32_magic  "LX" or "LE" magic
+        CHAR      achLX[2];             // 00: e32_magic  "LX" or "LE" magic
             // this is "LX" for 32-bit OS/2 programs, but
             // "LE" for MS-DOS progs which use this format
             // (e.g. WINDOWS\SMARTDRV.EXE). IBM says the
@@ -244,17 +245,29 @@ extern "C" {
         ULONG     ulModuleVersion;      // 0c: e32_ver module version
         ULONG     ulFlags;              // 10: e32_mflags module flags
                 #ifndef E32NOTP // do not conflict with toolkit exe defs
-                    #define E32NOTP          0x8000L        // Library Module - used as NENOTP
-                    #define E32NOLOAD        0x2000L        // Module not Loadable
-                    #define E32PMAPI         0x0300L        // Uses PM Windowing API
-                    #define E32PMW           0x0200L        // Compatible with PM Windowing
-                    #define E32NOPMW         0x0100L        // Incompatible with PM Windowing
-                    #define E32NOEXTFIX      0x0020L        // NO External Fixups in .EXE
-                    #define E32NOINTFIX      0x0010L        // NO Internal Fixups in .EXE
-                    #define E32SYSDLL        0x0008L        // System DLL, Internal Fixups discarded
-                    #define E32LIBINIT       0x0004L        // Per-Process Library Initialization
+                    #define E32NOTP          0x00008000L    // Library Module - used as NENOTP
+                    #define E32NOLOAD        0x00002000L    // Module not Loadable
+                    #define E32PMAPI         0x00000300L    // Uses PM Windowing API
+                    #define E32PMW           0x00000200L    // Compatible with PM Windowing
+                    #define E32NOPMW         0x00000100L    // Incompatible with PM Windowing
+                    #define E32NOEXTFIX      0x00000020L    // NO External Fixups in .EXE
+                    #define E32NOINTFIX      0x00000010L    // NO Internal Fixups in .EXE
+                    #define E32SYSDLL        0x00000008L    // System DLL, Internal Fixups discarded
+                    #define E32LIBINIT       0x00000004L    // Per-Process Library Initialization
                     #define E32LIBTERM       0x40000000L    // Per-Process Library Termination
-                    #define E32APPMASK       0x0300L        // Application Type Mask
+
+                    #define E32APPMASK       0x00000300L    // Application Type Mask
+
+                    // hiword defs added V1.0.1 (2003-01-17) [umoeller]
+                    #define E32PROTDLL       0x00010000L    // Protected memory library module *
+                    #define E32DEVICE        0x00020000L    // Device driver                   *
+                    #define E32MODEXE        0x00000000L    // .EXE module                     *
+                    #define E32MODDLL        0x00008000L    // .DLL module                     *
+                    #define E32MODPROTDLL    0x00018000L    // Protected memory library module *
+                    #define E32MODPDEV       0x00020000L    // Physical device driver          *
+                    #define E32MODVDEV       0x00028000L    // Virtual device driver           *
+                    #define E32MODMASK       0x00038000L    // Module type mask                *
+                    #define E32NOTMPSAFE     0x00080000L    // Process is multi-processor unsafe *
                 #endif
         ULONG     ulPageCount;          // 14: e32_mpages no. of pages in module
         ULONG     ulEIPRelObj;          // 18: e32_startobj obj # for IP
@@ -1241,6 +1254,24 @@ extern "C" {
                     PEXECUTABLE* ppExec);
 
     APIRET exehQueryBldLevel(PEXECUTABLE pExec);
+
+    #ifdef INCL_WINPROGRAMLIST
+
+        // additional PROG_* flags for exehQueryProgType; moved these here
+        // from app.h V1.0.1 (2003-01-17) [umoeller]
+
+        // #define PROG_XWP_DLL            998      // dynamic link library
+                    // removed, PROG_DLL exists already
+                    // V0.9.16 (2001-10-06)
+
+        #define PROG_WIN32              990     // added V0.9.16 (2001-12-08) [umoeller]
+
+        APIRET exehQueryProgType(const EXECUTABLE *pExec,
+                                 PROGCATEGORY *pulProgType);
+
+        PCSZ exehDescribeProgType(PROGCATEGORY progc);
+
+    #endif
 
     /*
      *@@ FSYSMODULE:

@@ -672,6 +672,13 @@ extern "C" {
      *
      ********************************************************************/
 
+    #define ID_VSCROLL      100
+    #define ID_HSCROLL      101
+
+    BOOL XWPENTRY winhCreateScrollBars(HWND hwndParent,
+                                       HWND *phwndV,
+                                       HWND *phwndH);
+
     BOOL XWPENTRY winhUpdateScrollBar(HWND hwndScrollBar,
                                       ULONG ulWinPels,
                                       ULONG ulViewportPels,
@@ -686,6 +693,17 @@ extern "C" {
                                       USHORT usLineStepUnits,
                                       ULONG msg,
                                       MPARAM mp2);
+
+    LONG XWPENTRY winhHandleScrollMsg2(HWND hwndScrollBar,
+                                       PLONG plCurPelsOfs,
+                                       LONG lWindowPels,
+                                       LONG lWorkareaPels,
+                                       USHORT usLineStepPels,
+                                       ULONG msg,
+                                       MPARAM mp2);
+    BOOL XWPENTRY winhScrollWindow(HWND hwnd2Scroll,
+                                   PRECTL prclClip,
+                                   PPOINTL pptlScroll);
 
     BOOL XWPENTRY winhProcessScrollChars(HWND hwndClient,
                                          HWND hwndVScroll,
@@ -949,6 +967,10 @@ extern "C" {
                                     const char *pcszText,
                                     ULONG ulStyle,
                                     ULONG ulID);
+
+    BOOL XWPENTRY winhSetParentAndOwner(HWND hwnd,
+                                        HWND hwndNewParent,
+                                        BOOL fRedraw);
 
     VOID XWPENTRY winhRepaintWindows(HWND hwndParent);
 

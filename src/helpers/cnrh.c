@@ -167,23 +167,23 @@ VOID cnrhSetFieldInfo(PFIELDINFO *ppFieldInfo2,  // in/out: double ptr to FIELDI
                       ULONG ulOrientation,       // in: vertical and horizontal orientation (CFA_* flags)
                       BOOL fDrawLines)           // in: if TRUE, we'll draw lines around the columns
 {
-    PFIELDINFO pInfo;
+    PFIELDINFO pfi;
     if (    (ppFieldInfo2)
-         && (pInfo = *ppFieldInfo2)
+         && (pfi = *ppFieldInfo2)
        )
     {
         ULONG flData = ulDataType | ulOrientation;
         if (fDrawLines)
             flData |= CFA_HORZSEPARATOR | CFA_SEPARATOR;
 
-        pInfo->cb = sizeof(FIELDINFO);
-        pInfo->flData = flData;
-        pInfo->flTitle = CFA_FITITLEREADONLY | ulOrientation;
-        pInfo->offStruct = ulFieldOffset;
-        pInfo->pTitleData = pszColumnTitle;   // strdup removed, V0.9.1 (99-12-18) [umoeller]
-        pInfo->pUserData   = NULL;
-        pInfo->cxWidth = 0;
-        *ppFieldInfo2 = pInfo->pNextFieldInfo;
+        pfi->cb = sizeof(FIELDINFO);
+        pfi->flData = flData;
+        pfi->flTitle = CFA_FITITLEREADONLY | ulOrientation;
+        pfi->offStruct = ulFieldOffset;
+        pfi->pTitleData = pszColumnTitle;   // strdup removed, V0.9.1 (99-12-18) [umoeller]
+        pfi->pUserData   = NULL;
+        pfi->cxWidth = 0;
+        *ppFieldInfo2 = pfi->pNextFieldInfo;
     }
 }
 
@@ -341,9 +341,9 @@ PFIELDINFO cnrhSetFieldInfos(HWND hwndCnr,            // in: container hwnd
         }
 
         // insert field infos
-        if (cnrhInsertFieldInfos(hwndCnr,
-                                 pFieldInfoFirst,
-                                 ulFieldCount) == 0)
+        if (!cnrhInsertFieldInfos(hwndCnr,
+                                  pFieldInfoFirst,
+                                  ulFieldCount))
             pFieldInfoReturn = NULL;
     }
 

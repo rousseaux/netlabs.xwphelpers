@@ -455,20 +455,16 @@ ULONG strhSize(PCSZ pcsz)
 ULONG strhCount(PCSZ pszSearch,
                 CHAR c)
 {
-    PSZ         p = (PSZ)pszSearch;
-    ULONG       ulCount = 0;
+    PCSZ    p = pszSearch;
+    ULONG   ulCount = 0;
     while (TRUE)
     {
-        p = strchr(p, c);
-        if (p)
-        {
-            ulCount++;
-            p++;
-        }
-        else
-            break;
+        if (!(p = strchr(p, c)))
+            return ulCount;
+
+        ulCount++;
+        p++;
     }
-    return ulCount;
 }
 
 /*

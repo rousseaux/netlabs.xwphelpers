@@ -51,6 +51,7 @@
 
 #include "helpers\dosh.h"
 #include "helpers\except.h"             // exception handling
+#include "helpers\exeh.h"
 #include "helpers\prfh.h"
 #include "helpers\standards.h"          // some standard macros
 #include "helpers\stringh.h"
@@ -672,88 +673,6 @@ APIRET appQueryAppType(const char *pcszExecutable,
     *pulWinAppType = ulWinAppType;
 
     return arc;
-}
-
-/*
- *@@ PROGTYPESTRING:
- *
- *@@added V0.9.16 (2002-01-13) [umoeller]
- */
-
-typedef struct _PROGTYPESTRING
-{
-    PROGCATEGORY    progc;
-    PCSZ            pcsz;
-} PROGTYPESTRING, *PPROGTYPESTRING;
-
-PROGTYPESTRING G_aProgTypes[] =
-    {
-        PROG_DEFAULT, "PROG_DEFAULT",
-        PROG_FULLSCREEN, "PROG_FULLSCREEN",
-        PROG_WINDOWABLEVIO, "PROG_WINDOWABLEVIO",
-        PROG_PM, "PROG_PM",
-        PROG_GROUP, "PROG_GROUP",
-        PROG_VDM, "PROG_VDM",
-            // same as PROG_REAL, "PROG_REAL",
-        PROG_WINDOWEDVDM, "PROG_WINDOWEDVDM",
-        PROG_DLL, "PROG_DLL",
-        PROG_PDD, "PROG_PDD",
-        PROG_VDD, "PROG_VDD",
-        PROG_WINDOW_REAL, "PROG_WINDOW_REAL",
-        PROG_30_STD, "PROG_30_STD",
-            // same as PROG_WINDOW_PROT, "PROG_WINDOW_PROT",
-        PROG_WINDOW_AUTO, "PROG_WINDOW_AUTO",
-        PROG_30_STDSEAMLESSVDM, "PROG_30_STDSEAMLESSVDM",
-            // same as PROG_SEAMLESSVDM, "PROG_SEAMLESSVDM",
-        PROG_30_STDSEAMLESSCOMMON, "PROG_30_STDSEAMLESSCOMMON",
-            // same as PROG_SEAMLESSCOMMON, "PROG_SEAMLESSCOMMON",
-        PROG_31_STDSEAMLESSVDM, "PROG_31_STDSEAMLESSVDM",
-        PROG_31_STDSEAMLESSCOMMON, "PROG_31_STDSEAMLESSCOMMON",
-        PROG_31_ENHSEAMLESSVDM, "PROG_31_ENHSEAMLESSVDM",
-        PROG_31_ENHSEAMLESSCOMMON, "PROG_31_ENHSEAMLESSCOMMON",
-        PROG_31_ENH, "PROG_31_ENH",
-        PROG_31_STD, "PROG_31_STD",
-
-// Warp 4 toolkit defines, whatever these were designed for...
-#ifndef PROG_DOS_GAME
-    #define PROG_DOS_GAME            (PROGCATEGORY)21
-#endif
-#ifndef PROG_WIN_GAME
-    #define PROG_WIN_GAME            (PROGCATEGORY)22
-#endif
-#ifndef PROG_DOS_MODE
-    #define PROG_DOS_MODE            (PROGCATEGORY)23
-#endif
-
-        PROG_DOS_GAME, "PROG_DOS_GAME",
-        PROG_WIN_GAME, "PROG_WIN_GAME",
-        PROG_DOS_MODE, "PROG_DOS_MODE",
-
-        // added this V0.9.16 (2001-12-08) [umoeller]
-        PROG_WIN32, "PROG_WIN32"
-    };
-
-/*
- *@@ appDescribeAppType:
- *      returns a "PROG_*" string for the given
- *      program type. Useful for WPProgram setup
- *      strings and such.
- *
- *@@added V0.9.16 (2001-10-06)
- */
-
-PCSZ appDescribeAppType(PROGCATEGORY progc)        // in: from PROGDETAILS.progc
-{
-    ULONG ul;
-    for (ul = 0;
-         ul < ARRAYITEMCOUNT(G_aProgTypes);
-         ul++)
-    {
-        if (G_aProgTypes[ul].progc == progc)
-            return G_aProgTypes[ul].pcsz;
-    }
-
-    return NULL;
 }
 
 /*

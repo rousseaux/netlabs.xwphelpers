@@ -1194,13 +1194,14 @@ extern "C" {
     } EXTFRAMEDATA, *PEXTFRAMEDATA;
 
     MRESULT ctlFormatExtFrame(HWND hwndFrame,
-                              PXFRAMECONTROLS pxfc,
+                              const XFRAMECONTROLS *pxfc,
                               MPARAM mp1,
                               MPARAM mp2);
 
-    VOID ctlCalcExtFrameRect(MPARAM mp1,
-                             MPARAM mp2,
-                             LONG lStatusBarHeight);
+    MRESULT ctlCalcExtFrameRect(HWND hwndFrame,
+                                const XFRAMECONTROLS *pxfc,
+                                MPARAM mp1,
+                                MPARAM mp2);
 
     HWND ctlCreateStatusBar(HWND hwndFrame,
                             HWND hwndOwner,
@@ -1399,6 +1400,19 @@ extern "C" {
     BOOL ctlMakeColorRect(HWND hwndStatic);
     typedef BOOL CTLMAKECOLORRECT(HWND hwndStatic);
     typedef CTLMAKECOLORRECT *PCTLMAKECOLORRECT;
+
+    /* ******************************************************************
+     *
+     *   Container control replacement
+     *
+     ********************************************************************/
+
+    #define WC_CCTL_CNR             "ComctlCnr"
+
+    MRESULT EXPENTRY fnwpCnr(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2);
+
+    BOOL ctlRegisterXCnr(HAB hab);
+
 
 #endif
 

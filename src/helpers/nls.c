@@ -348,6 +348,29 @@ PSZ nlsrchr(PCSZ p, char c)
  ********************************************************************/
 
 /*
+ *@@ nlsGetAMPM:
+ *
+ *@@added V1.0.1 (2003-01-17) [umoeller]
+ */
+
+VOID nlsGetAMPM(PCOUNTRYAMPM pampm)
+{
+    PrfQueryProfileString(HINI_USER,
+                          "PM_National",
+                          "s2359",        // key
+                          "PM",           // default
+                          pampm->sz2359,
+                          sizeof(pampm->sz2359));
+
+    PrfQueryProfileString(HINI_USER,
+                          "PM_National",
+                          "s1159",        // key
+                          "AM",           // default
+                          pampm->sz1159,
+                          sizeof(pampm->sz1159));
+}
+
+/*
  *@@ nlsQueryCountrySettings:
  *      this returns the most frequently used country settings
  *      all at once into a COUNTRYSETTINGS structure (prfh.h).
@@ -368,10 +391,11 @@ PSZ nlsrchr(PCSZ p, char c)
  *@@changed V0.9.7 (2000-12-02) [umoeller]: added cDecimal
  */
 
-VOID nlsQueryCountrySettings(PCOUNTRYSETTINGS pcs)
+VOID nlsQueryCountrySettings(PCOUNTRYSETTINGS2 pcs2)
 {
-    if (pcs)
+    if (pcs2)
     {
+        PCOUNTRYSETTINGS pcs = &pcs2->cs;
         pcs->ulDateFormat = PrfQueryProfileInt(HINI_USER,
                                                (PSZ)PMINIAPP_NATIONAL,
                                                "iDate",
@@ -396,6 +420,8 @@ VOID nlsQueryCountrySettings(PCOUNTRYSETTINGS pcs)
                                                (PSZ)PMINIAPP_NATIONAL,
                                                "sThousand",
                                                ',');
+
+        nlsGetAMPM(&pcs2->ampm);
     }
 }
 
@@ -423,23 +449,25 @@ PSZ nlsThousandsULong(PSZ pszTarget,       // out: decimal as string
                       ULONG ul,            // in: decimal to convert
                       CHAR cThousands)     // in: separator char (e.g. '.')
 {
-    USHORT ust, uss, usc;
-    CHAR   szTemp[40];
-    usc = sprintf(szTemp, "%lu", ul);  // V0.9.20 (2002-07-03) [umoeller]
+    CHAR    szTemp[30];
+    USHORT  ust = 0,
+            uss,
+            usLen = sprintf(szTemp, "%lu", ul);  // V0.9.20 (2002-07-03) [umoeller]
 
-    ust = 0;
-    // usc = strlen(szTemp);
-    for (uss = 0; uss < usc; uss++)
+    for (uss = 0;
+         uss < usLen;
+         ++uss)
     {
         if (uss)
-            if (((usc - uss) % 3) == 0)
+            if (0 == ((usLen - uss) % 3))
             {
                 pszTarget[ust] = cThousands;
                 ust++;
             }
-        pszTarget[ust] = szTemp[uss];
-        ust++;
+
+        pszTarget[ust++] = szTemp[uss];
     }
+
     pszTarget[ust] = '\0';
 
     return pszTarget;
@@ -472,16 +500,15 @@ PSZ nlsThousandsDouble(PSZ pszTarget,
                        double dbl,
                        CHAR cThousands)
 {
-    USHORT ust, uss, usc;
+    USHORT ust, uss, usLen;
     CHAR   szTemp[40];
-    usc = sprintf(szTemp, "%.0f", floor(dbl)); // V0.9.20 (2002-07-03) [umoeller]
+    usLen = sprintf(szTemp, "%.0f", floor(dbl)); // V0.9.20 (2002-07-03) [umoeller]
 
     ust = 0;
-    // usc = strlen(szTemp);
-    for (uss = 0; uss < usc; uss++)
+    for (uss = 0; uss < usLen; uss++)
     {
         if (uss)
-            if (((usc - uss) % 3) == 0)
+            if (((usLen - uss) % 3) == 0)
             {
                 pszTarget[ust] = cThousands;
                 ust++;
@@ -546,24 +573,18 @@ PSZ nlsVariableDouble(PSZ pszTarget,
  *      at once using nlsQueryCountrySettings (prfh.c).
  *
  *@@changed V0.9.0 (99-11-07) [umoeller]: now calling nlsDateTime
+ *@@changed V1.0.1 (2003-01-17) [umoeller]: prototype changed for optimization, this was not exported
  */
 
-VOID nlsFileDate(PSZ pszBuf,           // out: string returned
-                 FDATE *pfDate,        // in: date information
-                 ULONG ulDateFormat,   // in: date format (0-3)
-                 CHAR cDateSep)        // in: date separator (e.g. '.')
+VOID nlsFileDate(PSZ pszBuf,            // out: string returned
+                 const FDATE *pfDate,   // in: date information
+                 const COUNTRYSETTINGS2 *pcs)
 {
-    DATETIME dt;
-    dt.day = pfDate->day;
-    dt.month = pfDate->month;
-    dt.year = pfDate->year + 1980;
-
-    nlsDateTime(pszBuf,
-                NULL,          // no time
-                &dt,
-                ulDateFormat,
-                cDateSep,
-                0, 0);         // no time
+    nlsDate(pcs,
+            pszBuf,
+            pfDate->year + 1980,
+            pfDate->month,
+            pfDate->day);
 }
 
 /*
@@ -589,24 +610,125 @@ VOID nlsFileDate(PSZ pszBuf,           // out: string returned
  *
  *@@changed V0.8.5 (99-03-15) [umoeller]: fixed 12-hour crash
  *@@changed V0.9.0 (99-11-07) [umoeller]: now calling nlsDateTime
+ *@@changed V1.0.1 (2003-01-17) [umoeller]: prototype changed for optimization, this was not exported
  */
 
 VOID nlsFileTime(PSZ pszBuf,           // out: string returned
-                 FTIME *pfTime,        // in: time information
-                 ULONG ulTimeFormat,   // in: 24-hour time format (0 or 1)
-                 CHAR cTimeSep)        // in: time separator (e.g. ':')
+                 const FTIME *pfTime,        // in: time information
+                 const COUNTRYSETTINGS2 *pcs)
 {
-    DATETIME dt;
-    dt.hours = pfTime->hours;
-    dt.minutes = pfTime->minutes;
-    dt.seconds = pfTime->twosecs * 2;
+    nlsTime(pcs,
+            pszBuf,
+            pfTime->hours,
+            pfTime->minutes,
+            pfTime->twosecs * 2);
+}
 
-    nlsDateTime(NULL,          // no date
-                 pszBuf,
-                 &dt,
-                 0, 0,          // no date
-                 ulTimeFormat,
-                 cTimeSep);
+/*
+ *@@ nlsDate:
+ *
+ *@@added V1.0.1 (2003-01-17) [umoeller]
+ */
+
+VOID nlsDate(const COUNTRYSETTINGS2 *pcs2,
+             PSZ pszDate,                   // out: date string returned
+             USHORT year,
+             BYTE month,
+             BYTE day)
+{
+    switch (pcs2->cs.ulDateFormat)
+    {
+        case 0:  // mm.dd.yyyy  (English)
+            sprintf(pszDate, "%02d%c%02d%c%04d",
+                    month,
+                        pcs2->cs.cDateSep,
+                    day,
+                        pcs2->cs.cDateSep,
+                    year);
+        break;
+
+        case 1:  // dd.mm.yyyy  (e.g. German)
+            sprintf(pszDate, "%02d%c%02d%c%04d",
+                    day,
+                        pcs2->cs.cDateSep,
+                    month,
+                        pcs2->cs.cDateSep,
+                    year);
+        break;
+
+        case 2: // yyyy.mm.dd  (Japanese)
+            sprintf(pszDate, "%04d%c%02d%c%02d",
+                    year,
+                        pcs2->cs.cDateSep,
+                    month,
+                        pcs2->cs.cDateSep,
+                    day);
+        break;
+
+        default: // yyyy.dd.mm
+            sprintf(pszDate, "%04d%c%02d%c%02d",
+                    year,
+                        pcs2->cs.cDateSep,
+                    day,
+                        pcs2->cs.cDateSep,
+                    month);
+        break;
+    }
+}
+
+/*
+ *@@ nlsTime:
+ *
+ *@@added V1.0.1 (2003-01-17) [umoeller]
+ */
+
+VOID nlsTime(const COUNTRYSETTINGS2 *pcs2,
+             PSZ pszTime,                   // out: time string returned
+             BYTE hours,
+             BYTE minutes,
+             BYTE seconds)
+{
+    if (!pcs2->cs.ulTimeFormat)
+    {
+        // for 12-hour clock, we need additional INI data
+        if (hours >= 12)  // V0.9.16 (2001-12-05) [pr] if (hours > 12)
+        {
+            // yeah cool Paul, now we get 00:20 PM if it's 20 past noon
+            // V0.9.18 (2002-02-13) [umoeller]
+            ULONG ulHours;
+            if (!(ulHours = hours % 12))
+                ulHours = 12;
+
+            // >= 12h: PM.
+            sprintf(pszTime, "%02d%c%02d%c%02d %s",
+                    // leave 12 == 12 (not 0)
+                    ulHours,
+                        pcs2->cs.cTimeSep,
+                    minutes,
+                        pcs2->cs.cTimeSep,
+                    seconds,
+                    pcs2->ampm.sz2359);
+        }
+        else
+        {
+            // < 12h: AM
+            sprintf(pszTime, "%02d%c%02d%c%02d %s",
+                    hours,
+                        pcs2->cs.cTimeSep,
+                    minutes,
+                        pcs2->cs.cTimeSep,
+                    seconds,
+                    pcs2->ampm.sz1159);
+        }
+    }
+    else
+        // 24-hour clock
+        sprintf(pszTime, "%02d%c%02d%c%02d",
+                hours,
+                    pcs2->cs.cTimeSep,
+                minutes,
+                    pcs2->cs.cTimeSep,
+                seconds);
 }
 
 /*
@@ -615,116 +737,45 @@ VOID nlsFileTime(PSZ pszBuf,           // out: string returned
  *      into two strings. See nlsFileDate and nlsFileTime
  *      for more detailed parameter descriptions.
  *
+ *      Use of this function is deprecated. Use the
+ *      speedier nlsDateTime2 instead.
+ *
  *@@added V0.9.0 (99-11-07) [umoeller]
  *@@changed V0.9.16 (2001-12-05) [pr]: fixed AM/PM hour bug
  *@@changed V0.9.18 (2002-02-13) [umoeller]: fixed AM/PM hour bug fix
+ *@@changed V1.0.1 (2003-01-17) [umoeller]: extracted nlsDate, nlsTime
  */
 
 VOID nlsDateTime(PSZ pszDate,          // out: date string returned (can be NULL)
                  PSZ pszTime,          // out: time string returned (can be NULL)
-                 DATETIME *pDateTime,  // in: date/time information
+                 const DATETIME *pDateTime,  // in: date/time information
                  ULONG ulDateFormat,   // in: date format (0-3); see nlsFileDate
                  CHAR cDateSep,        // in: date separator (e.g. '.')
                  ULONG ulTimeFormat,   // in: 24-hour time format (0 or 1); see nlsFileTime
                  CHAR cTimeSep)        // in: time separator (e.g. ':')
 {
+    COUNTRYSETTINGS2 cs2;
     if (pszDate)
     {
-        switch (ulDateFormat)
-        {
-            case 0:  // mm.dd.yyyy  (English)
-                sprintf(pszDate, "%02d%c%02d%c%04d",
-                        pDateTime->month,
-                            cDateSep,
-                        pDateTime->day,
-                            cDateSep,
-                        pDateTime->year);
-            break;
-
-            case 1:  // dd.mm.yyyy  (e.g. German)
-                sprintf(pszDate, "%02d%c%02d%c%04d",
-                        pDateTime->day,
-                            cDateSep,
-                        pDateTime->month,
-                            cDateSep,
-                        pDateTime->year);
-            break;
-
-            case 2: // yyyy.mm.dd  (Japanese)
-                sprintf(pszDate, "%04d%c%02d%c%02d",
-                        pDateTime->year,
-                            cDateSep,
-                        pDateTime->month,
-                            cDateSep,
-                        pDateTime->day);
-            break;
-
-            default: // yyyy.dd.mm
-                sprintf(pszDate, "%04d%c%02d%c%02d",
-                        pDateTime->year,
-                            cDateSep,
-                        pDateTime->day,
-                            cDateSep,
-                        pDateTime->month);
-            break;
-        }
+        cs2.cs.ulDateFormat = ulDateFormat;
+        cs2.cs.cDateSep = cDateSep;
+        nlsDate(&cs2,
+                pszDate,                   // out: date string returned
+                pDateTime->year,
+                pDateTime->month,
+                pDateTime->day);
     }
 
     if (pszTime)
     {
-        if (ulTimeFormat == 0)
-        {
-            // for 12-hour clock, we need additional INI data
-            CHAR szAMPM[10] = "err";
-
-            if (pDateTime->hours >= 12)  // V0.9.16 (2001-12-05) [pr] if (pDateTime->hours > 12)
-            {
-                // yeah cool Paul, now we get 00:20 PM if it's 20 past noon
-                // V0.9.18 (2002-02-13) [umoeller]
-                ULONG ulHours;
-                if (!(ulHours = pDateTime->hours % 12))
-                    ulHours = 12;
-
-                // >= 12h: PM.
-                PrfQueryProfileString(HINI_USER,
-                                      "PM_National",
-                                      "s2359",        // key
-                                      "PM",           // default
-                                      szAMPM, sizeof(szAMPM)-1);
-                sprintf(pszTime, "%02d%c%02d%c%02d %s",
-                        // leave 12 == 12 (not 0)
-                        ulHours,
-                            cTimeSep,
-                        pDateTime->minutes,
-                            cTimeSep,
-                        pDateTime->seconds,
-                        szAMPM);
-            }
-            else
-            {
-                // < 12h: AM
-                PrfQueryProfileString(HINI_USER,
-                                      "PM_National",
-                                      "s1159",        // key
-                                      "AM",           // default
-                                      szAMPM, sizeof(szAMPM)-1);
-                sprintf(pszTime, "%02d%c%02d%c%02d %s",
-                        pDateTime->hours,
-                            cTimeSep,
-                        pDateTime->minutes,
-                            cTimeSep,
-                        pDateTime->seconds,
-                        szAMPM);
-            }
-        }
-        else
-            // 24-hour clock
-            sprintf(pszTime, "%02d%c%02d%c%02d",
-                    pDateTime->hours,
-                        cTimeSep,
-                    pDateTime->minutes,
-                        cTimeSep,
-                    pDateTime->seconds);
+        cs2.cs.ulTimeFormat = ulTimeFormat;
+        cs2.cs.cTimeSep = cTimeSep;
+        nlsGetAMPM(&cs2.ampm);
+        nlsTime(&cs2,
+                pszTime,
+                pDateTime->hours,
+                pDateTime->minutes,
+                pDateTime->seconds);
     }
 }
 
@@ -749,6 +800,35 @@ VOID APIENTRY strhDateTime(PSZ pszDate,          // out: date string returned (c
                 cDateSep,
                 ulTimeFormat,
                 cTimeSep);
+}
+
+/*
+ *@@ nlsDateTime2:
+ *      speedier version of nlsDateTime that caches
+ *      all information and needs _no_ Prf* call
+ *      any more.
+ *
+ *@@added V1.0.1 (2003-01-17) [umoeller]
+ */
+
+VOID nlsDateTime2(PSZ pszDate,
+                  PSZ pszTime,
+                  const DATETIME *pDateTime,
+                  const COUNTRYSETTINGS2 *pcs2)
+{
+    if (pszDate)
+        nlsDate(pcs2,
+                pszDate,
+                pDateTime->year,
+                pDateTime->month,
+                pDateTime->day);
+
+    if (pszTime)
+        nlsTime(pcs2,
+                pszTime,
+                pDateTime->hours,
+                pDateTime->minutes,
+                pDateTime->seconds);
 }
 
 CHAR G_szUpperMap[257];

@@ -81,7 +81,7 @@
  */
 
 MRESULT ctlFormatExtFrame(HWND hwndFrame,
-                          PXFRAMECONTROLS pxfc,
+                          const XFRAMECONTROLS *pxfc,
                           MPARAM mp1,
                           MPARAM mp2)
 {
@@ -208,31 +208,26 @@ MRESULT ctlFormatExtFrame(HWND hwndFrame,
  *@@changed V1.0.1 (2002-11-30) [umoeller]: moved here from winh.c, renamed
  */
 
-VOID ctlCalcExtFrameRect(MPARAM mp1,
-                         MPARAM mp2,
-                         LONG lStatusBarHeight)
+MRESULT ctlCalcExtFrameRect(HWND hwndFrame,
+                            const XFRAMECONTROLS *pxfc,
+                            MPARAM mp1,
+                            MPARAM mp2)
 {
     PRECTL prclPassed = (PRECTL)mp1;
+
+    MRESULT mrc = pxfc->pfnwpOrig(hwndFrame, WM_CALCFRAMERECT, mp1, mp2);
 
     if (mp2)
     {
         // mp2 == TRUE:  frame rectangle provided, calculate client
         //  call default window procedure to subtract child frame
         //  controls from the rectangle's height
-        LONG lClientHeight;
 
-        //  position the static text frame extension below the client
-        lClientHeight = prclPassed->yTop - prclPassed->yBottom;
-        if (lStatusBarHeight > lClientHeight)
-            // extension is taller than client, so set client height to 0
-            prclPassed->yTop = prclPassed->yBottom;
-        else
-        {
-            //  set the origin of the client and shrink it based upon the
-            //  static text control's height
-            prclPassed->yBottom += lStatusBarHeight;
-            prclPassed->yTop -= lStatusBarHeight;
-        }
+        if (pxfc->hwndToolBar)
+            prclPassed->yTop -= pxfc->lToolBarHeight;
+
+        if (pxfc->hwndStatusBar)
+            prclPassed->yBottom += pxfc->lStatusBarHeight;
     }
     else
     {
@@ -241,9 +236,15 @@ VOID ctlCalcExtFrameRect(MPARAM mp1,
         //  controls from the rectangle's height;
         //  set the origin of the frame and increase it based upon the
         //  static text control's height
-        prclPassed->yBottom -= lStatusBarHeight;
-        prclPassed->yTop += lStatusBarHeight;
+
+        if (pxfc->hwndToolBar)
+            prclPassed->yTop += pxfc->lToolBarHeight;
+
+        if (pxfc->hwndStatusBar)
+            prclPassed->yBottom -= pxfc->lStatusBarHeight;
     }
+
+    return mrc;
 }
 
 #define STATUS_BAR_HEIGHT       20
@@ -288,13 +289,17 @@ STATIC MRESULT EXPENTRY fnwpSubclExtFrame(HWND hwndFrame, ULONG msg, MPARAM mp1,
         break;
 
         case WM_CALCFRAMERECT:
-            mrc = pData->xfc.pfnwpOrig(hwndFrame, msg, mp1, mp2);
-
             // we have a status bar: calculate its rectangle
-            ctlCalcExtFrameRect(mp1,
-                                mp2,
-                                STATUS_BAR_HEIGHT);
+            mrc = ctlCalcExtFrameRect(hwndFrame,
+                                      &pData->xfc,
+                                      mp1,
+                                      mp2);
         break;
+
+        /*
+        case WM_WINDOWPOSCHANGED:
+            WinSendMsg(hwndFrame, WM_UPDATEFRAME, 0, 0);
+        break; */
 
         case WM_SYSCOMMAND:
             if (    (SHORT1FROMMP(mp1) == SC_CLOSE)

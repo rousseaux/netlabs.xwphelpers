@@ -353,9 +353,10 @@ VOID ctlPaintTBButton(HPS hps,               // in: presentation space (RGB mode
     }
 }
 
-static const SYSCOLORSET scsToolbarButton =
+static const SYSCOLORSET G_scsToolbarButton =
     {
         TRUE,       // inherit presparams
+
         SYSCLR_BUTTONMIDDLE,
         SYSCLR_MENUTEXT
     };
@@ -443,7 +444,7 @@ STATIC MRESULT BtnCreate(HWND hwndButton, MPARAM mp1, MPARAM mp2)
                    mp2,
                    &pData->bd.dwd,
                    WinDefWindowProc,
-                   &scsToolbarButton);
+                   &G_scsToolbarButton);
 
         if (    (pcszText)
              && (*pcszText == '#')
@@ -849,7 +850,7 @@ MRESULT EXPENTRY ctl_fnwpToolbarButton(HWND hwndButton, ULONG msg, MPARAM mp1, M
  *
  ********************************************************************/
 
-static const SYSCOLORSET scsToolbar =
+static const SYSCOLORSET G_scsToolbar =
     {
         TRUE,       // inherit presparams
         SYSCLR_MENU,
@@ -1019,7 +1020,7 @@ STATIC ULONG TbAddControls(PTOOLBARDATA pData,
                                      PP_BACKGROUNDCOLOR,
                                      PP_BACKGROUNDCOLORINDEX,
                                      FALSE,
-                                     scsToolbar.lBackIndex);
+                                     G_scsToolbar.lBackIndex);
         winhStorePresParam(&ppp,
                            PP_BACKGROUNDCOLOR,
                            sizeof(lColor),
@@ -1029,7 +1030,7 @@ STATIC ULONG TbAddControls(PTOOLBARDATA pData,
                                      PP_FOREGROUNDCOLOR,
                                      PP_FOREGROUNDCOLORINDEX,
                                      FALSE,
-                                     scsToolbar.lForeIndex);
+                                     G_scsToolbar.lForeIndex);
         winhStorePresParam(&ppp,
                            PP_FOREGROUNDCOLOR,
                            sizeof(lColor),
@@ -1110,7 +1111,7 @@ STATIC MRESULT TbCreate(HWND hwndToolBar, MPARAM mp1, MPARAM mp2)
                mp2,
                &pData->dwd,
                WinDefWindowProc,
-               &scsToolbar);
+               &G_scsToolbar);
 
     pData->hwndControlsOwner = ptbcd->hwndControlsOwner;
     pData->lSpacing = 5;

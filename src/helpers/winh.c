@@ -1895,6 +1895,52 @@ ULONG winhLboxFindItemFromHandle(HWND hwndListBox,
  ********************************************************************/
 
 /*
+ *@@ winhCreateScrollBars:
+ *      creates two scroll bars with an arbitrary
+ *      position for later use with winhUpdateScrollBar.
+ *
+ *@@added V1.0.1 (2003-01-17) [umoeller]
+ */
+
+BOOL winhCreateScrollBars(HWND hwndParent,
+                          HWND *phwndV,     // out: vertical scroll bar
+                          HWND *phwndH)     // out: horizontal scroll bar
+{
+    SBCDATA     sbcd;
+    sbcd.cb = sizeof(SBCDATA);
+    sbcd.sHilite = 0;
+    sbcd.posFirst = 0;
+    sbcd.posLast = 100;
+    sbcd.posThumb = 30;
+    sbcd.cVisible = 50;
+    sbcd.cTotal = 50;
+
+    return (    (*phwndV = WinCreateWindow(hwndParent,
+                                           WC_SCROLLBAR,
+                                           "",
+                                           SBS_VERT | SBS_THUMBSIZE | WS_VISIBLE,
+                                           10, 10,
+                                           20, 100,
+                                           hwndParent,     // owner
+                                           HWND_TOP,
+                                           ID_VSCROLL,
+                                           &sbcd,
+                                           0))
+             && (*phwndH = WinCreateWindow(hwndParent,
+                                           WC_SCROLLBAR,
+                                           "",
+                                           SBS_THUMBSIZE | WS_VISIBLE,
+                                           10, 10,
+                                           20, 100,
+                                           hwndParent,     // owner
+                                           HWND_TOP,
+                                           ID_HSCROLL,
+                                           &sbcd,
+                                           0))
+           );
+}
+
+/*
  *@@ winhUpdateScrollBar:
  *      updates the given scroll bar according to the given
  *      values. This updates the scroll bar's thumb size,
@@ -1917,47 +1963,47 @@ ULONG winhLboxFindItemFromHandle(HWND hwndListBox,
  *
  *         The width or height of this must be passed in ulWinPels.
  *
- *      -- "viewport": the entire data to be displayed, of which the
- *         "window" can only display a subrectangle, if the viewport
+ *      -- "workarea": the entire data to be displayed, of which the
+ *         "window" can only display a subrectangle, if the workarea
  *         is larger than the window.
  *
- *         The width or height of this must be passed in ulViewportPels.
+ *         The width or height of this must be passed in ulWorkareaPels.
  *         This can be smaller than ulWinPels (if the window is larger
  *         than the data) or the same or larger than ulWinPels
  *         (if the window is too small to show all the data).
  *
  *      -- "window offset": the offset of the current window within
- *         the viewport.
+ *         the workarea.
  *
  *         For horizontal scroll bars, this is the X coordinate,
  *         counting from the left of the window (0 means leftmost).
  *
  *         For vertical scroll bars, this is counted from the _top_
- *         of the viewport (0 means topmost, as opposed to OS/2
+ *         of the workarea (0 means topmost, as opposed to OS/2
  *         window coordinates!). This is because for vertical scroll
  *         bars controls, higher values move the thumb _down_. Yes
  *         indeed, this conflicts with PM's coordinate system.
  *
  *         The window offset is therefore always positive.
  *
- *      The scroll bar gets disabled if the entire viewport is visible,
- *      that is, if ulViewportPels <= ulWinPels. In that case
+ *      The scroll bar gets disabled if the entire workarea is visible,
+ *      that is, if ulWorkareaPels <= ulWinPels. In that case
  *      FALSE is returned. If (fAutoHide == TRUE), the scroll
  *      bar is not only disabled, but also hidden from the display.
  *      In that case, you will need to reformat your output because
- *      your viewport becomes larger without the scroll bar.
+ *      your workarea becomes larger without the scroll bar.
  *
  *      This function will set the range of the scroll bar to 0 up
- *      to a value depending on the viewport size. For vertical scroll
+ *      to a value depending on the workarea size. For vertical scroll
  *      bars, 0 means topmost (which is kinda sick with the OS/2
  *      coordinate system), for horizontal scroll bars, 0 means leftmost.
  *
  *      The maximum value of the scroll bar will be
  *
- +          (ulViewportPels - ulWinPels) / usScrollUnitPels
+ +          (ulWorkareaPels - ulWinPels) / usScrollUnitPels
  *
  *      The thumb size of the scroll bar will also be adjusted
- *      based on the viewport and window size, as it should be.
+ *      based on the workarea and window size, as it should be.
  *
  *@@added V0.9.1 (2000-02-14) [umoeller]
  *@@changed V0.9.3 (2000-04-30) [umoeller]: fixed pels/unit confusion
@@ -1968,7 +2014,7 @@ BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or h
                          ULONG ulWinPels,       // in: vertical or horizontal dimension of
                                                 // visible window part (in pixels),
                                                 // excluding the scroll bar!
-                         ULONG ulViewportPels,  // in: dimension of total data part, of
+                         ULONG ulWorkareaPels,  // in: dimension of total data part, of
                                                 // which ulWinPels is a sub-dimension
                                                 // (in pixels);
                                                 // if <= ulWinPels, the scrollbar will be
@@ -1981,31 +2027,31 @@ BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or h
 
     // _Pmpf(("Entering winhUpdateScrollBar"));
 
-    // for large viewports, adjust scroll bar units
+    // for large workareas, adjust scroll bar units
     USHORT  usScrollUnitPels = 1;
-    if (ulViewportPels > 10000)
+    if (ulWorkareaPels > 10000)
         usScrollUnitPels = 100;
 
-    if (ulViewportPels > ulWinPels)
+    if (ulWorkareaPels > ulWinPels)
     {
         // scrollbar needed:
         USHORT  usThumbDivisorUnits = usScrollUnitPels;
         USHORT  lMaxAllowedUnitOfs;
-        // _Pmpf(("winhUpdateScrollBar: ulViewportPels > ulWinPels, enabling scroller"));
+        // _Pmpf(("winhUpdateScrollBar: ulWorkareaPels > ulWinPels, enabling scroller"));
         // divisor for thumb size (below)
-        if (ulViewportPels > 10000)
-            // for very large viewports, we need to
+        if (ulWorkareaPels > 10000)
+            // for very large workareas, we need to
             // raise the divisor, because we only
             // have a USHORT
             usThumbDivisorUnits = usScrollUnitPels * 100;
 
-        // viewport is larger than window:
+        // workarea is larger than window:
         WinEnableWindow(hwndScrollBar, TRUE);
         if (fAutoHide)
             WinShowWindow(hwndScrollBar, TRUE);
 
         // calculate limit
-        lMaxAllowedUnitOfs = ((ulViewportPels - ulWinPels + usScrollUnitPels)
+        lMaxAllowedUnitOfs = ((ulWorkareaPels - ulWinPels + usScrollUnitPels)
                                // scroll unit is 10
                                / usScrollUnitPels);
 
@@ -2020,18 +2066,18 @@ BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or h
                                 lMaxAllowedUnitOfs));    // maximum
 
         // set thumb size based on ulWinPels and
-        // ulViewportPels
+        // ulWorkareaPels
         WinSendMsg(hwndScrollBar,
                    SBM_SETTHUMBSIZE,
                    MPFROM2SHORT(    ulWinPels / usThumbDivisorUnits,       // visible
-                                    ulViewportPels / usThumbDivisorUnits), // total
+                                    ulWorkareaPels / usThumbDivisorUnits), // total
                    0);
         brc = TRUE;
     }
     else
     {
-        // _Pmpf(("winhUpdateScrollBar: ulViewportPels <= ulWinPels"));
-        // entire viewport is visible:
+        // _Pmpf(("winhUpdateScrollBar: ulWorkareaPels <= ulWinPels"));
+        // entire workarea is visible:
         WinEnableWindow(hwndScrollBar, FALSE);
         if (fAutoHide)
             WinShowWindow(hwndScrollBar, FALSE);
@@ -2065,13 +2111,13 @@ BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or h
  *      on values starting from zero. The maximum value
  *      of the scroll bar is:
  *
- +          ulViewportPels - (prcl2Scroll->yTop - prcl2Scroll->yBottom)
+ +          ulWorkareaPels - (prcl2Scroll->yTop - prcl2Scroll->yBottom)
  *
  *      This function also automatically changes the scroll bar
- *      units, should you have a viewport size which doesn't fit
+ *      units, should you have a workarea size which doesn't fit
  *      into the SHORT's that the scroll bar uses internally. As
  *      a result, this function handles a the complete range of
- *      a ULONG for the viewport.
+ *      a ULONG for the workarea.
  *
  *      Replace "bottom" and "top" with "right" and "left" for
  *      horizontal scrollbars in the above formula.
@@ -2084,13 +2130,13 @@ BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or h
 
 BOOL winhHandleScrollMsg(HWND hwnd2Scroll,          // in: client window to scroll
                          HWND hwndScrollBar,        // in: vertical or horizontal scroll bar window
-                         PULONG pulCurPelsOfs,      // in/out: current viewport offset;
+                         PULONG pulCurPelsOfs,      // in/out: current workarea offset;
                                                     // this is updated with the proper scroll units
                          PRECTL prcl2Scroll,        // in: hwnd2Scroll rectangle to scroll
                                                     // (in window coordinates);
                                                     // this is passed to WinScrollWindow,
                                                     // which considers this inclusive!
-                         LONG ulViewportPels,       // in: total viewport dimension,
+                         LONG ulWorkareaPels,       // in: total workarea dimension,
                                                     // into which *pulCurPelsOfs is an offset
                          USHORT usLineStepPels,     // in: pixels to scroll line-wise
                                                     // (scroll bar buttons pressed)
@@ -2105,9 +2151,9 @@ BOOL winhHandleScrollMsg(HWND hwnd2Scroll,          // in: client window to scro
     LONG    lMaxAllowedUnitOfs;
     ULONG   ulWinPels;
 
-    // for large viewports, adjust scroll bar units
+    // for large workareas, adjust scroll bar units
     USHORT  usScrollUnitPels = 1;
-    if (ulViewportPels > 10000)
+    if (ulWorkareaPels > 10000)
         usScrollUnitPels = 100;
 
     // calculate window size (vertical or horizontal)
@@ -2116,7 +2162,7 @@ BOOL winhHandleScrollMsg(HWND hwnd2Scroll,          // in: client window to scro
     else
         ulWinPels = (prcl2Scroll->xRight - prcl2Scroll->xLeft);
 
-    lMaxAllowedUnitOfs = ((LONG)ulViewportPels - ulWinPels) / usScrollUnitPels;
+    lMaxAllowedUnitOfs = ((LONG)ulWorkareaPels - ulWinPels) / usScrollUnitPels;
 
     // _Pmpf(("Entering winhHandleScrollMsg"));
 
@@ -2221,6 +2267,119 @@ BOOL winhHandleScrollMsg(HWND hwnd2Scroll,          // in: client window to scro
 }
 
 /*
+ *@@ winhHandleScrollMsg2:
+ *
+ *      Returns the amount of pixels to be passed to
+ *      WinScrollWindow.
+ *
+ *@@added V1.0.1 (2003-01-17) [umoeller]
+ */
+
+LONG winhHandleScrollMsg2(HWND hwndScrollBar,        // in: vertical or horizontal scroll bar window
+                          PLONG plCurPelsOfs,        // in/out: current workarea offset;
+                                                     // this is updated with the proper scroll units
+                          LONG lWindowPels,          // in: window cx or cy (in window coordinates);
+                          LONG lWorkareaPels,        // in: total workarea dimension,
+                                                     // into which *plCurPelsOfs is an offset
+                          USHORT usLineStepPels,     // in: pixels to scroll line-wise
+                                                     // (scroll bar buttons pressed)
+                          ULONG msg,                 // in: either WM_VSCROLL or WM_HSCROLL
+                          MPARAM mp2)                // in: complete mp2 of WM_VSCROLL/WM_HSCROLL;
+                                                     // this has two SHORT's (usPos and usCmd),
+                                                     // see PMREF for details
+{
+    LONG    lOldPelsOfs = *plCurPelsOfs;
+    USHORT  usPosUnits = SHORT1FROMMP(mp2), // in scroll units
+            usCmd = SHORT2FROMMP(mp2);
+    LONG    lMaxAllowedUnitOfs;
+
+    // for large workareas, adjust scroll bar units
+    USHORT  usScrollUnitPels = 1;
+    if (lWorkareaPels > 10000)
+        usScrollUnitPels = 100;
+
+    lMaxAllowedUnitOfs = (lWorkareaPels - lWindowPels) / usScrollUnitPels;
+
+    // _Pmpf(("Entering winhHandleScrollMsg"));
+
+    switch (usCmd)
+    {
+        case SB_LINEUP:
+            if (*plCurPelsOfs > usLineStepPels)
+                *plCurPelsOfs -= usLineStepPels;  //  * usScrollUnitPels);
+            else
+                *plCurPelsOfs = 0;
+        break;
+
+        case SB_LINEDOWN:
+            *plCurPelsOfs += usLineStepPels;  //  * usScrollUnitPels);
+        break;
+
+        case SB_PAGEUP:
+            if (*plCurPelsOfs > lWindowPels)
+                *plCurPelsOfs -= lWindowPels; // convert to units
+            else
+                *plCurPelsOfs = 0;
+        break;
+
+        case SB_PAGEDOWN:
+            *plCurPelsOfs += lWindowPels; // convert to units
+        break;
+
+        case SB_SLIDERTRACK:
+            *plCurPelsOfs = (usPosUnits * usScrollUnitPels);
+            // _Pmpf(("    SB_SLIDERTRACK: usUnits = %d", usPosUnits));
+        break;
+
+        case SB_SLIDERPOSITION:
+            *plCurPelsOfs = (usPosUnits * usScrollUnitPels);
+        break;
+    }
+
+    if (*plCurPelsOfs > (lMaxAllowedUnitOfs * usScrollUnitPels))
+        *plCurPelsOfs = (lMaxAllowedUnitOfs * usScrollUnitPels);
+
+    if (    (*plCurPelsOfs != lOldPelsOfs)
+         || (*plCurPelsOfs == 0)
+         || (*plCurPelsOfs == (lMaxAllowedUnitOfs * usScrollUnitPels))
+       )
+    {
+        // changed:
+        WinSendMsg(hwndScrollBar,
+                   SBM_SETPOS,
+                   (MPARAM)(*plCurPelsOfs / usScrollUnitPels), //  / usScrollUnit),
+                   0);
+
+        if (msg == WM_VSCROLL)
+            return (*plCurPelsOfs - lOldPelsOfs);
+
+        return -(*plCurPelsOfs - lOldPelsOfs);
+    }
+
+    return 0;
+}
+
+/*
+ *@@ winhScrollWindow:
+ *
+ *@@added V1.0.1 (2003-01-17) [umoeller]
+ */
+
+BOOL winhScrollWindow(HWND hwnd2Scroll,
+                      PRECTL prclClip,          // clipping rectangle or NULL
+                      PPOINTL pptlScroll)
+{
+    return !!WinScrollWindow(hwnd2Scroll,
+                             pptlScroll->x,
+                             pptlScroll->y,
+                             prclClip,
+                             prclClip,
+                             NULLHANDLE,     // no region
+                             NULL,           // no rect
+                             SW_INVALIDATERGN);
+}
+
+/*
  *@@ winhProcessScrollChars:
  *      helper for processing WM_CHAR messages for
  *      client windows with scroll bars.
@@ -2263,8 +2422,8 @@ BOOL winhProcessScrollChars(HWND hwndClient,    // in: client window
                             HWND hwndHScroll,   // in: horizontal scroll bar
                             MPARAM mp1,         // in: WM_CHAR mp1
                             MPARAM mp2,         // in: WM_CHAR mp2
-                            ULONG ulVertMax,    // in: maximum viewport cy
-                            ULONG ulHorzMax)    // in: maximum viewport cx
+                            ULONG ulVertMax,    // in: maximum workarea cy
+                            ULONG ulHorzMax)    // in: maximum workarea cx
 {
     BOOL    fProcessed = FALSE;
     USHORT usFlags    = SHORT1FROMMP(mp1);
@@ -3304,13 +3463,13 @@ LONG winhQueryPresColor2(HWND hwnd,          // in: window to query
         if (ulppIndex)
             fl |= QPF_ID2COLORINDEX;            // convert indexed color 2 to RGB V0.9.20 (2002-08-04) [umoeller]
 
-        if ((ul = WinQueryPresParam(hwnd,
-                                    ulppRGB,
-                                    ulppIndex,
-                                    &attrFound,
-                                    sizeof(lColorFound),
-                                    &lColorFound,
-                                    fl)))
+        if (ul = WinQueryPresParam(hwnd,
+                                   ulppRGB,
+                                   ulppIndex,
+                                   &attrFound,
+                                   sizeof(lColorFound),
+                                   &lColorFound,
+                                   fl))
             return lColorFound;
     }
 
@@ -4269,6 +4428,22 @@ HWND winhCreateControl(HWND hwndParent,             // in: parent window
                            ulID,
                            NULL,
                            NULL);
+}
+
+/*
+ *@@ winhSetParentAndOwner:
+ *      switches owner _and_ parent of the given window.
+ *
+ *@@added V1.0.1 (2003-01-17) [umoeller]
+ */
+
+BOOL winhSetParentAndOwner(HWND hwnd,           // in: window whose parent and owner to change
+                           HWND hwndNewParent,  // in: new parent and owner
+                           BOOL fRedraw)
+{
+    return (    WinSetParent(hwnd, hwndNewParent, fRedraw)
+             && WinSetOwner(hwnd, hwndNewParent)
+           );
 }
 
 /*

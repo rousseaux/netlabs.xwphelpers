@@ -1890,9 +1890,6 @@ typedef struct _TEXTVIEWWINDATA
 
 } TEXTVIEWWINDATA, *PTEXTVIEWWINDATA;
 
-#define ID_VSCROLL      100
-#define ID_HSCROLL      101
-
 /*
  *@@ UpdateTextViewPresData:
  *      called from WM_CREATE and WM_PRESPARAMCHANGED
@@ -2326,7 +2323,6 @@ STATIC MRESULT ProcessCreate(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
     PXTEXTVIEWCDATA     pcd = (PXTEXTVIEWCDATA)mp1;
                 // can be NULL
     PCREATESTRUCT       pcs = (PCREATESTRUCT)mp2;
-    SBCDATA             sbcd;
 
     MRESULT             mrc = (MRESULT)TRUE;     // error
     PTEXTVIEWWINDATA    ptxvd;
@@ -2382,40 +2378,14 @@ STATIC MRESULT ProcessCreate(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
         ptxvd->rclViewReal.xRight = pcs->cx;
         ptxvd->rclViewReal.yTop = pcs->cy;
 
-        sbcd.cb = sizeof(SBCDATA);
-        sbcd.sHilite = 0;
-        sbcd.posFirst = 0;
-        sbcd.posLast = 100;
-        sbcd.posThumb = 30;
-        sbcd.cVisible = 50;
-        sbcd.cTotal = 50;
+        winhCreateScrollBars(hwndTextView,
+                             &ptxvd->hwndVScroll,
+                             &ptxvd->hwndHScroll);
 
-        ptxvd->hwndVScroll = WinCreateWindow(hwndTextView,
-                                             WC_SCROLLBAR,
-                                             "",
-                                             SBS_VERT | SBS_THUMBSIZE | WS_VISIBLE,
-                                             10, 10,
-                                             20, 100,
-                                             hwndTextView,     // owner
-                                             HWND_TOP,
-                                             ID_VSCROLL,
-                                             &sbcd,
-                                             0);
         fShow = ((ptxvd->flStyle & XS_VSCROLL) != 0);
         WinShowWindow(ptxvd->hwndVScroll, fShow);
         ptxvd->fVScrollVisible = fShow;
 
-        ptxvd->hwndHScroll = WinCreateWindow(hwndTextView,
-                                             WC_SCROLLBAR,
-                                             "",
-                                             SBS_THUMBSIZE | WS_VISIBLE,
-                                             10, 10,
-                                             20, 100,
-                                             hwndTextView,     // owner
-                                             HWND_TOP,
-                                             ID_HSCROLL,
-                                             &sbcd,
-                                             0);
         fShow = ((ptxvd->flStyle & XS_HSCROLL) != 0);
         WinShowWindow(ptxvd->hwndHScroll, fShow);
         ptxvd->fHScrollVisible = fShow;

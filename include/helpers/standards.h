@@ -125,6 +125,12 @@
 
     #define STOREIFMAX(a, b) if ((a) > (b)) { b = a; }
 
+    #ifdef _PMPRINTF_
+        #define PMPF_RECT(s, prect) _PmpfF(("%s: xLeft %d, xRight %d, yBottom %d, yTop %d", (s), (prect)->xLeft, (prect)->xRight, (prect)->yBottom, (prect)->yTop))
+    #else
+        #define PMPF_RECT(s, prect)
+    #endif
+
 #endif
 
 

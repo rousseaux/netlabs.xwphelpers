@@ -249,6 +249,14 @@ MRESULT ctlDefWindowProc(PDEFWINDATA pdwd, ULONG msg, MPARAM mp1, MPARAM mp2)
             WinInvalidateRect(pdwd->hwnd, NULL, TRUE);
         break;
 
+        case WM_WINDOWPOSCHANGED:
+            if (((PSWP)mp1)->fl & SWP_SIZE)
+            {
+                pdwd->szlWin.cx = ((PSWP)mp1)->cx;
+                pdwd->szlWin.cy = ((PSWP)mp1)->cy;
+            }
+        break;
+
         default:
             mrc = pdwd->pDefWindowProc(pdwd->hwnd, msg, mp1, mp2);
     }

@@ -674,6 +674,60 @@ PLISTNODE lstAppendItem(PLINKLIST pList,
 // #endif // __DEBUG_MALLOC_ENABLED__
 
 /*
+ *@@ InsertFront:
+ *
+ *@@added V1.0.1 (2003-01-17) [umoeller]
+ */
+
+VOID InsertFront(PLINKLIST pList,
+                 PLISTNODE pNewNode)
+{
+    if (pList->pFirst)
+        pList->pFirst->pPrevious = pNewNode;
+
+    pNewNode->pNext = pList->pFirst;
+    pNewNode->pPrevious = NULL;
+
+    pList->pFirst = pNewNode;
+
+    if (!pList->pLast)
+        // the list was empty:
+        pList->pLast = pNewNode;        // V0.9.14 (2001-07-14) [umoeller]
+
+    (pList->ulCount)++;
+}
+
+/*
+ *@@ InsertAfterNode:
+ *
+ *@@added V1.0.1 (2003-01-17) [umoeller]
+ */
+
+VOID InsertAfterNode(PLINKLIST pList,
+                     PLISTNODE pNewNode,
+                     PLISTNODE pNodeInsertAfter)
+{
+    // 1) set pointers for new node
+    pNewNode->pPrevious = pNodeInsertAfter;
+    pNewNode->pNext = pNodeInsertAfter->pNext;
+
+    // 2) adjust next item
+    // so that it points to the new node
+    if (pNodeInsertAfter->pNext)
+        pNodeInsertAfter->pNext->pPrevious = pNewNode;
+
+    // 3) adjust previous item
+    // so that it points to the new node
+    pNodeInsertAfter->pNext = pNewNode;
+
+    // 4) adjust last item, if necessary
+    if (pList->pLast == pNodeInsertAfter)
+        pList->pLast = pNewNode;
+
+    (pList->ulCount)++;
+}
+
+/*
  *@@ lstInsertItemBefore:
  *      this inserts a new node to the list. As opposed to
  *      lstAppendItem, the new node can be appended anywhere
@@ -698,8 +752,8 @@ PLISTNODE lstAppendItem(PLINKLIST pList,
  */
 
 PLISTNODE lstInsertItemBefore(PLINKLIST pList,
-                              void* pNewItemData,     // data to store in list node
-                              unsigned long ulIndex)
+                              void* pNewItemData,       // in: data to store in list node
+                              unsigned long ulIndex)    // in: index before which to insert
 {
     PLISTNODE pNewNode = NULL;
 
@@ -714,19 +768,8 @@ PLISTNODE lstInsertItemBefore(PLINKLIST pList,
         if (ulIndex == 0)
         {
             // insert at beginning:
-            if (pList->pFirst)
-                pList->pFirst->pPrevious = pNewNode;
-
-            pNewNode->pNext = pList->pFirst;
-            pNewNode->pPrevious = NULL;
-
-            pList->pFirst = pNewNode;
-
-            if (!pList->pLast)
-                // the list was empty:
-                pList->pLast = pNewNode;        // V0.9.14 (2001-07-14) [umoeller]
-
-            (pList->ulCount)++;
+            InsertFront(pList,
+                        pNewNode);
         }
         else
         {
@@ -734,26 +777,11 @@ PLISTNODE lstInsertItemBefore(PLINKLIST pList,
             PLISTNODE pNodeInsertAfter;
 
             if (pNodeInsertAfter = lstNodeFromIndex(pList,
-                                                    (ulIndex - 1)))
+                                                    ulIndex - 1))
             {
-                // 1) set pointers for new node
-                pNewNode->pPrevious = pNodeInsertAfter;
-                pNewNode->pNext = pNodeInsertAfter->pNext;
-
-                // 2) adjust next item
-                // so that it points to the new node
-                if (pNodeInsertAfter->pNext)
-                    pNodeInsertAfter->pNext->pPrevious = pNewNode;
-
-                // 3) adjust previous item
-                // so that it points to the new node
-                pNodeInsertAfter->pNext = pNewNode;
-
-                // 4) adjust last item, if necessary
-                if (pList->pLast == pNodeInsertAfter)
-                    pList->pLast = pNewNode;
-
-                (pList->ulCount)++;
+                InsertAfterNode(pList,
+                                pNewNode,
+                                pNodeInsertAfter);
             }
             else
             {
@@ -762,6 +790,52 @@ PLISTNODE lstInsertItemBefore(PLINKLIST pList,
                 pNewNode = lstAppendItem(pList, pNewItemData);
             }
         }
+    }
+
+    return pNewNode;
+}
+
+/*
+ *@@ lstInsertItemAfterNode:
+ *      this inserts a new node to the list. As opposed to
+ *      lstAppendItem, the new node can be appended anywhere
+ *      in the list, that is, it will be appended AFTER
+ *      the given existing list node.
+ *
+ *      If pNodeAfter is NULL, the new item will be made the
+ *      first item.
+ *
+ *      As opposed to lstInsertItemBefore, this does not
+ *      need to traverse the list, so it is very quick.
+ *
+ *      This returns the LISTNODE of the new list item,
+ *      or NULL upon errors.
+ *
+ *@@added V1.0.1 (2003-01-17) [umoeller]
+ */
+
+PLISTNODE lstInsertItemAfterNode(PLINKLIST pList,
+                                 void* pNewItemData,            // in: data to store in list node
+                                 PLISTNODE pNodeInsertAfter)    // in: node to insert after or NULL to make new node the first
+{
+    PLISTNODE pNewNode = NULL;
+
+    if (    (pList)
+         && (pList->ulMagic == LINKLISTMAGIC)
+         && (pNewNode = (PLISTNODE)malloc(sizeof(LISTNODE)))
+       )
+    {
+        memset(pNewNode, 0, sizeof(LISTNODE));
+        pNewNode->pItemData = pNewItemData;
+
+        if (!pNodeInsertAfter)
+            // insert at beginning:
+            InsertFront(pList,
+                        pNewNode);
+        else
+            InsertAfterNode(pList,
+                            pNewNode,
+                            pNodeInsertAfter);
     }
 
     return pNewNode;
