@@ -487,6 +487,7 @@ VOID PaintSplitBar(HWND hwndBar,
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.1 (99-12-07): fixed memory leak
  *@@changed V0.9.9 (2001-02-01) [lafaix]: added MB2 drag
+ *@@changed V0.9.14 (2001-08-21) [umoeller]: SBCF_MOVEABLE was always ignored, fixed
  */
 
 MRESULT EXPENTRY ctl_fnwpSplitBar(HWND hwndBar, ULONG msg, MPARAM mp1, MPARAM mp2)
