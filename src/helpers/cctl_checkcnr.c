@@ -676,12 +676,12 @@ static MRESULT EXPENTRY fnwpSubclCheckboxCnrOwner(HWND hwndOwner, ULONG msg, MPA
 }
 
 /*
- *@@ ctlInitCheckboxContainer:
+ *@@ ctlQueryCheckboxSize:
  *
- *@@added V0.9.18 (2002-03-03) [umoeller]
+ *@@added V0.9.19 (2002-04-24) [umoeller]
  */
 
-VOID ctlInitCheckboxContainer(HWND hwndCnr)
+ULONG ctlQueryCheckboxSize(VOID)
 {
     if (G_hbmCheckboxes == NULLHANDLE)
     {
@@ -691,14 +691,26 @@ VOID ctlInitCheckboxContainer(HWND hwndCnr)
         G_hbmCheckboxes = WinGetSysBitmap(HWND_DESKTOP,
                                           SBMP_CHECKBOXES);
 
-        // _Pmpf(("hbmCheckboxes: 0x%lX", G_hbmCheckboxes));
-
         // and compute size of one checkbox
         // (4 columns, 3 rows)
+        bmih.cbFix = sizeof(bmih);      // V0.9.19 (2002-04-24) [umoeller]
         GpiQueryBitmapParameters(G_hbmCheckboxes,
                                  &bmih);
         G_cxCheckbox = bmih.cx / 4;
     }
+
+    return G_cxCheckbox;
+}
+
+/*
+ *@@ ctlInitCheckboxContainer:
+ *
+ *@@added V0.9.18 (2002-03-03) [umoeller]
+ */
+
+VOID ctlInitCheckboxContainer(HWND hwndCnr)
+{
+    ctlQueryCheckboxSize();
 
     BEGIN_CNRINFO()
     {

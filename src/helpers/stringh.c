@@ -1062,8 +1062,8 @@ BOOL strhBeautifyTitle(PSZ psz)
     CHAR *p = psz;
 
     while(*p)
-        if (   (*p == '\r')
-            || (*p == '\n')
+        if (    (*p == '\r')
+             || (*p == '\n')
            )
         {
             rc = TRUE;

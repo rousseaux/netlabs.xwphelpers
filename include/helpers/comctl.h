@@ -978,6 +978,8 @@ extern "C" {
 
         MRESULT ctlDrawCheckBoxRecord(MPARAM mp2);
 
+        ULONG ctlQueryCheckboxSize(VOID);
+
         VOID ctlInitCheckboxContainer(HWND hwndCnr);
 
         BOOL ctlMakeCheckboxContainer(HWND hwndCnrOwner,

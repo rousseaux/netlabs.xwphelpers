@@ -4030,11 +4030,11 @@ HWND winhCreateFakeDesktop(HWND hwndSibling)
  *      style. You should therefore give all your button
  *      controls which should be moved such an ID.
  *
- *      You can also specify how many dialog units
- *      all the other controls will be moved downward in
- *      ulDownUnits; this is useful to fill up the space
- *      which was used by the buttons before moving them.
- *      Returns TRUE if anything was changed.
+ *      Note that this function will now automatically
+ *      find out the lowest y coordinate that was used
+ *      for a non-notebook button and move all controls
+ *      down accordingly. As a result, ulDownUnit must
+ *      no longer be specified (V0.9.19).
  *
  *      This function is useful if you wish to create
  *      notebook pages using dlgedit.exe which are compatible
@@ -4043,72 +4043,92 @@ HWND winhCreateFakeDesktop(HWND hwndSibling)
  *      has determined that it is running on Warp 4.
  *
  *@@changed V0.9.16 (2002-02-02) [umoeller]: fixed entry fields
+ *@@changed V0.9.19 (2002-04-24) [umoeller]: removed ulDownUnits
  */
 
 BOOL winhAssertWarp4Notebook(HWND hwndDlg,
-                             USHORT usIdThreshold,    // in: ID threshold
-                             ULONG ulDownUnits)       // in: dialog units or 0
+                             USHORT usIdThreshold)  // in: ID threshold
 {
     BOOL brc = FALSE;
 
     if (doshIsWarp4())
     {
-        POINTL ptl;
-        HWND hwndItem;
-        HENUM henum = 0;
+        LONG    yLowest = 10000;
+        HWND    hwndItem;
+        HENUM   henum = 0;
+        PSWP    paswp,
+                pswpThis;
+        ULONG   cWindows = 0,
+                ul;
 
-        BOOL    fIsVisible = WinIsWindowVisible(hwndDlg);
-        if (ulDownUnits)
-        {
-            ptl.x = 0;
-            ptl.y = ulDownUnits;
-            WinMapDlgPoints(hwndDlg, &ptl, 1, TRUE);
-        }
+        BOOL    fIsVisible;
 
-        if (fIsVisible)
+        if (fIsVisible = WinIsWindowVisible(hwndDlg))
+            // avoid flicker
             WinEnableWindowUpdate(hwndDlg, FALSE);
 
-        henum = WinBeginEnumWindows(hwndDlg);
-        while ((hwndItem = WinGetNextWindow(henum)))
+        if (paswp = (PSWP)malloc(sizeof(SWP) * 100))
         {
-            USHORT usId = WinQueryWindowUShort(hwndItem, QWS_ID);
-            // _Pmpf(("hwndItem: 0x%lX, ID: 0x%lX", hwndItem, usId));
-            if (usId <= usIdThreshold)
+            pswpThis = paswp;
+
+            // loop 1: set notebook buttons, find lowest y used
+            henum = WinBeginEnumWindows(hwndDlg);
+            while ((hwndItem = WinGetNextWindow(henum)))
             {
-                // pushbutton to change:
-                // _Pmpf(("  Setting bit"));
-                WinSetWindowBits(hwndItem,
-                                 QWL_STYLE,
-                                 BS_NOTEBOOKBUTTON, BS_NOTEBOOKBUTTON);
-                brc = TRUE;
-            }
-            else
-                // no pushbutton to change: move downwards
-                // if desired
-                if (ulDownUnits)
+                USHORT usId = WinQueryWindowUShort(hwndItem, QWS_ID);
+                // _Pmpf(("hwndItem: 0x%lX, ID: 0x%lX", hwndItem, usId));
+                if (usId <= usIdThreshold)
                 {
+                    // pushbutton to change:
+                    WinSetWindowBits(hwndItem,
+                                     QWL_STYLE,
+                                     BS_NOTEBOOKBUTTON, BS_NOTEBOOKBUTTON);
+                    brc = TRUE;
+                }
+                else
+                {
+                    // no pushbutton to change:
                     CHAR szClass[10];
-                    SWP swp;
-                    LONG lDeltaX = 0,
-                         lDeltaY = 0;
+
+                    // check lowest y
+                    WinQueryWindowPos(hwndItem, pswpThis);
+                    if (pswpThis->y < yLowest)
+                        yLowest = pswpThis->y ;
+
                     // special handling for entry fields
                     // V0.9.16 (2002-02-02) [umoeller]
                     WinQueryClassName(hwndItem, sizeof(szClass), szClass);
                     if (!strcmp(szClass, "#6"))
                     {
-                        lDeltaX = 3 * WinQuerySysValue(HWND_DESKTOP, SV_CXBORDER);
-                        lDeltaY = 3 * WinQuerySysValue(HWND_DESKTOP, SV_CYBORDER);
+                        pswpThis->x += 3 * WinQuerySysValue(HWND_DESKTOP, SV_CXBORDER);
+                        pswpThis->y += 3 * WinQuerySysValue(HWND_DESKTOP, SV_CYBORDER);
                     }
 
-                    WinQueryWindowPos(hwndItem, &swp);
-                    WinSetWindowPos(hwndItem, 0,
-                                    swp.x + lDeltaX,
-                                    swp.y - ptl.y + lDeltaY,
-                                    0, 0,
-                                    SWP_MOVE);
+                    ++pswpThis;
+                    if (++cWindows == 100)
+                        break;
                 }
+            } // end while ((hwndItem = WinGetNextWindow(henum)))
+            WinEndEnumWindows(henum);
+
+            // now adjust window positions
+            pswpThis = paswp;
+            for (ul = 0;
+                 ul < cWindows;
+                 ++ul, ++pswpThis)
+            {
+                pswpThis->y -= (yLowest - 8);
+                            // 8 is magic to match the lower border of the
+                            // standard WPS notebook pages V0.9.19 (2002-04-24) [umoeller]
+                pswpThis->fl = SWP_MOVE;
+            }
+
+            WinSetMultWindowPos(WinQueryAnchorBlock(hwndDlg),
+                                paswp,
+                                cWindows);
+
+            free(paswp);
         }
-        WinEndEnumWindows(henum);
 
         if (fIsVisible)
             WinShowWindow(hwndDlg, TRUE);

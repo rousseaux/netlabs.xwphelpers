@@ -11,6 +11,10 @@
  *      dialog behavior in regular window procs (see
  *      dlghSetPrevFocus and others).
  *
+ *      If you are out to find all workarounds to get certain
+ *      buggy PM controls aligned right, this file is definitely
+ *      the place.
+ *
  *      Usage: All PM programs.
  *
  *      Function prefixes (new with V0.81):
@@ -41,6 +45,8 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
+#define INCL_DOSPROCESS
+#define INCL_DOSEXCEPTIONS
 #define INCL_DOSERRORS
 
 #define INCL_WINWINDOWMGR
@@ -51,6 +57,7 @@
 #define INCL_WINSTATICS
 #define INCL_WINBUTTONS
 #define INCL_WINENTRYFIELDS
+#define INCL_WINSTDCNR
 #define INCL_WINSYS
 
 #define INCL_GPIPRIMITIVES
@@ -61,11 +68,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <setjmp.h>
 
 #include "setup.h"                      // code generation and debugging options
 
 #include "helpers\comctl.h"
 #include "helpers\dialog.h"
+#include "helpers\except.h"
 #include "helpers\gpih.h"
 #include "helpers\linklist.h"
 #include "helpers\standards.h"
@@ -127,7 +136,18 @@ typedef struct _DLGPRIVATE
     LONG        cxBorder,
                 cyBorder;           // cached now V0.9.19 (2002-04-17) [umoeller]
 
+    double      dFactorX,           // correlation factors for dialog units
+                dFactorY;           // V0.9.19 (2002-04-24) [umoeller]
+
 } DLGPRIVATE, *PDLGPRIVATE;
+
+// macros for the dlg units conversion;
+#define FACTOR_X     (pDlgData->dFactorX)
+#ifdef USE_SQUARE_CORRELATION
+#define FACTOR_Y     (pDlgData->dFactorX)
+#else
+#define FACTOR_Y     (pDlgData->dFactorY)
+#endif
 
 typedef struct _COLUMNDEF *PCOLUMNDEF;
 typedef struct _ROWDEF *PROWDEF;
@@ -166,8 +186,20 @@ typedef struct _COLUMNDEF
 
     PVOID       pvDefinition;       // either a PTABLEDEF or a PCONTROLDEF
 
-    CONTROLPOS  cpControl,          // real pos and size of control
-                cpColumn;           // pos and size of column; can be wider, spacings applied
+    CONTROLPOS  cpControl,          // real pos and size of control; if the control is
+                                    // a subtable, this receives the size of the table
+                                    // without spacings
+                cpColumn;           // pos and size of column; this is the size of the
+                                    // column plus the spacing from the CONTROLDEF
+                                    // applied
+                                    // For PM group controls around tables, this is
+                                    // receives the following spacings:
+                                    // x += GROUP_INNER_SPACING_X + CONTROLDEF.ulSpacing
+                                    // y += GROUP_INNER_SPACING_Y + CONTROLDEF.ulSpacing
+                                    // cx += 2 * GROUP_INNER_SPACING_X + 2 * CONTROLDEF.ulSpacing
+                                    // cy +=   2 * GROUP_INNER_SPACING_Y
+                                    //       + GROUP_INNER_SPACING_EXTRA_TOP
+                                    //       + 2 * CONTROLDEF.duSpacing
 
     HWND        hwndControl;        // created control; NULLHANDLE for tables always
 
@@ -337,8 +369,9 @@ static APIRET CalcAutoSizeText(PCONTROLDEF pControlDef,
                 rcl.xRight = winhQueryScreenCX() * 2 / 3;
             */
             rcl.xRight = ulWidth;
-            if (pControlDef->szlControlProposed.cy > 0)
-                rcl.yTop = pControlDef->szlControlProposed.cy;   // V0.9.12 (2001-05-31) [umoeller]
+            if (pControlDef->szlDlgUnits.cy > 0)
+                rcl.yTop = pControlDef->szlDlgUnits.cy * FACTOR_Y;
+                        // V0.9.12 (2001-05-31) [umoeller]
             else
                 rcl.yTop = winhQueryScreenCY() * 2 / 3;
 
@@ -401,7 +434,8 @@ static APIRET CalcAutoSize(PCONTROLDEF pControlDef,
                                             | BS_RADIOBUTTON))
                 {
                     // give a little extra width for the box bitmap
-                    pszlAuto->cx += 20;     // @@todo
+                    // V0.9.19 (2002-04-24) [umoeller]
+                    pszlAuto->cx += ctlQueryCheckboxSize() + 4;
                     // and height
                     pszlAuto->cy += 2;
                 }
@@ -475,6 +509,8 @@ static APIRET CalcAutoSize(PCONTROLDEF pControlDef,
  *@@changed V0.9.16 (2001-10-15) [umoeller]: added APIRET
  *@@changed V0.9.16 (2002-02-02) [umoeller]: added support for explicit group size
  *@@changed V0.9.19 (2002-04-17) [umoeller]: fixes for the STUPID drop-down comboboxes
+ *@@changed V0.9.19 (2002-04-24) [umoeller]: fixed PM groups alignment
+ *@@changed V0.9.19 (2002-04-24) [umoeller]: added resolution correlation
  */
 
 static APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
@@ -483,8 +519,8 @@ static APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
 {
     APIRET      arc = NO_ERROR;
     PCONTROLDEF pControlDef = NULL;
-    ULONG       ulExtraCX = 0,
-                ulExtraCY = 0;
+    ULONG       xExtraColumn = 0,
+                yExtraColumn = 0;
 
     if (pColumnDef->fIsNestedTable)
     {
@@ -500,24 +536,35 @@ static APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
             pColumnDef->cpControl.cy = pTableDef->cpTable.cy;
 
             // should we create a PM control around the table?
-            if (pTableDef->pCtlDef)
+            if (pControlDef = pTableDef->pCtlDef)
             {
                 // yes:
+                LONG cxCalc = pControlDef->szlDlgUnits.cx * FACTOR_X,
+                     cyCalc = pControlDef->szlDlgUnits.cy * FACTOR_Y;
 
                 // check if maybe an explicit size was specified
-                // for the group; if that is larger than what
+                // for the group; only if that is larger than what
                 // we've calculated above, use it instead
-                if (pTableDef->pCtlDef->szlControlProposed.cx > pColumnDef->cpControl.cx)
+                if (cxCalc > pColumnDef->cpControl.cx)
                         // should be -1 for auto-size
-                    pColumnDef->cpControl.cx = pTableDef->pCtlDef->szlControlProposed.cx;
+                    pColumnDef->cpControl.cx = cxCalc;
 
-                if (pTableDef->pCtlDef->szlControlProposed.cy > pColumnDef->cpControl.cy)
+                if (cyCalc > pColumnDef->cpControl.cy)
                         // should be -1 for auto-size
-                    pColumnDef->cpControl.cy = pTableDef->pCtlDef->szlControlProposed.cy;
+                    pColumnDef->cpControl.cy = cyCalc;
 
-                // in any case, make this wider
-                ulExtraCX =    2 * PM_GROUP_SPACING_X;
-                ulExtraCY =    (PM_GROUP_SPACING_X + PM_GROUP_SPACING_TOP);
+                // in any case, add the inner spacing so that the group
+                // will be large enough
+                // fixed V0.9.19 (2002-04-24) [umoeller]
+                xExtraColumn =  (   (2 * pControlDef->duSpacing)
+                                  + 2 * GROUP_INNER_SPACING_X
+                                ) * FACTOR_X;
+                yExtraColumn =  (   (2 * pControlDef->duSpacing)
+                                  + GROUP_OUTER_SPACING_BOTTOM
+                                  + GROUP_INNER_SPACING_BOTTOM
+                                  + GROUP_INNER_SPACING_TOP
+                                  + GROUP_OUTER_SPACING_TOP
+                                ) * FACTOR_Y;
             }
         }
     }
@@ -532,23 +579,27 @@ static APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
         // V0.9.16 (2002-02-02) [umoeller]
         if (ProcessMode == PROCESS_1_CALC_SIZES)
         {
-            if (    (pControlDef->szlControlProposed.cx == -1)
-                 || (pControlDef->szlControlProposed.cy == -1)
+            // V0.9.19 (2002-04-24) [umoeller]: added resolution correlation
+            LONG cxCalc = pControlDef->szlDlgUnits.cx * FACTOR_X,
+                 cyCalc = pControlDef->szlDlgUnits.cy * FACTOR_Y;
+
+            if (    (pControlDef->szlDlgUnits.cx == -1)
+                 || (pControlDef->szlDlgUnits.cy == -1)
                )
             {
                 ULONG ulWidth;
-                if (pControlDef->szlControlProposed.cx == -1)
+                if (pControlDef->szlDlgUnits.cx == -1)
                     ulWidth = 1000;
                 else
-                    ulWidth = pControlDef->szlControlProposed.cx;
+                    ulWidth = cxCalc;
                 arc = CalcAutoSize(pControlDef,
                                    ulWidth,
                                    &szlAuto,
                                    pDlgData);
             }
 
-            if (    (pControlDef->szlControlProposed.cx < -1)
-                 && (pControlDef->szlControlProposed.cx >= -100)
+            if (    (pControlDef->szlDlgUnits.cx < -1)
+                 && (pControlDef->szlDlgUnits.cx >= -100)
                )
             {
                 // other negative CX value:
@@ -557,8 +608,8 @@ static APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
                 szlAuto.cx = 0;
             }
 
-            if (    (pControlDef->szlControlProposed.cy < -1)
-                 && (pControlDef->szlControlProposed.cy >= -100)
+            if (    (pControlDef->szlDlgUnits.cy < -1)
+                 && (pControlDef->szlDlgUnits.cy >= -100)
                )
             {
                 // other negative CY value:
@@ -569,28 +620,33 @@ static APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
 
             if (!arc)
             {
-                if (pControlDef->szlControlProposed.cx < 0)
+                if (pControlDef->szlDlgUnits.cx < 0)
+                    // this was autosize:
                     pColumnDef->cpControl.cx = szlAuto.cx;
                 else
-                    pColumnDef->cpControl.cx = pControlDef->szlControlProposed.cx;
+                    // this was explicit: use converted size
+                    // V0.9.19 (2002-04-24) [umoeller]
+                    pColumnDef->cpControl.cx = cxCalc;
 
-                if (pControlDef->szlControlProposed.cy < 0)
+                if (pControlDef->szlDlgUnits.cy < 0)
+                    // this was autosize:
                     pColumnDef->cpControl.cy = szlAuto.cy;
                 else
-                    pColumnDef->cpControl.cy = pControlDef->szlControlProposed.cy;
+                    // this was explicit: use converted size
+                    // V0.9.19 (2002-04-24) [umoeller]
+                    pColumnDef->cpControl.cy = cyCalc;
             }
 
         } // end if (ProcessMode == PROCESS_1_CALC_SIZES)
 
-        ulExtraCX
-        = ulExtraCY
-        = (2 * pControlDef->ulSpacing);
+        xExtraColumn = 2 * (pControlDef->duSpacing * FACTOR_X);
+        yExtraColumn = 2 * (pControlDef->duSpacing * FACTOR_Y);
     }
 
     pColumnDef->cpColumn.cx =   pColumnDef->cpControl.cx
-                               + ulExtraCX;
+                              + xExtraColumn;
     pColumnDef->cpColumn.cy =   pColumnDef->cpControl.cy
-                               + ulExtraCY;
+                              + yExtraColumn;
 
     if (    (pControlDef)
          && ((ULONG)pControlDef->pcszClass == 0xffff0002L)
@@ -613,7 +669,7 @@ static APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
                 =   pDlgData->fmLast.lMaxBaselineExt
                   + pDlgData->fmLast.lExternalLeading
                   + 2 * cyMargin
-                  + ulExtraCY;
+                  + yExtraColumn;
         }
     }
 
@@ -627,6 +683,7 @@ static APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
  *
  *@@added V0.9.15 (2001-08-26) [umoeller]
  *@@changed V0.9.16 (2001-10-15) [umoeller]: added APIRET
+ *@@changed V0.9.19 (2002-04-24) [umoeller]: fixed PM groups alignment
  */
 
 static APIRET ColumnCalcPositions(PCOLUMNDEF pColumnDef,
@@ -637,8 +694,8 @@ static APIRET ColumnCalcPositions(PCOLUMNDEF pColumnDef,
     APIRET arc = NO_ERROR;
 
     // calculate column position: this includes spacing
-    LONG   lSpacingX = 0,
-           lSpacingY = 0;
+    LONG   xSpacingControl = 0,
+           ySpacingControl = 0;
 
     // column position = *plX on ProcessRow stack
     pColumnDef->cpColumn.x = *plX;
@@ -671,15 +728,22 @@ static APIRET ColumnCalcPositions(PCOLUMNDEF pColumnDef,
         if (pTableDef->pCtlDef)
         {
             // yes:
-            lSpacingX = PM_GROUP_SPACING_X;     // V0.9.16 (2001-10-15) [umoeller]
-            lSpacingY = PM_GROUP_SPACING_X;     // V0.9.16 (2001-10-15) [umoeller]
+            // V0.9.19 (2002-04-24) [umoeller]
+            xSpacingControl = (   pTableDef->pCtlDef->duSpacing
+                                + GROUP_INNER_SPACING_X
+                              ) * FACTOR_X;
+            ySpacingControl = (   pTableDef->pCtlDef->duSpacing
+                                + GROUP_OUTER_SPACING_BOTTOM
+                                + GROUP_INNER_SPACING_BOTTOM
+                              ) * FACTOR_Y;
         }
     }
     else
     {
         // no nested table, but control:
         PCONTROLDEF pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
-        lSpacingX = lSpacingY = pControlDef->ulSpacing;
+        xSpacingControl = pControlDef->duSpacing * FACTOR_X;
+        ySpacingControl = pControlDef->duSpacing * FACTOR_Y;
     }
 
     // increase plX by column width
@@ -687,9 +751,9 @@ static APIRET ColumnCalcPositions(PCOLUMNDEF pColumnDef,
 
     // calculate CONTROL pos from COLUMN pos by applying spacing
     pColumnDef->cpControl.x =   (LONG)pColumnDef->cpColumn.x
-                              + lSpacingX;
+                              + xSpacingControl;
     pColumnDef->cpControl.y =   (LONG)pColumnDef->cpColumn.y
-                              + lSpacingY;
+                              + ySpacingControl;
 
     if (pColumnDef->fIsNestedTable)
     {
@@ -715,6 +779,7 @@ static APIRET ColumnCalcPositions(PCOLUMNDEF pColumnDef,
  *@@changed V0.9.16 (2001-10-15) [umoeller]: fixed ugly group table spacings
  *@@changed V0.9.16 (2001-12-08) [umoeller]: fixed entry field ES_MARGIN positioning
  *@@changed V0.9.19 (2002-04-17) [umoeller]: fixes for the STUPID drop-down comboboxes
+ *@@changed V0.9.19 (2002-04-24) [umoeller]: fixed PM groups alignment
  */
 
 static APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
@@ -746,29 +811,41 @@ static APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
             // should we create a PM control around the table?
             // (do this AFTER the other controls from recursing,
             // otherwise the stupid container doesn't show up)
-            if (pTableDef->pCtlDef)
+            if (pControlDef = pTableDef->pCtlDef)
             {
                 // yes:
                 // pcp  = &pColumnDef->cpColumn;  // !! not control
-                pControlDef = pTableDef->pCtlDef;
                 pcszClass = pControlDef->pcszClass;
                 pcszTitle = pControlDef->pcszText;
                 flStyle = pControlDef->flStyle;
 
-                x  =   pColumnDef->cpColumn.x
+                // note: we do use cpControl, which is cpColumn plus
+                // spacings applied. But for groups, this is the
+                // following (see ColumnCalcPositions):
+                // V0.9.19 (2002-04-24) [umoeller]
+                // x is cpColumn.x plus GROUP_INNER_SPACING_X plus group control spacing
+                // y is cpColumn.y plus GROUP_INNER_SPACING_Y plus group control spacing
+                // cx is cpColumn.cx plus 2 * GROUP_INNER_SPACING_Y plus 2 * group control spacing
+                // cy is cpColumn.cy plus 2 * GROUP_INNER_SPACING_Y
+                //      plus GROUP_INNER_SPACING_TOP
+                //      plus 2 * group control spacing
+                // so this needs some hacks again
+                x  =   pColumnDef->cpControl.x
                      + pDlgData->ptlTotalOfs.x
-                     + PM_GROUP_SPACING_X / 2;
-                cx =   pColumnDef->cpColumn.cx
-                     - PM_GROUP_SPACING_X;
-                    // note, just one spacing: for the _column_ size,
-                    // we have specified 2 X spacings
-                y  =   pColumnDef->cpColumn.y
+                     - (GROUP_INNER_SPACING_X * FACTOR_X);
+                     ;
+                cx =   pColumnDef->cpControl.cx
+                     + (2 * (GROUP_INNER_SPACING_X * FACTOR_X));
+                     ;
+                y  =   pColumnDef->cpControl.y
                      + pDlgData->ptlTotalOfs.y
-                     + PM_GROUP_SPACING_X / 2;
-                // cy = pcp->cy - PM_GROUP_SPACING_X;
-                // cy = pcp->cy - /* PM_GROUP_SPACING_X - */ PM_GROUP_SPACING_TOP;
-                cy =   pColumnDef->cpColumn.cy
-                     - PM_GROUP_SPACING_X / 2; //  - PM_GROUP_SPACING_TOP / 2;
+                     - (GROUP_INNER_SPACING_BOTTOM * FACTOR_Y);
+                     ;
+                cy =   pColumnDef->cpControl.cy
+                     + ( (   GROUP_INNER_SPACING_BOTTOM
+                           + GROUP_INNER_SPACING_TOP
+                         ) * FACTOR_Y);
+                     ;
             }
 
 #ifdef DEBUG_DIALOG_WINDOWS
@@ -847,7 +924,9 @@ static APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
                             pColumnDef->cpColumn.cy,
                             pColumnDef->cpControl.cy));
                     _Pmpf(("   cyDelta = %d", cyDelta));
-                    y -= cyDelta + 3 * pDlgData->cyBorder + pControlDef->ulSpacing;
+                    y -=   cyDelta
+                         + 3 * pDlgData->cyBorder
+                         + pControlDef->duSpacing * FACTOR_Y;
                     // cy += cyDelta;
                 }
             }
@@ -920,7 +999,6 @@ static APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
                                 NULL);
                 winhSetPresColor(hwndDebug, PP_FOREGROUNDCOLOR, RGBCOL_DARKGREEN);
 
-                /*
                 // and another one for the control size
                 hwndDebug =
                    WinCreateWindow(pDlgData->hwndDlg,   // parent
@@ -937,7 +1015,6 @@ static APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
                                 NULL,
                                 NULL);
                 winhSetPresColor(hwndDebug, PP_FOREGROUNDCOLOR, RGBCOL_RED);
-                */
             }
 #endif
 
@@ -1080,26 +1157,27 @@ static APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
                 // no nested table, but control:
                 PCONTROLDEF pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
 
-                if (    (pControlDef->szlControlProposed.cx < -1)
-                     && (pControlDef->szlControlProposed.cx >= -100)
+                if (    (pControlDef->szlDlgUnits.cx < -1)
+                     && (pControlDef->szlDlgUnits.cx >= -100)
                    )
                 {
                     // other negative CX value:
                     // this we ignored during PROCESS_1_CALC_SIZES
                     // (see ColumnCalcSizes); now set it to the
-                    // table width!
+                    // percentage of the table width!
                     ULONG cxThis = pOwningRow->pOwningTable->cpTable.cx
-                                    * -pControlDef->szlControlProposed.cx / 100;
+                                    * -pControlDef->szlDlgUnits.cx
+                                    / 100;
 
                     // but the table already has spacing applied,
                     // so reduce that
                     pColumnDef->cpControl.cx = cxThis
-                                            - (2 * pControlDef->ulSpacing);
+                                            - (2 * (pControlDef->duSpacing * FACTOR_X));
 
                     pColumnDef->cpColumn.cx = cxThis;
 
                     // now we might have to re-compute auto-size
-                    if (pControlDef->szlControlProposed.cy == -1)
+                    if (pControlDef->szlDlgUnits.cy == -1)
                     {
                         SIZEL   szlAuto;
                         if (!(arc = CalcAutoSize(pControlDef,
@@ -1114,25 +1192,26 @@ static APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
                             PROWDEF pRowThis;
 
                             pColumnDef->cpControl.cy = szlAuto.cy;
-                            pColumnDef->cpColumn.cy = szlAuto.cy
-                                        + (2 * pControlDef->ulSpacing);
+                            pColumnDef->cpColumn.cy =   szlAuto.cy
+                                                      + (2 * (pControlDef->duSpacing * FACTOR_Y));
                         }
                     }
                 }
 
-                if (    (pControlDef->szlControlProposed.cy < -1)
-                     && (pControlDef->szlControlProposed.cy >= -100)
+                if (    (pControlDef->szlDlgUnits.cy < -1)
+                     && (pControlDef->szlDlgUnits.cy >= -100)
                    )
                 {
                     // same thing for CY, but this time we
-                    // take the row height
+                    // take the percentage of the row height
                     ULONG cyThis = pOwningRow->cpRow.cy
-                                    * -pControlDef->szlControlProposed.cy / 100;
+                                    * -pControlDef->szlDlgUnits.cy
+                                    / 100;
 
                     // but the table already has spacing applied,
                     // so reduce that
-                    pColumnDef->cpControl.cy = cyThis
-                                            - (2 * pControlDef->ulSpacing);
+                    pColumnDef->cpControl.cy =   cyThis
+                                               - (2 * (pControlDef->duSpacing * FACTOR_Y));
 
                     pColumnDef->cpColumn.cy = cyThis;
                 }
@@ -1509,20 +1588,21 @@ typedef struct _STACKITEM
 
 } STACKITEM, *PSTACKITEM;
 
-#define SPACING     10
-
 /*
  *@@ Dlg0_Init:
  *
  *@@added V0.9.15 (2001-08-26) [umoeller]
- *@@changed V0.9.18 (2002-03-03) [umoeller]: aded pllWindows
+ *@@changed V0.9.18 (2002-03-03) [umoeller]: added pllWindows
+ *@@changed V0.9.19 (2002-04-24) [umoeller]: added resolution correlation
  */
 
 static APIRET Dlg0_Init(PDLGPRIVATE *ppDlgData,
                         PCSZ pcszControlsFont,
                         PLINKLIST pllControls)
 {
-    PDLGPRIVATE pDlgData;
+    PDLGPRIVATE     pDlgData;
+    POINTL          ptl = {100, 100};
+
     if (!(pDlgData = NEW(DLGPRIVATE)))
         return (ERROR_NOT_ENOUGH_MEMORY);
     ZERO(pDlgData);
@@ -1536,6 +1616,29 @@ static APIRET Dlg0_Init(PDLGPRIVATE *ppDlgData,
     // cache these now too V0.9.19 (2002-04-17) [umoeller]
     pDlgData->cxBorder = WinQuerySysValue(HWND_DESKTOP, SV_CXBORDER);
     pDlgData->cyBorder = WinQuerySysValue(HWND_DESKTOP, SV_CYBORDER);
+
+    // check how many pixels we get out of the
+    // dlgunits (100/100) for mapping all sizes
+    // V0.9.19 (2002-04-24) [umoeller]
+    if (WinMapDlgPoints(NULLHANDLE,
+                        &ptl,
+                        1,
+                        TRUE))
+    {
+        // this worked:
+        // for 1024x768, I get 200/250 out of the above,
+        // so calculate a factor from that; we multiply
+        // szlDlgUnits with this factor when calculating
+        // the sizes
+        pDlgData->dFactorX = (double)ptl.x / (double)100;       // 2   on 1024x768
+        pDlgData->dFactorY = (double)ptl.y / (double)100;       // 2.5 on 1024x768
+    }
+    else
+    {
+        // didn't work:
+        pDlgData->dFactorX = 2;
+        pDlgData->dFactorY = 2.5;
+    }
 
     *ppDlgData = pDlgData;
 
@@ -1776,9 +1879,8 @@ static APIRET Dlg3_PositionAndCreate(PDLGPRIVATE pDlgData,
      *
      */
 
-    pDlgData->ptlTotalOfs.x
-    = pDlgData->ptlTotalOfs.y
-    = SPACING;
+    pDlgData->ptlTotalOfs.x = DLG_OUTER_SPACING_X * FACTOR_X;
+    pDlgData->ptlTotalOfs.y = DLG_OUTER_SPACING_Y * FACTOR_Y;
 
     ProcessAll(pDlgData,
                PROCESS_5_CREATE_CONTROLS);
@@ -2087,6 +2189,7 @@ static VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *@@changed V0.9.14 (2001-08-01) [umoeller]: fixed major memory leaks with nested tables
  *@@changed V0.9.14 (2001-08-21) [umoeller]: fixed default push button problems
  *@@changed V0.9.16 (2001-12-06) [umoeller]: fixed bad owner if not direct desktop child
+ *@@changed V0.9.19 (2002-04-24) [umoeller]: added excpt handling
  */
 
 APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
@@ -2101,145 +2204,154 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
 {
     APIRET      arc = NO_ERROR;
 
-    ULONG       ul;
-
-    PDLGPRIVATE  pDlgData = NULL;
-
-    HWND        hwndDesktop = WinQueryDesktopWindow(NULLHANDLE, NULLHANDLE);
-                                        // works with a null HAB
-
-    /*
-     *  1) parse the table and create structures from it
-     *
-     */
-
-    if (!(arc = Dlg0_Init(&pDlgData,
-                          pcszControlsFont,
-                          NULL)))
+    TRY_LOUD(excpt1)
     {
-        if (!(arc = Dlg1_ParseTables(pDlgData,
-                                     paDlgItems,
-                                     cDlgItems)))
+        ULONG       ul;
+
+        PDLGPRIVATE  pDlgData = NULL;
+
+        HWND        hwndDesktop = WinQueryDesktopWindow(NULLHANDLE, NULLHANDLE);
+                                            // works with a null HAB
+
+        /*
+         *  1) parse the table and create structures from it
+         *
+         */
+
+        if (!(arc = Dlg0_Init(&pDlgData,
+                              pcszControlsFont,
+                              NULL)))
         {
-            /*
-             *  2) create empty dialog frame
-             *
-             */
-
-            FRAMECDATA      fcData = {0};
-            ULONG           flStyle = 0;
-            HWND            hwndOwnersParent;
-
-            fcData.cb = sizeof(FRAMECDATA);
-            fcData.flCreateFlags = flCreateFlags | 0x40000000L;
-
-            if (flCreateFlags & FCF_SIZEBORDER)
-                // dialog has size border:
-                // add "clip siblings" style
-                flStyle |= WS_CLIPSIBLINGS;
-
-            if (hwndOwner == HWND_DESKTOP)
-                // there's some dumb XWorkplace code left
-                // which uses this, and this disables the
-                // mouse for some reason
-                // V0.9.14 (2001-07-07) [umoeller]
-                hwndOwner = NULLHANDLE;
-
-            // now, make sure the owner window is child of
-            // HWND_DESKTOP... if it is not, we'll only disable
-            // some dumb child window, which is not sufficient
-            // V0.9.16 (2001-12-06) [umoeller]
-            while (    (hwndOwner)
-                    && (hwndOwnersParent = WinQueryWindow(hwndOwner, QW_PARENT))
-                    && (hwndOwnersParent != hwndDesktop)
-                  )
-                hwndOwner = hwndOwnersParent;
-
-            if (!(pDlgData->hwndDlg = WinCreateWindow(HWND_DESKTOP,
-                                                      WC_FRAME,
-                                                      (PSZ)pcszDlgTitle,
-                                                      flStyle,        // style; invisible for now
-                                                      0, 0, 0, 0,
-                                                      hwndOwner,
-                                                      HWND_TOP,
-                                                      0,              // ID
-                                                      &fcData,
-                                                      NULL)))          // presparams
-                arc = DLGERR_CANNOT_CREATE_FRAME;
-            else
+            if (!(arc = Dlg1_ParseTables(pDlgData,
+                                         paDlgItems,
+                                         cDlgItems)))
             {
-                HWND    hwndDlg = pDlgData->hwndDlg;
-                HWND    hwndFocusItem = NULLHANDLE;
-                RECTL   rclClient;
-
                 /*
-                 *  3) compute size of all controls
+                 *  2) create empty dialog frame
                  *
                  */
 
-                if (!(arc = Dlg2_CalcSizes(pDlgData)))
+                FRAMECDATA      fcData = {0};
+                ULONG           flStyle = 0;
+                HWND            hwndOwnersParent;
+
+                fcData.cb = sizeof(FRAMECDATA);
+                fcData.flCreateFlags = flCreateFlags | 0x40000000L;
+
+                if (flCreateFlags & FCF_SIZEBORDER)
+                    // dialog has size border:
+                    // add "clip siblings" style
+                    flStyle |= WS_CLIPSIBLINGS;
+
+                if (hwndOwner == HWND_DESKTOP)
+                    // there's some dumb XWorkplace code left
+                    // which uses this, and this disables the
+                    // mouse for some reason
+                    // V0.9.14 (2001-07-07) [umoeller]
+                    hwndOwner = NULLHANDLE;
+
+                // now, make sure the owner window is child of
+                // HWND_DESKTOP... if it is not, we'll only disable
+                // some dumb child window, which is not sufficient
+                // V0.9.16 (2001-12-06) [umoeller]
+                while (    (hwndOwner)
+                        && (hwndOwnersParent = WinQueryWindow(hwndOwner, QW_PARENT))
+                        && (hwndOwnersParent != hwndDesktop)
+                      )
+                    hwndOwner = hwndOwnersParent;
+
+                if (!(pDlgData->hwndDlg = WinCreateWindow(HWND_DESKTOP,
+                                                          WC_FRAME,
+                                                          (PSZ)pcszDlgTitle,
+                                                          flStyle,        // style; invisible for now
+                                                          0, 0, 0, 0,
+                                                          hwndOwner,
+                                                          HWND_TOP,
+                                                          0,              // ID
+                                                          &fcData,
+                                                          NULL)))          // presparams
+                    arc = DLGERR_CANNOT_CREATE_FRAME;
+                else
                 {
-                    WinSubclassWindow(hwndDlg, pfnwpDialogProc);
+                    HWND    hwndDlg = pDlgData->hwndDlg;
+                    HWND    hwndFocusItem = NULLHANDLE;
+                    RECTL   rclClient;
 
                     /*
-                     *  4) compute size of dialog client from total
-                     *     size of all controls
-                     */
-
-                    // calculate the frame size from the client size
-                    rclClient.xLeft = 10;
-                    rclClient.yBottom = 10;
-                    rclClient.xRight = pDlgData->szlClient.cx + 2 * SPACING;
-                    rclClient.yTop = pDlgData->szlClient.cy + 2 * SPACING;
-                    WinCalcFrameRect(hwndDlg,
-                                     &rclClient,
-                                     FALSE);            // frame from client
-
-                    WinSetWindowPos(hwndDlg,
-                                    0,
-                                    10,
-                                    10,
-                                    rclClient.xRight,
-                                    rclClient.yTop,
-                                    SWP_MOVE | SWP_SIZE | SWP_NOADJUST);
-
-                    arc = Dlg3_PositionAndCreate(pDlgData,
-                                                 &hwndFocusItem);
-
-                    /*
-                     *  7) WM_INITDLG, set focus
+                     *  3) compute size of all controls
                      *
                      */
 
-                    if (!WinSendMsg(pDlgData->hwndDlg,
-                                    WM_INITDLG,
-                                    (MPARAM)hwndFocusItem,
-                                    (MPARAM)pCreateParams))
+                    if (!(arc = Dlg2_CalcSizes(pDlgData)))
                     {
-                        // if WM_INITDLG returns FALSE, this means
-                        // the dlg proc has not changed the focus;
-                        // we must then set the focus here
-                        WinSetFocus(HWND_DESKTOP, hwndFocusItem);
+                        WinSubclassWindow(hwndDlg, pfnwpDialogProc);
+
+                        /*
+                         *  4) compute size of dialog client from total
+                         *     size of all controls
+                         */
+
+                        // calculate the frame size from the client size
+                        rclClient.xLeft = 10;
+                        rclClient.yBottom = 10;
+                        rclClient.xRight =   pDlgData->szlClient.cx
+                                           + 2 * (DLG_OUTER_SPACING_X * FACTOR_X);
+                        rclClient.yTop   =   pDlgData->szlClient.cy
+                                           + 2 * (DLG_OUTER_SPACING_Y * FACTOR_Y);
+                        WinCalcFrameRect(hwndDlg,
+                                         &rclClient,
+                                         FALSE);            // frame from client
+
+                        WinSetWindowPos(hwndDlg,
+                                        0,
+                                        10,
+                                        10,
+                                        rclClient.xRight,
+                                        rclClient.yTop,
+                                        SWP_MOVE | SWP_SIZE | SWP_NOADJUST);
+
+                        arc = Dlg3_PositionAndCreate(pDlgData,
+                                                     &hwndFocusItem);
+
+                        /*
+                         *  7) WM_INITDLG, set focus
+                         *
+                         */
+
+                        if (!WinSendMsg(pDlgData->hwndDlg,
+                                        WM_INITDLG,
+                                        (MPARAM)hwndFocusItem,
+                                        (MPARAM)pCreateParams))
+                        {
+                            // if WM_INITDLG returns FALSE, this means
+                            // the dlg proc has not changed the focus;
+                            // we must then set the focus here
+                            WinSetFocus(HWND_DESKTOP, hwndFocusItem);
+                        }
                     }
                 }
             }
-        }
 
-        if (arc)
-        {
-            // error: clean up
-            if (pDlgData->hwndDlg)
+            if (arc)
             {
-                WinDestroyWindow(pDlgData->hwndDlg);
-                pDlgData->hwndDlg = NULLHANDLE;
+                // error: clean up
+                if (pDlgData->hwndDlg)
+                {
+                    WinDestroyWindow(pDlgData->hwndDlg);
+                    pDlgData->hwndDlg = NULLHANDLE;
+                }
             }
-        }
-        else
-            // no error: output dialog
-            *phwndDlg = pDlgData->hwndDlg;
+            else
+                // no error: output dialog
+                *phwndDlg = pDlgData->hwndDlg;
 
-        Dlg9_Cleanup(&pDlgData);
+            Dlg9_Cleanup(&pDlgData);
+        }
     }
+    CATCH(excpt1)
+    {
+        arc = ERROR_PROTECTION_VIOLATION;
+    } END_CATCH();
 
     if (arc)
     {
@@ -2286,6 +2398,7 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
  *
  *@@added V0.9.16 (2001-09-29) [umoeller]
  *@@changed V0.9.18 (2002-03-03) [umoeller]: added pszlClient, fixed output
+ *@@changed V0.9.19 (2002-04-24) [umoeller]: added excpt handling
  */
 
 APIRET dlghFormatDlg(HWND hwndDlg,              // in: dialog frame to work on
@@ -2298,59 +2411,68 @@ APIRET dlghFormatDlg(HWND hwndDlg,              // in: dialog frame to work on
 {
     APIRET      arc = NO_ERROR;
 
-    ULONG       ul;
-
-    PDLGPRIVATE  pDlgData = NULL;
-    PLINKLIST   pllControls = NULL;
-
-    /*
-     *  1) parse the table and create structures from it
-     *
-     */
-
-    if (ppllControls)
-        pllControls = *(PLINKLIST*)ppllControls = lstCreate(FALSE);
-
-    if (!(arc = Dlg0_Init(&pDlgData,
-                          pcszControlsFont,
-                          pllControls)))
+    TRY_LOUD(excpt1)
     {
-        if (!(arc = Dlg1_ParseTables(pDlgData,
-                                     paDlgItems,
-                                     cDlgItems)))
+        ULONG       ul;
+
+        PDLGPRIVATE  pDlgData = NULL;
+        PLINKLIST   pllControls = NULL;
+
+        /*
+         *  1) parse the table and create structures from it
+         *
+         */
+
+        if (ppllControls)
+            pllControls = *(PLINKLIST*)ppllControls = lstCreate(FALSE);
+
+        if (!(arc = Dlg0_Init(&pDlgData,
+                              pcszControlsFont,
+                              pllControls)))
         {
-            HWND hwndFocusItem;
-
-            /*
-             *  2) create empty dialog frame
-             *
-             */
-
-            pDlgData->hwndDlg = hwndDlg;
-
-            /*
-             *  3) compute size of all controls
-             *
-             */
-
-            Dlg2_CalcSizes(pDlgData);
-
-            if (pszlClient)
+            if (!(arc = Dlg1_ParseTables(pDlgData,
+                                         paDlgItems,
+                                         cDlgItems)))
             {
-                pszlClient->cx = pDlgData->szlClient.cx + 2 * SPACING;
-                pszlClient->cy = pDlgData->szlClient.cy + 2 * SPACING;
+                HWND hwndFocusItem;
+
+                /*
+                 *  2) create empty dialog frame
+                 *
+                 */
+
+                pDlgData->hwndDlg = hwndDlg;
+
+                /*
+                 *  3) compute size of all controls
+                 *
+                 */
+
+                Dlg2_CalcSizes(pDlgData);
+
+                if (pszlClient)
+                {
+                    pszlClient->cx =    pDlgData->szlClient.cx
+                                      + 2 * (DLG_OUTER_SPACING_X * FACTOR_X);
+                    pszlClient->cy =    pDlgData->szlClient.cy
+                                      + 2 * (DLG_OUTER_SPACING_Y * FACTOR_Y);
+                }
+
+                if (flFlags & DFFL_CREATECONTROLS)
+                {
+                    if (!(arc = Dlg3_PositionAndCreate(pDlgData,
+                                                       &hwndFocusItem)))
+                        WinSetFocus(HWND_DESKTOP, hwndFocusItem);
+                }
             }
 
-            if (flFlags & DFFL_CREATECONTROLS)
-            {
-                if (!(arc = Dlg3_PositionAndCreate(pDlgData,
-                                                   &hwndFocusItem)))
-                    WinSetFocus(HWND_DESKTOP, hwndFocusItem);
-            }
+            Dlg9_Cleanup(&pDlgData);
         }
-
-        Dlg9_Cleanup(&pDlgData);
     }
+    CATCH(excpt1)
+    {
+        arc = ERROR_PROTECTION_VIOLATION;
+    } END_CATCH();
 
     if (arc)
     {
@@ -2469,7 +2591,7 @@ VOID dlghResizeFrame(HWND hwndDlg,
  +                       FCF_ ...
  +                       fnwpMyDialogProc,
  +                       "Title",
- +                       pArray->paDialogItems,     // dialog array!
+ +                       pArray->paDlgItems,        // dialog array!
  +                       pArray->cDlgItemsNow,      // real count of items!
  +                       NULL,
  +                       NULL);
@@ -2587,10 +2709,34 @@ APIRET dlghAppendToArray(PDLGARRAY pArray,      // in: dialog array created by d
  ********************************************************************/
 
 /*
+ *@@ fnwpMessageBox:
+ *
+ *@@added V0.9.19 (2002-04-24) [umoeller]
+ */
+
+MRESULT EXPENTRY fnwpMessageBox(HWND hwndBox, ULONG msg, MPARAM mp1, MPARAM mp2)
+{
+    switch (msg)
+    {
+        case WM_HELP:
+        {
+            PFNHELP pfnHelp;
+            if (pfnHelp = (PFNHELP)WinQueryWindowPtr(hwndBox, QWL_USER))
+                pfnHelp(hwndBox);
+
+            return 0;
+        }
+    }
+
+    return WinDefDlgProc(hwndBox, msg, mp1, mp2);
+}
+
+/*
  *@@ dlghCreateMessageBox:
  *
  *@@added V0.9.13 (2001-06-21) [umoeller]
  *@@changed V0.9.14 (2001-07-26) [umoeller]: fixed missing focus on buttons
+ *@@changed V0.9.19 (2002-04-24) [umoeller]: added pfnHelp
  */
 
 APIRET dlghCreateMessageBox(HWND *phwndDlg,
@@ -2598,83 +2744,55 @@ APIRET dlghCreateMessageBox(HWND *phwndDlg,
                             HPOINTER hptrIcon,
                             PCSZ pcszTitle,
                             PCSZ pcszMessage,
+                            PFNHELP pfnHelp,           // in: help callback or NULL
                             ULONG flFlags,
                             PCSZ pcszFont,
                             const MSGBOXSTRINGS *pStrings,
                             PULONG pulAlarmFlag)      // out: alarm sound to be played
 {
-    CONTROLDEF
-        Icon = {
-                        WC_STATIC,
-                        NULL,           // text, set below
-                        WS_VISIBLE | SS_ICON,
-                        0,          // ID
-                        NULL,       // no font
-                        0,
-                        { SZL_AUTOSIZE, SZL_AUTOSIZE },
-                        5
-                    },
-        InfoText =
-                    {
-                        WC_STATIC,
-                        NULL,       // text, set below
-                        WS_VISIBLE | SS_TEXT | DT_WORDBREAK | DT_LEFT | DT_TOP,
-                        10,          // ID
-                        CTL_COMMON_FONT,
-                        0,
-                        { 400, SZL_AUTOSIZE },
-                        5
-                    },
-        Buttons[] = {
-                        {
-                            WC_BUTTON,
-                            NULL,       // text, set below
-                            WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
-                            1,          // ID
-                            CTL_COMMON_FONT,  // no font
-                            0,
-                            { 100, 30 },
-                            5
-                        },
-                        {
-                            WC_BUTTON,
-                            NULL,       // text, set below
-                            WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
-                            2,          // ID
-                            CTL_COMMON_FONT,  // no font
-                            0,
-                            { 100, 30 },
-                            5
-                        },
-                        {
-                            WC_BUTTON,
-                            NULL,       // text, set below
-                            WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
-                            3,          // ID
-                            CTL_COMMON_FONT,  // no font
-                            0,
-                            { 100, 30 },
-                            5
-                        }
-                    };
+    APIRET arc;
 
-    DLGHITEM MessageBox[] =
-                 {
+    CONTROLDEF
+        Icon = CONTROLDEF_ICON(NULLHANDLE, 0),
+        Spacing = CONTROLDEF_TEXT(NULL, 0, 1, 1),
+        InfoText = CONTROLDEF_TEXT_WORDBREAK(NULL, 10, 200),
+        Buttons[] =
+        {
+            CONTROLDEF_PUSHBUTTON(NULL, 1, STD_BUTTON_WIDTH, STD_BUTTON_HEIGHT),
+            CONTROLDEF_PUSHBUTTON(NULL, 2, STD_BUTTON_WIDTH, STD_BUTTON_HEIGHT),
+            CONTROLDEF_PUSHBUTTON(NULL, 3, STD_BUTTON_WIDTH, STD_BUTTON_HEIGHT),
+            CONTROLDEF_HELPPUSHBUTTON(NULL, 4, STD_BUTTON_WIDTH, STD_BUTTON_HEIGHT)
+        };
+
+    DLGHITEM MessageBoxFront[] =
+                {
                     START_TABLE,
                         START_ROW(ROW_VALIGN_CENTER),
                             CONTROL_DEF(&Icon),
                         START_TABLE,
                             START_ROW(ROW_VALIGN_CENTER),
+                                CONTROL_DEF(&Spacing),
+                            START_ROW(ROW_VALIGN_CENTER),
                                 CONTROL_DEF(&InfoText),
+                            START_ROW(ROW_VALIGN_CENTER),
+                                CONTROL_DEF(&Spacing),
                             START_ROW(ROW_VALIGN_CENTER),
                                 CONTROL_DEF(&Buttons[0]),
                                 CONTROL_DEF(&Buttons[1]),
                                 CONTROL_DEF(&Buttons[2]),
+                },
+            MessageBoxHelp[] =
+                {
+                                CONTROL_DEF(&Buttons[3]),
+                },
+            MessageBoxTail[] =
+                {
                         END_TABLE,
                     END_TABLE
-                 };
+                };
 
     ULONG flButtons = flFlags & 0xF;        // low nibble contains MB_YESNO etc.
+    PDLGARRAY pArrayBox;
 
     PCSZ        p0 = "Error",
                 p1 = NULL,
@@ -2763,15 +2881,44 @@ APIRET dlghCreateMessageBox(HWND *phwndDlg,
     else if (flFlags & (MB_ICONEXCLAMATION | MB_WARNING))
         *pulAlarmFlag = WA_WARNING;
 
-    return (dlghCreateDlg(phwndDlg,
-                          hwndOwner,
-                          FCF_TITLEBAR | FCF_SYSMENU | FCF_DLGBORDER | FCF_NOBYTEALIGN,
-                          WinDefDlgProc,
-                          pcszTitle,
-                          MessageBox,
-                          ARRAYITEMCOUNT(MessageBox),
-                          NULL,
-                          pcszFont));
+    if (pfnHelp)
+        Buttons[3].pcszText = pStrings->pcszHelp;
+
+    if (!(arc = dlghCreateArray(   ARRAYITEMCOUNT(MessageBoxFront)
+                                 + ARRAYITEMCOUNT(MessageBoxHelp)
+                                 + ARRAYITEMCOUNT(MessageBoxTail),
+                                &pArrayBox)))
+    {
+        if (    (!(arc = dlghAppendToArray(pArrayBox,
+                                           MessageBoxFront,
+                                           ARRAYITEMCOUNT(MessageBoxFront))))
+             && (    (!pfnHelp)
+                  || (!(arc = dlghAppendToArray(pArrayBox,
+                                                MessageBoxHelp,
+                                                ARRAYITEMCOUNT(MessageBoxHelp))))
+                )
+             && (!(arc = dlghAppendToArray(pArrayBox,
+                                           MessageBoxTail,
+                                           ARRAYITEMCOUNT(MessageBoxTail))))
+           )
+        {
+            if (!(arc = dlghCreateDlg(phwndDlg,
+                                      hwndOwner,
+                                      FCF_TITLEBAR | FCF_SYSMENU | FCF_DLGBORDER | FCF_NOBYTEALIGN,
+                                      fnwpMessageBox,
+                                      pcszTitle,
+                                      pArrayBox->paDlgItems,
+                                      pArrayBox->cDlgItemsNow,
+                                      NULL,
+                                      pcszFont)))
+                // added help callback V0.9.19 (2002-04-24) [umoeller]
+                WinSetWindowPtr(*phwndDlg, QWL_USER, (PVOID)pfnHelp);
+        }
+
+        dlghFreeArray(&pArrayBox);
+    }
+
+    return arc;
 }
 
 /*
@@ -2884,17 +3031,23 @@ ULONG dlghProcessMessageBox(HWND hwndDlg,
  *      -- MB_ICONHAND
  *      -- MB_ICONEXCLAMATION
  *
+ *      If (pfnHelp != NULL), a "Help" button is also added and
+ *      pfnHelp gets called when the user presses it or the F1
+ *      key.
+ *
  *      Returns MBID_* codes like WinMessageBox.
  *
  *@@added V0.9.13 (2001-06-21) [umoeller]
+ *@@changed V0.9.19 (2002-04-24) [umoeller]: added pfnHelp
  */
 
 ULONG dlghMessageBox(HWND hwndOwner,            // in: owner for msg box
                      HPOINTER hptrIcon,         // in: icon to display
-                     PCSZ pcszTitle,     // in: title
-                     PCSZ pcszMessage,   // in: message
+                     PCSZ pcszTitle,            // in: title
+                     PCSZ pcszMessage,          // in: message
+                     PFNHELP pfnHelp,           // in: help callback or NULL
                      ULONG flFlags,             // in: standard message box flags
-                     PCSZ pcszFont,      // in: font (e.g. "9.WarpSans")
+                     PCSZ pcszFont,             // in: font (e.g. "9.WarpSans")
                      const MSGBOXSTRINGS *pStrings) // in: strings array
 {
     HWND hwndDlg;
@@ -2904,6 +3057,7 @@ ULONG dlghMessageBox(HWND hwndOwner,            // in: owner for msg box
                                       hptrIcon,
                                       pcszTitle,
                                       pcszMessage,
+                                      pfnHelp,
                                       flFlags,
                                       pcszFont,
                                       pStrings,
@@ -2979,7 +3133,7 @@ PSZ dlghTextEntryBox(HWND hwndOwner,
                             -1,
                             CTL_COMMON_FONT,
                             0,
-                            { 300, SZL_AUTOSIZE },     // size
+                            { 150, SZL_AUTOSIZE },     // size
                             5               // spacing
                          },
                 Entry = {
@@ -2989,7 +3143,7 @@ PSZ dlghTextEntryBox(HWND hwndOwner,
                             999,
                             CTL_COMMON_FONT,
                             0,
-                            { 300, SZL_AUTOSIZE },     // size
+                            { 150, SZL_AUTOSIZE },     // size
                             5               // spacing
                          },
                 OKButton = {
@@ -2999,7 +3153,7 @@ PSZ dlghTextEntryBox(HWND hwndOwner,
                             DID_OK,
                             CTL_COMMON_FONT,
                             0,
-                            { 100, 30 },    // size
+                            { STD_BUTTON_WIDTH, STD_BUTTON_HEIGHT },    // size
                             5               // spacing
                          },
                 CancelButton = {
@@ -3009,7 +3163,7 @@ PSZ dlghTextEntryBox(HWND hwndOwner,
                             DID_CANCEL,
                             CTL_COMMON_FONT,
                             0,
-                            { 100, 30 },    // size
+                            { STD_BUTTON_WIDTH, STD_BUTTON_HEIGHT },    // size
                             5               // spacing
                          };
     DLGHITEM DlgTemplate[] =

@@ -1941,8 +1941,9 @@ APIRET doshGetDriveSpec(PCSZ pcszFullFile,      // in: fully q'fied file spec
  *      has no dot in it).
  *
  *      In the pathological case of a dot in the path
- *      but not in the filename itself, this correctly
- *      returns NULL.
+ *      but not in the filename itself (e.g.
+ *      "C:\files.new\readme"), this correctly returns
+ *      NULL.
  *
  *@@added V0.9.6 (2000-10-16) [umoeller]
  *@@changed V0.9.7 (2000-12-10) [umoeller]: fixed "F:filename.ext" case
@@ -2007,7 +2008,7 @@ BOOL doshIsFileOnFAT(const char* pcszFileName)
     BOOL brc = FALSE;
     CHAR szName[5];
 
-    APIRET rc              = NO_ERROR; // return code
+    APIRET arc;
     BYTE   fsqBuffer[sizeof(FSQBUFFER2) + (3 * CCHMAXPATH)] = {0};
     ULONG  cbBuffer   = sizeof(fsqBuffer);        // Buffer length)
     PFSQBUFFER2 pfsqBuffer = (PFSQBUFFER2)fsqBuffer;
@@ -2016,13 +2017,11 @@ BOOL doshIsFileOnFAT(const char* pcszFileName)
     szName[1] = ':';
     szName[2] = '\0';
 
-    rc = DosQueryFSAttach(szName,          // logical drive of attached FS
-                          0,               // ulOrdinal, ignored for FSAIL_QUERYNAME
-                          FSAIL_QUERYNAME, // return data for a Drive or Device
-                          pfsqBuffer,      // returned data
-                          &cbBuffer);      // returned data length
-
-    if (rc == NO_ERROR)
+    if (!(arc = DosQueryFSAttach(szName,          // logical drive of attached FS
+                                 0,               // ulOrdinal, ignored for FSAIL_QUERYNAME
+                                 FSAIL_QUERYNAME, // return data for a Drive or Device
+                                 pfsqBuffer,      // returned data
+                                 &cbBuffer)))     // returned data length
     {
         // The data for the last three fields in the FSQBUFFER2
         // structure are stored at the offset of fsqBuffer.szName.
@@ -3430,6 +3429,67 @@ APIRET doshDeleteDir(PCSZ pcszDir,
         arcReturn = DosDeleteDir((PSZ)pcszDir);
 
     return (arcReturn);
+}
+
+/*
+ *@@ doshCanonicalize:
+ *      simplifies path specifications to remove '.'
+ *      and '..' entries and generates a fully
+ *      qualified path name where possible.
+ *      File specifications are left unchanged.
+ *
+ *      This returns:
+ *
+ *      --  NO_ERROR: the buffers were valid.
+ *
+ *      --  ERROR_INVALID_PARAMETER: the buffers
+ *          were invalid.
+ *
+ *@@added V0.9.19 (2002-04-22) [pr]
+ */
+
+APIRET doshCanonicalize(PCSZ pcszFileIn,        // in: path to canonicalize
+                        PSZ pszFileOut,         // out: canonicalized path if NO_ERROR
+                        ULONG cbFileOut)        // in: size of pszFileOut buffer
+{
+    APIRET ulrc = NO_ERROR;
+    CHAR szFileTemp[CCHMAXPATH];
+
+    if (pcszFileIn && pszFileOut && cbFileOut)
+    {
+        strncpy(szFileTemp, pcszFileIn, sizeof(szFileTemp) - 1);
+        szFileTemp[sizeof(szFileTemp) - 1] = 0;
+        if (    strchr(szFileTemp, '\\')
+             || strchr(szFileTemp, ':')
+           )
+        {
+            ULONG cbFileTemp = strlen(szFileTemp);
+
+            if (    (cbFileTemp > 3)
+                 && (szFileTemp[cbFileTemp - 1] == '\\')
+               )
+            {
+                szFileTemp[cbFileTemp - 1] = 0;
+            }
+
+            if (DosQueryPathInfo(szFileTemp,
+                                 FIL_QUERYFULLNAME,
+                                 pszFileOut,
+                                 cbFileOut))
+            {
+                pszFileOut[0] = 0;
+            }
+        }
+        else
+        {
+            strncpy(pszFileOut, pcszFileIn, cbFileOut - 1);
+            pszFileOut[cbFileOut - 1] = 0;
+        }
+    }
+    else
+        ulrc = ERROR_INVALID_PARAMETER;
+
+    return(ulrc);
 }
 
 /*

@@ -827,8 +827,7 @@ extern "C" {
     HWND XWPENTRY winhCreateFakeDesktop(HWND hwndSibling);
 
     BOOL XWPENTRY winhAssertWarp4Notebook(HWND hwndDlg,
-                                 USHORT usIdThreshold,
-                                 ULONG ulDownUnits);
+                                          USHORT usIdThreshold);
 
     ULONG XWPENTRY winhDrawFormattedText(HPS hps, PRECTL prcl, const char *pcszText, ULONG flCmd);
 

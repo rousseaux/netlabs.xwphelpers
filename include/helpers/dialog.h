@@ -105,9 +105,15 @@ extern "C" {
                 // XAC_MOVEX, XAC_MOVEY, XAC_SIZEX, XAC_SIZEY
                 // @@todo not implemented yet
 
-        SIZEL       szlControlProposed;
-                // proposed size; a number of special flags are
-                // available (per cx, cy field):
+        SIZEL       szlDlgUnits;
+                // proposed size for the control. Note that starting
+                // with V0.9.19, these are now dialog units to
+                // finally fix the bad alignment problems with
+                // lower resolutions. The dialog formatter applies
+                // an internal factor to these things based on
+                // what WinMapDlgPoints gives us.
+                // A number of special flags are available per
+                // cx and cy field:
                 // -- SZL_AUTOSIZE (-1): determine size automatically.
                 //    Works only for statics with SS_TEXT and
                 //    SS_BITMAP.
@@ -121,12 +127,20 @@ extern "C" {
                 // and they are not SZL_AUTOSIZE, they specify the
                 // size of the inner table of the group (to override
                 // the automatic formatting). Note that the dialog
-                // formatter adds COMMON_SPACING to both the left and
-                // the right of the table to center the table in the
-                // PM group control, so the actual group size will
-                // be the specified size + (2 * COMMON_SPACING).
+                // adds extra spacing to this size:
+                // -- the group control's cx will be
+                //      2 * szlControlProposed.cx
+                //    + 2 * ulSpacing
+                //    + 2 * GROUP_INNER_SPACING_X
+                // -- the group control's cy will be
+                //      2 * szlControlProposed.cy
+                //    + 2 * ulSpacing
+                //    + GROUP_INNER_SPACING_Y
+                //    + GROUP_INNER_SPACING_TOP
 
-        ULONG       ulSpacing;          // spacing around control
+        ULONG       duSpacing;
+                // spacing around control; this is now in dialog
+                // units too V0.9.19 (2002-04-24) [umoeller]
 
         PVOID       pvCtlData;          // for WinCreateWindow
 
@@ -204,22 +218,61 @@ extern "C" {
 
     #define LOAD_STRING     ((PCSZ)-1)
 
-    #define COMMON_SPACING              3
+    // if the following is defined, we ignore the Y factor
+    // when scaling dialog units to pixels but use the X
+    // factor twice. This will result in something specified
+    // to be 10x10 units to be square, but will result in
+    // problems because dialog units are based on the
+    // system default fonts and x is different from y then.
+    // #define USE_SQUARE_CORRELATION
 
-    #define PM_GROUP_SPACING_X          16
-    #define PM_GROUP_SPACING_TOP        16
+    // if you still want something to be vaguely square,
+    // try the following macro to calculate the CY from a CX
+    #ifdef USE_SQUARE_CORRELATION
+        #define MAKE_SQUARE_CY(cx) (cx)
+    #else
+        #define MAKE_SQUARE_CY(cx) (cx * 200 / 250)
+    #endif
+
+    #define DLG_OUTER_SPACING_X             4
+                // outer spacing applied around entire dialog;
+                // we now use 4 to match the spacing in Warp 4
+                // notebook pages V0.9.19 (2002-04-24) [umoeller]
+    #define DLG_OUTER_SPACING_Y             3
+
+    #define COMMON_SPACING                  1
+
+    #define GROUP_INNER_SPACING_X           3
+    #define GROUP_OUTER_SPACING_BOTTOM      1
+    #define GROUP_INNER_SPACING_BOTTOM      3
+    #define GROUP_INNER_SPACING_TOP         8
+    #define GROUP_OUTER_SPACING_TOP         0
+
+    #define STD_BUTTON_WIDTH                50
+
+    #ifdef USE_SQUARE_CORRELATION
+        #define STD_BUTTON_HEIGHT               15
+        #define STD_SPIN_HEIGHT                 10
+    #else
+        #define STD_BUTTON_HEIGHT               12
+        #define STD_SPIN_HEIGHT                  8
+    #endif
+
+    #define DEFAULT_TABLE_WIDTH             150
 
     // the following require INCL_WINSTATICS
 
     #define CONTROLDEF_GROUP(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_GROUPBOX | DT_MNEMONIC, \
-            id, CTL_COMMON_FONT, 0, { cx, cy }, 0 }
+            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
 
-    #define CDEF_GROUP_AUTO(id) CONTROLDEF_GROUP(LOAD_STRING, id, -1, -1)
+    #define LOADDEF_GROUP(id, cx) CONTROLDEF_GROUP(LOAD_STRING, id, cx, SZL_AUTOSIZE)
 
     #define CONTROLDEF_TEXT(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_TEXT | DT_LEFT | DT_VCENTER | DT_MNEMONIC, \
             id, CTL_COMMON_FONT,  0, {cx, cy}, COMMON_SPACING }
+
+    #define LOADDEF_TEXT(id) CONTROLDEF_TEXT(LOAD_STRING, id, SZL_AUTOSIZE, SZL_AUTOSIZE)
 
     #define CONTROLDEF_TEXT_CENTER(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_TEXT | DT_CENTER | DT_VCENTER | DT_MNEMONIC, \
@@ -227,15 +280,15 @@ extern "C" {
 
     #define CONTROLDEF_TEXT_WORDBREAK(pcsz, id, cx) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_TEXT | DT_LEFT | DT_TOP | DT_WORDBREAK, \
-            id, CTL_COMMON_FONT,  0, {cx, -1}, COMMON_SPACING }
+            id, CTL_COMMON_FONT,  0, {cx, SZL_AUTOSIZE}, COMMON_SPACING }
 
     #define CONTROLDEF_ICON(hptr, id) { WC_STATIC, (PCSZ)(hptr), \
             WS_VISIBLE | SS_ICON | DT_LEFT | DT_VCENTER, \
-            id, CTL_COMMON_FONT, 0, {-1, -1}, COMMON_SPACING }
+            id, CTL_COMMON_FONT, 0, {SZL_AUTOSIZE, SZL_AUTOSIZE}, COMMON_SPACING }
 
     #define CONTROLDEF_BITMAP(hbm, id) { WC_STATIC, (PCSZ)(hbm), \
             WS_VISIBLE | SS_BITMAP | DT_LEFT | DT_VCENTER, \
-            id, CTL_COMMON_FONT, 0, {-1, -1}, COMMON_SPACING }
+            id, CTL_COMMON_FONT, 0, {SZL_AUTOSIZE, SZL_AUTOSIZE}, COMMON_SPACING }
 
     // the following require INCL_WINBUTTONS
 
@@ -243,9 +296,13 @@ extern "C" {
             WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_DEFAULT, \
             id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
 
+    #define LOADDEF_DEFPUSHBUTTON(id) CONTROLDEF_DEFPUSHBUTTON(LOAD_STRING, id, STD_BUTTON_WIDTH, STD_BUTTON_HEIGHT)
+
     #define CONTROLDEF_PUSHBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, \
             id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
+
+    #define LOADDEF_PUSHBUTTON(id) CONTROLDEF_PUSHBUTTON(LOAD_STRING, id, STD_BUTTON_WIDTH, STD_BUTTON_HEIGHT)
 
     #define CONTROLDEF_DEFNOFOCUSBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_DEFAULT | BS_NOPOINTERFOCUS, \
@@ -256,22 +313,28 @@ extern "C" {
             id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
 
     #define CONTROLDEF_HELPPUSHBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
-            WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_HELP, \
+            WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_HELP | BS_NOPOINTERFOCUS, \
             id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
+
+    #define LOADDEF_HELPPUSHBUTTON(id) CONTROLDEF_HELPPUSHBUTTON(LOAD_STRING, id, STD_BUTTON_WIDTH, STD_BUTTON_HEIGHT)
 
     #define CONTROLDEF_AUTOCHECKBOX(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, \
             id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
 
-    #define CDEF_AUTOCB_AUTO(id) CONTROLDEF_AUTOCHECKBOX(LOAD_STRING, id, -1, -1)
+    #define LOADDEF_AUTOCHECKBOX(id) CONTROLDEF_AUTOCHECKBOX(LOAD_STRING, id, SZL_AUTOSIZE, SZL_AUTOSIZE)
 
     #define CONTROLDEF_FIRST_AUTORADIO(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_AUTORADIOBUTTON | WS_GROUP, \
             id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
 
+    #define LOADDEF_FIRST_AUTORADIO(id) CONTROLDEF_FIRST_AUTORADIO(LOAD_STRING, id, SZL_AUTOSIZE, SZL_AUTOSIZE)
+
     #define CONTROLDEF_NEXT_AUTORADIO(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_AUTORADIOBUTTON, \
             id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
+
+    #define LOADDEF_NEXT_AUTORADIO(id) CONTROLDEF_NEXT_AUTORADIO(LOAD_STRING, id, SZL_AUTOSIZE, SZL_AUTOSIZE)
 
     // the following require INCL_WINENTRYFIELDS
 
@@ -424,8 +487,9 @@ extern "C" {
                         *pcszAbort,         // "~Abort"
                         *pcszRetry,         // "~Retry"
                         *pcszIgnore,        // "~Ignore"
-                        *pcszEnter,
-                        *pcszYesToAll;      // "Yes to ~all"
+                        *pcszEnter,         // "~Help"
+                        *pcszYesToAll,      // "Yes to ~all"
+                        *pcszHelp;          // "~Help"
     } MSGBOXSTRINGS, *PMSGBOXSTRINGS;
 
     /* the following are in os2.h somewhere:
@@ -454,11 +518,15 @@ extern "C" {
     // we add:
     #define MBID_YES2ALL               10
 
+    typedef VOID APIENTRY FNHELP(HWND hwndDlg);
+    typedef FNHELP *PFNHELP;
+
     APIRET dlghCreateMessageBox(HWND *phwndDlg,
                                 HWND hwndOwner,
                                 HPOINTER hptrIcon,
                                 PCSZ pcszTitle,
                                 PCSZ pcszMessage,
+                                PFNHELP pfnHelp,
                                 ULONG flFlags,
                                 PCSZ pcszFont,
                                 const MSGBOXSTRINGS *pStrings,
@@ -468,6 +536,7 @@ extern "C" {
                          HPOINTER hptrIcon,
                          PCSZ pcszTitle,
                          PCSZ pcszMessage,
+                         PFNHELP pfnHelp,
                          ULONG flFlags,
                          PCSZ pcszFont,
                          const MSGBOXSTRINGS *pStrings);

@@ -144,7 +144,7 @@ dep:
 # "test" target: for test cases
 TESTCASE_DIR = testcase
 
-TESTCASE_CC = icc /c /ti+ /w2 /ss /se /i$(HELPERS_BASE)\include /DDEBUG_DIALOG_WINDOWS /Fo$(TESTCASE_DIR)\$(@B).obj $(@B).c
+TESTCASE_CC = icc /c /ti+ /w2 /ss /se /i$(HELPERS_BASE)\include /Fo$(TESTCASE_DIR)\$(@B).obj $(@B).c
 
 .c.{$(TESTCASE_DIR)}.obj:
     @echo $(MAKEDIR)\makefile: Compiling $(@B).c
@@ -165,6 +165,9 @@ DOSH_TEST_OBJS = \
 dosh.exe: $(DOSH_TEST_OBJS)
     ilink /debug /optfunc /pmtype:vio $(DOSH_TEST_OBJS) /o:$@
 
+$(TESTCASE_DIR)\dialog.obj: ..\..\include\helpers\dialog.h
+$(TESTCASE_DIR)\_test_dialog.obj: ..\..\include\helpers\dialog.h
+
 # dialog.exe
 DIALOG_TEST_OBJS = \
     $(TESTCASE_DIR)\dialog.obj \
@@ -172,9 +175,13 @@ DIALOG_TEST_OBJS = \
     $(TESTCASE_DIR)\winh.obj \
     $(TESTCASE_DIR)\xstring.obj \
     $(TESTCASE_DIR)\linklist.obj \
+    $(TESTCASE_DIR)\cctl_checkcnr.obj \
+    $(TESTCASE_DIR)\cnrh.obj \
     $(TESTCASE_DIR)\comctl.obj \
     $(TESTCASE_DIR)\stringh.obj \
     $(TESTCASE_DIR)\dosh.obj \
+    $(TESTCASE_DIR)\except.obj \
+    $(TESTCASE_DIR)\debug.obj \
     $(TESTCASE_DIR)\gpih.obj
 
 dialog.exe: $(DIALOG_TEST_OBJS)

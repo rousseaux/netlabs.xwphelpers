@@ -644,6 +644,10 @@ extern "C" {
                          PULONG pulDirs,
                          PULONG pulFiles);
 
+    APIRET doshCanonicalize(PCSZ pcszFileIn,
+                            PSZ pszFileOut,
+                            ULONG cbFileOut);
+
     /* ******************************************************************
      *
      *   Process helpers

@@ -56,7 +56,7 @@ extern "C" {
      *      these appear to be the column indices into
      *      folder Details views.
      */
-
+/*
     #define WPSORTKEY_REALNAME      0x00000005
     #define WPSORTKEY_SIZE          0x00000006
     #define WPSORTKEY_WRITEDATE     0x00000007
@@ -68,20 +68,14 @@ extern "C" {
     // which I have no access
     #define WPSORTKEY_NAME          0xFFFFFFFE
     #define WPSORTKEY_TYPE          0xFFFFFFFF
-
-    /*
-     *  WPS object styles
-     *      V0.9.7 (2000-12-10) [umoeller]
-     */
-
-    #ifndef OBJSTYLE_LOCKEDINPLACE
-        #define OBJSTYLE_LOCKEDINPLACE  0x00020000
-    #endif
+*/
 
     /*
      * Some more OS/2 default menu items:
      *
      */
+
+    /*
 
     #define ID_WPMI_PASTE                  0x2CB
     #define ID_WPMI_SHOWICONVIEW           0x2CC
@@ -111,6 +105,8 @@ extern "C" {
     #define ID_WPMI_FORMATDISK             0x7C
     #define ID_WPMI_CHECKDISK              0x80
     #define ID_WPMI_REFRESH                0x1F7
+
+    */
 
 #endif
 
