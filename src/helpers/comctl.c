@@ -631,6 +631,7 @@ BOOL ctlMakeMenuButton(HWND hwndButton,      // in: button to subclass
         else
             free(pmbd);
     }
+
     return brc;
 }
 
@@ -1004,7 +1005,7 @@ static PANIMATIONDATA CreateAnimationData(HAB hab,
         }
     }
 
-    return (pa);
+    return pa;
 }
 
 /*
@@ -1140,6 +1141,7 @@ BOOL ctlPrepareAnimation(HWND hwndStatic,   // icon hwnd
             WinPostMsg(hwndStatic, WM_TIMER, (MPARAM)1, NULL);
         }
     }
+
     return (paNew != NULL);
 }
 
@@ -1419,15 +1421,15 @@ MRESULT EXPENTRY ctl_fnwpObjectHotkeyEntryField(HWND hwndEdit, ULONG msg, MPARAM
 
 BOOL ctlMakeHotkeyEntryField(HWND hwndHotkeyEntryField)
 {
-    PFNWP pfnwpOrig = WinSubclassWindow(hwndHotkeyEntryField,
-                                        ctl_fnwpObjectHotkeyEntryField);
-    if (pfnwpOrig)
+    PFNWP pfnwpOrig;
+    if (pfnwpOrig = WinSubclassWindow(hwndHotkeyEntryField,
+                                      ctl_fnwpObjectHotkeyEntryField))
     {
         WinSetWindowPtr(hwndHotkeyEntryField, QWL_USER, (PVOID)pfnwpOrig);
-        return (TRUE);
+        return TRUE;
     }
 
-    return (FALSE);
+    return FALSE;
 }
 
 /* ******************************************************************

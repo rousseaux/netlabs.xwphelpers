@@ -744,7 +744,7 @@ PCHECKBOXCNROWNER ctlSubclassCheckboxContainer(HWND hwndCnr)
 
             pcbco->habCnr = WinQueryAnchorBlock(hwndCnr);
 
-            return (pcbco);
+            return pcbco;
         }
     }
 
@@ -890,7 +890,8 @@ static ULONG EXPENTRY fncbFindCheckRecord(HWND hwndCnr,             // in: conta
             ulrc = 1;
         }
     }
-    return (ulrc);
+
+    return ulrc;
 }
 
 /*
@@ -913,7 +914,7 @@ PCHECKBOXRECORDCORE ctlFindCheckRecord(HWND hwndCnr,
                       (ULONG)ulItemID,          // input
                       (ULONG)&precc);
 
-    return (precc);
+    return precc;
 }
 
 /*
@@ -937,10 +938,8 @@ BOOL ctlSetRecordChecked(HWND hwndCnr,          // in: container prepared with
                          ULONG ulItemID,        // in: record item ID
                          USHORT usCheckState)   // in: 0, 1, 2, 3
 {
-    BOOL brc = FALSE;
-    PCHECKBOXRECORDCORE precc = ctlFindCheckRecord(hwndCnr, ulItemID);
-
-    if (precc)
+    PCHECKBOXRECORDCORE precc;
+    if (precc = ctlFindCheckRecord(hwndCnr, ulItemID))
     {
         precc->usCheckState = usCheckState;
         WinSendMsg(hwndCnr,
@@ -948,10 +947,10 @@ BOOL ctlSetRecordChecked(HWND hwndCnr,          // in: container prepared with
                    (MPARAM)&precc,
                    MPFROM2SHORT(1,
                                 CMA_NOREPOSITION));
-        brc = TRUE;
+        return TRUE;
     }
 
-    return brc;
+    return FALSE;
 }
 
 /*
@@ -974,13 +973,11 @@ ULONG ctlQueryRecordChecked(HWND hwndCnr,          // in: container prepared wit
                             ULONG ulItemID,        // in: record item ID
                             USHORT usCheckState)   // in: 0, 1, 2, 3
 {
-    ULONG ulrc = -1;
-    PCHECKBOXRECORDCORE precc = ctlFindCheckRecord(hwndCnr, ulItemID);
+    PCHECKBOXRECORDCORE precc;
+    if (precc = ctlFindCheckRecord(hwndCnr, ulItemID))
+        return precc->usCheckState;
 
-    if (precc)
-        ulrc = precc->usCheckState;
-
-    return (ulrc);
+    return -1;
 }
 
 /*
@@ -998,10 +995,9 @@ BOOL ctlEnableRecord(HWND hwndCnr,
                      ULONG ulItemID,
                      BOOL fEnable)
 {
-    BOOL brc = FALSE;
-    PCHECKBOXRECORDCORE precc = ctlFindCheckRecord(hwndCnr, ulItemID);
+    PCHECKBOXRECORDCORE precc;
 
-    if (precc)
+    if (precc = ctlFindCheckRecord(hwndCnr, ulItemID))
     {
         ULONG ulAttr = precc->recc.flRecordAttr;
         if (fEnable)
@@ -1017,10 +1013,10 @@ BOOL ctlEnableRecord(HWND hwndCnr,
                        MPFROM2SHORT(1,
                                     CMA_NOREPOSITION));
 
-        brc = TRUE;
+        return TRUE;
     }
 
-    return brc;
+    return FALSE;
 }
 
 

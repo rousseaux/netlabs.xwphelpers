@@ -65,7 +65,7 @@ extern "C" {
      *
      ********************************************************************/
 
-    ULONG sndParseSoundData(PSZ pszSoundData,
+    ULONG sndParseSoundData(PCSZ pszSoundData,
                             PSZ pszDescr,
                             PSZ pszFile,
                             PULONG pulVolume);
@@ -82,25 +82,26 @@ extern "C" {
 
     BOOL sndWriteSoundData(HINI hiniMMPM,
                            USHORT usIndex,
-                           PSZ pszDescr,
-                           PSZ pszFile,
+                           PCSZ pszDescr,
+                           PCSZ pszFile,
                            ULONG ulVolume);
 
     BOOL sndSetSystemSound(HAB hab,
                            USHORT usIndex,
-                           PSZ pszDescr,
-                           PSZ pszFile,
+                           PCSZ pszDescr,
+                           PCSZ pszFile,
                            ULONG ulVolume);
 
-    BOOL sndDoesSchemeExist(PSZ pszScheme);
+    BOOL sndDoesSchemeExist(PCSZ pszScheme,
+                            PSZ *ppszRealScheme);
 
     APIRET sndCreateSoundScheme(HINI hiniMMPM,
-                                PSZ pszNewScheme);
+                                PCSZ pszNewScheme);
 
     APIRET sndLoadSoundScheme(HINI hiniMMPM,
-                              PSZ pszScheme);
+                              PCSZ pszScheme);
 
-    APIRET sndDestroySoundScheme(PSZ pszScheme);
+    APIRET sndDestroySoundScheme(PCSZ pszScheme);
 
 #endif
 

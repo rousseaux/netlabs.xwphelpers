@@ -734,66 +734,62 @@ HWND ctlCreateSplitWindow(HAB hab,
             s_Registered = TRUE;
         }
 
-        hwndSplit = WinCreateWindow(psbcd->hwndParentAndOwner,  // parent
-                                    WC_SPLITWINDOW,
-                                    "",
-                                    WS_VISIBLE,
-                                    0, 0, 10, 10,
-                                    psbcd->hwndParentAndOwner,  // owner
-                                    HWND_TOP,
-                                    psbcd->ulSplitWindowID,
-                                    NULL,
-                                    NULL);
-        if (hwndSplit)
+        if (    (hwndSplit = WinCreateWindow(psbcd->hwndParentAndOwner,  // parent
+                                             WC_SPLITWINDOW,
+                                             "",
+                                             WS_VISIBLE,
+                                             0, 0, 10, 10,
+                                             psbcd->hwndParentAndOwner,  // owner
+                                             HWND_TOP,
+                                             psbcd->ulSplitWindowID,
+                                             NULL,
+                                             NULL))
+             && (hwndBar = WinCreateWindow(psbcd->hwndParentAndOwner,  // parent
+                                           WC_STATIC,
+                                           "",
+                                           WS_VISIBLE            // wnd style
+                                             | SS_TEXT,
+                                           0, 0, 10, 10,
+                                           psbcd->hwndParentAndOwner,  // owner
+                                           HWND_TOP,
+                                           ID_SPLITBAR,          // win ID
+                                           NULL,                 // cdata
+                                           NULL))                // presparams
+           )
         {
-            hwndBar    = WinCreateWindow(psbcd->hwndParentAndOwner,  // parent
-                                         WC_STATIC,
-                                         "",
-                                         WS_VISIBLE            // wnd style
-                                           | SS_TEXT,
-                                         0, 0, 10, 10,
-                                         psbcd->hwndParentAndOwner,  // owner
-                                         HWND_TOP,
-                                         ID_SPLITBAR,          // win ID
-                                         NULL,                 // cdata
-                                         NULL                  // presparams
-                                     );
-            if (hwndBar)
+            // create SPLITBARDATA to store in split bar's QWL_USER
+            PSPLITBARDATA pData;
+            if (pData = (PSPLITBARDATA)malloc(sizeof(SPLITBARDATA)))
             {
-                // create SPLITBARDATA to store in split bar's QWL_USER
-                PSPLITBARDATA pData = (PSPLITBARDATA)malloc(sizeof(SPLITBARDATA));
-                if (pData)
-                {
-                    // set parent for split bar
-                    WinSetParent(hwndBar, hwndSplit, FALSE);
+                // set parent for split bar
+                WinSetParent(hwndBar, hwndSplit, FALSE);
 
-                    memset(pData, 0, sizeof(SPLITBARDATA));
+                memset(pData, 0, sizeof(SPLITBARDATA));
 
-                    // copy control data
-                    memcpy(&(pData->sbcd), psbcd, sizeof(SPLITBARCDATA));
-                    // set other data
-                    /* WinQueryWindowRect(hwndBar, &(pData->rclBar));
-                    (pData->rclBar.xRight)--;
-                    (pData->rclBar.yTop)--; */
-                    // subclass static control to make it a split bar
-                    pData->OldStaticProc = WinSubclassWindow(hwndBar, ctl_fnwpSplitBar);
-                    pData->hptrOld = NULLHANDLE;
-                    pData->hptrMove = WinQuerySysPointer(HWND_DESKTOP,
-                                (psbcd->ulCreateFlags & SBCF_HORIZONTAL)
-                                    ? SPTR_SIZENS
-                                    : SPTR_SIZEWE,
-                                FALSE);     // don't make copy
-                    pData->fCaptured = FALSE;
-                    pData->hwndLinked1 =
-                    pData->hwndLinked2 = NULLHANDLE;
+                // copy control data
+                memcpy(&(pData->sbcd), psbcd, sizeof(SPLITBARCDATA));
+                // set other data
+                /* WinQueryWindowRect(hwndBar, &(pData->rclBar));
+                (pData->rclBar.xRight)--;
+                (pData->rclBar.yTop)--; */
+                // subclass static control to make it a split bar
+                pData->OldStaticProc = WinSubclassWindow(hwndBar, ctl_fnwpSplitBar);
+                pData->hptrOld = NULLHANDLE;
+                pData->hptrMove = WinQuerySysPointer(HWND_DESKTOP,
+                            (psbcd->ulCreateFlags & SBCF_HORIZONTAL)
+                                ? SPTR_SIZENS
+                                : SPTR_SIZEWE,
+                            FALSE);     // don't make copy
+                pData->fCaptured = FALSE;
+                pData->hwndLinked1 =
+                pData->hwndLinked2 = NULLHANDLE;
 
-                    WinSetWindowULong(hwndBar, QWL_USER, (ULONG)pData);
-                }
+                WinSetWindowULong(hwndBar, QWL_USER, (ULONG)pData);
             }
         }
     }
 
-    return (hwndSplit);
+    return hwndSplit;
 }
 
 /*
@@ -998,19 +994,16 @@ BOOL ctlUpdateSplitWindow(HWND hwndSplit)
 
 LONG ctlQuerySplitPos(HWND hwndSplit)
 {
-    ULONG lrc = 0;
-
     // the split bar data is stored in QWL_USER of the
     // split bar (not the split window)
-    HWND    hwndSplitBar = WinWindowFromID(hwndSplit, ID_SPLITBAR);
-    if (hwndSplitBar)
-    {
-        PSPLITBARDATA psbd = (PSPLITBARDATA)WinQueryWindowULong(hwndSplitBar, QWL_USER);
-        if (psbd)
-            lrc = psbd->sbcd.lPos;
-    }
+    HWND    hwndSplitBar;
+    PSPLITBARDATA psbd;
+    if (    (hwndSplitBar = WinWindowFromID(hwndSplit, ID_SPLITBAR))
+         && (psbd = (PSPLITBARDATA)WinQueryWindowULong(hwndSplitBar, QWL_USER))
+       )
+        return psbd->sbcd.lPos;
 
-    return (lrc);
+    return 0;
 }
 
 

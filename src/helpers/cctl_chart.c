@@ -1083,7 +1083,7 @@ HBITMAP ctlCreateChartBitmap(HPS hpsMem,                // in: memory PS to use 
         } // end if (pChtCData->hbmChart ...)
     } // end if (dTotal > 0)
 
-    return (hbmReturn);
+    return hbmReturn;
 }
 
 /*
@@ -1454,8 +1454,6 @@ static LONG FindItemFromPoint(PCHARTCDATA pChtCData,
                               LONG lx,
                               LONG ly)
 {
-    // LONG lRegionFound = -1; // none
-
     POINTL ptlMouse = {lx, ly};
 
     // data set?
@@ -1476,13 +1474,13 @@ static LONG FindItemFromPoint(PCHARTCDATA pChtCData,
                                   &ptlMouse)
                      == PRGN_INSIDE)
                 {
-                    return (ul);
+                    return ul;
                 }
             }
         }
     }
 
-    return (-1);
+    return -1;
 }
 
 /*
@@ -1896,11 +1894,11 @@ BOOL ctlChartFromStatic(HWND hwndChart)     // in: static control to subclass
             pChtCData->OldStaticProc = OldStaticProc;
             pChtCData->fHasFocus = FALSE;
             WinSetWindowPtr(hwndChart, QWL_USER, pChtCData);
-            return (TRUE);
+            return TRUE;
         }
     }
 
-    return (FALSE);
+    return FALSE;
 }
 
 

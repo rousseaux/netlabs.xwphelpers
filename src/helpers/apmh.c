@@ -77,7 +77,7 @@ APIRET apmhIOCtl(HFILE hfAPMSys,
                             pvParamPck, cbParamPck, &cbParamPck,
                             &DataPacket, sizeof(DataPacket), &ulRetSize)))
         if (DataPacket.ReturnCode)
-            arc = DataPacket.ReturnCode | 10000;
+            arc = DataPacket.ReturnCode + 10000;
 
     return arc;
 }

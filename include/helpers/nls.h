@@ -99,7 +99,7 @@ extern "C" {
 
         PSZ XWPENTRY nlsVariableDouble(PSZ pszTarget,
                                        double dbl,
-                                       PSZ pszUnits,
+                                       PCSZ pszUnits,
                                        CHAR cThousands);
 
         VOID XWPENTRY nlsFileDate(PSZ pszBuf,

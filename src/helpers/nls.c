@@ -84,7 +84,7 @@ typedef struct _DBCSVECTOR
 #pragma pack()
 
 BOOL        G_afLeadByte[MAX_LEADBYTE] = {0};
-ULONG       G_fDBCS = -1;       // not queried yet
+ULONG       G_fDBCS = 2;       // not queried yet
 COUNTRYCODE G_cc = { 0, 0 };
 DBCSVECTOR  G_aDBCSVector[8];
 
@@ -93,39 +93,52 @@ DBCSVECTOR  G_aDBCSVector[8];
  *      returns TRUE if the system is currently using DBCS.
  *
  *@@added V0.9.19 (2002-06-13) [umoeller]
+ *@@changed V0.9.20 (2002-07-03) [umoeller]: fixed, this never worked
  */
 
 BOOL nlsDBCS(VOID)
 {
-    int i;
+    APIRET arc;
 
-    if (G_fDBCS != -1)
+    if (G_fDBCS != 2)
         // already queried:
         return G_fDBCS;
 
-    if (DosQueryDBCSEnv(8 * sizeof(DBCSVECTOR),
-                        &G_cc,
-                        (PCHAR)G_aDBCSVector))
-        // not DBCS:
-        return (G_fDBCS = FALSE);
+    // V0.9.20 (2002-07-03) [umoeller]
+    // assume a non-DBCS system UNLESS the below
+    // loop gives us something meaningful; even
+    // on non-DBCS systems like mine, DosQueryDBCSEnv
+    // does not return an error
+    G_fDBCS = FALSE;
 
-    for (i = 0;
-         i < 8;
-         ++i)
+    if (arc = DosQueryDBCSEnv(8 * sizeof(DBCSVECTOR),
+                              &G_cc,
+                              (PCHAR)G_aDBCSVector))
     {
-        if (    (G_aDBCSVector[i].bLow)
-             && (G_aDBCSVector[i].bHigh)
-           )
+        // not DBCS:
+        _PmpfF(("DosQueryDBCSEnv returned arc %d", arc));
+    }
+    else
+    {
+        int i;
+        for (i = 0;
+             i < 8;
+             ++i)
         {
-            int n;
-            for (n = G_aDBCSVector[i].bLow;
-                 n <= G_aDBCSVector[i].bHigh;
-                 ++n)
-                G_afLeadByte[n] = TRUE;
-            G_fDBCS = TRUE;
+            if (    (G_aDBCSVector[i].bLow)
+                 && (G_aDBCSVector[i].bHigh)
+               )
+            {
+                int n;
+                for (n = G_aDBCSVector[i].bLow;
+                     n <= G_aDBCSVector[i].bHigh;
+                     ++n)
+                    G_afLeadByte[n] = TRUE;
+                G_fDBCS = TRUE;
+            }
+            else
+                break;
         }
-        else
-            break;
     }
 
     return G_fDBCS;
@@ -341,6 +354,8 @@ VOID nlsQueryCountrySettings(PCOUNTRYSETTINGS pcs)
  *      retrieve this setting.
  *
  *      Use nlsThousandsDouble for "double" values.
+ *
+ *@@changed V0.9.20 (2002-07-03) [umoeller]: optimized
  */
 
 PSZ nlsThousandsULong(PSZ pszTarget,       // out: decimal as string
@@ -349,10 +364,10 @@ PSZ nlsThousandsULong(PSZ pszTarget,       // out: decimal as string
 {
     USHORT ust, uss, usc;
     CHAR   szTemp[40];
-    sprintf(szTemp, "%lu", ul);
+    usc = sprintf(szTemp, "%lu", ul);  // V0.9.20 (2002-07-03) [umoeller]
 
     ust = 0;
-    usc = strlen(szTemp);
+    // usc = strlen(szTemp);
     for (uss = 0; uss < usc; uss++)
     {
         if (uss)
@@ -366,7 +381,7 @@ PSZ nlsThousandsULong(PSZ pszTarget,       // out: decimal as string
     }
     pszTarget[ust] = '\0';
 
-    return (pszTarget);
+    return pszTarget;
 }
 
 /*
@@ -381,13 +396,15 @@ PSZ APIENTRY strhThousandsULong(PSZ pszTarget,       // out: decimal as string
                                 ULONG ul,            // in: decimal to convert
                                 CHAR cThousands)     // in: separator char (e.g. '.')
 {
-    return (nlsThousandsULong(pszTarget, ul, cThousands));
+    return nlsThousandsULong(pszTarget, ul, cThousands);
 }
 
 /*
  *@@ nlsThousandsDouble:
  *      like nlsThousandsULong, but for a "double"
  *      value. Note that after-comma values are truncated.
+ *
+ *@@changed V0.9.20 (2002-07-03) [umoeller]: optimized
  */
 
 PSZ nlsThousandsDouble(PSZ pszTarget,
@@ -396,10 +413,10 @@ PSZ nlsThousandsDouble(PSZ pszTarget,
 {
     USHORT ust, uss, usc;
     CHAR   szTemp[40];
-    sprintf(szTemp, "%.0f", floor(dbl));
+    usc = sprintf(szTemp, "%.0f", floor(dbl)); // V0.9.20 (2002-07-03) [umoeller]
 
     ust = 0;
-    usc = strlen(szTemp);
+    // usc = strlen(szTemp);
     for (uss = 0; uss < usc; uss++)
     {
         if (uss)
@@ -413,7 +430,7 @@ PSZ nlsThousandsDouble(PSZ pszTarget,
     }
     pszTarget[ust] = '\0';
 
-    return (pszTarget);
+    return pszTarget;
 }
 
 /*
@@ -423,23 +440,24 @@ PSZ nlsThousandsDouble(PSZ pszTarget,
  *      size of the quantity.
  *
  *@@added V0.9.6 (2000-11-12) [pr]
+ *@@changed V0.9.20 (2002-07-03) [umoeller]: now using PCSZ pcszUnits
  */
 
 PSZ nlsVariableDouble(PSZ pszTarget,
                       double dbl,
-                      PSZ pszUnits,
+                      PCSZ pcszUnits,
                       CHAR cThousands)
 {
     if (dbl < 100.0)
-        sprintf(pszTarget, "%.2f%s", dbl, pszUnits);
+        sprintf(pszTarget, "%.2f%s", dbl, pcszUnits);
     else
         if (dbl < 1000.0)
-            sprintf(pszTarget, "%.1f%s", dbl, pszUnits);
+            sprintf(pszTarget, "%.1f%s", dbl, pcszUnits);
         else
             strcat(nlsThousandsDouble(pszTarget, dbl, cThousands),
-                   pszUnits);
+                   pcszUnits);
 
-    return(pszTarget);
+    return pszTarget;
 }
 
 /*
@@ -699,13 +717,13 @@ APIRET nlsUpper(PSZ psz,            // in/out: string
         {
             cc.country = 0;         // use system country code
             cc.codepage = 0;        // use process default codepage
-            return (DosMapCase(ulLength,
-                               &cc,
-                               psz));
+            return DosMapCase(ulLength,
+                              &cc,
+                              psz);
         }
     }
 
-    return (ERROR_INVALID_PARAMETER);
+    return ERROR_INVALID_PARAMETER;
 }
 
 

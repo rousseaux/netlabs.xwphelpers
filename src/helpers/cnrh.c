@@ -95,11 +95,11 @@ ULONG cnrhClearFieldInfos(HWND hwndCnr,
     if (fInvalidate)
         ulFlags |= CMA_INVALIDATE;
 
-    return (ULONG)(WinSendMsg(hwndCnr,
-                              CM_REMOVEDETAILFIELDINFO,
-                              (MPARAM)NULL,
-                              MPFROM2SHORT(0,      // all
-                                           ulFlags)));
+    return (ULONG)WinSendMsg(hwndCnr,
+                             CM_REMOVEDETAILFIELDINFO,
+                             (MPARAM)NULL,
+                             MPFROM2SHORT(0,      // all
+                                          ulFlags));
 }
 
 /*
@@ -217,10 +217,10 @@ ULONG cnrhInsertFieldInfos(HWND hwndCnr,                // in: cnr for Details v
     fii.fInvalidateFieldInfo = TRUE;
     fii.cFieldInfoInsert = ulFieldCount;
 
-    return ((ULONG)WinSendMsg(hwndCnr,
-                              CM_INSERTDETAILFIELDINFO,
-                              (MPARAM)pFieldInfoFirst,
-                              (MPARAM)&fii));
+    return (ULONG)WinSendMsg(hwndCnr,
+                             CM_INSERTDETAILFIELDINFO,
+                             (MPARAM)pFieldInfoFirst,
+                             (MPARAM)&fii);
 }
 
 /*
@@ -347,7 +347,7 @@ PFIELDINFO cnrhSetFieldInfos(HWND hwndCnr,            // in: container hwnd
             pFieldInfoReturn = NULL;
     }
 
-    return (pFieldInfoReturn);
+    return pFieldInfoReturn;
 }
 
 /*
@@ -394,13 +394,10 @@ PRECORDCORE cnrhAllocRecords(HWND hwndCnr,    // in: cnr to allocate from
                                  // must be sizeof(RECORDCORE).
                              ULONG ulCount)  // in: number of records to allocate (> 0)
 {
-    PRECORDCORE      precc;
-    precc = (PRECORDCORE)WinSendMsg(hwndCnr,
-                                    CM_ALLOCRECORD,
-                                    (MPARAM)(cbrecc-sizeof(RECORDCORE)),
-                                    (MPARAM)ulCount);
-
-    return (precc);
+    return (PRECORDCORE)WinSendMsg(hwndCnr,
+                                   CM_ALLOCRECORD,
+                                   (MPARAM)(cbrecc - sizeof(RECORDCORE)),
+                                   (MPARAM)ulCount);
 }
 
 /*
@@ -477,7 +474,6 @@ ULONG cnrhInsertRecords(HWND hwndCnr,   // in: container to insert into
                             // in: CRA_* flags
                         ULONG ulCount)  // in: number of records to insert (> 0)
 {
-    ULONG           ulrc = 0;
     RECORDINSERT    ri;
 
     if (precc)
@@ -502,12 +498,13 @@ ULONG cnrhInsertRecords(HWND hwndCnr,   // in: container to insert into
         ri.fInvalidateRecord = fInvalidate;  // V0.9.2 (2000-02-19) [umoeller]
         ri.cRecordsInsert = ulCount;        // V0.9.0
 
-        ulrc = (ULONG)WinSendMsg(hwndCnr,
+        return (ULONG)WinSendMsg(hwndCnr,
                                  CM_INSERTRECORD,
                                  (MPARAM)precc,
                                  (MPARAM)&ri);
     }
-    return (ulrc);
+
+    return 0;
 }
 
 /*
@@ -527,7 +524,6 @@ ULONG cnrhInsertRecordAfter(HWND hwndCnr,
                             PRECORDCORE preccAfter,
                             BOOL fInvalidate)           // in: invalidate records?
 {
-    ULONG           ulrc = 0;
     RECORDINSERT    ri;
 
     if (precc)
@@ -551,13 +547,14 @@ ULONG cnrhInsertRecordAfter(HWND hwndCnr,
             ri.fInvalidateRecord = fInvalidate; // V0.9.4 (2000-06-14) [umoeller]
             ri.cRecordsInsert = 1;
 
-            ulrc = (ULONG)WinSendMsg(hwndCnr,
+            return (ULONG)WinSendMsg(hwndCnr,
                                      CM_INSERTRECORD,
                                      (MPARAM)precc,
                                      (MPARAM)&ri);
         }
     }
-    return (ulrc);
+
+    return 0;
 }
 
 /*
@@ -607,7 +604,8 @@ BOOL cnrhMoveRecord(HWND hwndCnr,
 
         return (ulrc != 0);
     }
-    else return (FALSE);
+
+    return FALSE;
 }
 
 /*
@@ -806,7 +804,7 @@ ULONG cnrhSelectAll(HWND hwndCnr,
 
     } while (TRUE);
 
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -945,7 +943,7 @@ PRECORDCORE cnrhFindRecordFromPoint(HWND hwndCnr,
     // else
     //     _Pmpf(("  CM_QUERYVIEWPORTRECT failed."));
 
-    return (preccReturn);
+    return preccReturn;
 }
 
 /*
@@ -978,7 +976,7 @@ ULONG cnrhExpandFromRoot(HWND hwndCnr,
             preccParent = NULL;
     }
 
-    return (ul);
+    return ul;
 }
 
 /*
@@ -1386,7 +1384,7 @@ PRECORDCORE cnrhQuerySourceRecord(HWND hwndCnr,          // in:  cnr
         }
     }
 
-    return (preccReturn);
+    return preccReturn;
 }
 
 /*
@@ -1415,7 +1413,8 @@ PRECORDCORE cnrhQueryNextSelectedRecord(HWND hwndCnr,
         if ((preccNext) && ((LONG)preccNext != -1) )
             preccReturn = preccNext;
     }
-    return (preccReturn);
+
+    return preccReturn;
 }
 
 /*
@@ -1484,7 +1483,7 @@ LONG cnrhQueryRecordIndex(HWND hwndCnr,
         lCount++;
     }
 
-    return (lrc);
+    return lrc;
 }
 
 /*
@@ -1641,7 +1640,7 @@ ULONG cnrhForAllRecords(HWND hwndCnr,
         fFirstCall = FALSE;
     }
 
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -1772,13 +1771,11 @@ HWND cnrhQueryCnrFromFrame(HWND hwndFrame)
 
     if (hwndFrame)
     {
-        henum = WinBeginEnumWindows(hwndFrame);
-        if (henum)
+        if (henum = WinBeginEnumWindows(hwndFrame))
         {
             do
             {
-                hwndTemp = WinGetNextWindow(henum);
-                if (hwndTemp)
+                if (hwndTemp = WinGetNextWindow(henum))
                 {
                     if (WinQueryClassName(hwndTemp, 250, szClassName))
                         if (strcmp(szClassName, "#37") == 0)
@@ -2000,7 +1997,7 @@ PDRAGINFO cnrhInitDrag(HWND hwndCnr,
         }
     } // end if (pdrgInfo)
 
-    return (pdrgInfo);
+    return pdrgInfo;
 }
 
 /*
@@ -2182,10 +2179,10 @@ BOOL cnrhDateTimeDos2Win(DATETIME* pdt,     // in: Dos format date and time
             pctime->minutes = pdt->minutes;
             pctime->hours = pdt->hours;
         }
-        return (TRUE);
+        return TRUE;
     }
-    else
-        return (FALSE);
+
+    return FALSE;
 }
 
 /*
@@ -2202,10 +2199,10 @@ BOOL cnrhDateDos2Win(FDATE* pfd,    // in: DOS date
         pcd->day = pfd->day;
         pcd->month = pfd->month;
         pcd->year = pfd->year + 1980;
-        return (TRUE);
+        return TRUE;
     }
-    else
-        return (FALSE);
+
+    return FALSE;
 }
 
 /*
@@ -2223,8 +2220,8 @@ BOOL cnrhTimeDos2Win(FTIME* pft,    // in: DOS time
         pct->minutes = pft->minutes;
         pct->hours = pft->hours;
         pct->ucReserved = 0;
-        return (TRUE);
+        return TRUE;
     }
-    else
-        return (FALSE);
+
+    return FALSE;
 }

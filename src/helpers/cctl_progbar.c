@@ -400,8 +400,8 @@ MRESULT EXPENTRY ctl_fnwpProgressBar(HWND hwndBar, ULONG msg, MPARAM mp1, MPARAM
 
 BOOL ctlProgressBarFromStatic(HWND hwndChart, ULONG ulAttr)
 {
-    PFNWP OldStaticProc = WinSubclassWindow(hwndChart, ctl_fnwpProgressBar);
-    if (OldStaticProc)
+    PFNWP OldStaticProc;
+    if (OldStaticProc = WinSubclassWindow(hwndChart, ctl_fnwpProgressBar))
     {
         PPROGRESSBARDATA pData = (PPROGRESSBARDATA)malloc(sizeof(PROGRESSBARDATA));
         pData->ulMax = 1;
@@ -413,7 +413,8 @@ BOOL ctlProgressBarFromStatic(HWND hwndChart, ULONG ulAttr)
         WinSetWindowULong(hwndChart, QWL_USER, (ULONG)pData);
         return (TRUE);
     }
-    else return (FALSE);
+
+    return (FALSE);
 }
 
 

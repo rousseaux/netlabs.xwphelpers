@@ -93,7 +93,7 @@ ULONG appQueryEnvironmentLen(PCSZ pcszEnvironment)
         cbEnvironment++;        // last null byte
     }
 
-    return (cbEnvironment);
+    return cbEnvironment;
 }
 
 /*
@@ -298,7 +298,7 @@ PSZ* appFindEnvironmentVar(PDOSENVIRONMENT pEnv,
         }
     }
 
-    return (ppszRet);
+    return ppszRet;
 }
 
 /*
@@ -716,7 +716,7 @@ PCSZ appDescribeAppType(PROGCATEGORY progc)        // in: from PROGDETAILS.progc
          ul++)
     {
         if (G_aProgTypes[ul].progc == progc)
-            return (G_aProgTypes[ul].pcsz);
+            return G_aProgTypes[ul].pcsz;
     }
 
     return NULL;
@@ -747,7 +747,7 @@ ULONG appIsWindowsApp(ULONG ulProgCategory)
         case PROG_31_ENHSEAMLESSVDM:        // 17
         case PROG_31_ENHSEAMLESSCOMMON:     // 18
         case PROG_31_ENH:                   // 19
-            return (2);
+            return 2;
 
 #ifndef PROG_30_STD
     #define PROG_30_STD (PROGCATEGORY)11
@@ -765,10 +765,10 @@ ULONG appIsWindowsApp(ULONG ulProgCategory)
         case PROG_31_STDSEAMLESSVDM:        // 15
         case PROG_31_STDSEAMLESSCOMMON:     // 16
         case PROG_31_STD:                   // 20
-            return (1);
+            return 1;
     }
 
-    return (0);
+    return 0;
 }
 
 /* ******************************************************************
@@ -1991,5 +1991,5 @@ HAPP appQuickStartApp(const char *pcszFile,
             happReturn = happ;
     }
 
-    return (happReturn);
+    return happReturn;
 }

@@ -110,13 +110,13 @@ LINKLIST    G_llSubclassedTools;        // linked list of SUBCLASSEDTOOL items
 
 BOOL ctlRegisterTooltip(HAB hab)
 {
-    return (WinRegisterClass(hab,
-                             COMCTL_TOOLTIP_CLASS,
-                             ctl_fnwpTooltip,
-                             CS_HITTEST,     // class styles;
-                                             // CS_FRAME not working,
-                                             // CS_CLIPSIBLINGS not working
-                             sizeof(PVOID)*2));   // addt'l bytes to reserve:
+    return WinRegisterClass(hab,
+                            COMCTL_TOOLTIP_CLASS,
+                            ctl_fnwpTooltip,
+                            CS_HITTEST,     // class styles;
+                                            // CS_FRAME not working,
+                                            // CS_CLIPSIBLINGS not working
+                            sizeof(PVOID) * 2);   // addt'l bytes to reserve:
                                     // one pointer for QWL_USER,
                                     // one more for instance data
 }
@@ -202,9 +202,8 @@ static PSUBCLASSEDTOOL FindSubclassedTool(HWND hwndTool)
     {
         PSUBCLASSEDTOOL pstThis = (PSUBCLASSEDTOOL)pNode->pItemData;
         if (pstThis->hwndTool == hwndTool)
-        {
-            return (pstThis);
-        }
+            return pstThis;
+
         pNode = pNode->pNext;
     }
 
@@ -326,17 +325,17 @@ static BOOL SubclassTool(HWND hwndTooltip,
 
 static BOOL UnSubclassTool(HWND hwndTool)
 {
-    PSUBCLASSEDTOOL pst = FindSubclassedTool(hwndTool);
-    if (pst)
+    PSUBCLASSEDTOOL pst;
+    if (pst = FindSubclassedTool(hwndTool))
     {
         WinSubclassWindow(hwndTool,
                           pst->pfnwpOrig);
                             // orig winproc == un-subclass
-        return (lstRemoveItem(&G_llSubclassedTools, pst));
+        return lstRemoveItem(&G_llSubclassedTools, pst);
                     // this frees the item
     }
 
-    return (FALSE);
+    return FALSE;
 }
 
 /* ******************************************************************
@@ -445,8 +444,7 @@ static MRESULT TtmCreate(HWND hwndTooltip,
     PCREATESTRUCT pcs = (PCREATESTRUCT)mp2;
 
     // allocate and initialize tooltip data
-    pttd = (PTOOLTIPDATA)malloc(sizeof(TOOLTIPDATA));
-    if (pttd)
+    if (pttd = (PTOOLTIPDATA)malloc(sizeof(TOOLTIPDATA)))
     {
         CHAR        szFont[256];
         memset(pttd, 0, sizeof(TOOLTIPDATA));
@@ -497,9 +495,9 @@ static MRESULT TtmCreate(HWND hwndTooltip,
 
         return (MPARAM)FALSE;
     }
-    else
-        // malloc failed:
-        return (MPARAM)TRUE;
+
+    // malloc failed:
+    return (MPARAM)TRUE;
 }
 
 /*
@@ -542,7 +540,7 @@ static BOOL TtmTimer(HWND hwndTooltip, MPARAM mp1)
             return FALSE;
     } // end switch
 
-    return (TRUE);
+    return TRUE;
 }
 
 /*
@@ -734,8 +732,8 @@ static MRESULT TtmAddTool(HWND hwndTooltip, MPARAM mp2)
 static VOID TtmDelTool(HWND hwndTooltip, MPARAM mp2)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
-    PTOOLINFO ptiSearch = (PTOOLINFO)mp2;
-    if (ptiSearch)
+    PTOOLINFO ptiSearch;
+    if (ptiSearch = (PTOOLINFO)mp2)
     {
         PLISTNODE pToolNode = lstQueryFirstNode(&pttd->llTools);
         while (pToolNode)
@@ -961,8 +959,8 @@ static VOID TtmGetText(HWND hwndTooltip, MPARAM mp2)
 static MRESULT TtmEnumTools(HWND hwndTooltip, MPARAM mp1, MPARAM mp2)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
-    PTOOLINFO ptiTarget = (PTOOLINFO)mp2;
-    if (ptiTarget)
+    PTOOLINFO ptiTarget;
+    if (ptiTarget = (PTOOLINFO)mp2)
     {
         PTOOLINFO ptiFound = (PTOOLINFO)lstItemFromIndex(&pttd->llTools,
                                                          SHORT1FROMMP(mp1));
@@ -986,17 +984,17 @@ static MRESULT TtmEnumTools(HWND hwndTooltip, MPARAM mp1, MPARAM mp2)
 static MRESULT TtmGetCurrentTool(HWND hwndTooltip, MPARAM mp2)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
-    PTOOLINFO ptiTarget = (PTOOLINFO)mp2;
-    if (ptiTarget)
+    PTOOLINFO ptiTarget;
+    if (ptiTarget = (PTOOLINFO)mp2)
     {
         if (pttd->ptiMouseOver)
         {
             memcpy(ptiTarget, pttd->ptiMouseOver, sizeof(TOOLINFO));
-            return (MPARAM)TRUE;
+            return (MRESULT)TRUE;
         }
     }
 
-    return ((MPARAM)FALSE);
+    return (MRESULT)FALSE;
 }
 
 /*
@@ -1009,8 +1007,8 @@ static MRESULT TtmGetCurrentTool(HWND hwndTooltip, MPARAM mp2)
 static MRESULT TtmGetToolInfo(HWND hwndTooltip, MPARAM mp2)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
-    PTOOLINFO ptiSearch = (PTOOLINFO)mp2;
-    if (ptiSearch)
+    PTOOLINFO ptiSearch;
+    if (ptiSearch = (PTOOLINFO)mp2)
     {
         PLISTNODE pToolNode = lstQueryFirstNode(&pttd->llTools);
         while (pToolNode)

@@ -283,7 +283,7 @@ PSZ csysFindKey(const char *pcszSearchIn,   // in: text buffer to search
             break;
     } while ((!pReturn) && (p != NULL) && (p != pcszSearchIn));
 
-    return (pReturn);
+    return pReturn;
 }
 
 /*
@@ -334,7 +334,7 @@ PSZ csysGetParameter(const char *pcszSearchIn,  // in: text buffer to search
         }
     }
 
-    return (prc);
+    return prc;
 }
 
 /*
@@ -456,7 +456,7 @@ PSZ csysSetParameter(PSZ* ppszBuf,          // in: text buffer to search
         *ppszBuf = strContents.psz;
     }
 
-    return (pReturn);
+    return pReturn;
 }
 
 /*

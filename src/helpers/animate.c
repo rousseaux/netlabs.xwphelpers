@@ -139,8 +139,8 @@ BOOL anmBlowUpBitmap(HPS hps,               // in: from WinGetScreenPS(HWND_DESK
             rtlStretch.yTop   = rtlStretch.yBottom + cy;
 
             WinDrawBitmap(hps, hbm, NULL, (PPOINTL)&rtlStretch,
-                    0, 0,       // we don't need colors
-                    DBM_STRETCH);
+                          0, 0,       // we don't need colors
+                          DBM_STRETCH);
 
             DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
                             &ulNowTime,
@@ -158,12 +158,12 @@ BOOL anmBlowUpBitmap(HPS hps,               // in: from WinGetScreenPS(HWND_DESK
 
         // finally, draw the 1:1 version
         WinDrawBitmap(hps, hbm, NULL, &ptl,
-                0, 0,       // we don't need colors
-                DBM_NORMAL);
+                      0, 0,       // we don't need colors
+                      DBM_NORMAL);
 
     } // end if (hps)
 
-    return (ulrc);
+    return ulrc;
 }
 
 #define LAST_LINE_WIDTH 2

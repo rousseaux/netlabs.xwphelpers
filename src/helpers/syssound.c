@@ -20,10 +20,13 @@
  *
  *      These are the general flags in the "MMPM2_AlarmSoundsData"
  *      application:
+ *
  *      --  If "EnableSounds" is FALSE, all system sounds are disabled.
  *          This defaults to TRUE (tested).
+ *
  *      --  If "ApplyVolumeToAll" is TRUE, the same volume is used for
  *          all sounds. This defaults to FALSE (tested).
+ *
  *      --  If ApplyVolumeToAll is TRUE, "Volume" is used for the
  *          global volume. Otherwise, the individual sound volumes
  *          (below) will be used.
@@ -33,7 +36,9 @@
  *      in syssound.h.
  *
  *      Each sound data block in there consists of three elements:
+ *
  +          soundfile#description#volume
+ *
  *      where "description" is what is listed in the "Sound" object.
  *      "volume" is only used when "ApplyVolumeToAll" (above) is FALSE.
  *
@@ -113,9 +118,10 @@
  *      which should be 3.
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.20 (2002-07-03) [umoeller]: optimized
  */
 
-ULONG sndParseSoundData(PSZ pszSoundData,  // in: INI data from MMPM.INI
+ULONG sndParseSoundData(PCSZ pszSoundData,  // in: INI data from MMPM.INI
                         PSZ pszDescr,    // out: sound description, as displayed
                                // in the "Sound" object (ptr may be NULL)
                         PSZ pszFile,     // out: sound file to (ptr may be NULL)
@@ -123,23 +129,21 @@ ULONG sndParseSoundData(PSZ pszSoundData,  // in: INI data from MMPM.INI
                                // this always returns the individual sound volume,
                                // even if "Global volume" is set in MMPM.INI.
 {
-    PSZ         p1 = pszSoundData, p2;
+    PCSZ        p1 = pszSoundData, p2;
     ULONG       ulrc = 0;
     // get sound file
-    p2 = strchr(p1, '#');
-    if (p2)
+    if (p2 = strchr(p1, '#'))
     {
         ulrc++;
         if (pszFile)
         {
-            strncpy(pszFile, p1, p2-p1);
+            strncpy(pszFile, p1, p2 - p1);
             pszFile[p2-p1] = '\0';
         }
         p1 = p2+1;
 
         // get sound description
-        p2 = strchr(p1, '#');
-        if (p2)
+        if (p2 = strchr(p1, '#'))
         {
             ulrc++;
             if (pszDescr)
@@ -153,13 +157,14 @@ ULONG sndParseSoundData(PSZ pszSoundData,  // in: INI data from MMPM.INI
             if (pulVolume)
             {
                 // individual volume settings per sound
-                sscanf(p1, "%lu", pulVolume);
+                *pulVolume = atoi(p1);      // V0.9.20 (2002-07-03) [umoeller]
+                // sscanf(p1, "%lu", pulVolume);
                 ulrc++;
             }
         }
     }
 
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -172,8 +177,8 @@ ULONG sndParseSoundData(PSZ pszSoundData,  // in: INI data from MMPM.INI
 
 VOID sndQueryMmpmIniPath(PSZ pszMMPM)       // out: fully q'fied MMPM.INI
 {
-    PSZ     pszMMPMPath = getenv("MMBASE"); // V0.9.6 (2000-10-16) [umoeller]
-    if (pszMMPMPath)
+    PSZ pszMMPMPath;
+    if (pszMMPMPath = getenv("MMBASE"))  // V0.9.6 (2000-10-16) [umoeller]
     {
         // variable set:
         PSZ p;
@@ -181,8 +186,7 @@ VOID sndQueryMmpmIniPath(PSZ pszMMPM)       // out: fully q'fied MMPM.INI
         strcpy(pszMMPM, pszMMPMPath); // V0.9.7 (2000-12-17) [umoeller]
 
         // kill semicolon if present
-        p = strchr(pszMMPM, ';');
-        if (p)
+        if (p = strchr(pszMMPM, ';'))
            *p = 0;
 
         strcat(pszMMPM, "\\MMPM.INI");
@@ -210,12 +214,10 @@ HINI sndOpenMmpmIni(HAB hab)
 {
     HAB     habDesktop = WinQueryAnchorBlock(HWND_DESKTOP);
     CHAR    szMMPM[CCHMAXPATH];
-    HINI    hini = NULLHANDLE;
 
     sndQueryMmpmIniPath(szMMPM);
 
-    hini = PrfOpenProfile(habDesktop, szMMPM);
-    return (hini);
+    return PrfOpenProfile(habDesktop, szMMPM);
 }
 
 /*
@@ -323,7 +325,7 @@ BOOL sndQuerySystemSound(HAB hab,           // in: caller's anchor block
         PrfCloseProfile(hiniMMPM);
     }
 
-    return (rc);
+    return rc;
 }
 
 /*
@@ -344,8 +346,8 @@ BOOL sndQuerySystemSound(HAB hab,           // in: caller's anchor block
 
 BOOL sndWriteSoundData(HINI hiniMMPM,       // in: MMPM.INI handle (from sndOpenMmpmIni)
                        USHORT usIndex,      // in: sound index
-                       PSZ pszDescr,        // in: sound name or NULL for removal
-                       PSZ pszFile,         // in: sound file
+                       PCSZ pszDescr,       // in: sound name or NULL for removal
+                       PCSZ pszFile,        // in: sound file
                        ULONG ulVolume)      // in: sound volume
 {
     BOOL    brc = FALSE;
@@ -358,14 +360,16 @@ BOOL sndWriteSoundData(HINI hiniMMPM,       // in: MMPM.INI handle (from sndOpen
         // format: soundfile#description#volume
         sprintf(szData, "%s#%s#%lu", pszFile, pszDescr, ulVolume);
         brc = PrfWriteProfileString(hiniMMPM,
-                                    MMINIKEY_SYSSOUNDS, szKey,
+                                    MMINIKEY_SYSSOUNDS,
+                                    szKey,
                                     szData);
     }
     else
         // pszDescr == NULL:
         // delete entry
         brc = PrfWriteProfileString(hiniMMPM,
-                                    MMINIKEY_SYSSOUNDS, szKey,
+                                    MMINIKEY_SYSSOUNDS,
+                                    szKey,
                                     NULL);
 
     if (brc)
@@ -395,17 +399,18 @@ BOOL sndWriteSoundData(HINI hiniMMPM,       // in: MMPM.INI handle (from sndOpen
 
 BOOL sndSetSystemSound(HAB hab,
                        USHORT usIndex,
-                       PSZ pszDescr,
-                       PSZ pszFile,
+                       PCSZ pszDescr,
+                       PCSZ pszFile,
                        ULONG ulVolume)
 {
     BOOL    brc = FALSE;
-    HINI    hiniMMPM = sndOpenMmpmIni(hab);
-    if (hiniMMPM)
+    HINI    hiniMMPM;
+    if (hiniMMPM = sndOpenMmpmIni(hab))
     {
         brc = sndWriteSoundData(hiniMMPM, usIndex, pszDescr, pszFile, ulVolume);
         PrfCloseProfile(hiniMMPM);
     }
+
     return brc;
 }
 
@@ -414,11 +419,49 @@ BOOL sndSetSystemSound(HAB hab,
  *      returns TRUE if pszScheme already exists
  *      in OS2SYS.INI.
  *
+ *      If so, and *ppszRealScheme is != NULL, it
+ *      is set to the key name found. Since the
+ *      scheme names are case-insensitive, this
+ *      check is necessary to delete the original
+ *      scheme for overwrites. The caller is
+ *      responsible for free()ing *ppszRealScheme
+ *      then.
+ *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.20 (2002-07-03) [umoeller]: check has to be case-insensitive, fixed; changed prototype
  */
 
-BOOL sndDoesSchemeExist(PSZ pszScheme)
+BOOL sndDoesSchemeExist(PCSZ pcszScheme,
+                        PSZ *ppszRealScheme)    // out: actual key name (ptr can be NULL)
 {
+    BOOL fExists = FALSE;
+    PSZ pszKeysList;
+    if (!prfhQueryKeysForApp(HINI_SYSTEM,
+                             MMINIKEY_SOUNDSCHEMES,  // "PM_SOUND_SCHEMES_LIST"
+                             &pszKeysList))
+    {
+        PSZ pKey2 = pszKeysList;
+        while (*pKey2)
+        {
+            if (!stricmp(pKey2, pcszScheme))
+            {
+                fExists = TRUE;
+
+                if (ppszRealScheme)
+                    *ppszRealScheme = strdup(pKey2);
+
+                break;
+            }
+
+            pKey2 += strlen(pKey2)+1; // next key
+        }
+
+        free(pszKeysList);
+    }
+
+    return fExists;
+
+    /* old code V0.9.20 (2002-07-03) [umoeller]
     // check in OS2SYS.INI's scheme list whether that
     // scheme exists already
     PSZ pszExisting = prfhQueryProfileData(HINI_SYSTEM,
@@ -432,6 +475,8 @@ BOOL sndDoesSchemeExist(PSZ pszScheme)
     }
 
     return (FALSE);
+    */
+
 }
 
 /*
@@ -452,7 +497,7 @@ BOOL sndDoesSchemeExist(PSZ pszScheme)
  */
 
 APIRET sndCreateSoundScheme(HINI hiniMMPM,      // in: MMPM.INI handle (from sndOpenMmpmIni)
-                            PSZ pszNewScheme)   // in: name of new scheme
+                            PCSZ pszNewScheme)  // in: name of new scheme
 {
     APIRET  arc = NO_ERROR;
     CHAR    szNewAppName[200] = "PM_SOUNDS_";
@@ -488,11 +533,11 @@ APIRET sndCreateSoundScheme(HINI hiniMMPM,      // in: MMPM.INI handle (from snd
                 // volume also, we add a null char after the
                 // file name and append the volume...
 
-                PSZ pSoundData = prfhQueryProfileData(hiniMMPM,
+                PSZ pSoundData;
+                if (pSoundData = prfhQueryProfileData(hiniMMPM,
                                                       MMINIKEY_SYSSOUNDS, // "MMPM2_AlarmSounds"
                                                       pKey2,
-                                                      NULL);
-                if (pSoundData)
+                                                      NULL))
                 {
                     sndParseSoundData(pSoundData,
                                       NULL,     // we don't need the description
@@ -520,7 +565,7 @@ APIRET sndCreateSoundScheme(HINI hiniMMPM,      // in: MMPM.INI handle (from snd
             // finally, store new scheme in schemes list
             PrfWriteProfileString(HINI_SYSTEM,
                                   MMINIKEY_SOUNDSCHEMES,  // "PM_SOUND_SCHEMES_LIST"
-                                  pszNewScheme,      // key is scheme name
+                                  (PSZ)pszNewScheme,      // key is scheme name
                                   szNewAppName);    // data is new OS2SYS.INI application
         }
         else
@@ -561,7 +606,7 @@ APIRET sndCreateSoundScheme(HINI hiniMMPM,      // in: MMPM.INI handle (from snd
  */
 
 APIRET sndLoadSoundScheme(HINI hiniMMPM,      // in: HINI of ?:\MMOS2\MMPM.INI (PrfOpenProfile)
-                          PSZ pszScheme)      // in: scheme name
+                          PCSZ pszScheme)     // in: scheme name
 {
     APIRET arc = NO_ERROR;
 
@@ -701,17 +746,17 @@ APIRET sndLoadSoundScheme(HINI hiniMMPM,      // in: HINI of ?:\MMOS2\MMPM.INI (
  *@@added V0.9.0 [umoeller]
  */
 
-APIRET sndDestroySoundScheme(PSZ pszScheme)
+APIRET sndDestroySoundScheme(PCSZ pszScheme)
 {
     APIRET arc = NO_ERROR;
 
     // check in OS2SYS.INI's scheme list whether that
-    // scheme exists already
-    PSZ pszExisting = prfhQueryProfileData(HINI_SYSTEM,
+    // scheme exists
+    PSZ pszExisting;
+    if (pszExisting = prfhQueryProfileData(HINI_SYSTEM,
                                            MMINIKEY_SOUNDSCHEMES,  // "PM_SOUND_SCHEMES_LIST"
                                            pszScheme,
-                                           NULL);
-    if (pszExisting)
+                                           NULL))
     {
         // delete whole existing PM_SOUNDS_BLAHBLAH application
         PrfWriteProfileString(HINI_SYSTEM,
@@ -721,7 +766,7 @@ APIRET sndDestroySoundScheme(PSZ pszScheme)
         // and delete entry in sound schemes list
         PrfWriteProfileString(HINI_SYSTEM,
                               MMINIKEY_SOUNDSCHEMES,  // "PM_SOUND_SCHEMES_LIST"
-                              pszScheme,
+                              (PSZ)pszScheme,
                               NULL);
         free(pszExisting);
     }

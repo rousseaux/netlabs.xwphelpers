@@ -577,6 +577,7 @@ static MRESULT EXPENTRY shp_fnwpShapeRegion(HWND hwnd, ULONG msg, MPARAM mp1, MP
             // forward all these to the shape window
             return WinSendMsg(pRgn->pCtrl->hwndShape, msg, mp1, mp2);
     }
+
     return WinDefWindowProc(hwnd, msg, mp1, mp2);
 }
 
@@ -646,6 +647,7 @@ static int shpmgrWMAdjustWindowPos(PSHPWINCTLDATA pCtrl, PSWP pSwp)
             WinInvalidateRect(pRgn->hwnd, NULL, FALSE);
         }
     } */
+
     return 0;
 }
 
@@ -674,6 +676,7 @@ static int shpmgrUpdateRegions(PSHPWINCTLDATA pCtrl, PRECTL pRect)
         rect.yTop   = pCtrl->cy;
         pRect = &rect;
     }
+
     for (i = 0, pRgn = pCtrl->aRegion; i < pCtrl->nRegion; i++, pRgn++)
     {
         if (WinIntersectRect(hab, &intern, pRect, &pRgn->rect) == FALSE) {
@@ -682,6 +685,7 @@ static int shpmgrUpdateRegions(PSHPWINCTLDATA pCtrl, PRECTL pRect)
             WinInvalidateRect(pRgn->hwnd, NULL, FALSE);
         }
     }
+
     return 0;
 }
 
@@ -782,6 +786,7 @@ static PSHPSPAN shpmgrParseBitmap(HPS hps, PBITMAPINFOHEADER2 bmih2)
                 }
             }
         }
+
         if (inspan == TRUE)
         {
             if ((pNew = spanAppend(pSpan, y, left, x)) != NULL)
@@ -996,6 +1001,7 @@ static int shpmgrWMCreate_Regions2Windows(PSHPWINCTLDATA pCtrl)
                 pRgn,                   // Control Data
                 NULL);                  // Pres. Param.
     }
+
     return 0;
 }
 

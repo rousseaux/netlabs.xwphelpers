@@ -86,36 +86,7 @@ ULONG dtGetULongTime(VOID)
     DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
                     &ulTimeNow,
                     sizeof(ulTimeNow));
-    return (ulTimeNow);
-
-    /* DATETIME    dt;
-    ULONG       ulHours,
-                ulDaysPassed = 0;
-
-    if (G_ulDateScalarFirstCalled == 0)
-    {
-        // first call:
-        G_ulDateScalarFirstCalled = dtDate2Scalar(dt.year,
-                                                  dt.month,
-                                                  dt.day);
-    }
-    else
-    {
-        // not first call:
-        ULONG ulDateScalarNow = dtDate2Scalar(dt.year,
-                                              dt.month,
-                                              dt.day);
-        ulDaysPassed = (ulDateScalarNow - G_ulDateScalarFirstCalled);
-        _Pmpf((__FUNCTION__ ": days passed = %d", ulDaysPassed));
-    }
-
-    DosGetDateTime(&dt);
-    ulHours = dt.hours;     // this is UCHAR in DATETIME
-    // get the hours; for every day passed, add 24 hours...
-    ulHours += (24 * ulDaysPassed);
-            // 0 if we're still on the first date
-
-    return (10*(dt.hundredths + 100*(dt.seconds + 60*(dt.minutes + 60*(ulHours))))); */
+    return ulTimeNow;
 }
 
 /*
@@ -149,14 +120,14 @@ int dtCreateFileTimeStamp(PSZ pszTimeStamp,      // out: time stamp
                           FDATE* pfdate,         // in: date
                           FTIME* pftime)         // in: time
 {
-    return (sprintf(pszTimeStamp,
-                    pcszFormatTimestamp,
-                    pfdate->year + 1980,
-                    pfdate->month,
-                    pfdate->day,
-                    pftime->hours,
-                    pftime->minutes,
-                    pftime->twosecs * 2));
+    return sprintf(pszTimeStamp,
+                   pcszFormatTimestamp,
+                   pfdate->year + 1980,
+                   pfdate->month,
+                   pfdate->day,
+                   pftime->hours,
+                   pftime->minutes,
+                   pftime->twosecs * 2);
 }
 
 /*
@@ -172,14 +143,14 @@ int dtCreateFileTimeStamp(PSZ pszTimeStamp,      // out: time stamp
 int dtCreateDosTimeStamp(PSZ pszTimeStamp,
                          DATETIME* pdt)
 {
-    return (sprintf(pszTimeStamp,
-                    pcszFormatTimestamp,
-                    pdt->year,
-                    pdt->month,
-                    pdt->day,
-                    pdt->hours,
-                    pdt->minutes,
-                    pdt->seconds));
+    return sprintf(pszTimeStamp,
+                   pcszFormatTimestamp,
+                   pdt->year,
+                   pdt->month,
+                   pdt->day,
+                   pdt->hours,
+                   pdt->minutes,
+                   pdt->seconds);
 }
 
 /*
@@ -371,10 +342,10 @@ BOOL dtIsValidDate(LONG day,      // in: day (1-31)
                 else
                     if (day == 29)
                         if (dtIsLeapYear(year))
-                            return (TRUE);
+                            return TRUE;
         }
     }
 
-    return (FALSE);
+    return FALSE;
 }
 
