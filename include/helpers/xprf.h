@@ -134,9 +134,10 @@ extern "C" {
      *
      ********************************************************************/
 
-    #define XINI_MAGIC_BYTES    "hjba78j,"
-
     #ifdef LINKLIST_HEADER_INCLUDED
+
+        #define XINI_MAGIC_BYTES "xpRfMa\x03"
+
         /*
          *@@ XINI:
          *      open INI file. Returned by xprfOpenProfile
@@ -150,15 +151,17 @@ extern "C" {
         {
             CHAR    acMagic[sizeof(XINI_MAGIC_BYTES)];
                                 // magic bytes for security
+                                // removed V1.0.0 (2002-09-20) [umoeller]
             CHAR    szFilename[CCHMAXPATH];
+
             HFILE   hFile;      // returned by DosProtectOpen
-            FHLOCK  hLock;      // lock ID of DosProtectOpen
+            // FHLOCK  hLock;      // lock ID of DosProtectOpen
+                        // removed V1.0.0 (2002-09-20) [umoeller]
             BOOL    fDirty;     // TRUE if changed and needs to be flushed
                                 // on close
 
             // applications list
             LINKLIST    llApps;             // contains PXINIAPPDATA items
-            ULONG       cApps;              // count of items on list
         } XINI, *PXINI;
     #else
         typedef void* PXINI;
@@ -167,19 +170,28 @@ extern "C" {
     APIRET xprfOpenProfile(const char *pcszFilename,
                            PXINI *ppxini);
 
-    BOOL xprfCloseProfile(PXINI hIni);
+    APIRET xprfCloseProfile(PXINI hIni);
 
-    /* BOOL xprfQueryProfileData(PXINI hIni,
-                       const char *pcszApp,
-                       const char *pcszKey,
-                       PVOID pBuffer,
-                       PULONG pulBufferMax); */
+    APIRET xprfQueryProfileSize(PXINI pXIni,
+                                PCSZ pszAppName,
+                                PCSZ pszKeyName,
+                                PULONG pulDataLen);
 
-    BOOL xprfWriteProfileData(PXINI hIni,
-                       const char *pcszApp,
-                       const char *pcszKey,
-                       PVOID pData,
-                       ULONG ulDataLen);
+    APIRET xprfQueryProfileData(PXINI pXIni,
+                                PCSZ pszAppName,
+                                PCSZ pszKeyName,
+                                PVOID pBuffer,
+                                PULONG pulBufferMax);
+
+    APIRET xprfWriteProfileData(PXINI hIni,
+                                const char *pcszApp,
+                                const char *pcszKey,
+                                PVOID pData,
+                                ULONG ulDataLen);
+
+    APIRET xprfQueryKeysForApp(PXINI hIni,
+                               PCSZ pcszApp,
+                               PSZ *ppszKeys);
 
     /* ******************************************************************
      *
@@ -208,27 +220,43 @@ extern "C" {
     typedef FN_PRF_PROGRESS *PFN_PRF_PROGRESS;
 
     APIRET xprfCopyKey(HINI hiniSource,
-                       PSZ pszSourceApp,
-                       PSZ pszKey,
+                       PCSZ pszSourceApp,
+                       PCSZ pszKey,
                        PXINI hiniTarget,
-                       PSZ pszTargetApp);
+                       PCSZ pszTargetApp);
+
+    APIRET xprfCopyKey2(PXINI hiniSource,
+                        PCSZ pszSourceApp,
+                        PCSZ pszKey,
+                        HINI hiniTarget,
+                        PCSZ pszTargetApp);
 
     APIRET xprfCopyApp(HINI hiniSource,
-                       PSZ pszSourceApp,
+                       PCSZ pszSourceApp,
                        PXINI hiniTarget,
-                       PSZ pszTargetApp,
+                       PCSZ pszTargetApp,
                        PSZ pszErrorKey);
 
+    APIRET xprfCopyApp2(PXINI hiniSource,
+                        PCSZ pszSourceApp,
+                        HINI hiniTarget,
+                        PCSZ pszTargetApp,
+                        PSZ pszErrorKey);
+
     APIRET xprfCopyProfile(HINI hOld,
-                           PSZ pszNew,
+                           PCSZ pszNew,
                            PFN_PRF_PROGRESS pfnProgressCallback,
                            ULONG ulUser,
                            ULONG ulCount,
-                           ULONG ulMax);
+                           ULONG ulMax,
+                           PSZ pszFailingApp);
 
     APIRET xprfSaveINIs(HAB hab,
                         PFN_PRF_PROGRESS pfnProgressCallback,
-                        ULONG ulUser);
+                        ULONG ulUser,
+                        PSZ pszFailingINI,
+                        PSZ pszFailingApp,
+                        PSZ pszFailingKey);
 #endif
 
 #if __cplusplus

@@ -105,7 +105,7 @@ extern "C" {
         // USHORT      usAdjustPosition;
                 // flags for winhAdjustControls; any combination of
                 // XAC_MOVEX, XAC_MOVEY, XAC_SIZEX, XAC_SIZEY
-                // removed V0.9.21 (2002-08-18) [umoeller]
+                // removed V1.0.0 (2002-08-18) [umoeller]
 
         SIZEL       szlDlgUnits;
                 // proposed size for the control content rectangle.
@@ -243,14 +243,14 @@ extern "C" {
     #define START_TABLE                     { TYPE_START_NEW_TABLE, (ULONG)NULL, 0 }
 
     #define START_TABLE_EXT(fl)             { TYPE_START_NEW_TABLE, (ULONG)NULL, fl }
-                // added V0.9.21 (2002-08-16) [umoeller]
+                // added V1.0.0 (2002-08-16) [umoeller]
 
     #define START_TABLE_ALIGN START_TABLE_EXT(TABLE_ALIGN_COLUMNS)
 
     #define START_GROUP_TABLE(pDef)         { TYPE_START_NEW_TABLE, (ULONG)pDef, 0 }
 
     #define START_GROUP_TABLE_EXT(pDef, fl) { TYPE_START_NEW_TABLE, (ULONG)pDef, fl }
-                // added V0.9.21 (2002-08-16) [umoeller]
+                // added V1.0.0 (2002-08-16) [umoeller]
 
     #define START_GROUP_TABLE_ALIGN(pDef) START_GROUP_TABLE_EXT(pDef, TABLE_ALIGN_COLUMNS)
 

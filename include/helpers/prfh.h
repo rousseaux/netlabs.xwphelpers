@@ -64,7 +64,12 @@ extern "C" {
     #define PRFERR_RESET                (ERROR_PRF_FIRST + 11)
                     // PrfReset failed V0.9.19 (2002-04-02) [umoeller]
 
-    #define ERROR_PRF_LAST              (ERROR_PRF_FIRST + 11)
+    #define PRFERR_INVALID_APP_NAME     (ERROR_PRF_FIRST + 12)
+                    // V1.0.0 (2002-09-17) [umoeller]
+    #define PRFERR_INVALID_KEY_NAME     (ERROR_PRF_FIRST + 13)
+                    // V1.0.0 (2002-09-17) [umoeller]
+
+    #define ERROR_PRF_LAST              (ERROR_PRF_FIRST + 13)
 
     /* ******************************************************************
      *
@@ -109,7 +114,7 @@ extern "C" {
     DECLARE_PRFH_STRING(WPINIKEY_SHORTMENUS,    "FolderMenus");
             // V0.9.19 (2002-04-17) [umoeller]
 
-    // class replacements list V0.9.21 (2002-08-26) [umoeller]
+    // class replacements list V1.0.0 (2002-08-26) [umoeller]
     DECLARE_PRFH_STRING(WPINIAPP_REPLACEMENTS, "PM_Workplace:ReplaceList");
 
     // abstract objects per folder handle

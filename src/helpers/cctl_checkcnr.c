@@ -862,7 +862,7 @@ BOOL ctlMakeCheckboxContainer(HWND hwndCnrOwner,    // in: owner (and parent) of
 /*
  *@@ FINDCHECKRECORD:
  *
- *@@added V0.9.21 (2002-09-09) [umoeller]
+ *@@added V1.0.0 (2002-09-09) [umoeller]
  */
 
 typedef struct _FINDCHECKRECORD
@@ -881,7 +881,7 @@ typedef struct _FINDCHECKRECORD
  *      cnrhForAllRecords stop searching.
  *
  *@@added V0.9.0 (99-11-28) [umoeller]
- *@@changed V0.9.21 (2002-09-09) [umoeller]: adjusted for cnrhForAllRecords updates
+ *@@changed V1.0.0 (2002-09-09) [umoeller]: adjusted for cnrhForAllRecords updates
  */
 
 STATIC ULONG XWPENTRY fncbFindCheckRecord(HWND hwndCnr,             // in: container
@@ -906,7 +906,7 @@ STATIC ULONG XWPENTRY fncbFindCheckRecord(HWND hwndCnr,             // in: conta
  *      ID. Returns NULL if not found.
  *
  *@@added V0.9.1 (99-12-03) [umoeller]
- *@@changed V0.9.21 (2002-09-09) [umoeller]: adjusted for cnrhForAllRecords updates
+ *@@changed V1.0.0 (2002-09-09) [umoeller]: adjusted for cnrhForAllRecords updates
  */
 
 PCHECKBOXRECORDCORE ctlFindCheckRecord(HWND hwndCnr,

@@ -175,7 +175,7 @@
  *@@changed V0.9.16 (2001-12-08) [umoeller]: fLibrary was never set, works for LX, NE, and PE now
  *@@changed V0.9.16 (2001-12-08) [umoeller]: speed optimizations, changed some return codes
  *@@changed V0.9.16 (2002-01-04) [umoeller]: added fixes for COM, BAT, CMD extensions
- *@@changed V0.9.21 (2002-08-18) [umoeller]: this was completely broken for files without extensions (os2krnl)
+ *@@changed V1.0.0 (2002-08-18) [umoeller]: this was completely broken for files without extensions (os2krnl)
  */
 
 APIRET exehOpen(const char* pcszExecutable,
@@ -205,7 +205,7 @@ APIRET exehOpen(const char* pcszExecutable,
     if (!(pExt = doshGetExtension(pcszExecutable)))
     {
         // has no extension: then open file!
-        // fixed V0.9.21 (2002-08-18) [umoeller]
+        // fixed V1.0.0 (2002-08-18) [umoeller]
         fOpenFile = TRUE;
     }
     else
@@ -560,8 +560,8 @@ APIRET exehOpen(const char* pcszExecutable,
  *
  *@@added V0.9.12 (2001-05-18) [umoeller]
  *@@changed V0.9.12 (2001-05-19) [umoeller]: added extended BLDLEVEL support
- *@@changed V0.9.21 (2002-08-18) [umoeller]: added support for IBM TCP/IP format
- *@@changed V0.9.21 (2002-08-18) [umoeller]: fixed DANIS506 format when an extended field had only one character
+ *@@changed V1.0.0 (2002-08-18) [umoeller]: added support for IBM TCP/IP format
+ *@@changed V1.0.0 (2002-08-18) [umoeller]: fixed DANIS506 format when an extended field had only one character
  */
 
 STATIC VOID ParseBldLevel(PEXECUTABLE pExec)
@@ -598,7 +598,7 @@ STATIC VOID ParseBldLevel(PEXECUTABLE pExec)
                 if (strlen(p) > 24)
                 {
                     // skip leading and trailing spaces
-                    // V0.9.21 (2002-08-18) [umoeller]
+                    // V1.0.0 (2002-08-18) [umoeller]
                     PCSZ pStartOfDT = p,
                          pEndOfDT = p + 24;
                                 // date/time seems to be fixed 24 chars in length
@@ -669,7 +669,7 @@ STATIC VOID ParseBldLevel(PEXECUTABLE pExec)
                                )
                             {
                                 // if (pNextColon > p + 1)
-                                        // fixed V0.9.21 (2002-08-18) [umoeller]
+                                        // fixed V1.0.0 (2002-08-18) [umoeller]
                                         // this failed on fields like "revision"
                                         // which only had one character
                                 if (pNextColon > p)
@@ -693,7 +693,7 @@ STATIC VOID ParseBldLevel(PEXECUTABLE pExec)
             else if (!memcmp(pStartOfInfo, "##built", 7))
             {
                 // IBM TCP/IP format:
-                // V0.9.21 (2002-08-18) [umoeller]
+                // V1.0.0 (2002-08-18) [umoeller]
 
                 // ##built 09:16:27 Mon Sep 17 2001 -- On AURORA43;0.1@@ TCP/IP for OS/2: INETD
 

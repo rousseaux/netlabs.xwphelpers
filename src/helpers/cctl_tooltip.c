@@ -223,13 +223,13 @@ MRESULT EXPENTRY ctl_fnwpSubclassedTool(HWND hwndTool, ULONG msg, MPARAM mp1, MP
 {
     MRESULT mrc = 0;
 
-    PFNWP           pfnwpOrig = NULL;
+    PFNWP   pfnwpOrig = NULL;
 
     if (LockSubclassedTools())
     {
-        PSUBCLASSEDTOOL pst = FindSubclassedTool(hwndTool);
+        PSUBCLASSEDTOOL pst;
 
-        if (pst)
+        if (pst = FindSubclassedTool(hwndTool))
         {
             pfnwpOrig = pst->pfnwpOrig;     // call default
 
@@ -253,10 +253,12 @@ MRESULT EXPENTRY ctl_fnwpSubclassedTool(HWND hwndTool, ULONG msg, MPARAM mp1, MP
                                TTM_RELAYEVENT,
                                (MPARAM)0,
                                (MPARAM)&qmsg);
-                break; }
+                }
+                break;
 
                 case WM_DESTROY:
-                    lstRemoveItem(&G_llSubclassedTools, pst);         // this frees the item
+                    lstRemoveItem(&G_llSubclassedTools, pst);
+                            // this frees the item
                 break;
             }
         }
@@ -1465,9 +1467,8 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              */
 
             case WM_PRESPARAMCHANGED:
-            {
-                LONG    lPPIndex = (LONG)mp1;
-                switch (lPPIndex)
+
+                switch ((LONG)mp1)      // pp index
                 {
                     case 0:     // layout palette thing dropped
                     case PP_MENUBACKGROUNDCOLOR:
@@ -1477,7 +1478,8 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
                         // re-query our presparams
                         UpdateTooltipPresColors(hwndTooltip);
                 }
-            break; }
+
+            break;
 
             /*
              * WM_SYSCOLORCHANGE:
@@ -1899,7 +1901,8 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
             {
                 PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
                 mrc = (MPARAM)lstCountItems(&pttd->llTools);
-            break; }
+            }
+            break;
 
             /*
              *@@ TTM_GETTOOLINFO:

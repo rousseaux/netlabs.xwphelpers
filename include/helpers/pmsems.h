@@ -38,7 +38,7 @@ extern "C" {
      *      PM semaphore definition, according to
      *      the OS/2 debugging handbook.
      *
-     *@@added V0.9.21 (2002-08-12) [umoeller]
+     *@@added V1.0.0 (2002-08-12) [umoeller]
      */
 
     typedef struct _PMSEM

@@ -409,7 +409,7 @@ APIRET appSetEnvironmentVar(PDOSENVIRONMENT pEnv,
  *      an empty string. (Hence just like the environment block
  *      representation in OS/2.)
  *
- *@@added V0.9.21 (2002-09-04) [bird]
+ *@@added V1.0.0 (2002-09-04) [bird]
  */
 
 APIRET appSetEnvironmentVars(PDOSENVIRONMENT pEnv,
@@ -833,7 +833,7 @@ ULONG appIsWindowsApp(ULONG ulProgCategory)
  *      --  ERROR_FILE_NOT_FOUND
  *
  *@@added V0.9.20 (2002-07-03) [umoeller]
- *@@changed V0.9.21 (2002-08-21) [umoeller]: now allowing for UNC
+ *@@changed V1.0.0 (2002-08-21) [umoeller]: now allowing for UNC
  */
 
 STATIC APIRET CheckAndQualifyExecutable(PPROGDETAILS pDetails,          // in/out: program details
@@ -844,7 +844,7 @@ STATIC APIRET CheckAndQualifyExecutable(PPROGDETAILS pDetails,          // in/ou
     ULONG ulAttr;
     // check if the executable is fully qualified; if so,
     // check if the executable file exists
-    if (    // allow UNC V0.9.21 (2002-08-21) [umoeller]
+    if (    // allow UNC V1.0.0 (2002-08-21) [umoeller]
             (    (pDetails->pszExecutable[0] == '\\')
               && (pDetails->pszExecutable[1] == '\\')
             )
@@ -888,7 +888,7 @@ STATIC APIRET CheckAndQualifyExecutable(PPROGDETAILS pDetails,          // in/ou
  *@@changed V0.9.7 (2001-01-15) [umoeller]: now using XSTRING
  *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from winh.c to apps.c
  *@@changed V0.9.20 (2002-07-03) [umoeller]: now always qualifying executable to fix broken BAT files
- *@@changed V0.9.21 (2002-08-12) [umoeller]: this didn't work for batch and cmd files that had "+" characters in their full path, fixed
+ *@@changed V1.0.0 (2002-08-12) [umoeller]: this didn't work for batch and cmd files that had "+" characters in their full path, fixed
  */
 
 STATIC APIRET CallBatchCorrectly(PPROGDETAILS pProgDetails,
@@ -916,7 +916,7 @@ STATIC APIRET CallBatchCorrectly(PPROGDETAILS pProgDetails,
     xstrcpy(pstrParams, "/C ", 0);
 
     // if the path has spaces, or other invalid characters,
-    // include it in quotes V0.9.21 (2002-08-12) [umoeller]
+    // include it in quotes V1.0.0 (2002-08-12) [umoeller]
     if (fQuotes = !!strpbrk(pProgDetails->pszExecutable, " +&|="))
         xstrcatc(pstrParams, '"');
             // @@bugbug "=" still doesn't work
@@ -930,7 +930,7 @@ STATIC APIRET CallBatchCorrectly(PPROGDETAILS pProgDetails,
             0);
 
     if (fQuotes)
-        xstrcatc(pstrParams, '"');      // V0.9.21 (2002-08-12) [umoeller]
+        xstrcatc(pstrParams, '"');      // V1.0.0 (2002-08-12) [umoeller]
 
     if (pszOldParams)
     {
@@ -1127,7 +1127,7 @@ APIRET appQueryDefaultWin31Environment(PSZ *ppsz)
  *@@changed V0.9.19 (2002-03-28) [umoeller]: now allocating contiguous buffer
  *@@changed V0.9.20 (2002-07-03) [umoeller]: fixed Win-OS/2 full screen breakage
  *@@changed V0.9.20 (2002-07-03) [umoeller]: fixed broken bat and cmd files when PROG_DEFAULT was set
- *@@changed V0.9.21 (2002-08-18) [umoeller]: fixed cmd and bat files that had "=" in their paths
+ *@@changed V1.0.0 (2002-08-18) [umoeller]: fixed cmd and bat files that had "=" in their paths
  */
 
 APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem with fixed program spec (req.)
@@ -1143,7 +1143,7 @@ APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem
     PROGDETAILS     Details;
     ULONG           ulIsWinApp;
 
-    // parameter checking extended V0.9.21 (2002-08-21) [umoeller]
+    // parameter checking extended V1.0.0 (2002-08-21) [umoeller]
     if (    (!pcProgDetails)
          || (!pcProgDetails->pszExecutable)
          || (!pcProgDetails->pszExecutable[0])
@@ -1307,7 +1307,7 @@ APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem
                     arc = ERROR_PATH_NOT_FOUND;
             }
 
-// V0.9.21: this define is never set. I have thus completely
+// V1.0.0: this define is never set. I have thus completely
 // disabled the batch hacks that we used to provide, that is
 // we no longer change the "c:\path\batch.cmd" to "cmd.exe /c c:\path\batch.cmd"
 // because it is perfectly valid to call WinStartApp with a
@@ -2015,7 +2015,7 @@ BOOL appWaitForApp(HWND hwndNotify,     // in: notify window
  *@@added V0.9.16 (2001-10-19) [umoeller]
  *@@changed V0.9.20 (2002-08-10) [umoeller]: fixed missing destroy window, made wait optional
  *@@changed V0.9.20 (2002-08-10) [umoeller]: added pcszWorkingDir
- *@@changed V0.9.21 (2002-08-18) [umoeller]: changed prototype to return APIRET
+ *@@changed V1.0.0 (2002-08-18) [umoeller]: changed prototype to return APIRET
  */
 
 APIRET appQuickStartApp(const char *pcszFile,
@@ -2082,7 +2082,7 @@ APIRET appQuickStartApp(const char *pcszFile,
  *      that URL.
  *
  *@@added V0.9.20 (2002-08-10) [umoeller]
- *@@changed V0.9.21 (2002-08-21) [umoeller]: changed prototype to return browser
+ *@@changed V1.0.0 (2002-08-21) [umoeller]: changed prototype to return browser
  */
 
 APIRET appOpenURL(PCSZ pcszURL,           // in: URL to open

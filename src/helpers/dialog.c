@@ -10,7 +10,7 @@
  *      See dlghCreateDlg for an introduction.
  *
  *      See @dlg_algorithm for the gory details of the new
- *      algorithm used since V0.9.21. Even though much
+ *      algorithm used since V1.0.0. Even though much
  *      of this file was rewritten, the new dialog is
  *      backwards-compatible with all the hacks that existing
  *      dialogs might use for aligning things properly.
@@ -253,7 +253,7 @@
  *@@gloss: dlg_boxmodel Dialog formatter box model
  *
  *      We now use the CSS box model for the dialog
- *      formatter (V0.9.21).
+ *      formatter (V1.0.0).
  *
  +      ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
  +      ³  margin                  ³
@@ -322,7 +322,7 @@
  *      4)  We have sophisticated means for computing the size of
  *          certain controls automatically. See CalcAutoSize.
  *
- *      The algorithm used here has been greatly reworked with V0.9.21.
+ *      The algorithm used here has been greatly reworked with V1.0.0.
  *      Essentially, the new trick is that we first compute all widths
  *      (which requires several iterations since widths may now inherit
  *      from each other), then all heights (which, for many controls,
@@ -572,14 +572,14 @@ typedef enum _enProcessMode
  *      be nested.
  *
  *      See @dlg_algorithm for the new algorithm
- *      used since V0.9.21.
+ *      used since V1.0.0.
  *
- *      With V0.9.21, we now follow the CSS box model
+ *      With V1.0.0, we now follow the CSS box model
  *      to render these things better without all
  *      the hacks I am no longer able to understand
  *      myself. See @dlg_box_model for details.
  *
- *@@changed V0.9.21 (2002-08-18) [umoeller]: completely replaced
+ *@@changed V1.0.0 (2002-08-18) [umoeller]: completely replaced
  */
 
 typedef struct _COLUMNDEF
@@ -601,7 +601,7 @@ typedef struct _COLUMNDEF
                                     // the control to create for the column.
 
     ULONG       ulColumnIndex;      // zero-based column index in parent row
-                                    // V0.9.21 (2002-08-18) [umoeller]
+                                    // V1.0.0 (2002-08-18) [umoeller]
 
     // b) information for control window to be created:
 
@@ -627,7 +627,7 @@ typedef struct _COLUMNDEF
 
     RECTL       rclPadding,         // spacing, in pixels, to apply to the four borders of
                 rclMargin;          // the content to get the box; calculated from CONTROLDEF
-                                    // V0.9.21 (2002-08-16) [umoeller]
+                                    // V1.0.0 (2002-08-16) [umoeller]
 
     LONG        cxSpacingTotal;     // sum of rclPadding and rclMargin xLeft and
                                     // xRight, respectively
@@ -683,7 +683,7 @@ typedef struct _ROWDEF
                                     // -- ROW_VALIGN_TOP              0x0002
 
     ULONG       cColumns;           // no. of columns in this row
-                                    // V0.9.21 (2002-08-18) [umoeller]
+                                    // V1.0.0 (2002-08-18) [umoeller]
 
     // result data after recursion:
 
@@ -766,7 +766,7 @@ STATIC PFNWP G_pfnwpDebugStaticOrig = NULL;
  *      This is only compiled if DEBUG_DIALOG_WINDOWS is
  *      set.
  *
- *@@added V0.9.21 (2002-08-16) [umoeller]
+ *@@added V1.0.0 (2002-08-16) [umoeller]
  */
 
 STATIC MRESULT EXPENTRY fnwpDebugFrame(HWND hwndBox, ULONG msg, MPARAM mp1, MPARAM mp2)
@@ -826,7 +826,7 @@ STATIC MRESULT EXPENTRY fnwpDebugFrame(HWND hwndBox, ULONG msg, MPARAM mp1, MPAR
  *      This is only compiled if DEBUG_DIALOG_WINDOWS is
  *      set.
  *
- *@@added V0.9.21 (2002-08-16) [umoeller]
+ *@@added V1.0.0 (2002-08-16) [umoeller]
  */
 
 HWND CreateDebugFrame(HWND hwndParent,
@@ -948,7 +948,7 @@ STATIC VOID SetDlgFont(PCSZ pcszFontThis,
  *@@changed V0.9.14 (2001-08-01) [umoeller]: now caching fonts, which is significantly faster
  *@@changed V0.9.16 (2001-10-15) [umoeller]: added APIRET
  *@@changed V0.9.16 (2002-02-02) [umoeller]: added ulWidth
- *@@changed V0.9.21 (2002-08-18) [umoeller]: renamed; moved multi-line processing to CalcAutoSizeTextMulti
+ *@@changed V1.0.0 (2002-08-18) [umoeller]: renamed; moved multi-line processing to CalcAutoSizeTextMulti
  */
 
 STATIC APIRET CalcAutoSizeTextSingle(PCOLUMNDEF pColumn,
@@ -983,7 +983,7 @@ STATIC APIRET CalcAutoSizeTextSingle(PCOLUMNDEF pColumn,
  *      implementation for CalcAutoSize for multi-line
  *      static text controls.
  *
- *@@added V0.9.21 (2002-08-18) [umoeller]
+ *@@added V1.0.0 (2002-08-18) [umoeller]
  */
 
 STATIC APIRET CalcAutoSizeTextMulti(PCOLUMNDEF pColumn,
@@ -1029,7 +1029,7 @@ STATIC APIRET CalcAutoSizeTextMulti(PCOLUMNDEF pColumn,
  *      which would be way too expensive.
  *
  *@@added V0.9.20 (2002-08-10) [umoeller]
- *@@changed V0.9.21 (2002-08-18) [umoeller]: removed temp windows list
+ *@@changed V1.0.0 (2002-08-18) [umoeller]: removed temp windows list
  */
 
 STATIC APIRET CalcAutoSizeTextView(PCOLUMNDEF pColumn,
@@ -1223,7 +1223,7 @@ STATIC APIRET CalcAutoSize(PCOLUMNDEF pColumn,
  *@@added V0.9.15 (2001-08-26) [umoeller]
  *@@changed V0.9.16 (2001-10-15) [umoeller]: added APIRET
  *@@changed V0.9.19 (2002-04-24) [umoeller]: fixed PM groups alignment
- *@@changed V0.9.21 (2002-08-16) [umoeller]: adjusted for new algorithm
+ *@@changed V1.0.0 (2002-08-16) [umoeller]: adjusted for new algorithm
  */
 
 STATIC APIRET ColumnCalcPositions(PCOLUMNDEF pColumn,
@@ -1289,8 +1289,8 @@ STATIC APIRET ColumnCalcPositions(PCOLUMNDEF pColumn,
  *@@changed V0.9.16 (2001-12-08) [umoeller]: fixed entry field ES_MARGIN positioning
  *@@changed V0.9.19 (2002-04-17) [umoeller]: fixes for the STUPID drop-down comboboxes
  *@@changed V0.9.19 (2002-04-24) [umoeller]: fixed PM groups alignment
- *@@changed V0.9.21 (2002-08-16) [umoeller]: adjusted for new algorithm
- *@@changed V0.9.21 (2002-08-18) [umoeller]: setting entry field length to CCHMAXPATH per default now
+ *@@changed V1.0.0 (2002-08-16) [umoeller]: adjusted for new algorithm
+ *@@changed V1.0.0 (2002-08-18) [umoeller]: setting entry field length to CCHMAXPATH per default now
  */
 
 STATIC APIRET ColumnCreateControl(PCOLUMNDEF pColumn,
@@ -1322,7 +1322,7 @@ STATIC APIRET ColumnCreateControl(PCOLUMNDEF pColumn,
                 pcszText = pColumn->pcszText;
                 flStyle = pColumn->flStyle;
 
-                // V0.9.21 (2002-08-16) [umoeller]
+                // V1.0.0 (2002-08-16) [umoeller]
                 // Removed all the terrible hacks for the PM group
                 // control. We now use rclPadding and rclMargin
                 // in the CONTROLDEF for determining the group
@@ -1354,7 +1354,7 @@ STATIC APIRET ColumnCreateControl(PCOLUMNDEF pColumn,
         flStyle = pColumn->flStyle;
     }
 
-    if (    (!arc)            // check error code V0.9.21 (2002-08-16) [umoeller]
+    if (    (!arc)            // check error code V1.0.0 (2002-08-16) [umoeller]
          && (pcszClass)
        )
     {
@@ -1364,7 +1364,7 @@ STATIC APIRET ColumnCreateControl(PCOLUMNDEF pColumn,
         LONG        cxUse;
         PCSZ        pcszTextEF = NULL;          // for entry field
 
-        // V0.9.21 (2002-08-16) [umoeller]
+        // V1.0.0 (2002-08-16) [umoeller]
         // determine the position where to create the
         // control; this is the content box, to which
         // we add the absolute position on the dlgdata
@@ -1447,7 +1447,7 @@ STATIC APIRET ColumnCreateControl(PCOLUMNDEF pColumn,
                     // entry field:
                     // defer setting the text because we should
                     // first set the entry field limit
-                    // V0.9.21 (2002-08-18) [umoeller]
+                    // V1.0.0 (2002-08-18) [umoeller]
                     pcszTextEF = pcszText;
                     pcszText = "";          // for now
                 }
@@ -1531,7 +1531,7 @@ STATIC APIRET ColumnCreateControl(PCOLUMNDEF pColumn,
                     // entry field:
                     // set text limit to CCHMAXPATH per default,
                     // and set the real text now
-                    // V0.9.21 (2002-08-18) [umoeller]
+                    // V1.0.0 (2002-08-18) [umoeller]
                     winhSetEntryFieldLimit(pColumn->hwndControl, CCHMAXPATH);
                     WinSetWindowText(pColumn->hwndControl, (PSZ)pcszTextEF);
                 }
@@ -1633,7 +1633,7 @@ STATIC APIRET ColumnCreateControl(PCOLUMNDEF pColumn,
  *@@changed V0.9.12 (2001-05-31) [umoeller]: added control data
  *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed font problems
  *@@changed V0.9.20 (2002-08-08) [umoeller]: added support for aligning columns horizontally
- *@@changed V0.9.21 (2002-08-16) [umoeller]: calc size rewritten for new algorithm
+ *@@changed V1.0.0 (2002-08-16) [umoeller]: calc size rewritten for new algorithm
  */
 
 STATIC APIRET ProcessColumn(PCOLUMNDEF pColumn,
@@ -1654,7 +1654,7 @@ STATIC APIRET ProcessColumn(PCOLUMNDEF pColumn,
          */
 
         case PROCESS_1_CALC_MIN_WIDTHS:
-            // rewritten V0.9.21 (2002-08-16) [umoeller]
+            // rewritten V1.0.0 (2002-08-16) [umoeller]
 
             if (!pColumn->pNestedTable)
             {
@@ -1722,7 +1722,7 @@ STATIC APIRET ProcessColumn(PCOLUMNDEF pColumn,
          */
 
         case PROCESS_2_CALC_RELATIVE_WIDTHS:
-            // rewritten V0.9.21 (2002-08-16) [umoeller]
+            // rewritten V1.0.0 (2002-08-16) [umoeller]
 
             if (!pColumn->pNestedTable)
             {
@@ -1815,7 +1815,7 @@ STATIC APIRET ProcessColumn(PCOLUMNDEF pColumn,
          */
 
         case PROCESS_3_ALIGN_COLUMNS:
-            // rewritten V0.9.21 (2002-08-16) [umoeller]
+            // rewritten V1.0.0 (2002-08-16) [umoeller]
 
             if (!pColumn->pNestedTable)
             {
@@ -2100,7 +2100,7 @@ STATIC APIRET ProcessColumn(PCOLUMNDEF pColumn,
  *      which in turn calls ProcessColumn for each column
  *      in the row.
  *
- *@@changed V0.9.21 (2002-08-16) [umoeller]: adjusted for new algorithm
+ *@@changed V1.0.0 (2002-08-16) [umoeller]: adjusted for new algorithm
  */
 
 STATIC APIRET ProcessRow(PROWDEF pRowDef,
@@ -2198,7 +2198,7 @@ STATIC APIRET ProcessRow(PROWDEF pRowDef,
  *      this must be the lower left corner of the column
  *      to which the nested table belongs.
  *
- *@@changed V0.9.21 (2002-08-16) [umoeller]: adjusted for new algorithm
+ *@@changed V1.0.0 (2002-08-16) [umoeller]: adjusted for new algorithm
  */
 
 STATIC APIRET ProcessTable(PTABLEDEF pTableDef,
@@ -2219,7 +2219,7 @@ STATIC APIRET ProcessTable(PTABLEDEF pTableDef,
             // set; this was originally designed
             // as a separate step (PROCESS_2_INHERIT_TABLE_SIZES),
             // but we can save ourselves a loop here
-            // V0.9.21 (2002-08-16) [umoeller]
+            // V1.0.0 (2002-08-16) [umoeller]
             if (pTableDef->flTable & TABLE_INHERIT_SIZE)
             {
                 PCOLUMNDEF  pOwningColumn;
@@ -2392,7 +2392,7 @@ STATIC APIRET ProcessAll(PDLGPRIVATE pDlgData,
 /*
  *@@ CreateColumn:
  *
- *@@changed V0.9.21 (2002-08-18) [umoeller]: mostly rewritten for new algorithm
+ *@@changed V1.0.0 (2002-08-18) [umoeller]: mostly rewritten for new algorithm
  */
 
 STATIC APIRET CreateColumn(PDLGPRIVATE pDlgData,
@@ -2490,7 +2490,7 @@ STATIC APIRET CreateColumn(PDLGPRIVATE pDlgData,
                                       + pColumn->rclPadding.xRight
                                       + pColumn->rclMargin.xRight;
 
-            // set the column index V0.9.21 (2002-08-18) [umoeller]
+            // set the column index V1.0.0 (2002-08-18) [umoeller]
             pColumn->ulColumnIndex = (pCurrentRow->cColumns)++;
 
             *ppColumn = pColumn;
@@ -2744,7 +2744,7 @@ STATIC APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
                 if (!(arc = CreateColumn(pDlgData,
                                          pCurrentRow,
                                          FALSE,        // no nested table
-                                         (const CONTROLDEF *)pItemThis->ul1, // pCtlDef, V0.9.21 (2002-08-18) [umoeller]
+                                         (const CONTROLDEF *)pItemThis->ul1, // pCtlDef, V1.0.0 (2002-08-18) [umoeller]
                                          &pColumn)))
                     lstAppendItem(&pCurrentRow->llColumns,
                                   pColumn);
@@ -2803,7 +2803,7 @@ STATIC APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
  *      After this, DLGPRIVATE.szlClient is valid.
  *
  *@@added V0.9.15 (2001-08-26) [umoeller]
- *@@changed V0.9.21 (2002-08-16) [umoeller]: adjusted for new algorithm
+ *@@changed V1.0.0 (2002-08-16) [umoeller]: adjusted for new algorithm
  */
 
 STATIC APIRET Dlg2_CalcSizes(PDLGPRIVATE pDlgData)
@@ -2812,7 +2812,7 @@ STATIC APIRET Dlg2_CalcSizes(PDLGPRIVATE pDlgData)
 
     // call process mode with the first for "calc size"
     // process modes
-    // changed V0.9.21 (2002-08-16) [umoeller]
+    // changed V1.0.0 (2002-08-16) [umoeller]
     if (!(arc = ProcessAll(pDlgData,
                            PROCESS_1_CALC_MIN_WIDTHS)))
         if (!(arc = ProcessAll(pDlgData,
@@ -2995,7 +2995,7 @@ STATIC VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *      in some table. Tables may also nest (see below).
  *
  *      See @dlg_algorithm for the gory details of the new
- *      algorithm used since V0.9.21.
+ *      algorithm used since V1.0.0.
  *
  *      See @dlg_boxmodel for information about how the
  *      rectangles are defined.
@@ -3068,7 +3068,7 @@ STATIC VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *@@changed V0.9.14 (2001-08-21) [umoeller]: fixed default push button problems
  *@@changed V0.9.16 (2001-12-06) [umoeller]: fixed bad owner if not direct desktop child
  *@@changed V0.9.19 (2002-04-24) [umoeller]: added excpt handling
- +@@changed V0.9.21 (2002-08-21) [umoeller]: now setting wait pointer
+ +@@changed V1.0.0 (2002-08-21) [umoeller]: now setting wait pointer
  */
 
 APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
@@ -3083,7 +3083,7 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
 {
     APIRET      arc = NO_ERROR;
 
-    HPOINTER    hptrOld = winhSetWaitPointer();     // V0.9.21 (2002-08-21) [umoeller]
+    HPOINTER    hptrOld = winhSetWaitPointer();     // V1.0.0 (2002-08-21) [umoeller]
 
     TRY_LOUD(excpt1)
     {
@@ -3245,7 +3245,7 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                      szErr);
     }
 
-    WinSetPointer(HWND_DESKTOP, hptrOld); // V0.9.21 (2002-08-21) [umoeller]
+    WinSetPointer(HWND_DESKTOP, hptrOld); // V1.0.0 (2002-08-21) [umoeller]
 
     return arc;
 }
@@ -3625,7 +3625,7 @@ MRESULT EXPENTRY fnwpMessageBox(HWND hwndBox, ULONG msg, MPARAM mp1, MPARAM mp2)
  *@@changed V0.9.19 (2002-04-24) [umoeller]: added pfnHelp
  *@@changed V0.9.20 (2002-07-12) [umoeller]: made icon spacing wider
  *@@changed V0.9.20 (2002-08-10) [umoeller]: fixed missing close button
- *@@changed V0.9.21 (2002-08-16) [umoeller]: now using table alignment
+ *@@changed V1.0.0 (2002-08-16) [umoeller]: now using table alignment
  */
 
 APIRET dlghCreateMessageBox(HWND *phwndDlg,

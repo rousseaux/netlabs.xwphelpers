@@ -43,7 +43,7 @@
  *      GNU General Public License for more details.
  */
 
-//#define DEBUG_SYMDUMP // enable to dump sym file to log V0.9.21 (2002-08-21) [paperino]
+//#define DEBUG_SYMDUMP // enable to dump sym file to log V1.0.0 (2002-08-21) [paperino]
 
 #define OS2EMX_PLAIN_CHAR
     // this is needed for "os2emx.h"; if this is defined,
@@ -1536,7 +1536,7 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
                     SymOffset, SymPtrOffset;
 
     // open .SYM file
-#ifdef DEBUG_SYMDUMP    // V0.9.21 (2002-08-21) [paperino]
+#ifdef DEBUG_SYMDUMP    // V1.0.0 (2002-08-21) [paperino]
     fprintf(LogFile,"Dump of '%s' for object %d\n",SymFileName,Object);
 #endif
     SymFile = fopen(SymFileName, "rb");
@@ -1590,7 +1590,7 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
 #endif
             for (SymNum = 0; SymNum < SegDef.cSymbols; SymNum++)
             {
-                // fixed syms > 64 K V0.9.21 (2002-08-21) [paperino]
+                // fixed syms > 64 K V1.0.0 (2002-08-21) [paperino]
                 if (SegDef.bFlags & 0x01)
                 {
                     // 32-bit symbol:

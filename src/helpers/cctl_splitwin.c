@@ -94,7 +94,7 @@
  *      implementation for WM_PAINT in ctl_fnwpSplitWindow.
  *
  *@@added V0.9.1 (2000-02-05) [umoeller]
- *@@changed V0.9.21 (2002-08-24) [umoeller]: added SBCF_3DEXPLORERSTYLE
+ *@@changed V1.0.0 (2002-08-24) [umoeller]: added SBCF_3DEXPLORERSTYLE
  */
 
 STATIC VOID PaintSplitWindow(HWND hwndSplit)
@@ -117,7 +117,7 @@ STATIC VOID PaintSplitWindow(HWND hwndSplit)
             // "3D-sunk" style?
             if (pData->sbcd.ulCreateFlags & SBCF_3DEXPLORERSTYLE)
             {
-                // this style is new with V0.9.21 (2002-08-24) [umoeller];
+                // this style is new with V1.0.0 (2002-08-24) [umoeller];
                 // simulate the Warp 4 entry field margins around the
                 // right control only, but leave the left control flat.
                 RECTL rcl;
@@ -442,7 +442,7 @@ STATIC VOID PaintSplitBar(HWND hwndBar,
                     pData->lcolInactiveBorder);
 
         if (!(pData->sbcd.ulCreateFlags & (SBCF_3DSUNK | SBCF_3DEXPLORERSTYLE)))
-                        // V0.9.21 (2002-08-31) [umoeller]
+                        // V1.0.0 (2002-08-31) [umoeller]
         {
             GpiSetColor(hps, pData->lcol3DLight);
             // draw left border (bottom to up)
@@ -796,7 +796,7 @@ HWND ctlCreateSplitWindow(HAB hab,
                 pData->hwndLinked1 =
                 pData->hwndLinked2 = NULLHANDLE;
 
-                // caching these colors now V0.9.21 (2002-08-21) [umoeller]
+                // caching these colors now V1.0.0 (2002-08-21) [umoeller]
                 pData->lcol3DDark = WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONDARK, 0);
                 pData->lcol3DLight = WinQuerySysColor(HWND_DESKTOP, SYSCLR_BUTTONLIGHT, 0);
                 pData->lcolInactiveBorder = WinQuerySysColor(HWND_DESKTOP, SYSCLR_INACTIVEBORDER, 0);
@@ -822,7 +822,7 @@ HWND ctlCreateSplitWindow(HAB hab,
  *      a WinSetWindowPos on the split window instead.
  *
  *@@added V0.9.0 [umoeller]
- *@@changed V0.9.21 (2002-08-24) [umoeller]: added support for SBCF_3DEXPLORERSTYLE
+ *@@changed V1.0.0 (2002-08-24) [umoeller]: added support for SBCF_3DEXPLORERSTYLE
  */
 
 BOOL ctlUpdateSplitWindow(HWND hwndSplit)

@@ -2318,7 +2318,7 @@ STATIC VOID RepaintAnchor(PTEXTVIEWWINDATA ptxvd,
  *@@ ProcessCreate:
  *      implementation for WM_CREATE in fnwpTextView.
  *
- *@@added V0.9.21 (2002-08-12) [umoeller]
+ *@@added V1.0.0 (2002-08-12) [umoeller]
  */
 
 STATIC MRESULT ProcessCreate(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
@@ -2464,7 +2464,7 @@ STATIC MRESULT ProcessCreate(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
  *@@ ProcessPaint:
  *      implementation for WM_PAINT in fnwpTextView.
  *
- *@@added V0.9.21 (2002-08-12) [umoeller]
+ *@@added V1.0.0 (2002-08-12) [umoeller]
  */
 
 STATIC VOID ProcessPaint(HWND hwndTextView)
@@ -2558,7 +2558,7 @@ STATIC VOID ProcessPaint(HWND hwndTextView)
  *@@ ProcessPresParamChanged:
  *      implementation for WM_PRESPARAMCHANGED in fnwpTextView.
  *
- *@@added V0.9.21 (2002-08-12) [umoeller]
+ *@@added V1.0.0 (2002-08-12) [umoeller]
  */
 
 STATIC VOID ProcessPresParamChanged(HWND hwndTextView, MPARAM mp1)
@@ -2588,7 +2588,7 @@ STATIC VOID ProcessPresParamChanged(HWND hwndTextView, MPARAM mp1)
  *@@ ProcessSetFocus:
  *      implementation for WM_SETFOCUS in fnwpTextView.
  *
- *@@added V0.9.21 (2002-08-12) [umoeller]
+ *@@added V1.0.0 (2002-08-12) [umoeller]
  */
 
 STATIC VOID ProcessSetFocus(HWND hwndTextView, MPARAM mp2)
@@ -2651,7 +2651,7 @@ STATIC VOID ProcessSetFocus(HWND hwndTextView, MPARAM mp2)
  *@@ ProcessButton1Down:
  *      implementation for WM_BUTTON1DOWN in fnwpTextView.
  *
- *@@added V0.9.21 (2002-08-12) [umoeller]
+ *@@added V1.0.0 (2002-08-12) [umoeller]
  */
 
 STATIC MRESULT ProcessButton1Down(HWND hwndTextView, MPARAM mp1)
@@ -2723,7 +2723,7 @@ STATIC MRESULT ProcessButton1Down(HWND hwndTextView, MPARAM mp1)
  *@@ ProcessButton1Up:
  *      implementation for WM_BUTTON1UP in fnwpTextView.
  *
- *@@added V0.9.21 (2002-08-12) [umoeller]
+ *@@added V1.0.0 (2002-08-12) [umoeller]
  */
 
 STATIC MRESULT ProcessButton1Up(HWND hwndTextView, MPARAM mp1)
@@ -2765,7 +2765,7 @@ STATIC MRESULT ProcessButton1Up(HWND hwndTextView, MPARAM mp1)
  *@@ ProcessChar:
  *      implementation for WM_CHAR in fnwpTextView.
  *
- *@@added V0.9.21 (2002-08-12) [umoeller]
+ *@@added V1.0.0 (2002-08-12) [umoeller]
  */
 
 STATIC MRESULT ProcessChar(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
@@ -2888,7 +2888,7 @@ STATIC MRESULT ProcessChar(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
  *@@ ProcessJumpToAnchorName:
  *      implementation for TXM_JUMPTOANCHORNAME in fnwpTextView.
  *
- *@@added V0.9.21 (2002-08-12) [umoeller]
+ *@@added V1.0.0 (2002-08-12) [umoeller]
  */
 
 STATIC MRESULT ProcessJumpToAnchorName(HWND hwndTextView, MPARAM mp1)
@@ -2944,7 +2944,7 @@ STATIC MRESULT ProcessJumpToAnchorName(HWND hwndTextView, MPARAM mp1)
  *@@ ProcessDestroy:
  *      implementation for WM_DESTROY in fnwpTextView.
  *
- *@@added V0.9.21 (2002-08-12) [umoeller]
+ *@@added V1.0.0 (2002-08-12) [umoeller]
  */
 
 STATIC MRESULT ProcessDestroy(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
@@ -3018,7 +3018,7 @@ STATIC MRESULT ProcessDestroy(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
  *@@changed V0.9.20 (2002-08-10) [umoeller]: converted private style flags to XS_* window style flags
  *@@changed V0.9.20 (2002-08-10) [umoeller]: added support for XS_STATIC
  *@@changed V0.9.20 (2002-08-10) [umoeller]: added support for formatting HTML and plain text automatically
- *@@changed V0.9.21 (2002-08-12) [umoeller]: optimized locality by moving big chunks into subfuncs
+ *@@changed V1.0.0 (2002-08-12) [umoeller]: optimized locality by moving big chunks into subfuncs
  */
 
 STATIC MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM mp2)
@@ -3035,7 +3035,7 @@ STATIC MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
 
         case WM_CREATE:
             mrc = ProcessCreate(hwndTextView, mp1, mp2);
-                    // extracted V0.9.21 (2002-08-12) [umoeller]
+                    // extracted V1.0.0 (2002-08-12) [umoeller]
         break;
 
         /*
@@ -3089,7 +3089,7 @@ STATIC MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
 
         case WM_PAINT:
             ProcessPaint(hwndTextView);
-                    // extracted V0.9.21 (2002-08-12) [umoeller]
+                    // extracted V1.0.0 (2002-08-12) [umoeller]
         break;
 
         /*
@@ -3361,7 +3361,7 @@ STATIC MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          *      Returns the bytes that were copied as
          *      a ULONG.
          *
-         *@@changed V0.9.21 (2002-08-12) [umoeller]: now returning bytes
+         *@@changed V1.0.0 (2002-08-12) [umoeller]: now returning bytes
          */
 
         case TXM_SETCDATA:

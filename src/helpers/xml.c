@@ -3102,7 +3102,7 @@ APIRET xmlCreateDocument(const char *pcszRootElementName,   // in: root element 
 /*
  *@@ ESCAPES:
  *
- *@@added V0.9.21 (2002-08-21) [umoeller]
+ *@@added V1.0.0 (2002-08-21) [umoeller]
  */
 
 typedef struct _ESCAPES
@@ -3123,7 +3123,7 @@ typedef struct _ESCAPES
 /*
  *@@ DoEscapes:
  *
- *@@added V0.9.21 (2002-08-21) [umoeller]
+ *@@added V1.0.0 (2002-08-21) [umoeller]
  */
 
 VOID DoEscapes(PESCAPES pEscapes,
@@ -3184,7 +3184,7 @@ VOID DoEscapes(PESCAPES pEscapes,
  *      This recurses.
  *
  *@@added V0.9.12 (2001-05-21) [umoeller]
- *@@changed V0.9.21 (2002-08-21) [umoeller]: changed prototype, fixed unescaped characters in attributes and content
+ *@@changed V1.0.0 (2002-08-21) [umoeller]: changed prototype, fixed unescaped characters in attributes and content
  */
 
 STATIC VOID WriteNodes(PXSTRING pxstr,
@@ -3226,7 +3226,7 @@ STATIC VOID WriteNodes(PXSTRING pxstr,
 
                     // copy attribute value to temp buffer first
                     // so we can escape quotes and ampersands
-                    // V0.9.21 (2002-08-21) [umoeller]
+                    // V1.0.0 (2002-08-21) [umoeller]
                     xstrcpys(&pEscapes->strTemp, pAttribNode->pstrNodeValue);
 
                     DoEscapes(pEscapes,
@@ -3269,7 +3269,7 @@ STATIC VOID WriteNodes(PXSTRING pxstr,
                 xstrcpys(&pEscapes->strTemp,
                          pChildNode->pstrNodeValue);
 
-                DoEscapes(pEscapes,         // V0.9.21 (2002-08-21) [umoeller]
+                DoEscapes(pEscapes,         // V1.0.0 (2002-08-21) [umoeller]
                           FALSE);           // quotes not
 
                 xstrcats(pxstr, &pEscapes->strTemp);

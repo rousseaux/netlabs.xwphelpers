@@ -450,7 +450,7 @@ VOID excDumpStackFrames(FILE *file,                   // in: logfile from fopen(
  *@@changed V0.9.13 (2001-06-19) [umoeller]: added global flag for whether this is running
  *@@changed V0.9.16 (2001-11-02) [pr]: make object display signed
  *@@changed V0.9.19 (2002-03-28) [umoeller]: added thread ordinal
- *@@changed V0.9.21 (2002-08-28) [umoeller]: added OS revision to dump
+ *@@changed V1.0.0 (2002-08-28) [umoeller]: added OS revision to dump
  */
 
 VOID excExplainException(FILE *file,                   // in: logfile from fopen()
@@ -507,7 +507,7 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
 
     // generic exception info
     DosQuerySysInfo(QSV_VERSION_MAJOR,      // 11
-                    QSV_VERSION_REVISION,   // 13 V0.9.21 (2002-08-28) [umoeller]
+                    QSV_VERSION_REVISION,   // 13 V1.0.0 (2002-08-28) [umoeller]
                     &aulBuf, sizeof(aulBuf));
     // Warp 3 is reported as 20.30
     // Warp 4 is reported as 20.40
@@ -526,7 +526,7 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
             "Running OS/2 version: %u.%u.%u (%s)\n",
             aulBuf[0],                      // major
             aulBuf[1],
-            aulBuf[2],              // revision V0.9.21 (2002-08-28) [umoeller]
+            aulBuf[2],              // revision V1.0.0 (2002-08-28) [umoeller]
             pcszVersion);
 
 
@@ -790,18 +790,28 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
  *      The hooks are as follows:
  *
  *      --  pfnExcOpenFileNew gets called to open
- *          the trap log file. This must return a FILE*
- *          pointer from fopen(). If this is not defined,
- *          ?:\TRAP.LOG is used. Use this to specify a
- *          different file and have some notes written
- *          into it before the actual exception info.
+ *          the trap log file. This can return a FILE*
+ *          pointer from fopen() (which will be closed
+ *          automatically by the handler).
+ *
+ *          If this hook is not defined, ?:\TRAP.LOG is
+ *          used. Use this hook to specify a different file
+ *          and have some notes written into it before the
+ *          actual exception info.
+ *
+ *          If the hook returns a null FILE* pointer,
+ *          logging is disabled, and the "loud" handler
+ *          effectively behaves like the "quiet" handler.
  *
  *      --  pfnExcHookNew gets called while the trap log
  *          is being written. At this point,
  *          the following info has been written into
  *          the trap log already:
+ *
  *          -- exception type/address block
+ *
  *          -- exception explanation
+ *
  *          -- process information
  *
  *          _After_ the hook, the exception handler
@@ -889,25 +899,26 @@ ULONG _System excHandlerLoud(PEXCEPTIONREPORTRECORD pReportRec,
                              PVOID pv)
 {
     /* From the VAC++3 docs:
-     *     "The first thing an exception handler should do is check the
-     *     exception flags. If EH_EXIT_UNWIND is set, meaning
-     *     the thread is ending, the handler tells the operating system
-     *     to pass the exception to the next exception handler. It does the
-     *     same if the EH_UNWINDING flag is set, the flag that indicates
-     *     this exception handler is being removed.
-     *     The EH_NESTED_CALL flag indicates whether the exception
-     *     occurred within an exception handler. If the handler does
-     *     not check this flag, recursive exceptions could occur until
-     *     there is no stack remaining."
-     * So for all these conditions, we exit immediately.
+     *      "The first thing an exception handler should do is check the
+     *      exception flags. If EH_EXIT_UNWIND is set, meaning
+     *      the thread is ending, the handler tells the operating system
+     *      to pass the exception to the next exception handler. It does the
+     *      same if the EH_UNWINDING flag is set, the flag that indicates
+     *      this exception handler is being removed.
+     *      The EH_NESTED_CALL flag indicates whether the exception
+     *      occurred within an exception handler. If the handler does
+     *      not check this flag, recursive exceptions could occur until
+     *      there is no stack remaining."
+     *
+     *      So for all these conditions, we exit immediately.
      */
 
     if (pReportRec->fHandlerFlags & EH_EXIT_UNWIND)
-       return (XCPT_CONTINUE_SEARCH);
+       return XCPT_CONTINUE_SEARCH;
     if (pReportRec->fHandlerFlags & EH_UNWINDING)
-       return (XCPT_CONTINUE_SEARCH);
+       return XCPT_CONTINUE_SEARCH;
     if (pReportRec->fHandlerFlags & EH_NESTED_CALL)
-       return (XCPT_CONTINUE_SEARCH);
+       return XCPT_CONTINUE_SEARCH;
 
     switch (pReportRec->ExceptionNum)
     {
@@ -919,12 +930,12 @@ ULONG _System excHandlerLoud(PEXCEPTIONREPORTRECORD pReportRec,
         case XCPT_INTEGER_OVERFLOW:
         {
             // "real" exceptions:
-            FILE *file;
+            FILE *file = NULL;
 
             // open traplog file;
             if (G_pfnExcOpenFile)
                 // hook defined for this: call it
-                file = (*G_pfnExcOpenFile)();
+                file = G_pfnExcOpenFile();
             else
             {
                 CHAR szFileName[100];
@@ -932,9 +943,8 @@ ULONG _System excHandlerLoud(PEXCEPTIONREPORTRECORD pReportRec,
                 // default traplog file in root directory of
                 // boot drive
                 sprintf(szFileName, "%c:\\trap.log", doshQueryBootDrive());
-                file = fopen(szFileName, "a");
 
-                if (file)
+                if (file = fopen(szFileName, "a"))
                 {
                     DATETIME DT;
                     DosGetDateTime(&DT);
@@ -947,12 +957,15 @@ ULONG _System excHandlerLoud(PEXCEPTIONREPORTRECORD pReportRec,
                 }
             }
 
-            // write error log
-            excExplainException(file,
-                                "excHandlerLoud",
-                                pReportRec,
-                                pContextRec);
-            fclose(file);
+            if (file)
+            {
+                // write error log
+                excExplainException(file,
+                                    "excHandlerLoud",
+                                    pReportRec,
+                                    pContextRec);
+                fclose(file);
+            }
 
             // copy report rec to user buffer
             // V0.9.19 (2002-05-07) [umoeller]
@@ -962,11 +975,12 @@ ULONG _System excHandlerLoud(PEXCEPTIONREPORTRECORD pReportRec,
 
             // jump back to failing routine
             longjmp(pRegRec2->jmpThread, pReportRec->ExceptionNum);
-        break; }
+        }
+        break;
     }
 
     // not handled
-    return (XCPT_CONTINUE_SEARCH);
+    return XCPT_CONTINUE_SEARCH;
 }
 
 /*
@@ -996,11 +1010,11 @@ ULONG _System excHandlerQuiet(PEXCEPTIONREPORTRECORD pReportRec,
                               PVOID pv)
 {
     if (pReportRec->fHandlerFlags & EH_EXIT_UNWIND)
-       return (XCPT_CONTINUE_SEARCH);
+       return XCPT_CONTINUE_SEARCH;
     if (pReportRec->fHandlerFlags & EH_UNWINDING)
-       return (XCPT_CONTINUE_SEARCH);
+       return XCPT_CONTINUE_SEARCH;
     if (pReportRec->fHandlerFlags & EH_NESTED_CALL)
-       return (XCPT_CONTINUE_SEARCH);
+       return XCPT_CONTINUE_SEARCH;
 
     switch (pReportRec->ExceptionNum)
     {
@@ -1032,12 +1046,9 @@ ULONG _System excHandlerQuiet(PEXCEPTIONREPORTRECORD pReportRec,
             // jump back to failing routine
             longjmp(pRegRec2->jmpThread, pReportRec->ExceptionNum);
         break;
-
-        default:
-             break;
     }
 
-    return (XCPT_CONTINUE_SEARCH);
+    return XCPT_CONTINUE_SEARCH;
 }
 
 

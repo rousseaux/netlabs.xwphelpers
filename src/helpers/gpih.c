@@ -480,13 +480,13 @@ VOID gpihDrawThickFrame(HPS hps,              // in: presentation space for outp
  *      the _center_ of the rectangle. prcl thus always specifies
  *      the bottom left and top right pixels to be drawn.
  *
- *      Note: With V0.9.21, this now modifies prcl to be smaller towards
+ *      Note: With V1.0.0, this now modifies prcl to be smaller towards
  *      the center of the rectangle by usWidth so you can call this several
  *      times with different colors.
  *
  *@@changed V0.9.0 [umoeller]: changed function prototype to have colors specified
  *@@changed V0.9.7 (2000-12-20) [umoeller]: now really using inclusive rectangle...
- *@@changed V0.9.21 (2002-08-24) [umoeller]: renamed, now modifying prcl on output
+ *@@changed V1.0.0 (2002-08-24) [umoeller]: renamed, now modifying prcl on output
  */
 
 VOID gpihDraw3DFrame2(HPS hps,
@@ -533,7 +533,7 @@ VOID gpihDraw3DFrame2(HPS hps,
  *      export. As opposed to gpihDraw3DFrame2, this
  *      does not modify prcl.
  *
- *@@added V0.9.21 (2002-08-24) [umoeller]
+ *@@added V1.0.0 (2002-08-24) [umoeller]
  */
 
 VOID gpihDraw3DFrame(HPS hps,

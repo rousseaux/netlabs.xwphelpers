@@ -352,7 +352,7 @@ extern "C" {
                 #define DFL_BOOTDRIVE                   0x0008
                             // drive was booted from
 
-                // media flags: all changed V0.9.21 (2002-08-31) [umoeller]
+                // media flags: all changed V1.0.0 (2002-08-31) [umoeller]
 
                 #define DFL_MEDIA_PRESENT               0x0100
                             // media is present in drive;
@@ -370,7 +370,7 @@ extern "C" {
                 #define DFL_DOOR_OPEN                   0x0400
                             // set for CD-ROMs only if the CD-ROM
                             // door is currently open
-                            // V0.9.21 (2002-08-31) [umoeller]
+                            // V1.0.0 (2002-08-31) [umoeller]
 
                 #define DFL_SUPPORTS_EAS                0x0800
                             // drive supports extended attributes

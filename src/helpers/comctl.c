@@ -181,7 +181,7 @@ STATIC MRESULT EXPENTRY fnwpSeparatorLine(HWND hwnd, ULONG msg, MPARAM mp1, MPAR
  *@@ ctlMakeSeparatorLine:
  *      turns the given static control into a 3D separator line.
  *
- *@@added V0.9.21 (2002-08-12) [umoeller]
+ *@@added V1.0.0 (2002-08-12) [umoeller]
  */
 
 BOOL ctlRegisterSeparatorLine(HAB hab)

@@ -261,7 +261,8 @@ PLINKLIST lstCreateDebug(BOOL fItemsFreeable,
                                                function);
 
     lstInit(pNewList, fItemsFreeable);
-    return (pNewList);
+
+    return pNewList;
 }
 
 #endif
@@ -295,7 +296,8 @@ PLINKLIST lstCreate(BOOL fItemsFreeable)    // in: invoke free() on the data
     PLINKLIST pNewList;
     if (pNewList = (PLINKLIST)malloc(sizeof(LINKLIST)))
         lstInit(pNewList, fItemsFreeable);
-    return (pNewList);
+
+    return pNewList;
 }
 
 // #endif      // __DEBUG_MALLOC_ENABLED__
@@ -360,15 +362,12 @@ BOOL lstFree(PLINKLIST *ppList)
 
 long lstCountItems(const LINKLIST *pList)
 {
-    long lCount = -1;
+    if (    (pList)
+         && (pList->ulMagic == LINKLISTMAGIC)
+       )
+        return pList->ulCount;
 
-    if (pList)
-        if (pList->ulMagic == LINKLISTMAGIC)
-        {
-            lCount = pList->ulCount;
-        }
-
-    return (lCount);
+    return -1;
 }
 
 /*
@@ -403,9 +402,9 @@ PLISTNODE lstQueryFirstNode(const LINKLIST *pList)
     if (    (pList)
          && (pList->ulMagic == LINKLISTMAGIC)
        )
-        return (pList->pFirst);
+        return pList->pFirst;
 
-    return (0);
+    return 0;
 }
 
 /*
@@ -421,9 +420,9 @@ PLISTNODE lstQueryLastNode(const LINKLIST *pList)
     if (    (pList)
          && (pList->ulMagic == LINKLISTMAGIC)
        )
-        return (pList->pLast);
+        return pList->pLast;
 
-    return (0);
+    return 0;
 }
 
 /*
@@ -462,7 +461,7 @@ PLISTNODE lstNodeFromIndex(PLINKLIST pList,
         }
     }
 
-    return (pNode);
+    return pNode;
 }
 
 /*
@@ -499,7 +498,7 @@ PLISTNODE lstNodeFromItem(PLINKLIST pList,
         }
     }
 
-    return (pNodeFound);
+    return pNodeFound;
 }
 
 /*
@@ -557,7 +556,7 @@ unsigned long lstIndexFromItem(PLINKLIST pList, void *pItemData)
         ulIndex++;
     }
 
-    return (ulrc);
+    return ulrc;
 }
 
 #ifdef __DEBUG_MALLOC_ENABLED__
@@ -615,7 +614,7 @@ PLISTNODE lstAppendItemDebug(PLINKLIST pList,
         }
     }
 
-    return (pNewNode);
+    return pNewNode;
 }
 
 #endif
@@ -669,7 +668,7 @@ PLISTNODE lstAppendItem(PLINKLIST pList,
         }
     }
 
-    return (pNewNode);
+    return pNewNode;
 }
 
 // #endif // __DEBUG_MALLOC_ENABLED__
@@ -766,7 +765,7 @@ PLISTNODE lstInsertItemBefore(PLINKLIST pList,
         }
     }
 
-    return (pNewNode);
+    return pNewNode;
 }
 
 /*
@@ -829,7 +828,7 @@ BOOL lstRemoveNode(PLINKLIST pList,
         fFound = TRUE;
     }
 
-    return (fFound);
+    return fFound;
 }
 
 /*
@@ -854,9 +853,9 @@ BOOL lstRemoveItem(PLINKLIST pList, void* pRemoveItem)
     PLISTNODE pNode;
 
     if (pNode = lstNodeFromItem(pList, pRemoveItem))
-        return (lstRemoveNode(pList, pNode));
+        return lstRemoveNode(pList, pNode);
 
-    return (FALSE);
+    return FALSE;
 }
 
 /*
@@ -878,10 +877,10 @@ BOOL lstSwapNodes(PLISTNODE pNode1,
         pNode1->pItemData = pNode2->pItemData;
         pNode2->pItemData = pTemp;
 
-        return (TRUE);
+        return TRUE;
     }
 
-    return (FALSE);
+    return FALSE;
 }
 
 /* ******************************************************************
@@ -1084,7 +1083,7 @@ BOOL lstBubbleSort(PLINKLIST pList,
 PLISTNODE lstPush(PLINKLIST pList,
                   void* pNewItemData)     // in: data to store in list node
 {
-    return (lstAppendItem(pList, pNewItemData));
+    return lstAppendItem(pList, pNewItemData);
 }
 
 /*
@@ -1114,7 +1113,7 @@ PLISTNODE lstPush(PLINKLIST pList,
 
 PLISTNODE lstPop(PLINKLIST pList)
 {
-    return (pList->pLast);
+    return pList->pLast;
 }
 
 

@@ -557,7 +557,7 @@ VOID prc32FreeInfo(PQTOPLEVEL32 pInfo)
  *@@ prc32FindProcessFromName:
  *
  *@@added V0.9.2 (2000-03-05) [umoeller]
- *@@changed V0.9.21 (2002-08-16) [pr]: optimized
+ *@@changed V1.0.0 (2002-08-16) [pr]: optimized
  */
 
 PQPROCESS32 prc32FindProcessFromName(PQTOPLEVEL32 pInfo,
@@ -601,8 +601,8 @@ PQPROCESS32 prc32FindProcessFromName(PQTOPLEVEL32 pInfo,
 /*
  *@@ prc32FindProcessFromPID:
  *
- *@@added V0.9.21 (2002-08-12) [umoeller]
- *@@changed V0.9.21 (2002-08-16) [pr]: optimized
+ *@@added V1.0.0 (2002-08-12) [umoeller]
+ *@@changed V1.0.0 (2002-08-16) [pr]: optimized
  */
 
 PQPROCESS32 prc32FindProcessFromPID(PQTOPLEVEL32 pInfo,

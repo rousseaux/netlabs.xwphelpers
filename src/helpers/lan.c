@@ -38,10 +38,10 @@
 #define INCL_DOS
 #include <os2.h>
 
-#define PURE_32
-#include <neterr.h>
-#include <netcons.h>
-#include <server.h>
+// #define PURE_32
+// #include <neterr.h>
+// #include <netcons.h>
+// #include <server.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -66,20 +66,45 @@
  *
  ********************************************************************/
 
-typedef API32_FUNCTION NET32WKSTAGETINFO(const unsigned char *pszServer,
+#define API32_FUNCTION APIRET APIENTRY
+
+typedef API32_FUNCTION NET32WKSTAGETINFO(PCSZ pszServer,
                                          unsigned long ulLevel,
-                                         unsigned char *pbBuffer,
+                                         PBYTE pbBuffer,
                                          unsigned long ulBuffer,
                                          unsigned long *pulTotalAvail);
 
-typedef API32_FUNCTION NET32SERVERENUM2(const unsigned char *pszServer,
+typedef API32_FUNCTION NET32SERVERENUM2(PCSZ pszServer,
                                         unsigned long ulLevel,
-                                        unsigned char *pbBuffer,
+                                        PBYTE pbBuffer,
                                         unsigned long cbBuffer,
                                         unsigned long *pcEntriesRead,
                                         unsigned long *pcTotalAvail,
                                         unsigned long flServerType,
-                                        unsigned char *pszDomain);
+                                        PBYTE pszDomain);
+
+typedef API32_FUNCTION NET32SERVICESTATUS(PCSZ pbBuffer,
+                                          unsigned long ulBuffer);
+
+typedef API32_FUNCTION NET32SERVICEGETINFO(PCSZ pszServer,
+                                           PCSZ pszService,
+                                           unsigned long ulLevel,
+                                           PBYTE pbBuffer,
+                                           unsigned long ulBuffer,
+                                           unsigned long *pulTotalAvail);
+
+typedef API32_FUNCTION NET32SERVICECONTROL(PCSZ pszServer,
+                                          PCSZ pszService,
+                                          unsigned short usOpcode,
+                                          unsigned short usArg,
+                                          PBYTE pbBuffer,
+                                          unsigned long ulBuffer);
+
+typedef API32_FUNCTION NET32SERVICEINSTALL(PCSZ pszServer,
+                                           PCSZ pszService,
+                                           PCSZ pszCmdArgs,
+                                           PBYTE pbBuffer,
+                                           unsigned long ulBuffer);
 
 /* ******************************************************************
  *
@@ -91,11 +116,19 @@ HMODULE         hmodLan = NULLHANDLE;
 
 NET32WKSTAGETINFO *pNet32WkstaGetInfo = NULL;
 NET32SERVERENUM2 *pNet32ServerEnum2 = NULL;
+NET32SERVICESTATUS *pNet32ServiceStatus = NULL;
+NET32SERVICEGETINFO *pNet32ServiceGetInfo = NULL;
+NET32SERVICECONTROL *pNet32ServiceControl = NULL;
+NET32SERVICEINSTALL *pNet32ServiceInstall = NULL;
 
 RESOLVEFUNCTION NetResolves[] =
     {
         "Net32WkstaGetInfo", (PFN*)&pNet32WkstaGetInfo,
-        "Net32ServerEnum2", (PFN*)&pNet32ServerEnum2
+        "Net32ServerEnum2", (PFN*)&pNet32ServerEnum2,
+        "Net32ServiceStatus", (PFN*)&pNet32ServiceStatus,
+        "Net32ServiceGetInfo", (PFN*)&pNet32ServiceGetInfo,
+        "Net32ServiceControl", (PFN*)&pNet32ServiceControl,
+        "Net32ServiceInstall", (PFN*)&pNet32ServiceInstall,
     };
 
 STATIC ULONG    G_ulNetsResolved = -1;      // -1 == not init'd
@@ -104,7 +137,14 @@ STATIC ULONG    G_ulNetsResolved = -1;      // -1 == not init'd
 
 /*
  *@@ lanInit:
+ *      initializes the LAN server interface.
  *
+ *      Returns:
+ *
+ *      --  NO_ERROR: functions resolved successfully,
+ *          engine is ready.
+ *
+ *      or the error codes from doshResolveImports.
  */
 
 APIRET lanInit(VOID)
@@ -117,9 +157,7 @@ APIRET lanInit(VOID)
                                               ARRAYITEMCOUNT(NetResolves));
     }
 
-    printf(__FUNCTION__ ": arc %d\n", G_ulNetsResolved);
-
-    return (G_ulNetsResolved);
+    return G_ulNetsResolved;
 }
 
 /*
@@ -138,6 +176,7 @@ APIRET lanQueryServers(PSERVER *paServers,      // out: array of SERVER structs
                        ULONG *pcServers)        // out: array item count (NOT array size)
 {
     APIRET arc;
+
     if (!(arc = lanInit()))
     {
         ULONG   ulEntriesRead = 0,
@@ -149,7 +188,7 @@ APIRET lanQueryServers(PSERVER *paServers,      // out: array of SERVER structs
         {
             if (!(arc = pNet32ServerEnum2(NULL,
                                           1,          // ulLevel
-                                          (PUCHAR)pBuf,       // pbBuffer
+                                          (PBYTE)pBuf,       // pbBuffer
                                           cb,          // cbBuffer,
                                           &ulEntriesRead, // *pcEntriesRead,
                                           &cTotalAvail,   // *pcTotalAvail,
@@ -165,6 +204,110 @@ APIRET lanQueryServers(PSERVER *paServers,      // out: array of SERVER structs
     }
 
     printf(__FUNCTION__ ": arc %d\n", arc);
+
+    return arc;
+}
+
+/*
+ *@@ lanServiceGetInfo:
+ *      queries the given service.
+ *
+ *@@added V1.0.0 (2002-09-24) [umoeller]
+ */
+
+APIRET lanServiceGetInfo(PCSZ pcszServiceName,
+                         PSERVICEBUF2 pBuf)
+{
+    APIRET  arc;
+
+    if (!(arc = lanInit()))
+    {
+        ULONG   ulBytesAvail = 0;
+        arc = pNet32ServiceGetInfo(NULL,
+                                   pcszServiceName,
+                                   2,        // level
+                                   (PBYTE)pBuf,
+                                   sizeof(SERVICEBUF2),
+                                   &ulBytesAvail);
+
+    }
+
+    return arc;
+}
+/*
+ *@@ lanServiceInstall:
+ *      starts the given service. The service name
+ *      must be fully qualified so you cannot
+ *      abbreviate "requester" with "req", for
+ *      example (as valid with the net command).
+ *
+ *      Returns, among others:
+ *
+ *      --  NO_ERROR
+ *
+ *      --  NERR_ServiceInstalled (2182): the service
+ *          has already been started.
+ *
+ *      --  NERR_BadServiceName (2185): invalid service
+ *          name.
+ *
+ *@@added V1.0.0 (2002-09-24) [umoeller]
+ */
+
+APIRET lanServiceInstall(PCSZ pcszServiceName,
+                         PSERVICEBUF2 pBuf2)        // out: service data
+{
+    APIRET  arc;
+
+    if (!(arc = lanInit()))
+    {
+        SERVICEBUF2 buf2;
+
+        if (!(arc = pNet32ServiceInstall(NULL,
+                                         pcszServiceName,
+                                         NULL,
+                                         (PBYTE)pBuf2,
+                                         sizeof(SERVICEBUF2))))
+            ;
+    }
+
+    return arc;
+}
+
+/*
+ *@@ lanServiceControl:
+ *      queries, pauses, resumes, or stops the given service.
+ *
+ *      opcode must be one of:
+ *
+ *      --  SERVICE_CTRL_INTERROGATE (0): interrogate service status.
+ *
+ *      --  SERVICE_CTRL_PAUSE (1): pause service.
+ *
+ *      --  SERVICE_CTRL_CONTINUE (2): continue service.
+ *
+ *      --  SERVICE_CTRL_UNINSTALL (3): stop service.
+ *
+ *@@added V1.0.0 (2002-09-24) [umoeller]
+ */
+
+APIRET lanServiceControl(PCSZ pcszServiceName,
+                         ULONG opcode,
+                         PSERVICEBUF2 pBuf2)        // out: service data
+{
+    APIRET  arc;
+
+    if (!(arc = lanInit()))
+    {
+       if (!(arc = pNet32ServiceControl(NULL,
+                                        pcszServiceName,
+                                        opcode,
+                                        0,
+                                        (PBYTE)pBuf2,
+                                        sizeof(SERVICEBUF2))))
+            ;
+
+    }
 
     return arc;
 }

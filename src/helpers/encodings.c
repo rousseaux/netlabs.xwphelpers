@@ -12,7 +12,7 @@
  *      RFC 2279, which defines UTF-8.
  *
  *      Be warned, compilation of this file takes a long
- *      file because this includes all the complex codepages
+ *      time because this includes all the complex codepages
  *      from include\encodings.
  *
  *@@header "encodings\base.h"
@@ -78,7 +78,7 @@ struct
     PXWPENCODINGMAP     pMap;               // ptr to map from include\encodings\*.h
     unsigned long       cEntries;           // entries in map (array item count)
     unsigned short      usCodepageOS2;      // corresponding OS/2 codepage or 0 if none
-                                            // V0.9.21 (2002-08-21) [umoeller]
+                                            // V1.0.0 (2002-08-21) [umoeller]
     unsigned short      usLatin;            // ISO 8859-X correspondance or 0
     ENCBYTECOUNT        bc;
     const char          *pcszDescription;   // description
@@ -233,7 +233,7 @@ ENCID encFindIdForCodepage(unsigned short usCodepage,       // in: codepage to f
  *      is expensive, so you should create a codec once
  *      and reuse it for future conversions. In addition,
  *      create codecs only for the codepages that are
- *      actually used. Each codec will take up
+ *      actually used. Each codec will take up to
  *      n * sizeof(USHORT) bytes, where n is the highest
  *      Unicode character used in the codepage.
  *
@@ -354,7 +354,7 @@ PCONVERSION encCreateCodec(ENCID id)
 
 /*
  *@@ encFreeCodec:
- *      frees a codec created with encFreeConversion
+ *      frees a codec created with encCreateCodec
  *      and sets the given pointer to NULL.
  *
  *      This works and is presently used in WarpIN.
@@ -445,7 +445,7 @@ unsigned short encUni2Char(PCONVERSION pTable,
  *      invalid encoding (in which case the
  *      pointer is advanced anyway).
  *
- *      This returns 0 if **ppch points to a
+ *      This returns 0 if *ppch points to a
  *      null character.
  *
  *      This works and is presently used in WarpIN.

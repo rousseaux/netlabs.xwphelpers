@@ -154,22 +154,28 @@ typedef struct _XINIKEYDATA
  *      Returns NULL if not found.
  *
  *      Private helper.
+ *
+ *@@changed V1.0.0 (2002-09-17) [umoeller]: now returning APIRET
  */
 
-STATIC PXINIAPPDATA FindApp(PXINI pXIni,           // in: profile opened with xprfOpenProfile
-                            const char *pcszApp)
+STATIC APIRET FindApp(PXINI pXIni,           // in: profile opened with xprfOpenProfile
+                      const char *pcszApp,
+                      PXINIAPPDATA *ppAppData)
 {
     PLISTNODE pAppNode = lstQueryFirstNode(&pXIni->llApps);
     while (pAppNode)
     {
         PXINIAPPDATA pAppDataThis = (PXINIAPPDATA)pAppNode->pItemData;
         if (!strcmp(pAppDataThis->pszAppName, pcszApp))
-            return (pAppDataThis);
+        {
+            *ppAppData = pAppDataThis;
+            return NO_ERROR;
+        }
 
         pAppNode = pAppNode->pNext;
     }
 
-    return NULL;
+    return PRFERR_INVALID_APP_NAME;
 }
 
 /*
@@ -180,10 +186,13 @@ STATIC PXINIAPPDATA FindApp(PXINI pXIni,           // in: profile opened with xp
  *      already in the profile.
  *
  *      Private helper.
+ *
+ *@@changed V1.0.0 (2002-09-17) [umoeller]: now returning APIRET
  */
 
-STATIC PXINIAPPDATA CreateApp(PXINI pXIni,         // in: profile opened with xprfOpenProfile
-                              const char *pcszApp)
+STATIC APIRET CreateApp(PXINI pXIni,         // in: profile opened with xprfOpenProfile
+                        const char *pcszApp,
+                        PXINIAPPDATA *ppAppData)
 {
     PXINIAPPDATA pAppData;
     if (pAppData = (PXINIAPPDATA)malloc(sizeof(XINIAPPDATA)))
@@ -194,10 +203,12 @@ STATIC PXINIAPPDATA CreateApp(PXINI pXIni,         // in: profile opened with xp
 
         // store in INI's apps list
         lstAppendItem(&pXIni->llApps, pAppData);
-        pXIni->cApps++;
+
+        *ppAppData = pAppData;
+        return NO_ERROR;
     }
 
-    return (pAppData);
+    return ERROR_NOT_ENOUGH_MEMORY;
 }
 
 /*
@@ -207,22 +218,28 @@ STATIC PXINIAPPDATA CreateApp(PXINI pXIni,         // in: profile opened with xp
  *      Returns NULL if not found.
  *
  *      Private helper.
+ *
+ *@@changed V1.0.0 (2002-09-17) [umoeller]: now returning APIRET
  */
 
-STATIC PXINIKEYDATA FindKey(PXINIAPPDATA pAppData,
-                            const char *pcszKey)
+STATIC APIRET FindKey(PXINIAPPDATA pAppData,
+                      const char *pcszKey,
+                      PXINIKEYDATA *ppKeyData)
 {
     PLISTNODE pKeyNode = lstQueryFirstNode(&pAppData->llKeys);
     while (pKeyNode)
     {
         PXINIKEYDATA pKeyDataThis = (PXINIKEYDATA)pKeyNode->pItemData;
         if (!strcmp(pKeyDataThis->pszKeyName, pcszKey))
-            return (pKeyDataThis);
+        {
+            *ppKeyData = pKeyDataThis;
+            return NO_ERROR;
+        }
 
         pKeyNode = pKeyNode->pNext;
     }
 
-    return NULL;
+    return PRFERR_INVALID_KEY_NAME;
 }
 
 /*
@@ -233,12 +250,15 @@ STATIC PXINIKEYDATA FindKey(PXINIAPPDATA pAppData,
  *      already in the application.
  *
  *      Private helper.
+ *
+ *@@changed V1.0.0 (2002-09-17) [umoeller]: now returning APIRET
  */
 
-STATIC PXINIKEYDATA CreateKey(PXINIAPPDATA pAppData,
-                              const char *pcszKey,     // in: key name
-                              PBYTE pbData,            // in: data for key
-                              ULONG cbData)            // in: sizeof (*pbData)
+STATIC APIRET CreateKey(PXINIAPPDATA pAppData,
+                        const char *pcszKey,        // in: key name
+                        PBYTE pbData,               // in: data for key
+                        ULONG cbData,               // in: sizeof (*pbData)
+                        PXINIKEYDATA *ppKeyData)    // out: new key data
 {
     PXINIKEYDATA pKeyData;
     if (pKeyData = (PXINIKEYDATA)malloc(sizeof(XINIKEYDATA)))
@@ -252,16 +272,16 @@ STATIC PXINIKEYDATA CreateKey(PXINIAPPDATA pAppData,
             // store in app's keys list
             lstAppendItem(&pAppData->llKeys, pKeyData);
             pAppData->cKeys++;
+
+            *ppKeyData = pKeyData;
+            return NO_ERROR;
         }
         else
-        {
             // malloc failed:
             free(pKeyData);
-            pKeyData = 0;
-        }
     }
 
-    return (pKeyData);
+    return ERROR_NOT_ENOUGH_MEMORY;
 }
 
 /*
@@ -280,6 +300,36 @@ STATIC VOID FreeKey(PXINIKEYDATA pKeyDataThis)
     if (pKeyDataThis->pbData)
         free(pKeyDataThis->pbData);
     free(pKeyDataThis);
+}
+
+/*
+ *@@ FreeKeyIfExists:
+ *
+ *@@added V1.0.0 (2002-09-17) [umoeller]
+ */
+
+STATIC VOID FreeKeyIfExists(PXINI pXIni,         // in: profile opened with xprfOpenProfile
+                            PXINIAPPDATA pAppData,
+                            PCSZ pcszKey)
+{
+    // find key
+    PXINIKEYDATA pKeyData;
+
+    if (!FindKey(pAppData,
+                 pcszKey,
+                 &pKeyData))
+    {
+        // key exists: kill that
+        FreeKey(pKeyData);
+        // and remove from app's keys list
+        lstRemoveItem(&pAppData->llKeys, pKeyData);
+        pAppData->cKeys--;
+
+        // rewrite profile on close
+        pXIni->fDirty = TRUE;
+    }
+    // else key doesn't exist:
+    // nothing to do
 }
 
 /*
@@ -318,10 +368,8 @@ STATIC VOID FreeApp(PXINIAPPDATA pAppDataThis)
  *      Private helper.
  */
 
-STATIC BOOL FreeINI(PXINI pXIni)       // in: profile opened with xprfOpenProfile
+STATIC VOID FreeINI(PXINI pXIni)       // in: profile opened with xprfOpenProfile
 {
-    BOOL brc = FALSE;
-
     if (pXIni)
     {
         PLISTNODE pAppNode = lstQueryFirstNode(&pXIni->llApps);
@@ -337,8 +385,6 @@ STATIC BOOL FreeINI(PXINI pXIni)       // in: profile opened with xprfOpenProfil
         lstClear(&pXIni->llApps);
         free(pXIni);
     }
-
-    return brc;
 }
 
 /* ******************************************************************
@@ -353,89 +399,81 @@ STATIC BOOL FreeINI(PXINI pXIni)       // in: profile opened with xprfOpenProfil
  *      initializes all internal data structures.
  *
  *      Private helper.
+ *
+ *@@changed V1.0.0 (2002-09-17) [umoeller]: now returning APIRET
  */
 
-STATIC BOOL ReadINI(PXINI pXIni)       // in: profile opened with xprfOpenProfile
+STATIC APIRET ReadINI(PXINI pXIni)      // in: profile opened with xprfOpenProfile
 {
-    BOOL brc = FALSE;
+    APIRET      arc;
     FILESTATUS3 fs3;
 
-    if (DosProtectQueryFileInfo(pXIni->hFile,
-                                FIL_STANDARD,
-                                &fs3,
-                                sizeof(fs3),
-                                pXIni->hLock)
-            == NO_ERROR)
+    if (!(arc = DosQueryFileInfo(pXIni->hFile,
+                                 FIL_STANDARD,
+                                 &fs3,
+                                 sizeof(fs3))))
     {
         PBYTE  pbFileData;
-        if (pbFileData = (PBYTE)malloc(fs3.cbFile))
+        if (!(pbFileData = (PBYTE)malloc(fs3.cbFile)))
+            arc = ERROR_NOT_ENOUGH_MEMORY;
+        else
         {
             ULONG ulSet = 0;
-            APIRET arc = DosProtectSetFilePtr(pXIni->hFile,
-                                              0,
-                                              FILE_BEGIN,
-                                              &ulSet,
-                                              pXIni->hLock);
-            if (    (arc == NO_ERROR)
-                 && (ulSet == 0)
-               )
+
+            if (!(arc = DosSetFilePtr(pXIni->hFile,
+                                      0,
+                                      FILE_BEGIN,
+                                      &ulSet)))
             {
                 ULONG cbRead = 0;
-                arc = DosProtectRead(pXIni->hFile,
-                                     pbFileData,
-                                     fs3.cbFile,
-                                     &cbRead,
-                                     pXIni->hLock);
-                if (    (arc == NO_ERROR)
-                     && (cbRead == fs3.cbFile)
-                   )
+                if (!(arc = DosRead(pXIni->hFile,
+                                    pbFileData,
+                                    fs3.cbFile,
+                                    &cbRead)))
                 {
-                    PINIFILE_HEADER pHeader = (PINIFILE_HEADER)pbFileData;
-                    if (pHeader->magic == 0xFFFFFFFF)
+                    if (cbRead != fs3.cbFile)
+                        arc = ERROR_NO_DATA;
+                    else
                     {
-                        ULONG   ulAppOfs = pHeader->offFirstApp;
-
-                        // it was a valid profile, so return TRUE
-                        brc = TRUE;
-
-                        // create-applications loop
-                        while ((ulAppOfs) && (brc))
+                        PINIFILE_HEADER pHeader = (PINIFILE_HEADER)pbFileData;
+                        if (pHeader->magic == 0xFFFFFFFF)
                         {
-                            // application struct
-                            PINIFILE_APP pApp = (PINIFILE_APP)(pbFileData + ulAppOfs);
-                            ULONG   ulKeysOfs = pApp->offFirstKeyInApp;
-                            PXINIAPPDATA pIniApp
-                                = CreateApp(pXIni,
-                                            (PBYTE)(pbFileData + pApp->offAppName));
-                            if (!pIniApp)
+                            ULONG   ulAppOfs = pHeader->offFirstApp;
+
+                            // create-applications loop
+                            while ((ulAppOfs) && (!arc))
                             {
-                                brc = FALSE;
-                                break;
-                            }
+                                // application struct
+                                PINIFILE_APP pApp = (PINIFILE_APP)(pbFileData + ulAppOfs);
+                                ULONG   ulKeysOfs = pApp->offFirstKeyInApp;
+                                PXINIAPPDATA pIniApp;
 
-                            // create-keys loop
-                            while ((ulKeysOfs) && (brc))
-                            {
-                                PINIFILE_KEY pKey = (PINIFILE_KEY)(pbFileData + ulKeysOfs);
-
-                                PXINIKEYDATA pIniKey
-                                    = CreateKey(pIniApp,
-                                                (PSZ)(pbFileData + pKey->offKeyName),
-                                                (PBYTE)(pbFileData + pKey->offKeyData),
-                                                pKey->lenKeyData);
-
-                                if (!pIniKey)
-                                {
-                                    brc = FALSE;
+                                if (arc = CreateApp(pXIni,
+                                                    (PBYTE)(pbFileData + pApp->offAppName),
+                                                    &pIniApp))
                                     break;
+
+                                // create-keys loop
+                                while ((ulKeysOfs) && (!arc))
+                                {
+                                    PINIFILE_KEY pKey = (PINIFILE_KEY)(pbFileData + ulKeysOfs);
+
+                                    PXINIKEYDATA pIniKey;
+
+                                    if (arc = CreateKey(pIniApp,
+                                                        (PSZ)(pbFileData + pKey->offKeyName),
+                                                        (PBYTE)(pbFileData + pKey->offKeyData),
+                                                        pKey->lenKeyData,
+                                                        &pIniKey))
+                                        break;
+
+                                    // next key; can be null
+                                    ulKeysOfs = pKey->offNextKeyInApp;
                                 }
 
-                                // next key; can be null
-                                ulKeysOfs = pKey->offNextKeyInApp;
+                                // next application; can be null
+                                ulAppOfs = pApp->offNextApp;
                             }
-
-                            // next application; can be null
-                            ulAppOfs = pApp->offNextApp;
                         }
                     }
                 }
@@ -445,7 +483,7 @@ STATIC BOOL ReadINI(PXINI pXIni)       // in: profile opened with xprfOpenProfil
         }
     }
 
-    return brc;
+    return arc;
 }
 
 /*
@@ -454,11 +492,13 @@ STATIC BOOL ReadINI(PXINI pXIni)       // in: profile opened with xprfOpenProfil
  *      Does not close the file.
  *
  *      Private helper.
+ *
+ *@@changed V1.0.0 (2002-09-17) [umoeller]: now returning APIRET
  */
 
-STATIC BOOL WriteINI(PXINI pXIni)      // in: profile opened with xprfOpenProfile
+STATIC APIRET WriteINI(PXINI pXIni)      // in: profile opened with xprfOpenProfile
 {
-    BOOL    brc = FALSE;
+    APIRET  arc = NO_ERROR;
     ULONG   ulTotalFileSize = sizeof(INIFILE_HEADER);
     ULONG   ulSet = 0;
     PBYTE   pbData2Write = NULL;
@@ -470,6 +510,7 @@ STATIC BOOL WriteINI(PXINI pXIni)      // in: profile opened with xprfOpenProfil
 
     // go thru all apps
     PLISTNODE pAppNode = lstQueryFirstNode(&pXIni->llApps);
+
     while (pAppNode)
     {
         PLISTNODE pKeyNode;
@@ -500,8 +541,6 @@ STATIC BOOL WriteINI(PXINI pXIni)      // in: profile opened with xprfOpenProfil
     // allocate buffer for total size
     if (pbData2Write = (PBYTE)malloc(ulTotalFileSize))
     {
-        APIRET arc = NO_ERROR;
-
         // set header in buffer
         PINIFILE_HEADER pHeader = (PINIFILE_HEADER)pbData2Write;
         // pointer into buffer for current write
@@ -511,7 +550,7 @@ STATIC BOOL WriteINI(PXINI pXIni)      // in: profile opened with xprfOpenProfil
         // 1) set up header
 
         pHeader->magic = 0xFFFFFFFF;
-        if (pXIni->cApps)
+        if (lstCountItems(&pXIni->llApps))
             // we have any applications:
             pHeader->offFirstApp = sizeof(INIFILE_HEADER);
                      // offset of first application in file
@@ -629,29 +668,27 @@ STATIC BOOL WriteINI(PXINI pXIni)      // in: profile opened with xprfOpenProfil
         }
 
         // write out everything
-        if (!(arc = DosProtectSetFilePtr(pXIni->hFile,
-                                         0,
-                                         FILE_BEGIN,
-                                         &ulSet,
-                                         pXIni->hLock)))
+        if (!(arc = DosSetFilePtr(pXIni->hFile,
+                                  0,
+                                  FILE_BEGIN,
+                                  &ulSet)))
         {
             ULONG cbWritten = 0;
-            if (    (!(arc = DosProtectWrite(pXIni->hFile,
-                                             pbData2Write,
-                                             ulTotalFileSize,
-                                             &cbWritten,
-                                             pXIni->hLock)))
-                 && (!(arc = DosProtectSetFileSize(pXIni->hFile,
-                                                   ulTotalFileSize,
-                                                   pXIni->hLock)))
-               )
-                brc = TRUE;
+            if (!(arc = DosWrite(pXIni->hFile,
+                                 pbData2Write,
+                                 ulTotalFileSize,
+                                 &cbWritten)))
+            {
+                if (!(arc = DosSetFileSize(pXIni->hFile,
+                                           ulTotalFileSize)))
+                    ;
+            }
         }
 
         free(pbData2Write);
     }
 
-    return brc;
+    return arc;
 }
 
 /* ******************************************************************
@@ -687,82 +724,281 @@ APIRET xprfOpenProfile(const char *pcszFilename,    // in: profile name
 {
     APIRET  arc = NO_ERROR;
     PXINI   pXIni = NULL;
+    ULONG   ulFilenameLen;
 
-    if (pcszFilename)
-        if (strlen(pcszFilename) < CCHMAXPATH - 1)
+    if (    (!pcszFilename)
+         || (!ppxini)
+       )
+        arc = ERROR_INVALID_PARAMETER;      // V1.0.0 (2002-09-17) [umoeller]
+    else if (!(ulFilenameLen = strlen(pcszFilename)))
+        arc = ERROR_INVALID_PARAMETER;      // V1.0.0 (2002-09-17) [umoeller]
+    else if (ulFilenameLen >= CCHMAXPATH - 1)
+        arc = ERROR_FILENAME_EXCED_RANGE;
+    else
+    {
+        HFILE   hFile = NULLHANDLE;
+        ULONG   ulAction = 0;
+        // FHLOCK  hLock = 0;
+
+        if (!(arc = DosOpen((PSZ)pcszFilename,
+                            &hFile,
+                            &ulAction,
+                            1024,          // initial size
+                            FILE_NORMAL,
+                            OPEN_ACTION_CREATE_IF_NEW
+                               | OPEN_ACTION_OPEN_IF_EXISTS,
+                            OPEN_FLAGS_FAIL_ON_ERROR
+                               | OPEN_FLAGS_SEQUENTIAL
+                               | OPEN_SHARE_DENYREADWRITE
+                               | OPEN_ACCESS_READWRITE,
+                            NULL)))
         {
-            HFILE   hFile = NULLHANDLE;
-            ULONG   ulAction = 0;
-            FHLOCK  hLock = 0;
-            arc = DosProtectOpen((PSZ)pcszFilename,
-                                 &hFile,
-                                 &ulAction,
-                                 1024,          // initial size
-                                 FILE_NORMAL,
-                                 OPEN_ACTION_CREATE_IF_NEW
-                                    | OPEN_ACTION_OPEN_IF_EXISTS,
-                                 OPEN_FLAGS_FAIL_ON_ERROR
-                                    | OPEN_FLAGS_NO_CACHE
-                                    | OPEN_FLAGS_SEQUENTIAL
-                                    | OPEN_SHARE_DENYREADWRITE
-                                    | OPEN_ACCESS_READWRITE,
-                                 NULL, // no EAs
-                                 &hLock);
-            if (arc == NO_ERROR)
+            if (!(pXIni = (PXINI)malloc(sizeof(XINI))))
+                arc = ERROR_NOT_ENOUGH_MEMORY;
+            else
             {
-                pXIni = (PXINI)malloc(sizeof(XINI));
-                if (!pXIni)
-                    arc = ERROR_NOT_ENOUGH_MEMORY;
+                // OK: initialize XINI
+                memset(pXIni, 0, sizeof(XINI));
+                memcpy(pXIni->acMagic, XINI_MAGIC_BYTES, sizeof(XINI_MAGIC_BYTES));
+                memcpy(pXIni->szFilename,
+                       pcszFilename,
+                       ulFilenameLen + 1);
+                pXIni->hFile = hFile;
+                // pXIni->hLock = hLock;
+
+                lstInit(&pXIni->llApps, FALSE);
+
+                if (ulAction == FILE_CREATED)
+                    // file newly created: rewrite on close
+                    pXIni->fDirty = TRUE;
                 else
+                    // file existed: read data
+                    if (arc = ReadINI(pXIni))
+                        // error:
+                        FreeINI(pXIni);
+            }
+
+            if (!arc)
+                *ppxini = pXIni;
+            else
+                DosClose(hFile);
+        }
+    }
+
+    return arc;
+}
+
+/*
+ *@@ xprfQueryProfileSize:
+ *      returns the size of INI data, similarly to
+ *      what PrfQueryProfileSize does.
+ *
+ *      If (pszAppName == NULL), this returns the size of
+ *      the buffer required to hold the enumerated list
+ *      of application names. pszKey is then ignored.
+ *
+ *      Otherwise, if (pszKeyName == NULL), this returns
+ *      the size of the buffer required to hold the
+ *      enumerated list of _key_ names for the given
+ *      application.
+ *
+ *      If both pszAppName and pszKeyName are not NULL, this
+ *      returns the data size of the given key.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR
+ *
+ *@@added V1.0.0 (2002-09-17) [umoeller]
+ */
+
+APIRET xprfQueryProfileSize(PXINI pXIni,          // in: profile opened with xprfOpenProfile
+                            PCSZ pszAppName,      // in: application name or NULL
+                            PCSZ pszKeyName,      // in: key name or NULL
+                            PULONG pulDataLen)    // out: size of requested data
+{
+    APIRET  arc = NO_ERROR;
+    ULONG   ulDataLen = 0;
+
+    if (!pszAppName)
+    {
+        PLISTNODE pAppNode = lstQueryFirstNode(&pXIni->llApps);
+        while (pAppNode)
+        {
+            PXINIAPPDATA pAppDataThis = (PXINIAPPDATA)pAppNode->pItemData;
+            ulDataLen += strlen(pAppDataThis->pszAppName) + 1;
+            pAppNode = pAppNode->pNext;
+        }
+
+        // extra byte for terminating extra null
+        ++ulDataLen;
+    }
+    else
+    {
+        // app specified:
+        PXINIAPPDATA pAppData;
+
+        if (!(arc = FindApp(pXIni,
+                            pszAppName,
+                            &pAppData)))
+        {
+            // app exists:
+
+            if (!pszKeyName)
+            {
+                // app != NULL, but key == NULL:
+                // return size of keys list
+                PLISTNODE pKeyNode = lstQueryFirstNode(&pAppData->llKeys);
+                while (pKeyNode)
                 {
-                    // OK: initialize XINI
-                    memset(pXIni, 0, sizeof(XINI));
-                    memcpy(pXIni->acMagic, XINI_MAGIC_BYTES, sizeof(XINI_MAGIC_BYTES));
-                    strcpy(pXIni->szFilename, pcszFilename);
-                    pXIni->hFile = hFile;
-                    pXIni->hLock = hLock;
-
-                    lstInit(&pXIni->llApps, FALSE);
-
-                    if (ulAction == FILE_CREATED)
-                        // file newly created: rewrite on close
-                        pXIni->fDirty = TRUE;
-                    else
-                        // file existed: read data
-                        if (!ReadINI(pXIni))
-                        {
-                            // error:
-                            FreeINI(pXIni);
-                            pXIni = NULL;
-                            arc = PRFERR_READ;
-                        }
-
-                    if ((pXIni) && (ppxini))
-                        *ppxini = pXIni;
+                    PXINIKEYDATA pKeyDataThis = (PXINIKEYDATA)pKeyNode->pItemData;
+                    ulDataLen += strlen(pKeyDataThis->pszKeyName) + 1;
+                    pKeyNode = pKeyNode->pNext;
                 }
+
+                // extra byte for terminating extra null
+                ++ulDataLen;
+            }
+            else
+            {
+                // both app and key specified:
+                PXINIKEYDATA pKeyData;
+                if (!(arc = FindKey(pAppData,
+                                    pszKeyName,
+                                    &pKeyData)))
+                    ulDataLen = pKeyData->cbData;
             }
         }
+    }
+
+    if (pulDataLen)
+        *pulDataLen = ulDataLen;
 
     return arc;
 }
 
 /*
  *@@ xprfQueryProfileData:
- *      similar to PrfQueryProfileData.
+ *      reads data from the given XINI, similarly to
+ *      what PrfQueryProfileData does.
  *
- *      @@todo: Still to be written.
+ *      If (pszAppName == NULL), this returns the
+ *      enumerated list of application names.
+ *      pszKey is then ignored. *pulBufferMax
+ *      receives the total size of the list excluding
+ *      the final NULL character.
+ *
+ *      Otherwise, if (pszKeyName == NULL), this the
+ *      enumerated list of _key_ names for the given
+ *      application. *pulBufferMax receives the total
+ *      size of the list excluding the final NULL character.
+ *
+ *      If both pszAppName and pszKeyName are not NULL,
+ *      this returns the data of the given key.
+ *      pulBufferMax receives the bytes copied.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR
  */
 
-/* BOOL xprfQueryProfileData(PXINI hIni,            // in: profile opened with xprfOpenProfile
-                          const char *pcszApp,
-                          const char *pcszKey,
-                          PVOID pBuffer,
-                          PULONG pulBufferMax)
+APIRET xprfQueryProfileData(PXINI pXIni,          // in: profile opened with xprfOpenProfile
+                            PCSZ pszAppName,      // in: application name
+                            PCSZ pszKeyName,      // in: key name or NULL
+                            PVOID pBuffer,        // in: buffer to receive data
+                            PULONG pulBufferMax)  // in: buffer size, out: size of written data
 {
-    BOOL brc = FALSE;
+    APIRET  arc = NO_ERROR;
+    ULONG   ulDataLen = 0;
 
-    return brc;
-} */
+    if (!pszAppName)
+    {
+        PLISTNODE pAppNode = lstQueryFirstNode(&pXIni->llApps);
+        PBYTE   pbTarget = (PSZ)pBuffer;
+        ULONG   cbCopied = 0;
+        while (pAppNode)
+        {
+            PXINIAPPDATA pAppDataThis = (PXINIAPPDATA)pAppNode->pItemData;
+            ULONG   cbThis = strlen(pAppDataThis->pszAppName) + 1;
+            if (cbCopied + cbThis > *pulBufferMax)
+                break;
+            else
+            {
+                memcpy(pbTarget + cbCopied,
+                       pAppDataThis->pszAppName,
+                       cbThis);
+                cbCopied += cbThis;
+            }
+
+            pAppNode = pAppNode->pNext;
+        }
+
+        // extra byte for terminating extra null
+        pbTarget[cbCopied] = '\0';
+        ulDataLen = cbCopied;       // PMREF says terminating null is not counted
+    }
+    else
+    {
+        // app specified:
+        PXINIAPPDATA pAppData;
+
+        if (!(arc = FindApp(pXIni,
+                            pszAppName,
+                            &pAppData)))
+        {
+            // app exists:
+
+            if (!pszKeyName)
+            {
+                // app != NULL, but key == NULL:
+                // return size of keys list
+                PLISTNODE pKeyNode = lstQueryFirstNode(&pAppData->llKeys);
+                PBYTE   pbTarget = (PSZ)pBuffer;
+                ULONG   cbCopied = 0;
+                while (pKeyNode)
+                {
+                    PXINIKEYDATA pKeyDataThis = (PXINIKEYDATA)pKeyNode->pItemData;
+                    ULONG   cbThis = strlen(pKeyDataThis->pszKeyName) + 1;
+                    if (cbCopied + cbThis > *pulBufferMax)
+                        break;
+                    else
+                    {
+                        memcpy(pbTarget + cbCopied,
+                               pKeyDataThis->pszKeyName,
+                               cbThis);
+                        cbCopied += cbThis;
+                    }
+
+                    pKeyNode = pKeyNode->pNext;
+                }
+
+                // extra byte for terminating extra null
+                pbTarget[cbCopied] = '\0';
+                ulDataLen = cbCopied;       // PMREF says terminating null is not counted
+            }
+            else
+            {
+                // both app and key specified:
+                PXINIKEYDATA pKeyData;
+                if (!(arc = FindKey(pAppData,
+                                    pszKeyName,
+                                    &pKeyData)))
+                {
+                    ulDataLen = min(pKeyData->cbData,
+                                    *pulBufferMax);
+                    memcpy(pBuffer,
+                           pKeyData->pbData,
+                           ulDataLen);
+                }
+            }
+        }
+    }
+
+    if (pulBufferMax)
+        *pulBufferMax = ulDataLen;
+
+    return arc;
+}
 
 /*
  *@@ xprfWriteProfileData:
@@ -791,112 +1027,105 @@ APIRET xprfOpenProfile(const char *pcszFilename,    // in: profile name
  *      Instead, our memory copy of it is only marked
  *      as "dirty" so that the file will be rewritten
  *      on xprfCloseProfile.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR
  */
 
-BOOL xprfWriteProfileData(PXINI hIni,           // in: profile opened with xprfOpenProfile
-                          const char *pcszApp,  // in: application name
-                          const char *pcszKey,  // in: key name or NULL
-                          PVOID pData,          // in: data to write or NULL
-                          ULONG ulDataLen)      // in: sizeof(*pData) or null
+APIRET xprfWriteProfileData(PXINI pXIni,          // in: profile opened with xprfOpenProfile
+                            const char *pcszApp,  // in: application name
+                            const char *pcszKey,  // in: key name or NULL
+                            PVOID pData,          // in: data to write or NULL
+                            ULONG ulDataLen)      // in: sizeof(*pData) or null
 {
-    BOOL brc = FALSE;
+    APIRET  arc = NO_ERROR;
 
-    if (hIni)
+    if (    (!pXIni)
+         || (memcmp(pXIni->acMagic, XINI_MAGIC_BYTES, sizeof(XINI_MAGIC_BYTES)))
+       )
+        arc = ERROR_INVALID_PARAMETER;
+    else
     {
-        PXINI pXIni = (PXINI)hIni;
-        if (memcmp(pXIni->acMagic, XINI_MAGIC_BYTES, sizeof(XINI_MAGIC_BYTES))
-                        == 0)
-        {
-            // check if application exists
-            PXINIAPPDATA pAppData = FindApp(pXIni,
-                                            pcszApp);
+        // check if application exists
+        PXINIAPPDATA pAppData;
 
-            // now check: does caller want entire application deleted?
-            if (!pcszKey)
+        if (FindApp(pXIni,
+                    pcszApp,
+                    &pAppData))
+            // not found:
+            pAppData = NULL;
+
+        // now check: does caller want entire application deleted?
+        if (!pcszKey)
+        {
+            // yes, delete application: did we find it?
+            if (pAppData)
             {
-                // yes, delete application: did we find it?
+                // yes: kill that
+                FreeApp(pAppData);
+                // and remove from list
+                lstRemoveItem(&pXIni->llApps, pAppData);
+
+                // rewrite profile on close
+                pXIni->fDirty = TRUE;
+            }
+            // else application doesn't exist:
+            // nothing to do return NO_ERROR
+        }
+        else
+        {
+            // caller has specified key:
+            // does caller want a key to be deleted?
+            if (!ulDataLen)
+            {
+                // yes: delete key:
                 if (pAppData)
                 {
-                    // yes: kill that
-                    FreeApp(pAppData);
-                    // and remove from list
-                    brc = lstRemoveItem(&pXIni->llApps, pAppData);
-                    pXIni->cApps--;
-                    // rewrite profile on close
-                    pXIni->fDirty = TRUE;
+                    // app exists:
+                    FreeKeyIfExists(pXIni,
+                                    pAppData,
+                                    pcszKey);
                 }
-                else
-                    // application doesn't exist:
-                    brc = TRUE;
+                // else app doesn't even exist:
+                // nothing to do, return NO_ERROR
             }
             else
             {
-                // caller has specified key:
-                // does caller want a key to be deleted?
-                if (!ulDataLen)
+                // key and data specified: let's add something...
+
+                if (!pAppData)
+                    // app doesn't exist yet:
+                    // create
+                    arc = CreateApp(pXIni,
+                                    pcszApp,
+                                    &pAppData);
+
+                if (!arc)
                 {
-                    // yes: delete key:
-                    if (pAppData)
-                    {
-                        // app exists:
-                        // find key
-                        PXINIKEYDATA pKeyData = FindKey(pAppData,
-                                                        pcszKey);
-                        if (pKeyData)
-                        {
-                            // key exists: kill that
-                            FreeKey(pKeyData);
-                            // and remove from app's keys list
-                            brc = lstRemoveItem(&pAppData->llKeys, pKeyData);
-                            pAppData->cKeys--;
-                            // rewrite profile on close
-                            pXIni->fDirty = TRUE;
-                        }
-                        else
-                            // key doesn't even exist:
-                            brc = TRUE;
-                    }
-                    else
-                        // app doesn't even exist:
-                        brc = TRUE;
-                }
-                else
-                {
-                    // key and data specified: let's add something...
+                    // found or created app:
 
-                    if (!pAppData)
-                        // app doesn't exist yet:
-                        // create
-                        pAppData = CreateApp(pXIni,
-                                             pcszApp);
+                    // delete existing key if it exists
+                    PXINIKEYDATA pKeyData;
 
-                    if (pAppData)
-                    {
-                        // found or created app:
-                        // check if key exists
-                        PXINIKEYDATA pKeyData = FindKey(pAppData,
-                                                        pcszKey);
-                        if (!pKeyData)
-                            // doesn't exist yet:
-                            // create
-                            pKeyData = CreateKey(pAppData,
-                                                 pcszKey,
-                                                 (PBYTE)pData,
-                                                 ulDataLen);
+                    FreeKeyIfExists(pXIni,
+                                    pAppData,
+                                    pcszKey);
 
-                        if (pKeyData)
-                        {
-                           // mark as dirty
-                           pXIni->fDirty = TRUE;
-                           brc = TRUE;
-                        }
-                    }
+                    // now create new key
+                    if (!(arc = CreateKey(pAppData,
+                                          pcszKey,
+                                          (PBYTE)pData,
+                                          ulDataLen,
+                                          &pKeyData)))
+                       // mark as dirty
+                       pXIni->fDirty = TRUE;
                 }
             }
         }
     }
 
-    return brc;
+    return arc;
 }
 
 /*
@@ -908,41 +1137,79 @@ BOOL xprfWriteProfileData(PXINI hIni,           // in: profile opened with xprfO
  *
  *      You cannot specify HINI_SYSTEM or HINI_USER for
  *      hINi.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR
  */
 
-BOOL xprfCloseProfile(PXINI hIni)       // in: profile opened with xprfOpenProfile
+APIRET xprfCloseProfile(PXINI pXIni)       // in: profile opened with xprfOpenProfile
 {
-    BOOL brc = FALSE;
+    APIRET  arc = NO_ERROR;
 
-    if (hIni)
+    if (    (!pXIni)
+         || (memcmp(pXIni->acMagic, XINI_MAGIC_BYTES, sizeof(XINI_MAGIC_BYTES)))
+       )
+        arc = ERROR_INVALID_PARAMETER;
+    else
     {
-        PXINI pXIni = (PXINI)hIni;
-        if (memcmp(pXIni->acMagic, XINI_MAGIC_BYTES, sizeof(XINI_MAGIC_BYTES))
-                        == 0)
+        if (pXIni->fDirty)
+            arc = WriteINI(pXIni);
+
+        if (!arc)
         {
-            brc = TRUE;
-
-            if (pXIni->fDirty)
-                brc = WriteINI(pXIni);
-
-            if (brc)
+            if (!(arc = DosClose(pXIni->hFile)))
             {
-                APIRET arc = DosProtectClose(pXIni->hFile,
-                                             pXIni->hLock);
-                if (arc == NO_ERROR)
-                {
-                    pXIni->hFile = 0;
-                    pXIni->hLock = 0;
+                pXIni->hFile = 0;
 
-                    FreeINI(pXIni);
-                }
-                else
-                    brc = FALSE;
+                FreeINI(pXIni);
             }
         }
     }
 
-    return brc;
+    return arc;
 }
 
+/*
+ *@@ xprfQueryKeysForApp:
+ *      the equivalent of prfhQueryKeysForApp for
+ *      XINI files.
+ *
+ *@@added V1.0.0 (2002-09-17) [umoeller]
+ */
+
+APIRET xprfQueryKeysForApp(PXINI hIni,      // in: INI handle
+                           PCSZ pcszApp,    // in: application to query list for (or NULL for applications list)
+                           PSZ *ppszKeys)   // out: keys list (newly allocated)
+{
+    APIRET  arc = NO_ERROR;
+    PSZ     pKeys = NULL;
+    ULONG   ulSizeOfKeysList = 0;
+
+    // get size of keys list for pszApp
+    if (!xprfQueryProfileSize(hIni, pcszApp, NULL, &ulSizeOfKeysList))
+        arc = PRFERR_KEYSLIST;
+    else
+    {
+        if (ulSizeOfKeysList == 0)
+            ulSizeOfKeysList = 1;    // V0.9.19 (2002-04-11) [pr]
+
+        if (!(pKeys = (PSZ)malloc(ulSizeOfKeysList)))
+            arc = ERROR_NOT_ENOUGH_MEMORY;
+        else
+        {
+            *pKeys = 0;
+            if (!xprfQueryProfileData(hIni, pcszApp, NULL, pKeys, &ulSizeOfKeysList))
+                arc = PRFERR_KEYSLIST;
+        }
+    }
+
+    if (!arc)       // V0.9.12 (2001-05-12) [umoeller]
+        *ppszKeys = pKeys;
+    else
+        if (pKeys)
+            free(pKeys);
+
+    return arc;
+}
 

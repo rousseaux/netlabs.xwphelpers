@@ -579,7 +579,7 @@ BOOL winhSetMenuCondCascade(HWND hwndMenu,          // in: submenu handle
  *      specified in the given array of menu item
  *      IDs.
  *
- *@@added V0.9.21 (2002-08-12) [umoeller]
+ *@@added V1.0.0 (2002-08-12) [umoeller]
  */
 
 BOOL XWPENTRY winhRemoveMenuItems(HWND hwndMenu,            // in: menu to remove from
@@ -908,7 +908,7 @@ ULONG winhMergeMenus(HWND hmenuTarget,         // in: menu to copy items to
  *      The menu itself is not destroyed, but is empty
  *      after calling this function.
  *
- *@@added V0.9.21 (2002-08-31) [umoeller]
+ *@@added V1.0.0 (2002-08-31) [umoeller]
  */
 
 ULONG winhClearMenu(HWND hwndMenu)
@@ -2768,7 +2768,7 @@ ULONG winhCenteredDlgBox(HWND hwndParent,
  *      Works only if hwnd is a desktop child.
  *
  *@@added V0.9.19 (2002-04-17) [umoeller]
- *@@changed V0.9.21 (2002-08-26) [umoeller]: fixed cx and cy confusion
+ *@@changed V1.0.0 (2002-08-26) [umoeller]: fixed cx and cy confusion
  */
 
 BOOL winhPlaceBesides(HWND hwnd,
@@ -2803,7 +2803,7 @@ BOOL winhPlaceBesides(HWND hwnd,
         yNew = ptlRel.y  + ((swpRel.cy - swpThis.cy) / 2);
 
         // if (xNew + swpThis.cy > WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN))
-                // not cy, but cx V0.9.21 (2002-08-26) [umoeller]
+                // not cy, but cx V1.0.0 (2002-08-26) [umoeller]
         if (xNew + swpThis.cx > WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN))
         {
             // place left then
@@ -4055,7 +4055,7 @@ HWND winhCreateObjectWindow(const char *pcszWindowClass,    // in: PM window cla
  *      creates a control with a size and position of 0.
  *
  *@@added V0.9.9 (2001-03-13) [umoeller]
- *@@changed V0.9.21 (2002-08-26) [umoeller]: added separate hwndOwner
+ *@@changed V1.0.0 (2002-08-26) [umoeller]: added separate hwndOwner
  */
 
 HWND winhCreateControl(HWND hwndParent,             // in: parent window
@@ -4757,7 +4757,7 @@ VOID winhSetNumLock(BOOL fState)
  *      sets the clipboard data to the given text,
  *      replacing the current clipboard contents.
  *
- *@@added V0.9.21 (2002-08-28) [umoeller]
+ *@@added V1.0.0 (2002-08-28) [umoeller]
  */
 
 BOOL winhSetClipboardText(HAB hab,
@@ -4812,7 +4812,7 @@ BOOL winhSetClipboardText(HAB hab,
  *      This is exported so it can be used independently
  *      (XWorkplace status bars).
  *
- *@@added V0.9.21 (2002-08-28) [umoeller]
+ *@@added V1.0.0 (2002-08-28) [umoeller]
  */
 
 VOID winhCalcExtFrameRect(MPARAM mp1,

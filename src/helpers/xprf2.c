@@ -76,15 +76,18 @@
  */
 
 APIRET xprfCopyKey(HINI hiniSource,       // in: source profile (can be HINI_USER or HINI_SYSTEM)
-                   PSZ pszSourceApp,      // in: source application
-                   PSZ pszKey,            // in: source/target key
+                   PCSZ pszSourceApp,     // in: source application
+                   PCSZ pszKey,           // in: source/target key
                    PXINI hiniTarget,      // in: target profile opened with xprfOpenProfile
-                   PSZ pszTargetApp)      // in: target app
+                   PCSZ pszTargetApp)     // in: target app
 {
     ULONG   ulSizeOfData = 0;
     APIRET  arc = NO_ERROR;
 
-    if (PrfQueryProfileSize(hiniSource, pszSourceApp, pszKey, &ulSizeOfData))
+    if (PrfQueryProfileSize(hiniSource,
+                            (PSZ)pszSourceApp,
+                            (PSZ)pszKey,
+                            &ulSizeOfData))
     {
         PSZ pData = 0;
 
@@ -106,16 +109,85 @@ APIRET xprfCopyKey(HINI hiniSource,       // in: source profile (can be HINI_USE
         {
             fflush(stdout);
             if (PrfQueryProfileData(hiniSource,
-                                    pszSourceApp,
-                                    pszKey,
+                                    (PSZ)pszSourceApp,
+                                    (PSZ)pszKey,
                                     pData,
                                     &ulSizeOfData))
             {
-                if (!xprfWriteProfileData(hiniTarget,
-                                          pszTargetApp,
-                                          pszKey,
-                                          pData,
-                                          ulSizeOfData))
+                arc = xprfWriteProfileData(hiniTarget,
+                                           pszTargetApp,
+                                           pszKey,
+                                           pData,
+                                           ulSizeOfData);
+            }
+            else
+                arc = PRFERR_READ;
+
+            free(pData);
+        }
+        else
+            arc = ERROR_NOT_ENOUGH_MEMORY;
+    }
+    else
+        arc = PRFERR_DATASIZE;
+
+    return arc;
+}
+
+/*
+ *@@ xprfCopyKey2:
+ *      copies a single key from an xprf* PXINI to a Prf* HINI.
+ *      hiniSource must therefore have been opened using
+ *      xprfOpenProfile.
+ *
+ *      This returns 0 (NO_ERROR) if copying succeeded. Otherwise either
+ *      an OS/2 error code (ERROR_*) or one of the profile error
+ *      codes defined in prfh.h is returned.
+ *
+ *@@added V1.0.0 (2002-09-17) [umoeller]
+ */
+
+APIRET xprfCopyKey2(PXINI hiniSource,   // in: source profile (can be HINI_USER or HINI_SYSTEM)
+                    PCSZ pszSourceApp,  // in: source application
+                    PCSZ pszKey,        // in: source/target key
+                    HINI hiniTarget,    // in: target profile opened with xprfOpenProfile
+                    PCSZ pszTargetApp)  // in: target app
+{
+    ULONG   ulSizeOfData = 0;
+    APIRET  arc = NO_ERROR;
+
+    if (xprfQueryProfileSize(hiniSource, pszSourceApp, pszKey, &ulSizeOfData))
+    {
+        PSZ pData = 0;
+
+        // copy data
+        if (ulSizeOfData == 0)
+        {
+            // data size == 0: this shouldn't really happen,
+            // but if it does, we'll just create a NULL string.
+            // Users have reported that some INI files seem to
+            // contain those "empty" keys. I don't see how these
+            // can exist, but they seem to...
+            pData = (PSZ)malloc(1);
+            *pData = 0;
+        }
+        else
+            pData = (PSZ)malloc(ulSizeOfData);
+
+        if (pData)
+        {
+            fflush(stdout);
+            if (xprfQueryProfileData(hiniSource,
+                                     pszSourceApp,
+                                     pszKey,
+                                     pData,
+                                     &ulSizeOfData))
+            {
+                if (!PrfWriteProfileData(hiniTarget,
+                                         (PSZ)pszTargetApp,
+                                         (PSZ)pszKey,
+                                         pData,
+                                         ulSizeOfData))
                     arc = PRFERR_WRITE;
             }
             else
@@ -134,7 +206,7 @@ APIRET xprfCopyKey(HINI hiniSource,       // in: source profile (can be HINI_USE
 
 /*
  *@@ xprfCopyApp:
- *      copies a single application from an Prf* HINI to an xprf* PXINI.
+ *      copies a single application from a Prf* HINI to an xprf* PXINI.
  *      hiniTarget must therefore have been opened using
  *      xprfOpenProfile.
  *
@@ -145,11 +217,11 @@ APIRET xprfCopyKey(HINI hiniSource,       // in: source profile (can be HINI_USE
  *      codes defined in prfh.h is returned.
  */
 
-APIRET xprfCopyApp(HINI hiniSource,   // in: source profile (can be HINI_USER or HINI_SYSTEM)
-                   PSZ pszSourceApp,  // in: source application
-                   PXINI hiniTarget,  // in: target profile opened with xprfOpenProfile
-                   PSZ pszTargetApp,  // in: name of pszSourceApp in hiniTarget
-                   PSZ pszErrorKey)   // out: failing key in case of error; ptr can be NULL
+APIRET xprfCopyApp(HINI hiniSource,     // in: source profile (can be HINI_USER or HINI_SYSTEM)
+                   PCSZ pszSourceApp,   // in: source application
+                   PXINI hiniTarget,    // in: target profile opened with xprfOpenProfile
+                   PCSZ pszTargetApp,   // in: name of pszSourceApp in hiniTarget
+                   PSZ pszErrorKey)     // out: failing key in case of error; ptr can be NULL
 {
     APIRET arc = NO_ERROR;
     PSZ pszKeysList = NULL;
@@ -166,18 +238,77 @@ APIRET xprfCopyApp(HINI hiniSource,   // in: source profile (can be HINI_USER or
         while (*pKey2 != 0)
         {
             // copy this key
-            arc = xprfCopyKey(hiniSource,
-                              pszSourceApp,
-                              pKey2,
-                              hiniTarget,
-                              pszTargetApp);
-            if (arc)
+            if (arc = xprfCopyKey(hiniSource,
+                                  pszSourceApp,
+                                  pKey2,
+                                  hiniTarget,
+                                  pszTargetApp))
             {
                 // error: copy failing key to buffer
                 if (pszErrorKey)
                     strcpy(pszErrorKey, pKey2);
                 break;
             }
+
+            pKey2 += strlen(pKey2)+1;
+        } // end while (*pKey2 != 0)
+
+        free (pszKeysList);
+    }
+    else
+        arc = PRFERR_KEYSLIST;
+
+    return arc;
+}
+
+/*
+ *@@ xprfCopyApp2:
+ *      copies a single application from an xprf* PXINI to a Prf* HINI.
+ *      hiniTarget must therefore have been opened using
+ *      xprfOpenProfile.
+ *
+ *      This calls xprfCopyKey2 for each key in the application.
+ *
+ *      This returns 0 (NO_ERROR) if copying succeeded. Otherwise either
+ *      an OS/2 error code (ERROR_*) or one of the profile error
+ *      codes defined in prfh.h is returned.
+ *
+ *@@added V1.0.0 (2002-09-17) [umoeller]
+ */
+
+APIRET xprfCopyApp2(PXINI hiniSource,   // in: source profile (can be HINI_USER or HINI_SYSTEM)
+                    PCSZ pszSourceApp,  // in: source application
+                    HINI hiniTarget,    // in: target profile opened with xprfOpenProfile
+                    PCSZ pszTargetApp,  // in: name of pszSourceApp in hiniTarget
+                    PSZ pszErrorKey)    // out: failing key in case of error; ptr can be NULL
+{
+    APIRET arc = NO_ERROR;
+    PSZ pszKeysList = NULL;
+
+    if (pszErrorKey)
+        *pszErrorKey = 0;
+
+    if (!(arc = xprfQueryKeysForApp(hiniSource,
+                                    pszSourceApp,
+                                    &pszKeysList)))
+    {
+        PSZ pKey2 = pszKeysList;
+
+        while (*pKey2 != 0)
+        {
+            // copy this key
+            if (arc = xprfCopyKey2(hiniSource,
+                                   pszSourceApp,
+                                   pKey2,
+                                   hiniTarget,
+                                   pszTargetApp))
+            {
+                // error: copy failing key to buffer
+                if (pszErrorKey)
+                    strcpy(pszErrorKey, pKey2);
+                break;
+            }
+
             pKey2 += strlen(pKey2)+1;
         } // end while (*pKey2 != 0)
 
@@ -207,29 +338,31 @@ APIRET xprfCopyApp(HINI hiniSource,   // in: source profile (can be HINI_USER or
  */
 
 APIRET xprfCopyProfile(HINI hOld,           // in: source profile (can be HINI_USER or HINI_SYSTEM)
-                       PSZ pszNew,          // in: new filename (can be fully qualified)
+                       PCSZ pszNew,         // in: new filename (can be fully qualified)
                        PFN_PRF_PROGRESS pfnProgressCallback,
                        ULONG ulUser,        // in: passed to pfnProgressCallback
                        ULONG ulCount,       // in: index of INI being copied (0 <= ulCount <= ulMax)
-                       ULONG ulMax)         // in: maximum index (for progress); 0 means 1 INI, 1 means 2 INIs, ...
+                       ULONG ulMax,         // in: maximum index (for progress); 0 means 1 INI, 1 means 2 INIs, ...
+                       PSZ pszFailingApp)   // out: failing app on error
 {
     APIRET  arc = NO_ERROR;
     PXINI   pxiniNew = NULL;
     ULONG   ulSizeOfAppsList;
 
+    if (pszFailingApp)
+        *pszFailingApp = 0;
+
     if (!pszNew)
         arc = ERROR_INVALID_PARAMETER;
     else
     {
-        DosDelete(pszNew);
+        DosDelete((PSZ)pszNew);
 
         // open new profile
-        arc = xprfOpenProfile(pszNew,
-                              &pxiniNew);
-
-        // get size of applications list
-        if (arc == NO_ERROR)
+        if (!(arc = xprfOpenProfile(pszNew,
+                                    &pxiniNew)))
         {
+            // get size of applications list
             if (!PrfQueryProfileSize(hOld, NULL, NULL, &ulSizeOfAppsList))
                 arc = PRFERR_APPSLIST;
             else
@@ -255,14 +388,18 @@ APIRET xprfCopyProfile(HINI hOld,           // in: source profile (can be HINI_U
                       )
                 {
                     CHAR szErrorKey[1000];
-                    // copy application (this will call prfhCopyKey in turn)
-                    arc = xprfCopyApp(hOld,
-                                      pApp2,
-                                      pxiniNew,
-                                      pApp2,
-                                      szErrorKey);
 
-                    if (pfnProgressCallback)
+                    // copy application (this will call prfhCopyKey in turn)
+                    if (arc = xprfCopyApp(hOld,
+                                          pApp2,
+                                          pxiniNew,
+                                          pApp2,
+                                          szErrorKey))
+                    {
+                        if (pszFailingApp)
+                            strhncpy0(pszFailingApp, pApp2, CCHMAXPATH);
+                    }
+                    else if (pfnProgressCallback)
                     {
                         ULONG ulNow2, ulMax2;
                         ulNow2 = ((1000*(pApp2-pApps)) / ulSizeOfAppsList) + (ulCount*1000);
@@ -324,7 +461,10 @@ APIRET xprfCopyProfile(HINI hOld,           // in: source profile (can be HINI_U
 
 APIRET xprfSaveINIs(HAB hab,               // in:  anchor block
                     PFN_PRF_PROGRESS pfnProgressCallback,
-                    ULONG ulUser)
+                    ULONG ulUser,
+                    PSZ pszFailingINI,
+                    PSZ pszFailingApp,
+                    PSZ pszFailingKey)
 {
     PRFPROFILE Profiles;
     APIRET  arc = NO_ERROR;
@@ -399,20 +539,39 @@ APIRET xprfSaveINIs(HAB hab,               // in:  anchor block
          */
 
         if (arc == NO_ERROR)
+        {
+            if (pszFailingINI)
+                strcpy(pszFailingINI,
+                       szSysNew);
+
             arc = xprfCopyProfile(HINI_SYSTEM,
                                   szSysNew,              // new filename
                                   pfnProgressCallback,
-                                  ulUser, 0, 1);
+                                  ulUser,
+                                  0,
+                                  1,
+                                  pszFailingApp);
+        }
+
         /*
          * create OS2SYS.XFL:
          *
          */
 
         if (arc == NO_ERROR)
+        {
+            if (pszFailingINI)
+                strcpy(pszFailingINI,
+                       szUserNew);
+
             arc = xprfCopyProfile(HINI_USER,
                                   szUserNew,              // new filename
                                   pfnProgressCallback,
-                                  ulUser, 1, 1);
+                                  ulUser,
+                                  1,
+                                  1,
+                                  pszFailingApp);
+        }
     }
 
     /*
@@ -452,9 +611,21 @@ APIRET xprfSaveINIs(HAB hab,               // in:  anchor block
     if (arc == NO_ERROR)
     {
         // finally, replace system profiles
-        arc = DosMove(szSysNew, Profiles.pszSysName);
-        if (arc == NO_ERROR)
-            arc = DosMove(szUserNew, Profiles.pszUserName);
+        if (!(arc = DosMove(szSysNew, Profiles.pszSysName)))
+        {
+            if (arc = DosMove(szUserNew, Profiles.pszUserName))
+            {
+                if (pszFailingINI)
+                    strcpy(pszFailingINI,
+                           szUserNew);
+            }
+        }
+        else
+        {
+            if (pszFailingINI)
+                strcpy(pszFailingINI,
+                       szSysNew);
+        }
     }
 
     if (Profiles.pszSysName)
@@ -467,7 +638,9 @@ APIRET xprfSaveINIs(HAB hab,               // in:  anchor block
 
 // testing
 
-/* BOOL _Optlink fnCallback(ULONG ulUser, ULONG ulNow, ULONG ulMax)
+#ifdef __BUILD_XPRF2_MAIN__
+
+BOOL _Optlink fnCallback(ULONG ulUser, ULONG ulNow, ULONG ulMax)
 {
     printf("\r done %03d%%", ulNow * 100 / ulMax);
     return (TRUE);
@@ -475,31 +648,31 @@ APIRET xprfSaveINIs(HAB hab,               // in:  anchor block
 
 int main(int argc, char* argv[])
 {
-    if (argc != 3)
-        printf("Syntax: xprf2 <source.ini> <target.ini>\n");
-    else
-    {
-        HAB hab = WinInitialize(0);
+    APIRET  arc = 2;
 
-        // HINI hiniSource = PrfOpenProfile(hab, argv[1]);
-        // if (hiniSource)
-        {
-            APIRET arc = xprfCopyProfile(hiniSource,
-                                         argv[2],
-                                         fnCallback,
-                                         0, 0, 0);
-            xprfSaveProfiles(hab, NULL, 0);
-//             if (arc)
+    HAB     hab = WinInitialize(0);
 
+    CHAR    szFailingINI[CCHMAXPATH] = "",
+            szFailingApp[CCHMAXPATH] = "",
+            szFailingKey[CCHMAXPATH] = "";
 
-   //              printf("xprfCopyProfile returned %d.\n", arc);
-        }
-        // else
-            // printf("Cannot open %s\n", argv[1]);
+    arc = xprfSaveINIs(hab,
+                       NULL,
+                       0,
+                       szFailingINI,
+                       szFailingApp,
+                       szFailingKey);
 
-        WinTerminate(hab);
-    }
+    printf("xprfCopyProfile returned %d ('%s', '%s', '%s'.\n",
+           arc,
+           szFailingINI,
+           szFailingApp,
+           szFailingKey);
 
-    return (0);
-} */
+    WinTerminate(hab);
+
+    return arc;
+}
+
+#endif
 

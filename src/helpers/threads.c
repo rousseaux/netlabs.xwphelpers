@@ -122,7 +122,7 @@ STATIC VOID UnlockThreadInfos(VOID)
  *
  *@@added V0.9.2 (2000-03-05) [umoeller]
  *@@changed V0.9.7 (2000-12-18) [lafaix]: THRF_TRANSIENT support added
- *@@changed V0.9.21 (2002-08-21) [umoeller]: added WinCancelShutdown to avoid shutdown hangs
+ *@@changed V1.0.0 (2002-08-21) [umoeller]: added WinCancelShutdown to avoid shutdown hangs
  */
 
 STATIC VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
@@ -150,7 +150,7 @@ STATIC VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
                     // run WinCancelShutdown; this func is used
                     // in XWPDAEMN and causes the default OS/2
                     // shutdown to hang
-                    // V0.9.21 (2002-08-21) [umoeller]
+                    // V1.0.0 (2002-08-21) [umoeller]
                     WinCancelShutdown(pti->hmq, TRUE);
 
                     // run thread func

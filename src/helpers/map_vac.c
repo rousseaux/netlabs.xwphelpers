@@ -7,7 +7,7 @@
  *      Note: Version numbering in this file relates to XWorkplace version
  *            numbering.
  *
- *@@added V0.9.21 (2002-09-13) [umoeller]
+ *@@added V1.0.0 (2002-09-13) [umoeller]
  *
  *@@header "helpers\mapfile.h"
  */

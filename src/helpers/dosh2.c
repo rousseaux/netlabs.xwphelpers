@@ -411,9 +411,10 @@ STATIC APIRET CopyToBuffer(PSZ pszTarget,      // out: target buffer
  *          the full path.
  *
  *@@added V0.9.16 (2001-10-08) [umoeller]
+ *@@changed V1.0.0 (2002-11-23) [umoeller]: allowing NULL pcszPath to search for "PATH"
  */
 
-APIRET doshSearchPath(const char *pcszPath,     // in: path variable name (e.g. "PATH")
+APIRET doshSearchPath(const char *pcszPath,     // in: path variable name; if NULL, we use "PATH"
                       const char *pcszFile,     // in: file to look for (e.g. "LVM.EXE")
                       PSZ pszExecutable,        // out: full path (e.g. "F:\os2\lvm.exe")
                       ULONG cbExecutable)       // in: sizeof (*pszExecutable)
@@ -422,6 +423,10 @@ APIRET doshSearchPath(const char *pcszPath,     // in: path variable name (e.g. 
 
     // get the PATH value
     PCSZ pcszPathValue;
+
+    if (!pcszPath)
+        pcszPath = "PATH";      // V1.0.0 (2002-11-23) [umoeller]
+
     if (!(arc = DosScanEnv((PSZ)pcszPath,
 #if __cplusplus
                            &pcszPathValue)))

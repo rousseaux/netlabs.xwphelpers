@@ -41,6 +41,7 @@
 
 #define INCL_DOSERRORS
 #define INCL_WINSHELLDATA
+#define INCL_WINERRORS
 #include <os2.h>
 
 #include <stdlib.h>
@@ -53,6 +54,7 @@
 #include "helpers\stringh.h"
 
 #include "helpers\prfh.h"
+#include "helpers\xprf.h"
 
 #pragma hdrstop
 
@@ -640,4 +642,97 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
         return NO_ERROR;
 }
 
+#ifdef __PRFH2_MAIN__
 
+int main(int argc, char* argv[])
+{
+    APIRET  arc = NO_ERROR;
+    PCSZ    pcszSource,
+            pcszTarget,
+            pcszApp;
+    PXINI   piniSource;
+    HINI    hiniTarget;
+    BOOL    fCloseSource = FALSE,
+            fCloseTarget = FALSE;
+    HAB     hab = WinInitialize(0);
+    CHAR    szFailing[1000];
+
+    if (argc < 4)
+    {
+        printf("%d\nprfh2 <sourcefile> <targetfile> <appname>\n", argc);
+        exit(2);
+    }
+
+    pcszSource = argv[1];
+    pcszTarget = argv[2];
+    pcszApp = argv[3];
+
+    if (arc = xprfOpenProfile(pcszSource,
+                              &piniSource))
+    {
+        printf("xprfOpenProfile returned %d opening source INI \"%s\"\n",
+               arc,
+               pcszSource);
+    }
+    else
+        fCloseSource = TRUE;
+
+    if (!strcmp(pcszTarget, "USER"))
+        hiniTarget = HINI_USER;
+    else if (!strcmp(pcszTarget, "SYSTEM"))
+        hiniTarget = HINI_SYSTEM;
+    else
+    {
+        if (!(hiniTarget = PrfOpenProfile(hab, (PSZ)pcszTarget)))
+        {
+            printf("Cannot open source INI \"%s\"\n", pcszTarget);
+            arc = -1;
+        }
+        else
+            fCloseTarget = TRUE;
+    }
+
+    if (!arc)
+    {
+        if (arc = xprfCopyApp2(piniSource,
+                               pcszApp,
+                               hiniTarget,
+                               pcszApp,
+                               szFailing))
+        {
+            printf("Error %d copying application \"%s\" from %s to %s\n",
+                   arc,
+                   pcszApp,
+                   pcszSource,
+                   pcszTarget);
+            printf("Failing key: \"%s\"\n",
+                   szFailing);
+        }
+        else
+            printf("Application \"%s\" successfully copied from %s to %s\n",
+                   pcszApp,
+                   pcszSource,
+                   pcszTarget);
+    }
+
+    if (arc)
+    {
+        ERRORID eid;
+        eid = WinGetLastError(hab);
+
+        printf("WinGetLastError returned 0x%lX\n",
+               eid);
+    }
+
+
+    if (fCloseSource)
+        xprfCloseProfile(piniSource);
+    if (fCloseTarget)
+        PrfCloseProfile(hiniTarget);
+
+    WinTerminate(hab);
+
+    exit(arc);
+}
+
+#endif

@@ -1578,9 +1578,9 @@ BOOL cnrhIsChildOf(HWND hwndCnr,
  *      for the child records before the parent record.
  *
  *@@added V0.9.0 [umoeller]
- *@@changed V0.9.21 (2002-09-09) [umoeller]: rewritten to support deletion in callback
- *@@changed V0.9.21 (2002-09-09) [umoeller]: added support for precParent = -1
- *@@changed V0.9.21 (2002-09-09) [umoeller]: changed prototype and callback prototype
+ *@@changed V1.0.0 (2002-09-09) [umoeller]: rewritten to support deletion in callback
+ *@@changed V1.0.0 (2002-09-09) [umoeller]: added support for precParent = -1
+ *@@changed V1.0.0 (2002-09-09) [umoeller]: changed prototype and callback prototype
  */
 
 ULONG cnrhForAllRecords(HWND hwndCnr,
@@ -1621,14 +1621,14 @@ ULONG cnrhForAllRecords(HWND hwndCnr,
 
         // get the next record BEFORE calling the callback
         // in case the callback removes the record
-        // V0.9.21 (2002-09-09) [umoeller]
+        // V1.0.0 (2002-09-09) [umoeller]
         PRECORDCORE precNext = (PRECORDCORE)WinSendMsg(hwndCnr,
                                                        CM_QUERYRECORD,
                                                        (MPARAM)prec2,
                                                        MPFROM2SHORT(CMA_NEXT,
                                                                     CMA_ITEMORDER));
 
-        if (fRecurse)   // V0.9.21 (2002-09-09) [umoeller]
+        if (fRecurse)   // V1.0.0 (2002-09-09) [umoeller]
             // recurse for the record we found
             ulrc += cnrhForAllRecords(hwndCnr,
                                       prec2,        // new parent to search

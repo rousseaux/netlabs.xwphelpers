@@ -480,7 +480,7 @@ extern "C" {
     #define SBCF_PERCENTAGE          0x0002
     #define SBCF_3DSUNK              0x0100
     #define SBCF_3DEXPLORERSTYLE     0x0200
-                // new with V0.9.21 (2002-08-21) [umoeller]
+                // new with V1.0.0 (2002-08-21) [umoeller]
                 // this simulates the Warp 4 entry field margins around the
                 // right split window, but leaves the left window flat
     #define SBCF_MOVEABLE            0x1000

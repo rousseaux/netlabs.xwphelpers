@@ -301,25 +301,40 @@ ULONG doshIsWarp4(VOID)
  *      The error message is returned in a newly allocated
  *      buffer, which should be free()'d afterwards.
  *
+ *      The returned string is properly null-terminated but
+ *      should not end with a line break (\r or \n) if I see
+ *      this correctly.
+ *
  *      Returns NULL upon errors.
+ *
+ *@@changed V1.0.0 (2002-09-24) [umoeller]: now supporting NET messages as well
  */
 
 PSZ doshQuerySysErrorMsg(APIRET arc)    // in: DOS error code
 {
-    PSZ     pszReturn = 0;
+    PSZ     pszReturn = NULL;
     CHAR    szDosError[1000];
     ULONG   cbDosError = 0;
-    DosGetMessage(NULL, 0,       // no string replacements
-                  szDosError, sizeof(szDosError),
-                  arc,
-                  "OSO001.MSG",        // default OS/2 message file
-                  &cbDosError);
-    if (cbDosError > 2)
+    PCSZ    pcszMsgFile;
+
+    if (    (arc >= 2100)
+         && (arc <= 8000)
+       )
+        pcszMsgFile = "NET.MSG";
+    else
+        pcszMsgFile = "OSO001.MSG";        // default OS/2 message file
+
+    if (!DosGetMessage(NULL, 0,       // no string replacements
+                       szDosError, sizeof(szDosError),
+                       arc,
+                       (PSZ)pcszMsgFile,
+                       &cbDosError))
     {
         szDosError[cbDosError - 2] = 0;
         pszReturn = strdup(szDosError);
     }
-    return (pszReturn);
+
+    return pszReturn;
 }
 
 /*
@@ -727,7 +742,7 @@ BYTE doshQueryDriveType(ULONG ulLogicalDrive,
  *      as well as the drive letter of the first
  *      CD-ROM drive.
  *
- *@@added V0.9.21 (2002-08-31) [umoeller]
+ *@@added V1.0.0 (2002-08-31) [umoeller]
  */
 
 APIRET doshQueryCDDrives(PBYTE pcCDs,           // out: CD-ROM drives count
@@ -784,7 +799,7 @@ APIRET doshQueryCDDrives(PBYTE pcCDs,           // out: CD-ROM drives count
  *      If NO_ERROR is returned, use DosClose
  *      to close the device again.
  *
- *@@added V0.9.21 (2002-08-31) [umoeller]
+ *@@added V1.0.0 (2002-08-31) [umoeller]
  */
 
 APIRET doshOpenDrive(ULONG ulLogicalDrive,
@@ -822,7 +837,7 @@ APIRET doshOpenDrive(ULONG ulLogicalDrive,
  *      doshQueryRemoveableType to check.
  *
  *@@added V0.9.14 (2001-08-01) [umoeller]
- *@@changed V0.9.21 (2002-08-31) [umoeller]: removed ulLogicalDrive which was not needed
+ *@@changed V1.0.0 (2002-08-31) [umoeller]: removed ulLogicalDrive which was not needed
  */
 
 APIRET doshHasAudioCD(HFILE hfDrive,            // in: DASD open
@@ -851,7 +866,7 @@ APIRET doshHasAudioCD(HFILE hfDrive,            // in: DASD open
             arc = NO_ERROR;
         else
         {
-            #pragma pack(1)         // V0.9.21 (2002-08-31) [umoeller]
+            #pragma pack(1)         // V1.0.0 (2002-08-31) [umoeller]
 
             struct {
                 UCHAR   ucFirstTrack,
@@ -958,7 +973,7 @@ APIRET doshHasAudioCD(HFILE hfDrive,            // in: DASD open
  *      As a consequence, it is seems to be impossible
  *      to find out if the door is open with OS/2.
  *
- *@@added V0.9.21 (2002-08-31) [umoeller]
+ *@@added V1.0.0 (2002-08-31) [umoeller]
  */
 
 APIRET doshQueryCDStatus(HFILE hfDrive,            // in: DASD open
@@ -1145,7 +1160,7 @@ APIRET doshQueryMedia(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for 
 
     HFILE   hf;
 
-    // exported this code to doshOpenDrive V0.9.21 (2002-08-31) [umoeller]
+    // exported this code to doshOpenDrive V1.0.0 (2002-08-31) [umoeller]
     arc = doshOpenDrive(ulLogicalDrive,
                         &hf);
 
