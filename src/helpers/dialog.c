@@ -2796,6 +2796,7 @@ MRESULT EXPENTRY fnwpMessageBox(HWND hwndBox, ULONG msg, MPARAM mp1, MPARAM mp2)
  *@@changed V0.9.14 (2001-07-26) [umoeller]: fixed missing focus on buttons
  *@@changed V0.9.19 (2002-04-24) [umoeller]: added pfnHelp
  *@@changed V0.9.20 (2002-07-12) [umoeller]: made icon spacing wider
+ *@@changed V0.9.20 (2002-08-10) [umoeller]: fixed missing close button
  */
 
 APIRET dlghCreateMessageBox(HWND *phwndDlg,
@@ -2964,7 +2965,8 @@ APIRET dlghCreateMessageBox(HWND *phwndDlg,
         {
             if (!(arc = dlghCreateDlg(phwndDlg,
                                       hwndOwner,
-                                      FCF_TITLEBAR | FCF_SYSMENU | FCF_DLGBORDER | FCF_NOBYTEALIGN,
+                                      FCF_TITLEBAR | FCF_SYSMENU | FCF_DLGBORDER | FCF_NOBYTEALIGN
+                                            | FCF_CLOSEBUTTON,      // was missing V0.9.20 (2002-08-10) [umoeller]
                                       fnwpMessageBox,
                                       pcszTitle,
                                       pArrayBox->paDlgItems,

@@ -190,6 +190,8 @@ extern "C" {
                                         PMENUITEM pmi);
     #endif
 
+    HWND XWPENTRY winhQuerySubmenu(HWND hMenu, SHORT sID);
+
     /*
      * winhCreateEmptyMenu:
      *      this macro creates an empty menu, which can
@@ -273,6 +275,14 @@ extern "C" {
                                            SHORT iPosition,
                                            SHORT sId);
 
+    #define COPYFL_STRIPTABS            0x0001
+
+    BOOL XWPENTRY winhCopyMenuItem2(HWND hmenuTarget,
+                                    HWND hmenuSource,
+                                    USHORT usID,
+                                    SHORT sTargetPosition,
+                                    ULONG fl);
+
     BOOL XWPENTRY winhCopyMenuItem(HWND hmenuTarget,
                                    HWND hmenuSource,
                                    USHORT usID,
@@ -294,6 +304,16 @@ extern "C" {
                                        SHORT sID,
                                        HWND hmenuSource);
     typedef WINHMERGEINTOSUBMENU *PWINHMERGEINTOSUBMENU;
+
+    ULONG XWPENTRY winhMergeMenus(HWND hmenuTarget,
+                                  SHORT sTargetPosition,
+                                  HWND hmenuSource,
+                                  ULONG fl);
+    typedef ULONG XWPENTRY WINHMERGEMENUS(HWND hmenuTarget,
+                                          SHORT sTargetPosition,
+                                          HWND hmenuSource,
+                                          ULONG fl);
+    typedef WINHMERGEMENUS *PWINHMERGEMENUS;
 
     PSZ XWPENTRY winhQueryMenuItemText(HWND hwndMenu,
                                        USHORT usItemID);
