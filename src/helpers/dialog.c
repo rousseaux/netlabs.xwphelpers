@@ -753,7 +753,7 @@ typedef struct _TABLEDEF
 
 #ifdef DEBUG_DIALOG_WINDOWS
 
-static PFNWP G_pfnwpStatic = NULL;
+static PFNWP G_pfnwpDebugStaticOrig = NULL;
 
 /*
  *@@ fnwpDebugFrame:
@@ -811,7 +811,7 @@ static MRESULT EXPENTRY fnwpDebugFrame(HWND hwndBox, ULONG msg, MPARAM mp1, MPAR
         break;
 
         default:
-            mrc = G_pfnwpStatic(hwndBox, msg, mp1, mp2);
+            mrc = G_pfnwpDebugStaticOrig(hwndBox, msg, mp1, mp2);
     }
 
     return mrc;
@@ -852,7 +852,7 @@ HWND CreateDebugFrame(HWND hwndParent,
                                     NULL,
                                     NULL))
     {
-        G_pfnwpStatic = WinSubclassWindow(hwndDebug, fnwpDebugFrame);
+        G_pfnwpDebugStaticOrig = WinSubclassWindow(hwndDebug, fnwpDebugFrame);
         winhSetPresColor(hwndDebug, PP_FOREGROUNDCOLOR, lcol);
         WinSetWindowULong(hwndDebug, QWL_USER, lLineType);
     }

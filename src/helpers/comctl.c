@@ -122,7 +122,7 @@
  *
  ********************************************************************/
 
-PFNWP   G_pfnwpStatic = NULL;
+PFNWP   G_pfnwpSepStatic = NULL;
 
 /*
  *@@ fnwpSeparatorLine:
@@ -171,7 +171,7 @@ static MRESULT EXPENTRY fnwpSeparatorLine(HWND hwnd, ULONG msg, MPARAM mp1, MPAR
         break;
 
         default:
-            mrc = G_pfnwpStatic(hwnd, msg, mp1, mp2);
+            mrc = G_pfnwpSepStatic(hwnd, msg, mp1, mp2);
     }
 
     return mrc;
@@ -191,7 +191,7 @@ BOOL ctlRegisterSeparatorLine(HAB hab)
                           WC_STATIC,
                           &ciStatic))
     {
-        G_pfnwpStatic = ciStatic.pfnWindowProc;
+        G_pfnwpSepStatic = ciStatic.pfnWindowProc;
 
         return WinRegisterClass(hab,
                                 WC_SEPARATORLINE,
