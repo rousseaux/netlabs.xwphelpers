@@ -2,14 +2,14 @@
 /*
  *@@sourcefile encodings.c:
  *      character encoding support. Handles all kinds
- *      of legacy codepages (including most OS/2 codepage)
+ *      of legacy codepages (including most OS/2 codepages)
  *      and Unicode in the form of UTF-8 and translations
  *      between then.
  *
  *      See encCreateCodec for an introduction.
  *
  *      Be warned, compilation of this file takes a long
- *      file because this includes all the complex codepage
+ *      file because this includes all the complex codepages
  *      from include\encodings.
  *
  *@@header "encodings\base.h"
@@ -162,11 +162,11 @@ int encGetTable(ENCID id,
         {
             *ppMap = G_aEncodings[ul].pMap;
             *pcEntries = G_aEncodings[ul].cEntries;
-            return (1);
+            return 1;
         }
     }
 
-    return (0);
+    return 0;
 }
 
 /*
@@ -197,7 +197,7 @@ ENCID encFindIdForCodepage(unsigned short usCodepage,       // in: codepage to f
         }
     }
 
-    return (UNSUPPORTED);
+    return UNSUPPORTED;
 }
 
 /*
@@ -329,7 +329,7 @@ PCONVERSION encCreateCodec(ENCID id)
                         pTableNew->ausEntriesCPFromUni[pEntry->usUni] = pEntry->usCP;
                     }
 
-                    return (pTableNew);
+                    return pTableNew;
                 }
 
                 free(pTableNew);
@@ -384,9 +384,9 @@ unsigned long encChar2Uni(PCONVERSION pTable,
     if (    (pTable)
          && (c <= pTable->usHighestCP)
        )
-        return (pTable->ausEntriesUniFromCP[c]);
+        return pTable->ausEntriesUniFromCP[c];
 
-    return (0xFFFF);
+    return 0xFFFF;
 }
 
 /*
@@ -409,9 +409,9 @@ unsigned short encUni2Char(PCONVERSION pTable,
     if (    (pTable)
          && (ulUni <= pTable->usHighestUni)
        )
-        return (pTable->ausEntriesCPFromUni[ulUni]);
+        return pTable->ausEntriesCPFromUni[ulUni];
 
-    return (0xFFFF);
+    return 0xFFFF;
 }
 
 /*
@@ -444,6 +444,8 @@ unsigned short encUni2Char(PCONVERSION pTable,
 unsigned long encDecodeUTF8(const char **ppch)
 {
     unsigned long   ulChar;
+    unsigned long   ulCount;
+    int             fIllegal;
 
     if (!(ulChar = **ppch))
         // null is null
@@ -454,89 +456,87 @@ unsigned long encDecodeUTF8(const char **ppch)
     if (ulChar < 0x80)
     {
         (*ppch)++;
-        return (ulChar);
+        return ulChar;
+    }
+
+    ulCount = 1;
+    fIllegal = 0;
+
+    // note: 0xc0 and 0xc1 are reserved and
+    // cannot appear as the first UTF-8 byte
+
+    if (    (ulChar >= 0xc2)
+         && (ulChar < 0xe0)
+       )
+    {
+        // that's two bytes
+        ulCount = 2;
+        ulChar &= 0x1f;
+    }
+    else if ((ulChar & 0xf0) == 0xe0)
+    {
+        // three bytes
+        ulCount = 3;
+        ulChar &= 0x0f;
+    }
+    else if ((ulChar & 0xf8) == 0xf0)
+    {
+        // four bytes
+        ulCount = 4;
+        ulChar &= 0x07;
+    }
+    else if ((ulChar & 0xfc) == 0xf8)
+    {
+        // five bytes
+        ulCount = 5;
+        ulChar &= 0x03;
+    }
+    else if ((ulChar & 0xfe) == 0xfc)
+    {
+        // six bytes
+        ulCount = 6;
+        ulChar &= 0x01;
     }
     else
+        ++fIllegal;
+
+    if (!fIllegal)
     {
-        unsigned long ulCount = 1;
-        int fIllegal = 0;
+        // go for the second and more bytes then
+        int ul2;
 
-        // note: 0xc0 and 0xc1 are reserved and
-        // cannot appear as the first UTF-8 byte
+        for (ul2 = 1;
+             ul2 < ulCount;
+             ++ul2)
+        {
+            unsigned long ulChar2 = *((*ppch) + ul2);
 
-        if (    (ulChar >= 0xc2)
-             && (ulChar < 0xe0)
-           )
-        {
-            // that's two bytes
-            ulCount = 2;
-            ulChar &= 0x1f;
-        }
-        else if ((ulChar & 0xf0) == 0xe0)
-        {
-            // three bytes
-            ulCount = 3;
-            ulChar &= 0x0f;
-        }
-        else if ((ulChar & 0xf8) == 0xf0)
-        {
-            // four bytes
-            ulCount = 4;
-            ulChar &= 0x07;
-        }
-        else if ((ulChar & 0xfc) == 0xf8)
-        {
-            // five bytes
-            ulCount = 5;
-            ulChar &= 0x03;
-        }
-        else if ((ulChar & 0xfe) == 0xfc)
-        {
-            // six bytes
-            ulCount = 6;
-            ulChar &= 0x01;
-        }
-        else
-            ++fIllegal;
-
-        if (!fIllegal)
-        {
-            // go for the second and more bytes then
-            int ul2;
-
-            for (ul2 = 1;
-                 ul2 < ulCount;
-                 ++ul2)
+            if (!(ulChar2 & 0xc0)) //  != 0x80)
             {
-                unsigned long ulChar2 = *((*ppch) + ul2);
-
-                if (!(ulChar2 & 0xc0)) //  != 0x80)
-                {
-                    ++fIllegal;
-                    break;
-                }
-
-                ulChar <<= 6;
-                ulChar |= ulChar2 & 0x3f;
+                ++fIllegal;
+                break;
             }
-        }
 
-        if (fIllegal)
-        {
-            // skip all the following characters
-            // until we find something with bit 7 off
-            do
-            {
-                ulChar = *(++(*ppch));
-                if (!ulChar)
-                    break;
-            } while (ulChar & 0x80);
+            ulChar <<= 6;
+            ulChar |= ulChar2 & 0x3f;
         }
-        else
-            *ppch += ulCount;
     }
 
-    return (ulChar);
+    if (fIllegal)
+    {
+        // skip all the following characters
+        // until we find something with bit 7 off
+        do
+        {
+            ulChar = *(++(*ppch));
+            if (!ulChar)
+                break;
+        } while (ulChar & 0x80);
+    }
+    else
+        *ppch += ulCount;
+
+    return ulChar;
 }
 
 /*

@@ -3295,7 +3295,7 @@ APIRET doshCreatePath(PCSZ pcszPath,
     if (path[cbPath] != '\\')
     {
         path[cbPath] = '\\';
-        path[cbPath+1] = 0;
+        path[cbPath + 1] = 0;
     }
 
     cp = path;
@@ -3330,6 +3330,7 @@ APIRET doshCreatePath(PCSZ pcszPath,
         }
         cp++;
     }
+
     return (arc0);
 }
 
