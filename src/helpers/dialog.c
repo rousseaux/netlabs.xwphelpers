@@ -397,6 +397,309 @@ VOID CalcAutoSize(PCONTROLDEF pControlDef,
 }
 
 /*
+ *@@ ColumnCalcSizes:
+ *      implementation for PROCESS_CALC_SIZES in
+ *      ProcessColumn.
+ *
+ *@@added V0.9.15 (2001-08-26) [umoeller]
+ */
+
+VOID ColumnCalcSizes(PCOLUMNDEF pColumnDef,
+                     PDLGPRIVATE pDlgData)
+{
+    ULONG       ulXSpacing = 0,
+                ulYSpacing = 0;
+    if (pColumnDef->fIsNestedTable)
+    {
+        // nested table: recurse!!
+        PTABLEDEF pTableDef = (PTABLEDEF)pColumnDef->pvDefinition;
+        ProcessTable(pTableDef,
+                     NULL,
+                     PROCESS_CALC_SIZES,
+                     pDlgData);
+
+        // store the size of the sub-table
+        pColumnDef->cpControl.cx = pTableDef->cpTable.cx;
+        pColumnDef->cpControl.cy = pTableDef->cpTable.cy;
+
+        // should we create a PM control around the table?
+        if (pTableDef->pCtlDef)
+        {
+            // yes: make this wider
+            ulXSpacing = (2 * PM_GROUP_SPACING_X);
+            ulYSpacing = (PM_GROUP_SPACING_X + PM_GROUP_SPACING_TOP);
+        }
+    }
+    else
+    {
+        // no nested table, but control:
+        PCONTROLDEF pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
+        PSIZEL      pszl = &pControlDef->szlControlProposed;
+        SIZEL       szlAuto;
+
+        if (    (pszl->cx == -1)
+             || (pszl->cy == -1)
+           )
+        {
+            CalcAutoSize(pControlDef,
+                         &szlAuto,
+                         pDlgData);
+        }
+
+        if (pszl->cx == -1)
+            pColumnDef->cpControl.cx = szlAuto.cx;
+        else
+            pColumnDef->cpControl.cx = pszl->cx;
+
+        if (pszl->cy == -1)
+            pColumnDef->cpControl.cy = szlAuto.cy;
+        else
+            pColumnDef->cpControl.cy = pszl->cy;
+
+        // @@todo hack sizes
+
+        ulXSpacing = ulYSpacing = (2 * pControlDef->ulSpacing);
+    }
+
+    pColumnDef->cpColumn.cx =   pColumnDef->cpControl.cx
+                               + ulXSpacing;
+    pColumnDef->cpColumn.cy =   pColumnDef->cpControl.cy
+                               + ulYSpacing;
+}
+
+/*
+ *@@ ColumnCalcPositions:
+ *      implementation for PROCESS_CALC_POSITIONS in
+ *      ProcessColumn.
+ *
+ *@@added V0.9.15 (2001-08-26) [umoeller]
+ */
+
+VOID ColumnCalcPositions(PCOLUMNDEF pColumnDef,
+                         PROWDEF pOwningRow,          // in: current row from ProcessRow
+                         PLONG plX,                   // in/out: PROCESS_CALC_POSITIONS only
+                         PDLGPRIVATE pDlgData)
+{
+    // calculate column position: this includes spacing
+    ULONG ulSpacing = 0;
+
+    // column position = *plX on ProcessRow stack
+    pColumnDef->cpColumn.x = *plX;
+    pColumnDef->cpColumn.y = pOwningRow->cpRow.y;
+
+    // check vertical alignment of row;
+    // we might need to increase column y
+    switch (pOwningRow->flRowFormat & ROW_VALIGN_MASK)
+    {
+        // case ROW_VALIGN_BOTTOM:      // do nothing
+
+        case ROW_VALIGN_CENTER:
+            if (pColumnDef->cpColumn.cy < pOwningRow->cpRow.cy)
+                pColumnDef->cpColumn.y
+                    += (   (pOwningRow->cpRow.cy - pColumnDef->cpColumn.cy)
+                         / 2);
+        break;
+
+        case ROW_VALIGN_TOP:
+            if (pColumnDef->cpColumn.cy < pOwningRow->cpRow.cy)
+                pColumnDef->cpColumn.y
+                    += (pOwningRow->cpRow.cy - pColumnDef->cpColumn.cy);
+        break;
+    }
+
+    if (pColumnDef->fIsNestedTable)
+    {
+        PTABLEDEF pTableDef = (PTABLEDEF)pColumnDef->pvDefinition;
+        // should we create a PM control around the table?
+        if (pTableDef->pCtlDef)
+            // yes:
+            ulSpacing = PM_GROUP_SPACING_X;
+    }
+    else
+    {
+        // no nested table, but control:
+        PCONTROLDEF pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
+        ulSpacing = pControlDef->ulSpacing;
+    }
+
+    // increase plX by column width
+    *plX += pColumnDef->cpColumn.cx;
+
+    // calculate CONTROL pos from COLUMN pos by applying spacing
+    pColumnDef->cpControl.x =   pColumnDef->cpColumn.x
+                              + ulSpacing;
+    pColumnDef->cpControl.y =   pColumnDef->cpColumn.y
+                              + ulSpacing;
+
+    if (pColumnDef->fIsNestedTable)
+    {
+        // nested table:
+        PTABLEDEF pTableDef = (PTABLEDEF)pColumnDef->pvDefinition;
+
+        // recurse!! to create windows for the sub-table
+        ProcessTable(pTableDef,
+                     &pColumnDef->cpControl,   // start pos for new table
+                     PROCESS_CALC_POSITIONS,
+                     pDlgData);
+    }
+}
+
+/*
+ *@@ ColumnCreateControls:
+ *      implementation for PROCESS_CREATE_CONTROLS in
+ *      ProcessColumn.
+ *
+ *@@added V0.9.15 (2001-08-26) [umoeller]
+ */
+
+APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
+                            PDLGPRIVATE pDlgData)
+{
+    APIRET      arc = NO_ERROR;
+
+    PCONTROLPOS pcp = NULL;
+    PCONTROLDEF pControlDef = NULL;
+    const char  *pcszTitle = NULL;
+    ULONG       flStyle = 0;
+    LHANDLE     lHandleSet = NULLHANDLE;
+    ULONG       flOld = 0;
+
+    if (pColumnDef->fIsNestedTable)
+    {
+        // nested table:
+        PTABLEDEF pTableDef = (PTABLEDEF)pColumnDef->pvDefinition;
+
+        // recurse!!
+        if (!(arc = ProcessTable(pTableDef,
+                                 NULL,
+                                 PROCESS_CREATE_CONTROLS,
+                                 pDlgData)))
+        {
+            // should we create a PM control around the table?
+            // (do this AFTER the other controls from recursing,
+            // otherwise the stupid container doesn't show up)
+            if (pTableDef->pCtlDef)
+            {
+                // yes:
+                pcp  = &pColumnDef->cpColumn;  // !! not control
+                pControlDef = pTableDef->pCtlDef;
+                pcszTitle = pControlDef->pcszText;
+                flStyle = pControlDef->flStyle;
+            }
+        }
+    }
+    else
+    {
+        // no nested table, but control:
+        pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
+        pcp = &pColumnDef->cpControl;
+        pcszTitle = pControlDef->pcszText;
+        flStyle = pControlDef->flStyle;
+
+        // change the title if this is a static with SS_BITMAP;
+        // we have used a HBITMAP in there!
+        if (    ((ULONG)pControlDef->pcszClass == 0xffff0005L) // WC_STATIC:
+             && (    ((flStyle & 0x0F) == SS_BITMAP)
+                  || ((flStyle & 0x0F) == SS_ICON)
+                )
+           )
+        {
+            // change style flag to not use SS_BITMAP nor SS_ICON;
+            // control creation fails otherwise (stupid, stupid PM)
+            flOld = flStyle;
+            flStyle = ((flStyle & ~0x0F) | SS_FGNDFRAME);
+            pcszTitle = "";
+            lHandleSet = (LHANDLE)pControlDef->pcszText;
+        }
+    }
+
+    if (pcp && pControlDef)
+    {
+        // create something:
+        // PPRESPARAMS ppp = NULL;
+
+        const char  *pcszFont = pControlDef->pcszFont;
+                        // can be NULL, or CTL_COMMON_FONT
+        if (pcszFont == CTL_COMMON_FONT)
+            pcszFont = pDlgData->pcszControlsFont;
+
+        /* if (pcszFont)
+            winhStorePresParam(&ppp,
+                               PP_FONTNAMESIZE,
+                               strlen(pcszFont),
+                               (PVOID)pcszFont); */
+
+        if (pColumnDef->hwndControl
+            = WinCreateWindow(pDlgData->hwndDlg,   // parent
+                              (PSZ)pControlDef->pcszClass,
+                              (pcszTitle)   // hacked
+                                    ? (PSZ)pcszTitle
+                                    : "",
+                              flStyle,      // hacked
+                              pcp->x + pDlgData->ptlTotalOfs.x,
+                              pcp->y + pDlgData->ptlTotalOfs.y,
+                              pcp->cx,
+                              pcp->cy,
+                              pDlgData->hwndDlg,   // owner
+                              HWND_BOTTOM,
+                              pControlDef->usID,
+                              pControlDef->pvCtlData,
+                              NULL))
+        {
+            if (lHandleSet)
+            {
+                // subclass the damn static
+                if ((flOld & 0x0F) == SS_ICON)
+                    // this was a static:
+                    ctlPrepareStaticIcon(pColumnDef->hwndControl,
+                                         1);
+                else
+                    // this was a bitmap:
+                    ctlPrepareStretchedBitmap(pColumnDef->hwndControl,
+                                              TRUE);
+
+                WinSendMsg(pColumnDef->hwndControl,
+                           SM_SETHANDLE,
+                           (MPARAM)lHandleSet,
+                           0);
+            }
+            else
+                if (pcszFont)
+                    // we must set the font explicitly here...
+                    // doesn't always work with WinCreateWindow
+                    // presparams parameter, for some reason
+                    // V0.9.12 (2001-05-31) [umoeller]
+                    winhSetWindowFont(pColumnDef->hwndControl,
+                                      pcszFont);
+
+            lstAppendItem(&pDlgData->llControls,
+                          pColumnDef);
+
+            // if this is the first control with WS_TABSTOP,
+            // we give it the focus later
+            if (    (flStyle & WS_TABSTOP)
+                 && (!pDlgData->hwndFirstFocus)
+               )
+                pDlgData->hwndFirstFocus = pColumnDef->hwndControl;
+
+            // if this is the first default push button,
+            // go store it too
+            // V0.9.14 (2001-08-21) [umoeller]
+            if (    (!pDlgData->hwndDefPushbutton)
+                 && ((ULONG)pControlDef->pcszClass == 0xffff0003L)
+                 && (pControlDef->flStyle & BS_DEFAULT)
+               )
+                pDlgData->hwndDefPushbutton = pColumnDef->hwndControl;
+        }
+        else
+            // V0.9.14 (2001-08-03) [umoeller]
+            arc = DLGERR_CANNOT_CREATE_CONTROL;
+    }
+
+    return (arc);
+}
+
+/*
  *@@ ProcessColumn:
  *      processes a column, which per definition is either
  *      a control or a nested subtable.
@@ -454,66 +757,9 @@ APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
          */
 
         case PROCESS_CALC_SIZES:
-        {
-            ULONG       ulXSpacing = 0,
-                        ulYSpacing = 0;
-            if (pColumnDef->fIsNestedTable)
-            {
-                // nested table: recurse!!
-                PTABLEDEF pTableDef = (PTABLEDEF)pColumnDef->pvDefinition;
-                ProcessTable(pTableDef,
-                             NULL,
-                             ProcessMode,
-                             pDlgData);
-
-                // store the size of the sub-table
-                pColumnDef->cpControl.cx = pTableDef->cpTable.cx;
-                pColumnDef->cpControl.cy = pTableDef->cpTable.cy;
-
-                // should we create a PM control around the table?
-                if (pTableDef->pCtlDef)
-                {
-                    // yes: make this wider
-                    ulXSpacing = (2 * PM_GROUP_SPACING_X);
-                    ulYSpacing = (PM_GROUP_SPACING_X + PM_GROUP_SPACING_TOP);
-                }
-            }
-            else
-            {
-                // no nested table, but control:
-                PCONTROLDEF pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
-                PSIZEL      pszl = &pControlDef->szlControlProposed;
-                SIZEL       szlAuto;
-
-                if (    (pszl->cx == -1)
-                     || (pszl->cy == -1)
-                   )
-                {
-                    CalcAutoSize(pControlDef,
-                                 &szlAuto,
-                                 pDlgData);
-                }
-
-                if (pszl->cx == -1)
-                    pColumnDef->cpControl.cx = szlAuto.cx;
-                else
-                    pColumnDef->cpControl.cx = pszl->cx;
-
-                if (pszl->cy == -1)
-                    pColumnDef->cpControl.cy = szlAuto.cy;
-                else
-                    pColumnDef->cpControl.cy = pszl->cy;
-
-                // @@todo hack sizes
-
-                ulXSpacing = ulYSpacing = (2 * pControlDef->ulSpacing);
-            }
-
-            pColumnDef->cpColumn.cx =   pColumnDef->cpControl.cx
-                                       + ulXSpacing;
-            pColumnDef->cpColumn.cy =   pColumnDef->cpControl.cy
-                                       + ulYSpacing;
-        break; }
+            ColumnCalcSizes(pColumnDef,
+                            pDlgData);
+        break;
 
         /*
          * PROCESS_CALC_POSITIONS:
@@ -521,70 +767,11 @@ APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
          */
 
         case PROCESS_CALC_POSITIONS:
-        {
-            // calculate column position: this includes spacing
-            ULONG ulSpacing = 0;
-
-            // column position = *plX on ProcessRow stack
-            pColumnDef->cpColumn.x = *plX;
-            pColumnDef->cpColumn.y = pOwningRow->cpRow.y;
-
-            // check vertical alignment of row;
-            // we might need to increase column y
-            switch (pOwningRow->flRowFormat & ROW_VALIGN_MASK)
-            {
-                // case ROW_VALIGN_BOTTOM:      // do nothing
-
-                case ROW_VALIGN_CENTER:
-                    if (pColumnDef->cpColumn.cy < pOwningRow->cpRow.cy)
-                        pColumnDef->cpColumn.y
-                            += (   (pOwningRow->cpRow.cy - pColumnDef->cpColumn.cy)
-                                 / 2);
-                break;
-
-                case ROW_VALIGN_TOP:
-                    if (pColumnDef->cpColumn.cy < pOwningRow->cpRow.cy)
-                        pColumnDef->cpColumn.y
-                            += (pOwningRow->cpRow.cy - pColumnDef->cpColumn.cy);
-                break;
-            }
-
-            if (pColumnDef->fIsNestedTable)
-            {
-                PTABLEDEF pTableDef = (PTABLEDEF)pColumnDef->pvDefinition;
-                // should we create a PM control around the table?
-                if (pTableDef->pCtlDef)
-                    // yes:
-                    ulSpacing = PM_GROUP_SPACING_X;
-            }
-            else
-            {
-                // no nested table, but control:
-                PCONTROLDEF pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
-                ulSpacing = pControlDef->ulSpacing;
-            }
-
-            // increase plX by column width
-            *plX += pColumnDef->cpColumn.cx;
-
-            // calculate CONTROL pos from COLUMN pos by applying spacing
-            pColumnDef->cpControl.x =   pColumnDef->cpColumn.x
-                                      + ulSpacing;
-            pColumnDef->cpControl.y =   pColumnDef->cpColumn.y
-                                      + ulSpacing;
-
-            if (pColumnDef->fIsNestedTable)
-            {
-                // nested table:
-                PTABLEDEF pTableDef = (PTABLEDEF)pColumnDef->pvDefinition;
-
-                // recurse!! to create windows for the sub-table
-                ProcessTable(pTableDef,
-                             &pColumnDef->cpControl,   // start pos for new table
-                             ProcessMode,
-                             pDlgData);
-            }
-        break; }
+            ColumnCalcPositions(pColumnDef,
+                                pOwningRow,
+                                plX,
+                                pDlgData);
+        break;
 
         /*
          * PROCESS_CREATE_CONTROLS:
@@ -592,148 +779,9 @@ APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
          */
 
         case PROCESS_CREATE_CONTROLS:
-        {
-            PCONTROLPOS pcp = NULL;
-            PCONTROLDEF pControlDef = NULL;
-            const char  *pcszTitle = NULL;
-            ULONG       flStyle = 0;
-            LHANDLE     lHandleSet = NULLHANDLE;
-            ULONG       flOld = 0;
-
-            if (pColumnDef->fIsNestedTable)
-            {
-                // nested table:
-                PTABLEDEF pTableDef = (PTABLEDEF)pColumnDef->pvDefinition;
-
-                // recurse!!
-                if (!(arc = ProcessTable(pTableDef,
-                                         NULL,
-                                         ProcessMode,
-                                         pDlgData)))
-                {
-                    // should we create a PM control around the table?
-                    // (do this AFTER the other controls from recursing,
-                    // otherwise the stupid container doesn't show up)
-                    if (pTableDef->pCtlDef)
-                    {
-                        // yes:
-                        pcp  = &pColumnDef->cpColumn;  // !! not control
-                        pControlDef = pTableDef->pCtlDef;
-                        pcszTitle = pControlDef->pcszText;
-                        flStyle = pControlDef->flStyle;
-                    }
-                }
-                else
-                    break;
-            }
-            else
-            {
-                // no nested table, but control:
-                pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
-                pcp = &pColumnDef->cpControl;
-                pcszTitle = pControlDef->pcszText;
-                flStyle = pControlDef->flStyle;
-
-                // change the title if this is a static with SS_BITMAP;
-                // we have used a HBITMAP in there!
-                if (    ((ULONG)pControlDef->pcszClass == 0xffff0005L) // WC_STATIC:
-                     && (    ((flStyle & 0x0F) == SS_BITMAP)
-                          || ((flStyle & 0x0F) == SS_ICON)
-                        )
-                   )
-                {
-                    // change style flag to not use SS_BITMAP nor SS_ICON;
-                    // control creation fails otherwise (stupid, stupid PM)
-                    flOld = flStyle;
-                    flStyle = ((flStyle & ~0x0F) | SS_FGNDFRAME);
-                    pcszTitle = "";
-                    lHandleSet = (LHANDLE)pControlDef->pcszText;
-                }
-            }
-
-            if (pcp && pControlDef)
-            {
-                // create something:
-                // PPRESPARAMS ppp = NULL;
-
-                const char  *pcszFont = pControlDef->pcszFont;
-                                // can be NULL, or CTL_COMMON_FONT
-                if (pcszFont == CTL_COMMON_FONT)
-                    pcszFont = pDlgData->pcszControlsFont;
-
-                /* if (pcszFont)
-                    winhStorePresParam(&ppp,
-                                       PP_FONTNAMESIZE,
-                                       strlen(pcszFont),
-                                       (PVOID)pcszFont); */
-
-                if (pColumnDef->hwndControl
-                    = WinCreateWindow(pDlgData->hwndDlg,   // parent
-                                      (PSZ)pControlDef->pcszClass,
-                                      (pcszTitle)   // hacked
-                                            ? (PSZ)pcszTitle
-                                            : "",
-                                      flStyle,      // hacked
-                                      pcp->x + pDlgData->ptlTotalOfs.x,
-                                      pcp->y + pDlgData->ptlTotalOfs.y,
-                                      pcp->cx,
-                                      pcp->cy,
-                                      pDlgData->hwndDlg,   // owner
-                                      HWND_BOTTOM,
-                                      pControlDef->usID,
-                                      pControlDef->pvCtlData,
-                                      NULL))
-                {
-                    if (lHandleSet)
-                    {
-                        // subclass the damn static
-                        if ((flOld & 0x0F) == SS_ICON)
-                            // this was a static:
-                            ctlPrepareStaticIcon(pColumnDef->hwndControl,
-                                                 1);
-                        else
-                            // this was a bitmap:
-                            ctlPrepareStretchedBitmap(pColumnDef->hwndControl,
-                                                      TRUE);
-
-                        WinSendMsg(pColumnDef->hwndControl,
-                                   SM_SETHANDLE,
-                                   (MPARAM)lHandleSet,
-                                   0);
-                    }
-                    else
-                        if (pcszFont)
-                            // we must set the font explicitly here...
-                            // doesn't always work with WinCreateWindow
-                            // presparams parameter, for some reason
-                            // V0.9.12 (2001-05-31) [umoeller]
-                            winhSetWindowFont(pColumnDef->hwndControl,
-                                              pcszFont);
-
-                    lstAppendItem(&pDlgData->llControls,
-                                  pColumnDef);
-
-                    // if this is the first control with WS_TABSTOP,
-                    // we give it the focus later
-                    if (    (flStyle & WS_TABSTOP)
-                         && (!pDlgData->hwndFirstFocus)
-                       )
-                        pDlgData->hwndFirstFocus = pColumnDef->hwndControl;
-
-                    // if this is the first default push button,
-                    // go store it too
-                    // V0.9.14 (2001-08-21) [umoeller]
-                    if (    (!pDlgData->hwndDefPushbutton)
-                         && ((ULONG)pControlDef->pcszClass == 0xffff0003L)
-                         && (pControlDef->flStyle & BS_DEFAULT)
-                       )
-                        pDlgData->hwndDefPushbutton = pColumnDef->hwndControl;
-                }
-                else
-                    // V0.9.14 (2001-08-03) [umoeller]
-                    arc = DLGERR_CANNOT_CREATE_CONTROL;
-            }
-        break; }
+            arc = ColumnCreateControls(pColumnDef,
+                                       pDlgData);
+        break;
     }
 
     return (arc);
@@ -884,7 +932,7 @@ APIRET ProcessTable(PTABLEDEF pTableDef,
  *         of all tables, rows, columns, and controls.
  *
  *         After this first call, we know all the sizes
- *         only and then then calculate the positions.
+ *         only and can then calculate the positions.
  *
  *      -- PROCESS_CALC_POSITIONS: calculates the positions
  *         based on the sizes calculated before.
@@ -893,11 +941,10 @@ APIRET ProcessTable(PTABLEDEF pTableDef,
  *         positions and sizes calculated before.
  *
  *      The second trick is the precondition that tables may
- *      nest by allowing a table definition instead of a
- *      control definition in a column. This way we can
- *      recurse from columns back into tables and thus
- *      know the size and position of a nested table column
- *      just as if it were a regular control.
+ *      nest by allowing another table definition in a column.
+ *      This way we can recurse from ProcessColumn back into
+ *      ProcessTable and thus know the size and position of a
+ *      nested table column just as if it were a regular control.
  */
 
 APIRET ProcessAll(PDLGPRIVATE pDlgData,
@@ -1048,6 +1095,314 @@ typedef struct _STACKITEM
     PROWDEF         pLastRow;
 
 } STACKITEM, *PSTACKITEM;
+
+#define SPACING     10
+
+/*
+ *@@ Dlg0_Init:
+ *
+ *@@added V0.9.15 (2001-08-26) [umoeller]
+ */
+
+APIRET Dlg0_Init(PDLGPRIVATE *ppDlgData,
+                 PCSZ pcszControlsFont)
+{
+    PDLGPRIVATE pDlgData;
+    if (!(pDlgData = NEW(DLGPRIVATE)))
+        return (ERROR_NOT_ENOUGH_MEMORY);
+    ZERO(pDlgData);
+    lstInit(&pDlgData->llTables, FALSE);
+    lstInit(&pDlgData->llControls, FALSE);
+
+    pDlgData->pcszControlsFont = pcszControlsFont;
+
+    *ppDlgData = pDlgData;
+
+    return NO_ERROR;
+}
+
+/*
+ *@@ Dlg1_ParseTables:
+ *
+ *@@added V0.9.15 (2001-08-26) [umoeller]
+ */
+
+APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
+                        PDLGHITEM paDlgItems,      // in: definition array
+                        ULONG cDlgItems)           // in: array item count (NOT array size)
+{
+    APIRET      arc = NO_ERROR;
+
+    LINKLIST    llStack;
+    ULONG       ul;
+    PTABLEDEF   pCurrentTable = NULL;
+    PROWDEF     pCurrentRow = NULL;
+
+    lstInit(&llStack, TRUE);      // this is our stack for nested table definitions
+
+    for (ul = 0;
+         ul < cDlgItems;
+         ul++)
+    {
+        PDLGHITEM   pItemThis = &paDlgItems[ul];
+
+        switch (pItemThis->Type)
+        {
+            /*
+             * TYPE_START_NEW_TABLE:
+             *
+             */
+
+            case TYPE_START_NEW_TABLE:
+            {
+                // root table or nested?
+                BOOL fIsRoot = (pCurrentTable == NULL);
+
+                // push the current table on the stack
+                PSTACKITEM pStackItem;
+                if (!(pStackItem = NEW(STACKITEM)))
+                {
+                    arc = ERROR_NOT_ENOUGH_MEMORY;
+                    break;
+                }
+                else
+                {
+                    pStackItem->pLastTable = pCurrentTable;
+                    pStackItem->pLastRow = pCurrentRow;
+                    lstPush(&llStack, pStackItem);
+                }
+
+                // create new table
+                if (!(pCurrentTable = NEW(TABLEDEF)))
+                    arc = ERROR_NOT_ENOUGH_MEMORY;
+                else
+                {
+                    ZERO(pCurrentTable);
+
+                    lstInit(&pCurrentTable->llRows, FALSE);
+
+                    if (pItemThis->ulData)
+                        // control specified: store it (this will become a PM group)
+                        pCurrentTable->pCtlDef = (PCONTROLDEF)pItemThis->ulData;
+
+                    if (fIsRoot)
+                        // root table:
+                        // append to dialog data list
+                        lstAppendItem(&pDlgData->llTables, pCurrentTable);
+                    else
+                    {
+                        // nested table:
+                        // create "table" column for this
+                        PCOLUMNDEF pColumnDef;
+                        if (!(arc = CreateColumn(pCurrentRow,
+                                                 TRUE,        // nested table
+                                                 pCurrentTable,
+                                                 &pColumnDef)))
+                            lstAppendItem(&pCurrentRow->llColumns,
+                                          pColumnDef);
+                    }
+                }
+
+                pCurrentRow = NULL;
+            break; }
+
+            /*
+             * TYPE_START_NEW_ROW:
+             *
+             */
+
+            case TYPE_START_NEW_ROW:
+            {
+                if (!pCurrentTable)
+                    arc = DLGERR_ROW_BEFORE_TABLE;
+                else
+                {
+                    // create new row
+                    if (!(pCurrentRow = NEW(ROWDEF)))
+                        arc = ERROR_NOT_ENOUGH_MEMORY;
+                    else
+                    {
+                        ZERO(pCurrentRow);
+
+                        pCurrentRow->pOwningTable = pCurrentTable;
+                        lstInit(&pCurrentRow->llColumns, FALSE);
+
+                        pCurrentRow->flRowFormat = pItemThis->ulData;
+
+                        lstAppendItem(&pCurrentTable->llRows, pCurrentRow);
+                    }
+                }
+            break; }
+
+            /*
+             * TYPE_CONTROL_DEF:
+             *
+             */
+
+            case TYPE_CONTROL_DEF:
+            {
+                PCOLUMNDEF pColumnDef;
+                if (!(arc = CreateColumn(pCurrentRow,
+                                         FALSE,        // no nested table
+                                         (PVOID)pItemThis->ulData,
+                                         &pColumnDef)))
+                    lstAppendItem(&pCurrentRow->llColumns,
+                                  pColumnDef);
+            break; }
+
+            /*
+             * TYPE_END_TABLE:
+             *
+             */
+
+            case TYPE_END_TABLE:
+            {
+                PLISTNODE pNode = lstPop(&llStack);
+                if (!pNode)
+                    // nothing on the stack:
+                    arc = DLGERR_TOO_MANY_TABLES_CLOSED;
+                else
+                {
+                    PSTACKITEM pStackItem = (PSTACKITEM)pNode->pItemData;
+                    pCurrentTable = pStackItem->pLastTable;
+                    pCurrentRow = pStackItem->pLastRow;
+
+                    lstRemoveNode(&llStack, pNode);
+                }
+            break; }
+
+            default:
+                arc = DLGERR_INVALID_CODE;
+        }
+
+        if (arc)
+            break;
+    }
+
+    if ((!arc) && (lstCountItems(&llStack)))
+        arc = DLGERR_TABLE_NOT_CLOSED;
+
+    lstClear(&llStack);
+
+    return (arc);
+}
+
+/*
+ *@@ Dlg2_CalcSizes:
+ *
+ *@@added V0.9.15 (2001-08-26) [umoeller]
+ */
+
+APIRET Dlg2_CalcSizes(PDLGPRIVATE pDlgData,
+                      PSIZEL pszlClient)          // out: dialog's client size
+{
+    APIRET arc = ProcessAll(pDlgData,
+                            pszlClient,
+                            PROCESS_CALC_SIZES);
+                     // this goes into major recursions...
+
+    // free the cached font resources that
+    // might have been created here
+    if (pDlgData->hps)
+    {
+        if (pDlgData->lcidLast)
+        {
+            GpiSetCharSet(pDlgData->hps, LCID_DEFAULT);
+            GpiDeleteSetId(pDlgData->hps, pDlgData->lcidLast);
+        }
+        WinReleasePS(pDlgData->hps);
+    }
+
+    return (arc);
+}
+
+/*
+ *@@ Dlg3_PositionAndCreate:
+ *
+ *@@added V0.9.15 (2001-08-26) [umoeller]
+ *@@changed V0.9.15 (2001-08-26) [umoeller]: BS_DEFAULT for other than first button was ignored, fixed
+ */
+
+APIRET Dlg3_PositionAndCreate(PDLGPRIVATE pDlgData,
+                              PSIZEL pszlClient,          // in: dialog's client size
+                              HWND *phwndFocusItem)       // out: item to give focus to
+{
+    APIRET arc = NO_ERROR;
+
+    /*
+     *  5) compute _positions_ of all controls
+     *
+     */
+
+    ProcessAll(pDlgData,
+               pszlClient,
+               PROCESS_CALC_POSITIONS);
+
+    /*
+     *  6) create control windows, finally
+     *
+     */
+
+    pDlgData->ptlTotalOfs.x
+    = pDlgData->ptlTotalOfs.y
+    = SPACING;
+
+    ProcessAll(pDlgData,
+               pszlClient,
+               PROCESS_CREATE_CONTROLS);
+
+    if (pDlgData->hwndDefPushbutton)
+    {
+        // we had a default pushbutton:
+        // go set it V0.9.14 (2001-08-21) [umoeller]
+        WinSetWindowULong(pDlgData->hwndDlg,
+                          QWL_DEFBUTTON,
+                          pDlgData->hwndDefPushbutton);
+        *phwndFocusItem = pDlgData->hwndDefPushbutton;
+                // V0.9.15 (2001-08-26) [umoeller]
+    }
+    else
+        *phwndFocusItem = (pDlgData->hwndFirstFocus)
+                            ? pDlgData->hwndFirstFocus
+                            : pDlgData->hwndDlg;
+
+    return (arc);
+}
+
+/*
+ *@@ Dlg9_Cleanup:
+ *
+ *@@added V0.9.15 (2001-08-26) [umoeller]
+ */
+
+VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
+{
+    PDLGPRIVATE pDlgData;
+    if (    (ppDlgData)
+         && (pDlgData = *ppDlgData)
+       )
+    {
+        PLISTNODE pTableNode;
+
+        // in any case, clean up our mess:
+
+        // clean up the tables
+        FOR_ALL_NODES(&pDlgData->llTables, pTableNode)
+        {
+            PTABLEDEF pTable = (PTABLEDEF)pTableNode->pItemData;
+
+            FreeTable(pTable);
+                    // this may recurse for nested tables
+        }
+
+        lstClear(&pDlgData->llTables);
+        lstClear(&pDlgData->llControls);
+
+        free(pDlgData);
+
+        *ppDlgData = NULL;
+    }
+}
 
 /*
  *@@ dlghCreateDlg:
@@ -1290,341 +1645,131 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
 {
     APIRET      arc = NO_ERROR;
 
-    #define SPACING     10
-
-    PTABLEDEF   pCurrentTable = NULL;
-    PROWDEF     pCurrentRow = NULL;
     ULONG       ul;
-    LINKLIST    llStack;
 
-    PDLGPRIVATE  pDlgData = NEW(DLGPRIVATE);
-
-    if (!pDlgData)
-        return (ERROR_NOT_ENOUGH_MEMORY);
-
-    ZERO(pDlgData);
-    lstInit(&pDlgData->llTables, FALSE);
-    lstInit(&pDlgData->llControls, FALSE);
-
-    pDlgData->pcszControlsFont = pcszControlsFont;
+    PDLGPRIVATE  pDlgData = NULL;
 
     /*
      *  1) parse the table and create structures from it
      *
      */
 
-    lstInit(&llStack, TRUE);      // this is our stack for nested table definitions
-
-    for (ul = 0;
-         ul < cDlgItems;
-         ul++)
+    if (!(arc = Dlg0_Init(&pDlgData,
+                          pcszControlsFont)))
     {
-        PDLGHITEM   pItemThis = &paDlgItems[ul];
-
-        switch (pItemThis->Type)
+        if (!(arc = Dlg1_ParseTables(pDlgData,
+                                     paDlgItems,
+                                     cDlgItems)))
         {
             /*
-             * TYPE_START_NEW_TABLE:
+             *  2) create empty dialog frame
              *
              */
 
-            case TYPE_START_NEW_TABLE:
-            {
-                // root table or nested?
-                BOOL fIsRoot = (pCurrentTable == NULL);
+            FRAMECDATA      fcData = {0};
+            ULONG           flStyle = 0;
 
-                // push the current table on the stack
-                PSTACKITEM pStackItem;
-                if (!(pStackItem = NEW(STACKITEM)))
+            fcData.cb = sizeof(FRAMECDATA);
+            fcData.flCreateFlags = flCreateFlags | 0x40000000L;
+
+            if (flCreateFlags & FCF_SIZEBORDER)
+                // dialog has size border:
+                // add "clip siblings" style
+                flStyle |= WS_CLIPSIBLINGS;
+
+            if (hwndOwner == HWND_DESKTOP)
+                // there's some dumb XWorkplace code left
+                // which uses this, and this disables the
+                // mouse for some reason
+                // V0.9.14 (2001-07-07) [umoeller]
+                hwndOwner = NULLHANDLE;
+
+            if (!(pDlgData->hwndDlg = WinCreateWindow(HWND_DESKTOP,
+                                                      WC_FRAME,
+                                                      (PSZ)pcszDlgTitle,
+                                                      flStyle,        // style; invisible for now
+                                                      0, 0, 0, 0,
+                                                      hwndOwner,
+                                                      HWND_TOP,
+                                                      0,              // ID
+                                                      &fcData,
+                                                      NULL)))          // presparams
+                arc = DLGERR_CANNOT_CREATE_FRAME;
+            else
+            {
+                HWND    hwndDlg = pDlgData->hwndDlg;
+                HWND    hwndFocusItem = NULLHANDLE;
+                SIZEL   szlClient = {0};
+                RECTL   rclClient;
+
+                /*
+                 *  3) compute size of all controls
+                 *
+                 */
+
+                Dlg2_CalcSizes(pDlgData,
+                               &szlClient);
+
+                WinSubclassWindow(hwndDlg, pfnwpDialogProc);
+
+                /*
+                 *  4) compute size of dialog client from total
+                 *     size of all controls
+                 */
+
+                // calculate the frame size from the client size
+                rclClient.xLeft = 10;
+                rclClient.yBottom = 10;
+                rclClient.xRight = szlClient.cx + 2 * SPACING;
+                rclClient.yTop = szlClient.cy + 2 * SPACING;
+                WinCalcFrameRect(hwndDlg,
+                                 &rclClient,
+                                 FALSE);            // frame from client
+
+                WinSetWindowPos(hwndDlg,
+                                0,
+                                10,
+                                10,
+                                rclClient.xRight,
+                                rclClient.yTop,
+                                SWP_MOVE | SWP_SIZE | SWP_NOADJUST);
+
+                arc = Dlg3_PositionAndCreate(pDlgData,
+                                             &szlClient,
+                                             &hwndFocusItem);
+
+                /*
+                 *  7) WM_INITDLG, set focus
+                 *
+                 */
+
+                if (!WinSendMsg(pDlgData->hwndDlg,
+                                WM_INITDLG,
+                                (MPARAM)hwndFocusItem,
+                                (MPARAM)pCreateParams))
                 {
-                    arc = ERROR_NOT_ENOUGH_MEMORY;
-                    break;
+                    // if WM_INITDLG returns FALSE, this means
+                    // the dlg proc has not changed the focus;
+                    // we must then set the focus here
+                    WinSetFocus(HWND_DESKTOP, hwndFocusItem);
                 }
-                else
-                {
-                    pStackItem->pLastTable = pCurrentTable;
-                    pStackItem->pLastRow = pCurrentRow;
-                    lstPush(&llStack, pStackItem);
-                }
-
-                // create new table
-                if (!(pCurrentTable = NEW(TABLEDEF)))
-                    arc = ERROR_NOT_ENOUGH_MEMORY;
-                else
-                {
-                    ZERO(pCurrentTable);
-
-                    lstInit(&pCurrentTable->llRows, FALSE);
-
-                    if (pItemThis->ulData)
-                        // control specified: store it (this will become a PM group)
-                        pCurrentTable->pCtlDef = (PCONTROLDEF)pItemThis->ulData;
-
-                    if (fIsRoot)
-                        // root table:
-                        // append to dialog data list
-                        lstAppendItem(&pDlgData->llTables, pCurrentTable);
-                    else
-                    {
-                        // nested table:
-                        // create "table" column for this
-                        PCOLUMNDEF pColumnDef;
-                        if (!(arc = CreateColumn(pCurrentRow,
-                                                 TRUE,        // nested table
-                                                 pCurrentTable,
-                                                 &pColumnDef)))
-                            lstAppendItem(&pCurrentRow->llColumns,
-                                          pColumnDef);
-                    }
-                }
-
-                pCurrentRow = NULL;
-            break; }
-
-            /*
-             * TYPE_START_NEW_ROW:
-             *
-             */
-
-            case TYPE_START_NEW_ROW:
-            {
-                if (!pCurrentTable)
-                    arc = DLGERR_ROW_BEFORE_TABLE;
-                else
-                {
-                    // create new row
-                    if (!(pCurrentRow = NEW(ROWDEF)))
-                        arc = ERROR_NOT_ENOUGH_MEMORY;
-                    else
-                    {
-                        ZERO(pCurrentRow);
-
-                        pCurrentRow->pOwningTable = pCurrentTable;
-                        lstInit(&pCurrentRow->llColumns, FALSE);
-
-                        pCurrentRow->flRowFormat = pItemThis->ulData;
-
-                        lstAppendItem(&pCurrentTable->llRows, pCurrentRow);
-                    }
-                }
-            break; }
-
-            /*
-             * TYPE_CONTROL_DEF:
-             *
-             */
-
-            case TYPE_CONTROL_DEF:
-            {
-                PCOLUMNDEF pColumnDef;
-                if (!(arc = CreateColumn(pCurrentRow,
-                                         FALSE,        // no nested table
-                                         (PVOID)pItemThis->ulData,
-                                         &pColumnDef)))
-                    lstAppendItem(&pCurrentRow->llColumns,
-                                  pColumnDef);
-            break; }
-
-            /*
-             * TYPE_END_TABLE:
-             *
-             */
-
-            case TYPE_END_TABLE:
-            {
-                PLISTNODE pNode = lstPop(&llStack);
-                if (!pNode)
-                    // nothing on the stack:
-                    arc = DLGERR_TOO_MANY_TABLES_CLOSED;
-                else
-                {
-                    PSTACKITEM pStackItem = (PSTACKITEM)pNode->pItemData;
-                    pCurrentTable = pStackItem->pLastTable;
-                    pCurrentRow = pStackItem->pLastRow;
-
-                    lstRemoveNode(&llStack, pNode);
-                }
-            break; }
-
-            default:
-                arc = DLGERR_INVALID_CODE;
-        }
-
-        if (arc)
-            break;
-    }
-
-    if (arc == NO_ERROR)
-        if (lstCountItems(&llStack))
-            arc = DLGERR_TABLE_NOT_CLOSED;
-
-    lstClear(&llStack);
-
-    if (arc == NO_ERROR)
-    {
-        /*
-         *  2) create empty dialog frame
-         *
-         */
-
-        FRAMECDATA      fcData = {0};
-        ULONG           flStyle = 0;
-
-        fcData.cb = sizeof(FRAMECDATA);
-        fcData.flCreateFlags = flCreateFlags | 0x40000000L;
-
-        if (flCreateFlags & FCF_SIZEBORDER)
-            // dialog has size border:
-            // add "clip siblings" style
-            flStyle |= WS_CLIPSIBLINGS;
-
-        if (hwndOwner == HWND_DESKTOP)
-            // there's some dumb XWorkplace code left
-            // which uses this, and this disables the
-            // mouse for some reason
-            // V0.9.14 (2001-07-07) [umoeller]
-            hwndOwner = NULLHANDLE;
-
-        if (!(pDlgData->hwndDlg = WinCreateWindow(HWND_DESKTOP,
-                                                  WC_FRAME,
-                                                  (PSZ)pcszDlgTitle,
-                                                  flStyle,        // style; invisible for now
-                                                  0, 0, 0, 0,
-                                                  hwndOwner,
-                                                  HWND_TOP,
-                                                  0,              // ID
-                                                  &fcData,
-                                                  NULL)))          // presparams
-            arc = DLGERR_CANNOT_CREATE_FRAME;
-        else
-        {
-            HWND    hwndDlg = pDlgData->hwndDlg;
-            SIZEL   szlClient = {0};
-            RECTL   rclClient;
-            HWND    hwndFocusItem = NULLHANDLE;
-
-            /*
-             *  3) compute size of all controls
-             *
-             */
-
-            ProcessAll(pDlgData,
-                       &szlClient,
-                       PROCESS_CALC_SIZES);
-                // this goes into major recursions...
-
-            // free the cached font resources that
-            // might have been created here
-            if (pDlgData->lcidLast)
-            {
-                GpiSetCharSet(pDlgData->hps, LCID_DEFAULT);
-                GpiDeleteSetId(pDlgData->hps, pDlgData->lcidLast);
-            }
-            if (pDlgData->hps)
-                WinReleasePS(pDlgData->hps);
-
-            WinSubclassWindow(hwndDlg, pfnwpDialogProc);
-
-            /*
-             *  4) compute size of dialog client from total
-             *     size of all controls
-             */
-
-            // calculate the frame size from the client size
-            rclClient.xLeft = 10;
-            rclClient.yBottom = 10;
-            rclClient.xRight = szlClient.cx + 2 * SPACING;
-            rclClient.yTop = szlClient.cy + 2 * SPACING;
-            WinCalcFrameRect(hwndDlg,
-                             &rclClient,
-                             FALSE);            // frame from client
-
-            WinSetWindowPos(hwndDlg,
-                            0,
-                            10,
-                            10,
-                            rclClient.xRight,
-                            rclClient.yTop,
-                            SWP_MOVE | SWP_SIZE | SWP_NOADJUST);
-
-            /*
-             *  5) compute _positions_ of all controls
-             *
-             */
-
-            ProcessAll(pDlgData,
-                       &szlClient,
-                       PROCESS_CALC_POSITIONS);
-
-            /*
-             *  6) create control windows, finally
-             *
-             */
-
-            pDlgData->ptlTotalOfs.x = SPACING;
-            pDlgData->ptlTotalOfs.y = SPACING;
-
-            ProcessAll(pDlgData,
-                       &szlClient,
-                       PROCESS_CREATE_CONTROLS);
-
-            if (pDlgData->hwndDefPushbutton)
-                // we had a default pushbutton:
-                // go set it V0.9.14 (2001-08-21) [umoeller]
-                WinSetWindowULong(pDlgData->hwndDlg,
-                                  QWL_DEFBUTTON,
-                                  pDlgData->hwndDefPushbutton);
-
-            /*
-             *  7) WM_INITDLG, set focus
-             *
-             */
-
-            hwndFocusItem = (pDlgData->hwndFirstFocus)
-                                    ? pDlgData->hwndFirstFocus
-                                    : hwndDlg;
-            if (!WinSendMsg(hwndDlg,
-                            WM_INITDLG,
-                            (MPARAM)hwndFocusItem,
-                            (MPARAM)pCreateParams))
-            {
-                // if WM_INITDLG returns FALSE, this means
-                // the dlg proc has not changed the focus;
-                // we must then set the focus here
-                WinSetFocus(HWND_DESKTOP, hwndFocusItem);
             }
         }
-    }
-
-    if (pDlgData)
-    {
-        PLISTNODE pTableNode;
 
         if (arc)
         {
             // error: clean up
             if (pDlgData->hwndDlg)
+            {
                 WinDestroyWindow(pDlgData->hwndDlg);
+                pDlgData->hwndDlg = NULLHANDLE;
+            }
         }
         else
             // no error: output dialog
             *phwndDlg = pDlgData->hwndDlg;
 
-        // in any case, clean up our mess:
-
-        // clean up the tables
-        FOR_ALL_NODES(&pDlgData->llTables, pTableNode)
-        {
-            PTABLEDEF pTable = (PTABLEDEF)pTableNode->pItemData;
-
-            FreeTable(pTable);
-                    // this may recurse for nested tables
-        }
-
-        lstClear(&pDlgData->llTables);
-        lstClear(&pDlgData->llControls);
-
-        free(pDlgData);
+        Dlg9_Cleanup(&pDlgData);
     }
 
     if (arc)

@@ -29,7 +29,36 @@ Here we go:
         Add xdoc documentation to all functions and parameters,
         as outlined below.
 
-    3.  For all variables, use the usual OS/2 type prefixes.
+    3.  Brackets style:
+
+                if (condition)
+                {
+                    // do this
+                }
+                else
+                {
+                    // do that
+                }
+
+        You may leave out brackets if there's only one statement
+        after if or else, of course, but with nested if statements,
+        I usually add them even in that case since it's so easy
+        to mismatch the nesting then.
+
+    4.  switch/case style:
+
+                switch (msg)
+                {
+                    case WM_CREATE:
+                        // code
+                    break;
+
+                    case WM_DESTROY:
+                        // code
+                    break;
+                }
+
+    5.  For all variables, use the usual OS/2 type prefixes.
         Here are some:
 
         CHAR    c       (char)
@@ -51,17 +80,17 @@ Here we go:
         For arrays, prefix "a" (e.g. USHORT ausThings[3]).
         For pointers, prefix "p" (e.g. USHORT *pausThings[3]).
 
-    4.  Prefix C++ class member variables with an underscore ("_").
+    6.  Prefix C++ class member variables with an underscore ("_").
         This allows people who are not familiar with the class
         interface to identify member variables easily. Also, this
         has a certain consistency with SOM/WPS class member
         variables.
 
-    5.  Prefix global variables with "G_" for the same reason.
+    7.  Prefix global variables with "G_" for the same reason.
         Global variables are potentially dangerous, so these
         can be more easily identified.
 
-    6.  Comment your functions in xdoc-style. See any function
+    8.  Comment your functions in xdoc-style. See any function
         in the sources for how this can be done. Basically, use
         /* */-style comments before the function header and
         xdoc tags in that block.
@@ -93,7 +122,7 @@ Here we go:
         reduces the amount of code which needs to be committed
         to the CVS server.
 
-    7.  When changing code, mark the code as changed in the
+    9.  When changing code, mark the code as changed in the
         xdoc comment by using something like the following:
 
         @@changed V0.9.2 (2000-03-10) [umoeller]: fixed memory leak
@@ -116,7 +145,7 @@ Here we go:
         to update the readme with changes and bugfixes for the new
         version.
 
-    8.  When adding a new function, use the same, just use @@added
+    10. When adding a new function, use the same, just use @@added
         instead of @@changed.
 
 Thank you!
