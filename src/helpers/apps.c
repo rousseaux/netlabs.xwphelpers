@@ -849,6 +849,7 @@ static APIRET CheckAndQualifyExecutable(PPROGDETAILS pDetails,          // in/ou
  *@@changed V0.9.7 (2001-01-15) [umoeller]: now using XSTRING
  *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from winh.c to apps.c
  *@@changed V0.9.20 (2002-07-03) [umoeller]: now always qualifying executable to fix broken BAT files
+ *@@changed V0.9.21 (2002-08-12) [umoeller]: this didn't work for batch and cmd files that had "+" characters in their full path, fixed
  */
 
 static APIRET CallBatchCorrectly(PPROGDETAILS pProgDetails,
@@ -865,6 +866,8 @@ static APIRET CallBatchCorrectly(PPROGDETAILS pProgDetails,
 
     PSZ     pszOldParams = NULL;
     ULONG   ulOldParamsLength = pstrParams->ulLength;
+    BOOL    fQuotes = FALSE;
+
     if (ulOldParamsLength)
         // we have parameters already:
         // make a backup... we'll append that later
@@ -872,9 +875,22 @@ static APIRET CallBatchCorrectly(PPROGDETAILS pProgDetails,
 
     // set new params to "/C filename.cmd"
     xstrcpy(pstrParams, "/C ", 0);
+
+    // if the path has spaces, or other invalid characters,
+    // include it in quotes V0.9.21 (2002-08-12) [umoeller]
+    if (fQuotes = !!strpbrk(pProgDetails->pszExecutable, " +&|"))
+        xstrcatc(pstrParams, '"');
+
+    #ifdef DEBUG_PROGRAMSTART
+        _PmpfF(("fQuotes (parameters need quotes) is %d", fQuotes));
+    #endif
+
     xstrcat(pstrParams,
             pProgDetails->pszExecutable,
             0);
+
+    if (fQuotes)
+        xstrcatc(pstrParams, '"');      // V0.9.21 (2002-08-12) [umoeller]
 
     if (pszOldParams)
     {
