@@ -929,10 +929,10 @@ ULONG winhClearMenu(HWND hwndMenu)
                                                  0));
     while (cMenuItems-- > 0)
     {
-        sID = (SHORT)WinSendMsg(hwndMenu,
-                                MM_ITEMIDFROMPOSITION,
-                                MPFROMSHORT(0),
-                                MPNULL);
+        sID = SHORT1FROMMR(WinSendMsg(hwndMenu,
+                                      MM_ITEMIDFROMPOSITION,
+                                      MPFROMSHORT(0),
+                                      MPNULL));
 
         WinSendMsg(hwndMenu,
                    MM_DELETEITEM,
