@@ -78,11 +78,6 @@ extern "C" {
 
     #ifdef INCL_DOSDEVIOCTL
 
-        // flags for DRIVEPARMS.usDeviceAttrs (see DSK_GETDEVICEPARAMS in CPREF):
-        #define DEVATTR_REMOVEABLE  0x0001      // drive is removeable
-        #define DEVATTR_CHANGELINE  0x0002      // media has been removed since last I/O operation
-        #define DEVATTR_GREATER16MB 0x0004      // physical device driver supports physical addresses > 16 MB
-
         // #pragma pack(1)
 
         /*
@@ -166,14 +161,14 @@ extern "C" {
         APIRET doshQueryDiskParams(ULONG ulLogicalDrive,
                                    PBIOSPARAMETERBLOCK pdp);
 
-        BOOL XWPENTRY doshIsCDROM(PBIOSPARAMETERBLOCK pdp);
+        BYTE doshQueryRemoveableType(PBIOSPARAMETERBLOCK pdp);
+
+        APIRET XWPENTRY doshHasAudioCD(ULONG ulLogicalDrive,
+                                       HFILE hfDrive,
+                                       BOOL fMixedModeCD,
+                                       PBOOL pfAudio);
 
     #endif
-
-    APIRET XWPENTRY doshHasAudioCD(ULONG ulLogicalDrive,
-                                   HFILE hfDrive,
-                                   BOOL fMixedModeCD,
-                                   PBOOL pfAudio);
 
     VOID XWPENTRY doshEnumDrives(PSZ pszBuffer,
                                  PCSZ pcszFileSystem,
@@ -185,12 +180,129 @@ extern "C" {
 
     CHAR doshQueryBootDrive(VOID);
 
-    #define ERROR_AUDIO_CD_ROM      10000
+    #define ERROR_AUDIO_CD_ROM          10000
 
-    #define ASSERTFL_MIXEDMODECD    0x0001
+    #define DRVFL_MIXEDMODECD        0x0001
+    #define DRVFL_TOUCHFLOPPIES      0x0002
 
     APIRET doshAssertDrive(ULONG ulLogicalDrive,
                            ULONG fl);
+
+    #ifdef INCL_DOSDEVIOCTL
+
+        /*
+         *@@ XDISKINFO:
+         *
+         *@@added V0.9.16 (2002-01-13) [umoeller]
+         */
+
+        typedef struct _XDISKINFO
+        {
+            CHAR        cDriveLetter;           // drive letter
+            CHAR        cLogicalDrive;          // logical drive no.
+
+            BOOL        fPresent;               // if FALSE, drive does not exist
+
+            // the following are only valid if fPresent == TRUE
+
+            BIOSPARAMETERBLOCK bpb;
+                            // 0x00 USHORT usBytesPerSector;
+                            // 0x02 BYTE   bSectorsPerCluster;
+                            // 0x03 USHORT usReservedSectors;
+                            // 0x05 BYTE   cFATs;
+                            // 0x06 USHORT cRootEntries;
+                            // 0x08 USHORT cSectors;
+                            // 0x0a BYTE   bMedia;
+                            // 0x0b USHORT usSectorsPerFAT;
+                            // 0x0d USHORT usSectorsPerTrack;
+                            // 0x0f USHORT cHeads;
+                            // 0x11 ULONG  cHiddenSectors;
+                            // 0x15 ULONG  cLargeSectors;
+                            // 0x19 BYTE   abReserved[6];
+                            // 0x1a USHORT cCylinders;
+                            // 0x1c BYTE   bDeviceType;
+                                    // DEVTYPE_48TPI                      0x0000
+                                    // DEVTYPE_96TPI                      0x0001
+                                    // DEVTYPE_35                         0x0002
+                                    // DEVTYPE_8SD                        0x0003
+                                    // DEVTYPE_8DD                        0x0004
+                                    // DEVTYPE_FIXED                      0x0005
+                                    // DEVTYPE_TAPE                       0x0006
+                                    // DEVTYPE_UNKNOWN                    0x0007
+                            // 0x1d USHORT fsDeviceAttr;
+                                #define DEVATTR_REMOVEABLE              0x0001
+                                            // drive is removeable
+                                #define DEVATTR_CHANGELINE              0x0002
+                                            // device can determine whether media has
+                                            // been removed since last I/O operation
+                                #define DEVATTR_GREATER16MB             0x0004
+                                            // physical device driver supports physical
+                                            // addresses > 16 MB
+                                #define DEVATTR_PARTITIONALREMOVEABLE   0x0008
+
+            BYTE        bType;
+                // do not change these codes, XWorkplace relies
+                // on them too to parse WPDisk data
+                #define DRVTYPE_HARDDISK        0
+                #define DRVTYPE_FLOPPY          1
+                #define DRVTYPE_TAPE            2
+                #define DRVTYPE_VDISK           3
+                #define DRVTYPE_CDROM           4
+                #define DRVTYPE_LAN             5
+                #define DRVTYPE_PARTITIONABLEREMOVEABLE 6
+                #define DRVTYPE_UNKNOWN       255
+
+            ULONG       flDevice;
+                // any combination of the following:
+                #define DFL_REMOTE                      0x0001
+                            // drive is remote (not local)
+                #define DFL_FIXED                       0x0002
+                            // drive is fixed; otherwise it is removeable!
+                #define DFL_PARTITIONABLEREMOVEABLE     0x0004
+                            // in that case, DFL_FIXED is set also
+                #define DFL_BOOTDRIVE                   0x0008
+                            // drive was booted from
+
+                // media flags:
+
+                #define DFL_MEDIA_PRESENT               0x1000
+                            // media is present in drive; always
+                            // true for fixed and remove drives and
+                            // drives A: and B:
+                #define DFL_AUDIO_CD                    0x2000
+                            // set for CD-ROMs only, if an audio CD
+                            // is currently inserted; in that case,
+                            // DFL_MEDIA_PRESENT is _not_ set
+                #define DFL_SUPPORTS_EAS                0x4000
+                            // drive supports extended attributes
+                #define DFL_SUPPORTS_LONGNAMES          0x8000
+                            // drive supports long names; this does not
+                            // necessarily mean that we support all IFS
+                            // characters also
+
+            // the following are only valid if DFL_MEDIA_PRESENT is set;
+            // they are always set for drives A: and B:
+
+            CHAR        szFileSystem[30];
+                            // e.g. "FAT" or "HPFS" or "JFS" or "CDFS"
+
+            BYTE        bFileSystem;
+                // do not change these codes, XWorkplace relies
+                // on them too to parse WPDisk data
+                #define FSYS_FAT             1
+                #define FSYS_HPFS_JFS        2
+                #define FSYS_CDFS            3
+                #define FSYS_FAT32           8      // not used by WPS!
+                #define FSYS_RAMFS           9      // not used by WPS!
+                #define FSYS_REMOTE         10
+
+        } XDISKINFO, *PXDISKINFO;
+
+        APIRET doshGetDriveInfo(ULONG ulLogicalDrive,
+                                ULONG fl,
+                                PXDISKINFO pdi);
+
+    #endif
 
     APIRET doshSetLogicalMap(ULONG ulLogicalDrive);
 

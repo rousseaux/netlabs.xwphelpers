@@ -755,7 +755,7 @@ unsigned long memdReleaseFreed(void)
         PSZ psz;
         if (psz = strhCreateDump(pb, ulSize, ulIndent))
         {
-            // _Pmpf(("\n%s", psz));
+            _Pmpf(("\n%s", psz));
             free(psz);
         }
     }

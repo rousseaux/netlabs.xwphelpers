@@ -48,6 +48,7 @@
 #include "helpers\apps.h"
 #include "helpers\dosh.h"
 #include "helpers\prfh.h"
+#include "helpers\standards.h"          // some standard macros
 #include "helpers\stringh.h"
 #include "helpers\winh.h"
 #include "helpers\xstring.h"
@@ -635,43 +636,44 @@ APIRET appQueryAppType(const char *pcszExecutable,
 }
 
 /*
- *@@ appDescribeAppType:
- *      returns a "PROG_*" string for the given
- *      program type. Useful for WPProgram setup
- *      strings and such.
+ *@@ PROGTYPESTRING:
  *
- *@@added V0.9.16 (2001-10-06)
+ *@@added V0.9.16 (2002-01-13) [umoeller]
  */
 
-PCSZ appDescribeAppType(PROGCATEGORY progc)        // in: from PROGDETAILS.progc
+typedef struct _PROGTYPESTRING
 {
-    switch (progc)
+    PROGCATEGORY    progc;
+    PCSZ            pcsz;
+} PROGTYPESTRING, *PPROGTYPESTRING;
+
+PROGTYPESTRING G_aProgTypes[] =
     {
-        case PROG_DEFAULT: return "PROG_DEFAULT";
-        case PROG_FULLSCREEN: return "PROG_FULLSCREEN";
-        case PROG_WINDOWABLEVIO: return "PROG_WINDOWABLEVIO";
-        case PROG_PM: return "PROG_PM";
-        case PROG_GROUP: return "PROG_GROUP";
-        case PROG_VDM: return "PROG_VDM";
-            // same as case PROG_REAL: return "PROG_REAL";
-        case PROG_WINDOWEDVDM: return "PROG_WINDOWEDVDM";
-        case PROG_DLL: return "PROG_DLL";
-        case PROG_PDD: return "PROG_PDD";
-        case PROG_VDD: return "PROG_VDD";
-        case PROG_WINDOW_REAL: return "PROG_WINDOW_REAL";
-        case PROG_30_STD: return "PROG_30_STD";
-            // same as case PROG_WINDOW_PROT: return "PROG_WINDOW_PROT";
-        case PROG_WINDOW_AUTO: return "PROG_WINDOW_AUTO";
-        case PROG_30_STDSEAMLESSVDM: return "PROG_30_STDSEAMLESSVDM";
-            // same as case PROG_SEAMLESSVDM: return "PROG_SEAMLESSVDM";
-        case PROG_30_STDSEAMLESSCOMMON: return "PROG_30_STDSEAMLESSCOMMON";
-            // same as case PROG_SEAMLESSCOMMON: return "PROG_SEAMLESSCOMMON";
-        case PROG_31_STDSEAMLESSVDM: return "PROG_31_STDSEAMLESSVDM";
-        case PROG_31_STDSEAMLESSCOMMON: return "PROG_31_STDSEAMLESSCOMMON";
-        case PROG_31_ENHSEAMLESSVDM: return "PROG_31_ENHSEAMLESSVDM";
-        case PROG_31_ENHSEAMLESSCOMMON: return "PROG_31_ENHSEAMLESSCOMMON";
-        case PROG_31_ENH: return "PROG_31_ENH";
-        case PROG_31_STD: return "PROG_31_STD";
+        PROG_DEFAULT, "PROG_DEFAULT",
+        PROG_FULLSCREEN, "PROG_FULLSCREEN",
+        PROG_WINDOWABLEVIO, "PROG_WINDOWABLEVIO",
+        PROG_PM, "PROG_PM",
+        PROG_GROUP, "PROG_GROUP",
+        PROG_VDM, "PROG_VDM",
+            // same as PROG_REAL, "PROG_REAL",
+        PROG_WINDOWEDVDM, "PROG_WINDOWEDVDM",
+        PROG_DLL, "PROG_DLL",
+        PROG_PDD, "PROG_PDD",
+        PROG_VDD, "PROG_VDD",
+        PROG_WINDOW_REAL, "PROG_WINDOW_REAL",
+        PROG_30_STD, "PROG_30_STD",
+            // same as PROG_WINDOW_PROT, "PROG_WINDOW_PROT",
+        PROG_WINDOW_AUTO, "PROG_WINDOW_AUTO",
+        PROG_30_STDSEAMLESSVDM, "PROG_30_STDSEAMLESSVDM",
+            // same as PROG_SEAMLESSVDM, "PROG_SEAMLESSVDM",
+        PROG_30_STDSEAMLESSCOMMON, "PROG_30_STDSEAMLESSCOMMON",
+            // same as PROG_SEAMLESSCOMMON, "PROG_SEAMLESSCOMMON",
+        PROG_31_STDSEAMLESSVDM, "PROG_31_STDSEAMLESSVDM",
+        PROG_31_STDSEAMLESSCOMMON, "PROG_31_STDSEAMLESSCOMMON",
+        PROG_31_ENHSEAMLESSVDM, "PROG_31_ENHSEAMLESSVDM",
+        PROG_31_ENHSEAMLESSCOMMON, "PROG_31_ENHSEAMLESSCOMMON",
+        PROG_31_ENH, "PROG_31_ENH",
+        PROG_31_STD, "PROG_31_STD",
 
 // Warp 4 toolkit defines, whatever these were designed for...
 #ifndef PROG_DOS_GAME
@@ -684,12 +686,32 @@ PCSZ appDescribeAppType(PROGCATEGORY progc)        // in: from PROGDETAILS.progc
     #define PROG_DOS_MODE            (PROGCATEGORY)23
 #endif
 
-        case PROG_DOS_GAME: return "PROG_DOS_GAME";
-        case PROG_WIN_GAME: return "PROG_WIN_GAME";
-        case PROG_DOS_MODE: return "PROG_DOS_MODE";
+        PROG_DOS_GAME, "PROG_DOS_GAME",
+        PROG_WIN_GAME, "PROG_WIN_GAME",
+        PROG_DOS_MODE, "PROG_DOS_MODE",
 
         // added this V0.9.16 (2001-12-08) [umoeller]
-        case PROG_WIN32: return "PROG_WIN32";
+        PROG_WIN32, "PROG_WIN32"
+    };
+
+/*
+ *@@ appDescribeAppType:
+ *      returns a "PROG_*" string for the given
+ *      program type. Useful for WPProgram setup
+ *      strings and such.
+ *
+ *@@added V0.9.16 (2001-10-06)
+ */
+
+PCSZ appDescribeAppType(PROGCATEGORY progc)        // in: from PROGDETAILS.progc
+{
+    ULONG ul;
+    for (ul = 0;
+         ul < ARRAYITEMCOUNT(G_aProgTypes);
+         ul++)
+    {
+        if (G_aProgTypes[ul].progc == progc)
+            return (G_aProgTypes[ul].pcsz);
     }
 
     return NULL;

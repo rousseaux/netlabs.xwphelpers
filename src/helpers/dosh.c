@@ -290,7 +290,7 @@ APIRET doshDevIOCtl(HFILE hf,
  ********************************************************************/
 
 /*
- *@@ Allocate:
+ *@@ doshMalloc:
  *      wrapper around malloc() which automatically
  *      sets ERROR_NOT_ENOUGH_MEMORY.
  *
@@ -456,14 +456,12 @@ APIRET doshIsFixedDisk(ULONG ulLogicalDrive,   // in: 1 for A:, 2 for B:, 3 for 
         // data packet
         UCHAR ucNonRemoveable;
 
-        parms.drive = (UCHAR)(ulLogicalDrive-1);
-        arc = doshDevIOCtl((HFILE)-1,
-                           IOCTL_DISK,                  // 0x08
-                           DSK_BLOCKREMOVABLE,          // 0x20
-                           &parms, sizeof(parms),
-                           &ucNonRemoveable, sizeof(ucNonRemoveable));
-
-        if (arc == NO_ERROR)
+        parms.drive = (UCHAR)(ulLogicalDrive - 1);
+        if (!(arc = doshDevIOCtl((HFILE)-1,
+                                 IOCTL_DISK,                  // 0x08
+                                 DSK_BLOCKREMOVABLE,          // 0x20
+                                 &parms, sizeof(parms),
+                                 &ucNonRemoveable, sizeof(ucNonRemoveable))))
             *pfFixed = (BOOL)ucNonRemoveable;
     }
 
@@ -503,6 +501,11 @@ APIRET doshIsFixedDisk(ULONG ulLogicalDrive,   // in: 1 for A:, 2 for B:, 3 for 
  *      removeable disks.
  *
  *      This returns the DOS error code of DosDevIOCtl.
+ *      This will be:
+ *
+ *      --  NO_ERROR for all local disks;
+ *
+ *      --  ERROR_NOT_SUPPORTED (50) for network drives.
  *
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.13 (2001-06-14) [umoeller]: changed prototype to use BIOSPARAMETERBLOCK directly
@@ -551,23 +554,42 @@ APIRET doshQueryDiskParams(ULONG ulLogicalDrive,        // in:  1 for A:, 2 for 
 }
 
 /*
- *@@ doshIsCDROM:
+ *@@ doshQueryRemoveableType:
  *      tests the specified BIOSPARAMETERBLOCK
- *      for whether it represents a CD-ROM drive.
+ *      for whether it represents a CD-ROM or
+ *      some other removeable drive type.
+ *
+ *      Returns one of:
+ *
+ *      --  0
+ *
+ *      --  DRVTYPE_CDROM
+ *
+ *      Call this only if doshIsFixedDisk
+ *      returned FALSE.
  *
  *      The BIOSPARAMETERBLOCK must be filled
  *      first using doshQueryDiskParams.
  *
- *@@added V0.9.13 (2001-06-14) [umoeller]
+ *@@added V0.9.16 (2002-01-13) [umoeller]
  */
 
-BOOL doshIsCDROM(PBIOSPARAMETERBLOCK pdp)
+BYTE doshQueryRemoveableType(PBIOSPARAMETERBLOCK pdp)
 {
-    return (    (pdp)
-             && (pdp->bDeviceType == 7)     // "other"
+    if (pdp)
+    {
+        if (    (pdp->bDeviceType == 7)     // "other"
              && (pdp->usBytesPerSector == 2048)
              && (pdp->usSectorsPerTrack == (USHORT)-1)
-           );
+           )
+            return DRVTYPE_CDROM;
+        else if (pdp->fsDeviceAttr & DEVATTR_PARTITIONALREMOVEABLE) // 0x08
+            return DRVTYPE_PARTITIONABLEREMOVEABLE;
+        else if (pdp->bDeviceType == 6)     // tape
+            return DRVTYPE_TAPE;
+    }
+
+    return (0);
 }
 
 /*
@@ -577,7 +599,7 @@ BOOL doshIsCDROM(PBIOSPARAMETERBLOCK pdp)
  *
  *      Better call this only if you're sure that
  *      ulLogicalDrive is a CD-ROM drive. Use
- *      doshIsCDROM to check.
+ *      doshQueryRemoveableType to check.
  *
  *@@added V0.9.14 (2001-08-01) [umoeller]
  */
@@ -797,15 +819,90 @@ VOID doshEnumDrives(PSZ pszBuffer,      // out: drive letters
  *      returns the letter of the boot drive as a
  *      single (capital) character, which is useful for
  *      constructing file names using sprintf and such.
+ *
+ *@@changed V0.9.16 (2002-01-13) [umoeller]: optimized
  */
 
 CHAR doshQueryBootDrive(VOID)
 {
-    ULONG ulBootDrive;
-    DosQuerySysInfo(QSV_BOOT_DRIVE, QSV_BOOT_DRIVE,
-                    &ulBootDrive,
-                    sizeof(ulBootDrive));
-    return (ulBootDrive + 'A' - 1);
+    // this can never change, so query this only once
+    // V0.9.16 (2002-01-13) [umoeller]
+    static CHAR     cBootDrive = '\0';
+
+    if (!cBootDrive)
+    {
+        ULONG ulBootDrive;
+        DosQuerySysInfo(QSV_BOOT_DRIVE, QSV_BOOT_DRIVE,
+                        &ulBootDrive,
+                        sizeof(ulBootDrive));
+        cBootDrive = (CHAR)ulBootDrive + 'A' - 1;
+    }
+
+    return (cBootDrive);
+}
+
+/*
+ *@@ doshQueryMedia:
+ *      determines whether the given drive currently
+ *      has media inserted.
+ *
+ *      Call this only for non-fixed (removable) disks.
+ *      Use doshIsFixedDisk to find out.
+ *
+ *@@added V0.9.16 (2002-01-13) [umoeller]
+ */
+
+APIRET doshQueryMedia(ULONG ulLogicalDrive,
+                      BOOL fCDROM,
+                      ULONG fl)                // in: DRVFL_* flags
+{
+    APIRET  arc;
+
+    HFILE   hf = NULLHANDLE;
+    ULONG   dummy;
+
+    CHAR    szDrive[3] = "C:";
+    szDrive[0] = 'A' + ulLogicalDrive - 1;
+
+    arc = DosOpen(szDrive,   // "C:", "D:", ...
+                  &hf,
+                  &dummy,
+                  0,
+                  FILE_NORMAL,
+                  OPEN_ACTION_FAIL_IF_NEW
+                         | OPEN_ACTION_OPEN_IF_EXISTS,
+                  OPEN_FLAGS_DASD
+                         | OPEN_FLAGS_FAIL_ON_ERROR
+                         | OPEN_FLAGS_NOINHERIT     // V0.9.6 (2000-11-25) [pr]
+              //            | OPEN_ACCESS_READONLY  // V0.9.13 (2001-06-14) [umoeller]
+                         | OPEN_SHARE_DENYNONE,
+                  NULL);
+
+    // this still returns NO_ERROR for audio CDs in a
+    // CD-ROM drive...
+    // however, the WPS then attempts to read in the
+    // root directory for audio CDs, which produces
+    // a "sector not found" error box...
+
+    if (    (!arc)
+         && (hf)
+         && (fCDROM)
+       )
+    {
+        BOOL fAudio;
+        if (    (!(arc = doshHasAudioCD(ulLogicalDrive,
+                                        hf,
+                                        ((fl & DRVFL_MIXEDMODECD) != 0),
+                                        &fAudio)))
+             && (fAudio)
+           )
+            arc = ERROR_AUDIO_CD_ROM;       // special private error code (10000)
+    }
+
+    if (hf)
+        DosClose(hf);
+
+    return (arc);
 }
 
 /*
@@ -817,7 +914,7 @@ CHAR doshQueryBootDrive(VOID)
  *      "fl" can specify additional flags for testing
  *      and can be any combination of:
  *
- *      --  ASSERTFL_MIXEDMODECD: whether to allow
+ *      --  DRVFL_MIXEDMODECD: whether to allow
  *          mixed-mode CD-ROMs. See error codes below.
  *
  *      This returns (from my testing):
@@ -834,13 +931,13 @@ CHAR doshQueryBootDrive(VOID)
  *                  only by this function if a CD-ROM drive has audio
  *                  media inserted.
  *
- *                  If ASSERTFL_MIXEDMODECD was specified, ERROR_AUDIO_CD_ROM
+ *                  If DRVFL_MIXEDMODECD was specified, ERROR_AUDIO_CD_ROM
  *                  is returned _only_ if _no_ data tracks are
  *                  present on a CD-ROM. Since OS/2 is not very
  *                  good at handling mixed-mode CDs, this might not
  *                  be desireable.
  *
- *                  If ASSERTFL_MIXEDMODECD was not set, ERROR_AUDIO_CD_ROM
+ *                  If DRVFL_MIXEDMODECD was not set, ERROR_AUDIO_CD_ROM
  *                  will be returned already if _one_ audio track is present.
  *
  *@@changed V0.9.1 (99-12-13) [umoeller]: rewritten, prototype changed. Now using DosOpen on the drive instead of DosError.
@@ -854,7 +951,7 @@ CHAR doshQueryBootDrive(VOID)
  */
 
 APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for C:, ...
-                       ULONG fl)                // in: ASSERTFL_* flags
+                       ULONG fl)                // in: DRVFL_* flags
 {
     APIRET  arc = NO_ERROR;
     BOOL    fFixed = FALSE,
@@ -880,7 +977,7 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
             // _Pmpf(("   doshQueryDiskParams returned %d", arc));
 
             if (    (!arc)
-                 && (doshIsCDROM(&bpb))
+                 && (DRVTYPE_CDROM == doshQueryRemoveableType(&bpb))
                )
             {
                 // _Pmpf(("   --> is CD-ROM"));
@@ -889,53 +986,9 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
         }
 
     if (!arc)
-    {
-        HFILE hfDrive = NULLHANDLE;
-
-        ULONG   ulTemp = 0;
-        CHAR    szDrive[3] = "C:";
-        szDrive[0] = 'A' + ulLogicalDrive - 1;
-
-        arc = DosOpen(szDrive,   // "C:", "D:", ...
-                      &hfDrive,
-                      &ulTemp,
-                      0,
-                      FILE_NORMAL,
-                      OPEN_ACTION_FAIL_IF_NEW
-                             | OPEN_ACTION_OPEN_IF_EXISTS,
-                      OPEN_FLAGS_DASD
-                             | OPEN_FLAGS_FAIL_ON_ERROR
-                             | OPEN_FLAGS_NOINHERIT     // V0.9.6 (2000-11-25) [pr]
-                  //            | OPEN_ACCESS_READONLY  // V0.9.13 (2001-06-14) [umoeller]
-                             | OPEN_SHARE_DENYNONE,
-                      NULL);
-
-        // _Pmpf(("   DosOpen(OPEN_FLAGS_DASD) returned %d", arc));
-
-        // this still returns NO_ERROR for audio CDs in a
-        // CD-ROM drive...
-        // however, the WPS then attempts to read in the
-        // root directory for audio CDs, which produces
-        // a "sector not found" error box...
-
-        if (    (!arc)
-             && (hfDrive)
-             && (fCDROM)
-           )
-        {
-            BOOL fAudio;
-            if (    (!(arc = doshHasAudioCD(ulLogicalDrive,
-                                            hfDrive,
-                                            ((fl & ASSERTFL_MIXEDMODECD) != 0),
-                                            &fAudio)))
-                 && (fAudio)
-               )
-                arc = ERROR_AUDIO_CD_ROM;       // special private error code (10000)
-        }
-
-        if (hfDrive)
-            DosClose(hfDrive);
-    }
+        arc = doshQueryMedia(ulLogicalDrive,
+                             fCDROM,
+                             fl);
 
     switch (arc)
     {
@@ -971,6 +1024,235 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
             }
         break;
     }
+
+    return (arc);
+}
+
+/*
+ *@@ doshGetDriveInfo:
+ *      fills the given XDISKINFO buffer with
+ *      information about the given logical drive.
+ *
+ *      This function will not provoke "Drive not
+ *      ready" popups, hopefully. Tested with the
+ *      following drive types:
+ *
+ *      --  all kinds of local partitions (FAT,
+ *          FAT32, HPFS, JFS)
+ *
+ *      --  remote NetBIOS drives added via "net use"
+ *
+ *      --  CD-ROM drives; one DVD drive and one
+ *          CD writer, even if no media is present
+ *
+ *      fl can be any combination of the following:
+ *
+ *      --  DRVFL_MIXEDMODECD: see doshAssertDrive.
+ *
+ *      --  DRVFL_TOUCHFLOPPIES: drive A: and B: should
+ *          be touched for media checks (click, click);
+ *          otherwise they will be left alone and
+ *          default values will be returned.
+ *
+ *      This should return only one of the following:
+ *
+ *      --  ERROR_INVALID_DRIVE: drive letter is invalid
+ *
+ *      --  ERROR_DRIVE_LOCKED
+ *
+ *      --  NO_ERROR: disk info was filled, but not
+ *          necessarily all info was available (e.g.
+ *          if no media was present in CD-ROM drive).
+ *
+ *@@added V0.9.16 (2002-01-13) [umoeller]
+ */
+
+APIRET doshGetDriveInfo(ULONG ulLogicalDrive,
+                        ULONG fl,               // in: DRVFL_* flags
+                        PXDISKINFO pdi)
+{
+    APIRET  arc = NO_ERROR;
+
+    HFILE   hf;
+    ULONG   dummy;
+    BOOL    fCheck = TRUE;
+
+    memset(pdi, 0, sizeof(XDISKINFO));
+
+    pdi->cDriveLetter = 'A' + ulLogicalDrive - 1;
+    pdi->cLogicalDrive = ulLogicalDrive;
+
+    pdi->bType = DRVTYPE_UNKNOWN;
+    pdi->fPresent = TRUE;       // for now
+
+    if (    (ulLogicalDrive == 1)
+         || (ulLogicalDrive == 2)
+       )
+    {
+        // drive A: and B: are special cases,
+        // we don't even want to touch them (click, click)
+        pdi->bType = DRVTYPE_FLOPPY;
+
+        if (0 == (fl & DRVFL_TOUCHFLOPPIES))
+        {
+            fCheck = FALSE;
+            // these support EAs too
+            pdi->flDevice  = DFL_MEDIA_PRESENT | DFL_SUPPORTS_EAS;
+            strcpy(pdi->szFileSystem, "FAT");
+            pdi->bFileSystem = FSYS_FAT;
+        }
+    }
+
+    if (fCheck)
+    {
+        // any other drive:
+        // check if it's removeable first
+        BOOL    fFixed = FALSE;
+        arc = doshIsFixedDisk(ulLogicalDrive,
+                              &fFixed);
+
+        if (arc == ERROR_INVALID_DRIVE)
+            // drive letter doesn't exist at all:
+            pdi->fPresent = FALSE;
+            // return this APIRET
+        else
+        {
+            BOOL fCheckFS = FALSE;
+            BOOL fCheckLongnames = FALSE;
+
+            if (fFixed)
+                // fixed drive:
+                pdi->flDevice |= DFL_FIXED | DFL_MEDIA_PRESENT;
+
+            if (!(arc = doshQueryDiskParams(ulLogicalDrive,
+                                            &pdi->bpb)))
+            {
+                if (!fFixed)
+                {
+                    // removeable:
+                    BYTE bTemp;
+                    if (bTemp = doshQueryRemoveableType(&pdi->bpb))
+                    {
+                        // DRVTYPE_TAPE or DRVTYPE_CDROM
+                        pdi->bType = bTemp;
+
+                        if (bTemp == DRVTYPE_PARTITIONABLEREMOVEABLE)
+                            pdi->flDevice |=    DFL_FIXED
+                                              | DFL_PARTITIONABLEREMOVEABLE;
+                    }
+
+                    // before checking the drive, try if we have media
+                    if (!(arc = doshQueryMedia(ulLogicalDrive,
+                                               (pdi->bType == DRVTYPE_CDROM),
+                                               fl)))
+                    {
+                        pdi->flDevice |= DFL_MEDIA_PRESENT;
+                        fCheckFS = TRUE;
+                        fCheckLongnames = TRUE;
+                    }
+                    else if (arc == ERROR_AUDIO_CD_ROM)
+                    {
+                        pdi->flDevice |= DFL_AUDIO_CD;
+                        // do not check longnames and file-system
+                    }
+
+                    arc = NO_ERROR;
+                }
+                else
+                {
+                    pdi->bType = DRVTYPE_HARDDISK;
+                    fCheckFS = TRUE;
+                }
+            }
+            else if (arc == ERROR_NOT_SUPPORTED)       // 50
+            {
+                // we get this for remote drives added
+                // via "net use", so set these flags
+                pdi->bType = DRVTYPE_LAN;
+                pdi->bFileSystem = FSYS_REMOTE;
+                pdi->flDevice |= DFL_REMOTE | DFL_MEDIA_PRESENT;
+                // but still check what file-system we
+                // have and whether longnames are supported
+                fCheckFS = TRUE;
+                fCheckLongnames = TRUE;
+            }
+
+            if (fCheckFS)
+            {
+                // TRUE only for local fixed disks or
+                // remote drives or if media was present above
+                if (!(arc = doshQueryDiskFSType(ulLogicalDrive,
+                                                pdi->szFileSystem,
+                                                sizeof(pdi->szFileSystem))))
+                {
+                    if (!stricmp(pdi->szFileSystem, "FAT"))
+                    {
+                        pdi->bFileSystem = FSYS_FAT;
+                        pdi->flDevice |= DFL_SUPPORTS_EAS;
+                        fCheckLongnames = FALSE;
+                    }
+                    else if (    (!stricmp(pdi->szFileSystem, "HPFS"))
+                              || (!stricmp(pdi->szFileSystem, "JFS"))
+                            )
+                    {
+                        pdi->bFileSystem = FSYS_HPFS_JFS;
+                        pdi->flDevice |= DFL_SUPPORTS_EAS | DFL_SUPPORTS_LONGNAMES;
+                        fCheckLongnames = FALSE;
+                    }
+                    else if (!stricmp(pdi->szFileSystem, "CDFS"))
+                        pdi->bFileSystem = FSYS_CDFS;
+                    else if (!stricmp(pdi->szFileSystem, "FAT32"))
+                    {
+                        pdi->bFileSystem = FSYS_FAT32;
+                        pdi->flDevice |= DFL_SUPPORTS_LONGNAMES;
+                                // @@todo check EA support
+                        fCheckLongnames = FALSE;
+                    }
+                    else if (!stricmp(pdi->szFileSystem, "RAMFS"))
+                    {
+                        pdi->bFileSystem = FSYS_RAMFS;
+                        pdi->flDevice |= DFL_SUPPORTS_EAS | DFL_SUPPORTS_LONGNAMES;
+                        fCheckLongnames = FALSE;
+                    }
+                }
+                // else if this failed, we had an error popup!!
+                // shouldn't happen!!
+            }
+
+            if (fCheckLongnames)
+            {
+                CHAR szTemp[30] = "?:\\long.name.file";
+                szTemp[0]  = ulLogicalDrive + 'A' - 1;
+                if (!(arc = DosOpen(szTemp,
+                                    &hf,
+                                    &dummy,
+                                    0,
+                                    0,
+                                    FILE_READONLY,
+                                    OPEN_SHARE_DENYNONE | OPEN_FLAGS_NOINHERIT,
+                                    0)))
+                {
+                    DosClose(hf);
+                }
+
+                switch (arc)
+                {
+                    case NO_ERROR:
+                    case ERROR_OPEN_FAILED:
+                        pdi->flDevice |= DFL_SUPPORTS_LONGNAMES;
+
+                    // otherwise we get ERROR_INVALID_NAME
+                    // default:
+                       //  printf("      drive %d returned %d\n", ulLogicalDrive, arc);
+                }
+
+                arc = NO_ERROR;
+            }
+        }
+    }
+
+    if (doshQueryBootDrive() == pdi->cDriveLetter)
+        pdi->flDevice |= DFL_BOOTDRIVE;
 
     return (arc);
 }
@@ -2521,10 +2803,10 @@ PSZ doshCreateBackupFileName(const char* pszExisting)
  *
  *      Example: Assuming TEMP is set to C:\TEMP,
  +
- +          dosCreateTempFileName(szBuffer,
- +                                NULL,             // use $(TEMP)
- +                                "pre",            // prefix
- +                                "tmp")            // extension
+ +          doshCreateTempFileName(szBuffer,
+ +                                 NULL,             // use $(TEMP)
+ +                                 "pre",            // prefix
+ +                                 "tmp")            // extension
  +
  *      would produce something like "C:\TEMP\pre07FG2.tmp".
  *
@@ -3666,4 +3948,83 @@ APIRET doshQuickStartSession(PCSZ pcszPath,       // in: program to start
     return (arc);
 }
 
+/* ******************************************************************
+ *
+ *   Testcase
+ *
+ ********************************************************************/
 
+#ifdef BUILD_MAIN
+
+int main (int argc, char *argv[])
+{
+    ULONG ul;
+
+            printf("    type     fs       remot fixed parrm bootd       media audio eas   longn\n");
+
+    for (ul = 1;
+         ul <= 26;
+         ul++)
+    {
+        XDISKINFO xdi;
+        APIRET arc = doshGetDriveInfo(ul,
+                                      0, // DRVFL_TOUCHFLOPPIES,
+                                      &xdi);
+        PCSZ pcsz = "unknown";
+
+        printf(" %c: ", xdi.cDriveLetter, ul);
+
+        if (!xdi.fPresent)
+            printf("not present\n");
+        else
+        {
+            if (arc)
+                printf("error %4d\n", arc);
+            else
+            {
+                ULONG   aulFlags[] =
+                    {
+                        DFL_REMOTE,
+                        DFL_FIXED,
+                        DFL_PARTITIONABLEREMOVEABLE,
+                        DFL_BOOTDRIVE,
+                        0,
+                        DFL_MEDIA_PRESENT,
+                        DFL_AUDIO_CD,
+                        DFL_SUPPORTS_EAS,
+                        DFL_SUPPORTS_LONGNAMES
+                    };
+                ULONG ul2;
+
+                switch (xdi.bType)
+                {
+                    case DRVTYPE_HARDDISK:  pcsz = "HARDDISK";    break;
+                    case DRVTYPE_FLOPPY:    pcsz = "FLOPPY  "; break;
+                    case DRVTYPE_TAPE:      pcsz = "TAPE    "; break;
+                    case DRVTYPE_VDISK:     pcsz = "VDISK   "; break;
+                    case DRVTYPE_CDROM:     pcsz = "CDROM   "; break;
+                    case DRVTYPE_LAN:       pcsz = "LAN     "; break;
+                    case DRVTYPE_PARTITIONABLEREMOVEABLE:
+                                            pcsz = "PARTREMV"; break;
+                }
+
+                printf("%s ", pcsz);
+
+                printf("%8s ", xdi.szFileSystem); // , xdi.bFileSystem);
+
+                for (ul2 = 0;
+                     ul2 < ARRAYITEMCOUNT(aulFlags);
+                     ul2++)
+                {
+                    if (xdi.flDevice & aulFlags[ul2])
+                        printf("  X   ");
+                    else
+                        printf("  -   ");
+                }
+                printf("\n");
+            }
+        }
+    }
+}
+
+#endif

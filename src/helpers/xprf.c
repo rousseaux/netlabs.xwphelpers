@@ -159,21 +159,17 @@ typedef struct _XINIKEYDATA
 PXINIAPPDATA FindApp(PXINI pXIni,           // in: profile opened with xprfOpenProfile
                      const char *pcszApp)
 {
-    PXINIAPPDATA pReturn = NULL;
     PLISTNODE pAppNode = lstQueryFirstNode(&pXIni->llApps);
     while (pAppNode)
     {
         PXINIAPPDATA pAppDataThis = (PXINIAPPDATA)pAppNode->pItemData;
-        if (strcmp(pAppDataThis->pszAppName, pcszApp) == 0)
-        {
-            pReturn = pAppDataThis;
-            break;
-        }
+        if (!strcmp(pAppDataThis->pszAppName, pcszApp))
+            return (pAppDataThis);
 
         pAppNode = pAppNode->pNext;
     }
 
-    return (pReturn);
+    return (NULL);
 }
 
 /*
@@ -189,8 +185,8 @@ PXINIAPPDATA FindApp(PXINI pXIni,           // in: profile opened with xprfOpenP
 PXINIAPPDATA CreateApp(PXINI pXIni,         // in: profile opened with xprfOpenProfile
                        const char *pcszApp)
 {
-    PXINIAPPDATA pAppData = (PXINIAPPDATA)malloc(sizeof(XINIAPPDATA));
-    if (pAppData)
+    PXINIAPPDATA pAppData;
+    if (pAppData = (PXINIAPPDATA)malloc(sizeof(XINIAPPDATA)))
     {
         pAppData->pszAppName = strdup(pcszApp);
         lstInit(&pAppData->llKeys, FALSE);
@@ -216,21 +212,17 @@ PXINIAPPDATA CreateApp(PXINI pXIni,         // in: profile opened with xprfOpenP
 PXINIKEYDATA FindKey(PXINIAPPDATA pAppData,
                      const char *pcszKey)
 {
-    PXINIKEYDATA pReturn = NULL;
     PLISTNODE pKeyNode = lstQueryFirstNode(&pAppData->llKeys);
     while (pKeyNode)
     {
         PXINIKEYDATA pKeyDataThis = (PXINIKEYDATA)pKeyNode->pItemData;
-        if (strcmp(pKeyDataThis->pszKeyName, pcszKey) == 0)
-        {
-            pReturn = pKeyDataThis;
-            break;
-        }
+        if (!strcmp(pKeyDataThis->pszKeyName, pcszKey))
+            return (pKeyDataThis);
 
         pKeyNode = pKeyNode->pNext;
     }
 
-    return (pReturn);
+    return (NULL);
 }
 
 /*
@@ -248,13 +240,12 @@ PXINIKEYDATA CreateKey(PXINIAPPDATA pAppData,
                        PBYTE pbData,            // in: data for key
                        ULONG cbData)            // in: sizeof (*pbData)
 {
-    PXINIKEYDATA pKeyData = (PXINIKEYDATA)malloc(sizeof(XINIKEYDATA));
-    if (pKeyData)
+    PXINIKEYDATA pKeyData;
+    if (pKeyData = (PXINIKEYDATA)malloc(sizeof(XINIKEYDATA)))
     {
         pKeyData->pszKeyName = strdup(pcszKey);
 
-        pKeyData->pbData = (PBYTE)malloc(cbData);
-        if (pKeyData->pbData)
+        if (pKeyData->pbData = (PBYTE)malloc(cbData))
         {
             memcpy(pKeyData->pbData, pbData, cbData);
             pKeyData->cbData = cbData;
@@ -376,8 +367,8 @@ BOOL ReadINI(PXINI pXIni)       // in: profile opened with xprfOpenProfile
                                 pXIni->hLock)
             == NO_ERROR)
     {
-        PBYTE   pbFileData = (PBYTE)malloc(fs3.cbFile);
-        if (pbFileData)
+        PBYTE  pbFileData;
+        if (pbFileData = (PBYTE)malloc(fs3.cbFile))
         {
             ULONG ulSet = 0;
             APIRET arc = DosProtectSetFilePtr(pXIni->hFile,
@@ -507,8 +498,7 @@ BOOL WriteINI(PXINI pXIni)      // in: profile opened with xprfOpenProfile
     }
 
     // allocate buffer for total size
-    pbData2Write = (PBYTE)malloc(ulTotalFileSize);
-    if (pbData2Write)
+    if (pbData2Write = (PBYTE)malloc(ulTotalFileSize))
     {
         APIRET arc = NO_ERROR;
 
@@ -639,27 +629,23 @@ BOOL WriteINI(PXINI pXIni)      // in: profile opened with xprfOpenProfile
         }
 
         // write out everything
-        arc = DosProtectSetFilePtr(pXIni->hFile,
-                                   0,
-                                   FILE_BEGIN,
-                                   &ulSet,
-                                   pXIni->hLock);
-        if (arc == NO_ERROR)
+        if (!(arc = DosProtectSetFilePtr(pXIni->hFile,
+                                         0,
+                                         FILE_BEGIN,
+                                         &ulSet,
+                                         pXIni->hLock)))
         {
             ULONG cbWritten = 0;
-            arc = DosProtectWrite(pXIni->hFile,
-                                  pbData2Write,
-                                  ulTotalFileSize,
-                                  &cbWritten,
-                                  pXIni->hLock);
-            if (arc == NO_ERROR)
-            {
-                arc = DosProtectSetFileSize(pXIni->hFile,
-                                            ulTotalFileSize,
-                                            pXIni->hLock);
-                if (arc == NO_ERROR)
-                    brc = TRUE;
-            }
+            if (    (!(arc = DosProtectWrite(pXIni->hFile,
+                                             pbData2Write,
+                                             ulTotalFileSize,
+                                             &cbWritten,
+                                             pXIni->hLock)))
+                 && (!(arc = DosProtectSetFileSize(pXIni->hFile,
+                                                   ulTotalFileSize,
+                                                   pXIni->hLock)))
+               )
+                brc = TRUE;
         }
 
         free(pbData2Write);
