@@ -50,13 +50,18 @@
  *
  *      3) If you need the char* pointer (e.g. for a call
  *         to another function), use XSTRING.psz. However,
- *         you should NEVER modify the psz pointer yourself
- *         because then these functions will get into trouble.
+ *         you should ONLY modify the psz pointer yourself
+ *         if the other XSTRING members are updated accordingly.
+ *         You may, for example, change single characters
+ *         in the psz buffer. By contrast, if you change the
+ *         length of the string, you must update XSTRING.ulLength.
+ *         Otherwise these functions will get into trouble.
  *
  *         Also, you should never assume that the "psz"
  *         pointer has not changed after you have called
  *         one of the xstr* functions because these can
- *         always reallocate the buffer if needed.
+ *         always reallocate the buffer if more memory
+ *         was needed.
  *
  *      4) If (and only if) you have a char* buffer which
  *         is free()'able (e.g. from strdup()), you can
@@ -67,7 +72,8 @@
  *
  *      The functions in this file used to be in stringh.c
  *      before V0.9.3 (2000-04-01). These have been largely
- *      rewritten with V0.9.6 (2000-11-01).
+ *      rewritten with V0.9.6 (2000-11-01) and are now much
+ *      more efficient.
  *
  *      Note: Version numbering in this file relates to XWorkplace
  *            version numbering.
@@ -144,8 +150,17 @@ void xstrInit(PXSTRING pxstr,               // in/out: string
  *      have a free()'able string you want to initialize
  *      the XSTRING with.
  *
+ *      This does not create a copy of pszNew. Instead,
+ *      pszNew is used as the member string in pxstr
+ *      directly.
+ *
  *      Do not use this on an XSTRING which is already
  *      initialized. Use xstrset instead.
+ *
+ *      Example:
+ *
+ +          XSTRING str;
+ +          xstrInitSet(&str, strdup("blah"));
  *
  *@@added V0.9.6 (2000-11-01) [umoeller]
  */
@@ -172,8 +187,16 @@ void xstrInitSet(PXSTRING pxstr,
  *      want to initialize an XSTRING with a copy
  *      of an existing string.
  *
+ *      As opposed to xstrInitSet, this does create
+ *      a copy of pcszSource.
+ *
  *      Do not use this on an XSTRING which is already
  *      initialized. Use xstrcpy instead.
+ *
+ *      Example:
+ *
+ +          XSTRING str;
+ +          xstrInitCopy(&str, "blah");
  *
  *@@added V0.9.6 (2000-11-01) [umoeller]
  */
@@ -301,6 +324,8 @@ ULONG xstrset(PXSTRING pxstr,               // in/out: string
  +          xstrInit(&str, 0);
  +          xstrcpy(&str, "blah");
  *
+ *      This sequence can be abbreviated using xstrInitCopy.
+ *
  *@@changed V0.9.2 (2000-04-01) [umoeller]: renamed from strhxcpy
  *@@changed V0.9.6 (2000-11-01) [umoeller]: rewritten
  */
@@ -350,8 +375,8 @@ ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
 
 /*
  *@@ xstrcat:
- *      appends pcszSource to pxstr, for which memory is allocated
- *      as necessary.
+ *      appends pcszSource to pxstr, for which memory is
+ *      reallocated if necessary.
  *
  *      If pxstr is empty, this behaves just like xstrcpy.
  *
@@ -365,11 +390,8 @@ ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
  +          xstrcpy(&str, "blah");
  +          xstrcat(&str, "blup");
  *
- *      would do the following:
- *      a)  free the old value of str ("blah");
- *      b)  reallocate str;
- *      c)  so that psz afterwards points to a new string containing
- *          "blahblup".
+ *      After this, psz points to a new string containing
+ *      "blahblup".
  *
  *@@changed V0.9.1 (99-12-20) [umoeller]: fixed memory leak
  *@@changed V0.9.1 (2000-01-03) [umoeller]: crashed if pszString was null; fixed
@@ -423,13 +445,15 @@ ULONG xstrcat(PXSTRING pxstr,               // in/out: string
             //         new (unitialized) buffer
 
             // 2) append source string:
-            strcpy(pxstr->psz + pxstr->ulLength,
-                   pcszSource);
+            memcpy(pxstr->psz + pxstr->ulLength,
+                   pcszSource,
+                   ulSourceLength + 1);     // null terminator
 
             // in all cases, set new length
             pxstr->ulLength += ulSourceLength;
             ulrc = ulSourceLength;
-        }
+
+        } // end if (ulSourceLength)
         // else no source specified or source is empty:
         // do nothing
     }
@@ -438,13 +462,82 @@ ULONG xstrcat(PXSTRING pxstr,               // in/out: string
 }
 
 /*
+ *@@ xstrFindWord:
+ *      searches for pstrFind in pxstr, starting at ulOfs.
+ *      However, this only finds pstrFind if it's a "word",
+ *      i.e. surrounded by one of the characters in the
+ *      pcszBeginChars and pcszEndChars array.
+ *
+ *      This is similar to strhFindWord, but this uses
+ *      strhmemfind for fast searching, and it doesn't
+ *      have to calculate the string lengths because these
+ *      already in XSTRING.
+ *
+ *      Returns 0 if no "word" was found, or the offset
+ *      of the "word" in pxstr if found.
+ *
+ *@@added V0.9.6 (2000-11-12) [umoeller]
+ */
+
+PSZ xstrFindWord(const XSTRING *pxstr,        // in: buffer to search ("haystack")
+                 ULONG ulOfs,                 // in: where to begin search (0 = start)
+                 const XSTRING *pstrFind,     // in: word to find ("needle")
+                 size_t *pShiftTable,         // in: shift table (see strhmemfind)
+                 PBOOL pfRepeatFind,          // in: repeat find? (see strhmemfind)
+                 const char *pcszBeginChars,  // suggestion: "\x0d\x0a ()/\\-,."
+                 const char *pcszEndChars)    // suggestion: "\x0d\x0a ()/\\-,.:;"
+{
+    PSZ     pReturn = 0;
+    ULONG   ulFoundLen = pstrFind->ulLength;
+
+    if ((pxstr->ulLength) && (ulFoundLen))
+    {
+        const char *p = pxstr->psz + ulOfs;
+
+        do  // while p
+        {
+            // p = strstr(p, pstrFind->psz);
+            p = (PSZ)strhmemfind(p,         // in: haystack
+                                 pxstr->ulLength - (p - pxstr->psz),
+                                            // remaining length of haystack
+                                 pstrFind->psz,
+                                 ulFoundLen,
+                                 pShiftTable,
+                                 pfRepeatFind);
+            if (p)
+            {
+                // string found:
+                // check if that's a word
+
+                if (strhIsWord(pxstr->psz,
+                               p,
+                               ulFoundLen,
+                               pcszBeginChars,
+                               pcszEndChars))
+                {
+                    // valid end char:
+                    pReturn = (PSZ)p;
+                    break;
+                }
+
+                p += ulFoundLen;
+            }
+        } while (p);
+
+    }
+    return (pReturn);
+}
+
+/*
  *@@ xstrrpl:
- *      replaces pstrSearch with pstrReplace in pxstr.
+ *      replaces the first occurence of pstrSearch with
+ *      pstrReplace in pxstr.
  *
  *      Starting with V0.9.6, this operates entirely on
  *      XSTRING's for speed because we then know the string
  *      lengths already and can use memcpy instead of strcpy.
- *      This new version should be magnitudes faster.
+ *      This new version should be magnitudes faster,
+ *      especially with large string bufffers.
  *
  *      None of the pointers can be NULL, but if pstrReplace
  *      is empty, this effectively erases pstrSearch in pxstr.
@@ -453,15 +546,13 @@ ULONG xstrcat(PXSTRING pxstr,               // in/out: string
  *      null terminator) or 0 if pszSearch was not found
  *      (and pxstr was therefore not changed).
  *
- *      If the string was found and (pulAfterOfs != NULL),
- *      *pulAfterOfs will be set to the first character
- *      after the new replacement string. This allows you
- *      to call this func again with the same strings to
- *      have several occurences replaced.
- *
- *      Only the first occurence is replaced. To replace
- *      all occurences in a buffer, repeat calling this
- *      function until it returns 0.
+ *      This starts the search at *pulOffset. If
+ *      (*pulOffset == 0), this starts from the beginning
+ *      of pxstr.
+ *      If the string was found, *pulOffset will be set to the
+ *      first character after the new replacement string. This
+ *      allows you to call this func again with the same strings
+ *      to have several occurences replaced (see the example below).
  *
  *      There are two wrappers around this function which
  *      work on C strings instead (however, thus losing the
@@ -475,14 +566,13 @@ ULONG xstrcat(PXSTRING pxstr,               // in/out: string
  *      <B>Example usage:</B>
  *
  +          XSTRING str;
- +          ULONG ulPos = 0;
+ +          ULONG ulOffset = 0;
  +          xstrInit(&str, 0);
  +          xstrcpy(&str, "Test phrase 1. Test phrase 2.");
  +          while (xstrrpl(&str,
- +                         ulPos,
+ +                         &ulPos,      // in/out: offset
  +                         "Test",      // search
- +                         "Dummy",     // replace
- +                         &ulPos))
+ +                         "Dummy")     // replace
  +              ;
  *
  *      would replace all occurences of "Test" in str with
@@ -492,29 +582,37 @@ ULONG xstrcat(PXSTRING pxstr,               // in/out: string
  *@@changed V0.9.0 (99-11-08) [umoeller]: crashed if *ppszBuf was NULL. Fixed.
  *@@changed V0.9.2 (2000-04-01) [umoeller]: renamed from strhxrpl
  *@@changed V0.9.6 (2000-11-01) [umoeller]: rewritten
+ *@@changed V0.9.6 (2000-11-12) [umoeller]: now using strhmemfind
  */
 
 ULONG xstrrpl(PXSTRING pxstr,               // in/out: string
-              ULONG ulOfs,                  // in: where to begin search (0 = start)
+              PULONG pulOfs,                // in: where to begin search (0 = start);
+                                            // out: ofs of first char after replacement string
               const XSTRING *pstrSearch,    // in: search string; cannot be NULL
               const XSTRING *pstrReplace,   // in: replacement string; cannot be NULL
-              PULONG pulAfterOfs)           // out: offset where found (ptr can be NULL)
+              size_t *pShiftTable,          // in: shift table (see strhmemfind)
+              PBOOL pfRepeatFind)           // in: repeat find? (see strhmemfind)
 {
-    ULONG    ulrc = 0;
+    ULONG    ulrc = 0;      // default: not found
 
     if ((pxstr) && (pstrSearch) && (pstrReplace))
     {
         ULONG   cSearchLen = pstrSearch->ulLength;
 
         // can we search this?
-        if (    (ulOfs < pxstr->ulLength)
+        if (    (*pulOfs < pxstr->ulLength)
              && (cSearchLen)
            )
         {
             // yes:
-            PSZ     pFound = strstr(pxstr->psz + ulOfs,
-                                    pstrSearch->psz);
-
+            /* PSZ     pFound = strstr(pxstr->psz + *pulOfs,
+                                    pstrSearch->psz);        */
+            PSZ pFound = (PSZ)strhmemfind(pxstr->psz + *pulOfs, // in: haystack
+                                          pxstr->ulLength - *pulOfs,
+                                          pstrSearch->psz,
+                                          cSearchLen,
+                                          pShiftTable,
+                                          pfRepeatFind);
             if (pFound)
             {
                 // found in buffer from ofs:
@@ -568,6 +666,7 @@ ULONG xstrrpl(PXSTRING pxstr,               // in/out: string
                            pxstr->ulLength - ulFoundOfs - cSearchLen // 9
                                 + 1); // null terminator
 
+                    // replace old buffer with new one
                     free(pxstr->psz);
                     pxstr->psz = pszNew;
                     pxstr->ulLength = cbNeeded - 1;
@@ -626,38 +725,45 @@ ULONG xstrrpl(PXSTRING pxstr,               // in/out: string
 
                 // return new length
                 ulrc = cbNeeded - 1;
-                if (pulAfterOfs)
-                    *pulAfterOfs = ulFoundOfs + cReplaceLen;
-            }
-        }
-    }
+                *pulOfs = ulFoundOfs + cReplaceLen;
+            } // end if (pFound)
+        } // end if (    (*pulOfs < pxstr->ulLength) ...
+    } // end if ((pxstr) && (pstrSearch) && (pstrReplace))
 
     return (ulrc);
 }
 
 /*
  *@@ xstrcrpl:
- *      wrapper around xstrrpl which allows using C strings
+ *      wrapper around xstrrpl() which allows using C strings
  *      for the find and replace parameters.
+ *
+ *      This creates two temporary XSTRING's for pcszSearch
+ *      pcszReplace. As a result, this is slower than xstrrpl.
+ *      If you search with the same strings several times,
+ *      you'll be better off using xstrrpl() directly.
  *
  *@@added V0.9.6 (2000-11-01) [umoeller]
  */
 
 ULONG xstrcrpl(PXSTRING pxstr,              // in/out: string
-               ULONG ulOfs,                 // in: where to begin search (0 = start)
+               PULONG pulOfs,               // in: where to begin search (0 = start);
+                                            // out: ofs of first char after replacement string
                const char *pcszSearch,      // in: search string; cannot be NULL
-               const char *pcszReplace,     // in: replacement string; cannot be NULL
-               PULONG pulAfterOfs)          // out: offset where found (ptr can be NULL)
+               const char *pcszReplace)     // in: replacement string; cannot be NULL
 {
-    ULONG   ulrc = 0;
+    // ULONG   ulrc = 0;
     XSTRING xstrFind,
             xstrReplace;
-    xstrInit(&xstrFind, 0);
-    xstrset(&xstrFind, (PSZ)pcszSearch);
-    xstrInit(&xstrReplace, 0);
-    xstrset(&xstrReplace, (PSZ)pcszReplace);
+    size_t  ShiftTable[256];
+    BOOL    fRepeat = FALSE;
+    // initialize find/replace strings... note that the
+    // C strings are not free()'able, so we MUST NOT use xstrClear
+    // before leaving
+    xstrInitSet(&xstrFind, (PSZ)pcszSearch);
+    xstrInitSet(&xstrReplace, (PSZ)pcszReplace);
 
-    return (xstrrpl(pxstr, ulOfs, &xstrFind, &xstrReplace, pulAfterOfs));
+    return (xstrrpl(pxstr, pulOfs, &xstrFind, &xstrReplace, ShiftTable, &fRepeat));
 }
 
 // test case

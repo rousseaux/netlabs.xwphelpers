@@ -1,8 +1,7 @@
 
 /*
- * memdebug.c:
- *      memory debugging helpers. Memory debugging is enabled
- *      if the __XWPMEMDEBUG__ #define is set in setup.h.
+ *@@sourcefile memdebug.c:
+ *      memory debugging helpers.
  *
  *      Several things are in here which might turn out to
  *      be useful:
@@ -11,7 +10,14 @@
  *
  *      -- Sophisticated heap debugging functions, which
  *         automatically replace malloc() and free() etc.
- *         when XWorkplace is compiled with debug code.
+ *         If the __XWPMEMDEBUG__ #define is set before including
+ *         memdebug.h, all those standard library calls
+ *         are remapped to use the functions in this file
+ *         instead.
+ *
+ *         At present, malloc(), calloc(), realloc(), strdup()
+ *         and free() are supported.
+ *
  *         These log every memory allocation made and log
  *         much more data compared to the VAC++ memory
  *         debugging functions. See HEAPITEM for details.
@@ -27,19 +33,17 @@
  *         lock, so DON'T display a message box while in that
  *         function.
  *
- *         At present, malloc(), calloc(), strdup() and free()
- *         are supported. If you invoke free() on a memory block
- *         allocated by a function other than the above, you'll
- *         get a runtime error.
- *
  *         These debug functions have been added with V0.9.3
  *         and should now be compiler-independent.
  *
- *      -- A PM heap debugging window which shows the statuzs
- *         of the heap logging list. See memdCreateMemDebugWindow
- *         for details.
+ *         V0.9.6 added realloc() support and fixed a few bugs.
  *
- *      To enable memory debugging, do the following:
+ *      -- A PM heap debugging window which shows the status
+ *         of the heap logging list. See memdCreateMemDebugWindow
+ *         (memdebug_win.c) for details.
+ *
+ *      To enable memory debugging, do the following in each (!)
+ *      of your code modules:
  *
  *      1) Include at least <stdlib.h> and <string.h>.
  *
@@ -52,6 +56,35 @@
  *
  *      That's all. XWorkplace's setup.h does this automatically
  *      if XWorkplace is compiled with debug code.
+ *
+ *      A couple of WARNINGS:
+ *
+ *      1)  Memory debugging can greatly slow down the system
+ *          after a while. When free() is invoked, the memory
+ *          that was allocated is freed, but not the memory
+ *          log entry (the HEAPITEM) to allow tracing what was
+ *          freed. As a result, the linked list of memory items
+ *          keeps growing longer, and free() becomes terribly
+ *          slow after a while because it must traverse the
+ *          entire list for each free() call. Use memdReleaseFreed
+ *          from time to time.
+ *
+ *      2)  The replacement functions in this file allocate
+ *          extra memory for the magic strings. For example, if
+ *          you call malloc(100), more than 100 bytes get allocated
+ *          to allow for storing the magic strings to detect
+ *          memory overwrites. Two magic strings are allocated,
+ *          one before the actual buffer, and one behind it.
+ *
+ *          As a result, YOU MUST NOT confuse the replacement
+ *          memory functions with the original ones. If you
+ *          use malloc() in one source file and free() the
+ *          buffer in another one where debug memory has not
+ *          been enabled, you'll get crashes.
+ *
+ *          As a rule of thumb, enable memory debugging for all
+ *          your source files or for none. And make sure everything
+ *          is recompiled when you change your mind.
  *
  *@@added V0.9.1 (2000-02-12) [umoeller]
  */
@@ -79,29 +112,21 @@
 #define INCL_DOSPROCESS
 #define INCL_DOSERRORS
 
-#define INCL_WINWINDOWMGR
-#define INCL_WINFRAMEMGR
-#define INCL_WINCOUNTRY
-#define INCL_WINSYS
-#define INCL_WINMENUS
-#define INCL_WINSTDCNR
 #include <os2.h>
 
 #include <stdio.h>
 #include <string.h>
-// #include <malloc.h>
 #include <setjmp.h>
 
-#define DONT_REPLACE_MALLOC             // we need the "real" malloc in this file
+#define DONT_REPLACE_MALLOC             // never do debug memory for this
+#define MEMDEBUG_PRIVATE
 #include "setup.h"
 
 #ifdef __XWPMEMDEBUG__
 
-#include "helpers\cnrh.h"
 #include "helpers\except.h"
-// #include "helpers\memdebug.h"        // included by setup.h already
+#include "helpers\memdebug.h"        // included by setup.h already
 #include "helpers\stringh.h"
-#include "helpers\winh.h"
 
 /*
  *@@category: Helpers\C helpers\Heap debugging
@@ -119,50 +144,15 @@
             // V0.9.3 (2000-04-17) [umoeller]
 #define MEMBLOCKMAGIC_TAIL     "\250\210&%/dfjsk%#,dlhf\223"
 
-/*
- *@@ HEAPITEM:
- *      informational structure created for each
- *      malloc() call by memdMalloc. These are stored
- *      in a global linked list (G_pHeapItemsRoot).
- *
- *      We cannot use the linklist.c functions for
- *      managing the linked list because these use
- *      malloc in turn, which would lead to infinite
- *      loops.
- *
- *@@added V0.9.3 (2000-04-11) [umoeller]
- */
-
-typedef struct _HEAPITEM
-{
-    struct _HEAPITEM    *pNext;     // next item in linked list or NULL if last
-
-    void                *pAfterMagic; // memory pointer returned by memdMalloc;
-                                    // this points to after the magic string
-    unsigned long       ulSize;     // size of *pData
-
-    const char          *pcszSourceFile;    // as passed to memdMalloc
-    unsigned long       ulLine;             // as passed to memdMalloc
-    const char          *pcszFunction;      // as passed to memdMalloc
-
-    DATETIME            dtAllocated;        // system date/time at time of memdMalloc call
-
-    ULONG               ulTID;      // thread ID that memdMalloc was running on
-
-    BOOL                fFreed;     // TRUE only after item has been freed by memdFree
-} HEAPITEM, *PHEAPITEM;
-
 HMTX            G_hmtxMallocList = NULLHANDLE;
 
-PHEAPITEM       G_pHeapItemsRoot = NULL,
-                G_pHeapItemsLast = NULL;
-
-PSZ             G_pszMemCnrTitle = NULL;
+extern PHEAPITEM G_pHeapItemsRoot = NULL;
+PHEAPITEM       G_pHeapItemsLast = NULL;
 
 PFNCBMEMDLOG    G_pMemdLogFunc = NULL;
 
-ULONG           G_ulItemsReleased = 0,
-                G_ulBytesReleased = 0;
+extern ULONG    G_ulItemsReleased = 0;
+extern ULONG    G_ulBytesReleased = 0;
 
 /* ******************************************************************
  *                                                                  *
@@ -188,11 +178,11 @@ BOOL memdLock(VOID)
         // first call:
         arc = DosCreateMutexSem(NULL,
                                 &G_hmtxMallocList,
-                                0,
-                                FALSE);
-
-    arc = DosRequestMutexSem(G_hmtxMallocList,
-                             SEM_INDEFINITE_WAIT);
+                                0,          // unshared
+                                TRUE);      // request now!
+    else
+        arc = DosRequestMutexSem(G_hmtxMallocList,
+                                 SEM_INDEFINITE_WAIT);
 
     return (arc == NO_ERROR);
 }
@@ -434,11 +424,9 @@ void memdFree(void *p,
                     free(pBeforeMagic);
                     pHeapItem->fFreed = TRUE;
 
-                    /* lstRemoveNode(&G_llHeapItems,
-                                  pNode); */
                     fFound = TRUE;
                     break;
-                }
+                } // if (!pHeapItem->fFreed)
 
             pHeapItem = pHeapItem->pNext;
         }
@@ -451,13 +439,160 @@ void memdFree(void *p,
         {
             CHAR szMsg[1000];
             sprintf(szMsg,
-                    "free() failed. Called from %s (%s, line %d) for object 0x%lX.",
+                    "free() called with invalid object from %s (%s, line %d) for object 0x%lX.",
                     pcszFunction,
                         pcszSourceFile,
                         ulLine,
                     p);
             G_pMemdLogFunc(szMsg);
         }
+}
+
+/*
+ *@@ memdRealloc:
+ *      wrapper function for realloc(). See memdMalloc for
+ *      details.
+ *
+ *@@added V0.9.6 (2000-11-12) [umoeller]
+ */
+
+void* memdRealloc(void *p,
+                  size_t stSize,
+                  const char *pcszSourceFile, // in: source file name
+                  unsigned long ulLine,       // in: source line
+                  const char *pcszFunction)   // in: function name
+{
+    void *prc = NULL;
+    BOOL fFound = FALSE;
+
+    if (memdLock())
+    {
+        PHEAPITEM pHeapItem = G_pHeapItemsRoot;
+
+        // search the list with the pointer which was
+        // really returned by the original malloc(),
+        // that is, the byte before the magic string
+        void *pBeforeMagic = ((PBYTE)p) - sizeof(MEMBLOCKMAGIC_HEAD);
+
+        while (pHeapItem)
+        {
+            if (pHeapItem->pAfterMagic == p)
+                // the same address may be allocated and freed
+                // several times, so if this address has been
+                // freed, search on
+                if (!pHeapItem->fFreed)
+                {
+                    // found:
+                    PVOID   pObjNew = 0;
+                    ULONG   ulError = 0;
+                    ULONG   cbCopy = 0;
+                    PTIB    ptib;
+                    PPIB    ppib;
+
+                    // check magic string
+                    if (memcmp(pBeforeMagic,
+                               MEMBLOCKMAGIC_HEAD,
+                               sizeof(MEMBLOCKMAGIC_HEAD))
+                            != 0)
+                        ulError = 1;
+                    else if (memcmp(((PBYTE)pHeapItem->pAfterMagic) + pHeapItem->ulSize,
+                                    MEMBLOCKMAGIC_TAIL,
+                                    sizeof(MEMBLOCKMAGIC_TAIL))
+                            != 0)
+                        ulError = 2;
+
+                    if (ulError)
+                    {
+                        // magic block has been overwritten:
+                        if (G_pMemdLogFunc)
+                        {
+                            CHAR szMsg[1000];
+                            sprintf(szMsg,
+                                    "Magic string %s memory block at 0x%lX has been overwritten.\n"
+                                    "This was detected by the realloc() call at %s (%s, line %d).\n"
+                                    "The block was allocated by %s (%s, line %d).",
+                                    (ulError == 1) ? "before" : "after",
+                                    p,
+                                    pcszFunction,
+                                        pcszSourceFile,
+                                        ulLine, // free
+                                    pHeapItem->pcszFunction,
+                                        pHeapItem->pcszSourceFile,
+                                        pHeapItem->ulLine);
+                            G_pMemdLogFunc(szMsg);
+                        }
+                    }
+
+                    // now reallocate!
+                    pObjNew = malloc(stSize   // new size
+                                     + sizeof(MEMBLOCKMAGIC_HEAD)
+                                     + sizeof(MEMBLOCKMAGIC_TAIL));
+
+                    // store "front" magic string
+                    memcpy(pObjNew,
+                           MEMBLOCKMAGIC_HEAD,
+                           sizeof(MEMBLOCKMAGIC_HEAD));
+                    // return address: first byte after "front" magic string
+                    prc = ((PBYTE)pObjNew) + sizeof(MEMBLOCKMAGIC_HEAD);
+
+                    // bytes to copy: the smaller of the old and the new size
+                    cbCopy = pHeapItem->ulSize;
+                    if (stSize < pHeapItem->ulSize)
+                        cbCopy = stSize;
+
+                    // copy buffer from old memory object
+                    memcpy(prc,         // after "front" magic
+                           pHeapItem->pAfterMagic,
+                           cbCopy);
+
+                    // store "tail" magic string to block which
+                    // will be returned plus the size which was requested
+                    memcpy(((PBYTE)prc) + stSize,
+                           MEMBLOCKMAGIC_TAIL,
+                           sizeof(MEMBLOCKMAGIC_TAIL));
+
+                    // free the old buffer
+                    free(pBeforeMagic);
+
+                    // update the HEAPITEM
+                    pHeapItem->pAfterMagic = prc;       // new pointer!
+                    pHeapItem->ulSize = stSize;         // new size!
+                    pHeapItem->pcszSourceFile = pcszSourceFile;
+                    pHeapItem->ulLine = ulLine;
+                    pHeapItem->pcszFunction = pcszFunction;
+
+                    // update date, time, TID
+                    DosGetDateTime(&pHeapItem->dtAllocated);
+                    pHeapItem->ulTID = 0;
+                    if (DosGetInfoBlocks(&ptib, &ppib) == NO_ERROR)
+                        if (ptib)
+                            if (ptib->tib_ptib2)
+                                pHeapItem->ulTID = ptib->tib_ptib2->tib2_ultid;
+
+                    fFound = TRUE;
+                    break;
+                } // if (!pHeapItem->fFreed)
+
+            pHeapItem = pHeapItem->pNext;
+        }
+
+        memdUnlock();
+    }
+
+    if (!fFound)
+        if (G_pMemdLogFunc)
+        {
+            CHAR szMsg[1000];
+            sprintf(szMsg,
+                    "realloc() called with invalid object from %s (%s, line %d) for object 0x%lX.",
+                    pcszFunction,
+                        pcszSourceFile,
+                        ulLine,
+                    p);
+            G_pMemdLogFunc(szMsg);
+        }
+
+    return (prc);
 }
 
 /*
@@ -484,10 +619,12 @@ unsigned long memdReleaseFreed(void)
 
         while (pHeapItem)
         {
+            // store next first, because we can change the "next" pointer
             PHEAPITEM   pNext = pHeapItem->pNext;       // can be NULL
+
             if (pHeapItem->fFreed)
             {
-                // item freed:
+                // item was freed:
                 if (pPrevious == NULL)
                     // head of list:
                     G_pHeapItemsRoot = pNext;           // can be NULL
@@ -498,6 +635,10 @@ unsigned long memdReleaseFreed(void)
 
                 ulItemsReleased++;
                 ulBytesReleased += pHeapItem->ulSize;
+
+                if (pHeapItem == G_pHeapItemsLast)
+                    // reset "last item" cache
+                    G_pHeapItemsLast = NULL;
 
                 free(pHeapItem);
             }
@@ -548,683 +689,6 @@ unsigned long memdReleaseFreed(void)
         }
     }
 #endif
-
-/* ******************************************************************
- *                                                                  *
- *   Heap debugging window                                          *
- *                                                                  *
- ********************************************************************/
-
-/*
- *@@ MEMRECORD:
- *
- *@@added V0.9.1 (99-12-04) [umoeller]
- */
-
-typedef struct _MEMRECORD
-{
-    RECORDCORE  recc;
-
-    ULONG       ulIndex;
-
-    CDATE       cdateAllocated;
-    CTIME       ctimeAllocated;
-
-    PSZ         pszFreed;
-
-    ULONG       ulTID;
-
-    PSZ         pszFunction;    // points to szFunction
-    CHAR        szFunction[400];
-
-    PSZ         pszSource;      // points to szSource
-    CHAR        szSource[CCHMAXPATH];
-
-    ULONG       ulLine;
-
-    PSZ         pszAddress;     // points to szAddress
-    CHAR        szAddress[20];
-
-    ULONG       ulSize;
-
-} MEMRECORD, *PMEMRECORD;
-
-/* ULONG       ulHeapItemsCount1,
-            ulHeapItemsCount2;
-ULONG       ulTotalAllocated,
-            ulTotalFreed;
-PMEMRECORD  pMemRecordThis = NULL;
-PSZ         pszMemCnrTitle = NULL; */
-
-#if 0
-    /*
-     *@@ fncbMemHeapWalkCount:
-     *      callback func for _heap_walk function used for
-     *      fnwpMemDebug.
-     *
-     *@@added V0.9.1 (99-12-04) [umoeller]
-     */
-
-    int fncbMemHeapWalkCount(const void *pObject,
-                             size_t Size,
-                             int useflag,
-                             int status,
-                             const char *filename,
-                             size_t line)
-    {
-        // skip all the items which seem to be
-        // internal to the runtime
-        if ((filename) || (useflag == _FREEENTRY))
-        {
-            ulHeapItemsCount1++;
-            if (useflag == _FREEENTRY)
-                ulTotalFreed += Size;
-            else
-                ulTotalAllocated += Size;
-        }
-        return (0);
-    }
-
-    /*
-     *@@ fncbMemHeapWalkFill:
-     *      callback func for _heap_walk function used for
-     *      fnwpMemDebug.
-     *
-     *@@added V0.9.1 (99-12-04) [umoeller]
-     */
-
-    int fncbMemHeapWalkFill(const void *pObject,
-                            size_t Size,
-                            int useflag,
-                            int status,
-                            const char *filename,
-                            size_t line)
-    {
-        // skip all the items which seem to be
-        // internal to the runtime
-        if ((filename) || (useflag == _FREEENTRY))
-        {
-            ulHeapItemsCount2++;
-            if ((pMemRecordThis) && (ulHeapItemsCount2 < ulHeapItemsCount1))
-            {
-                pMemRecordThis->ulIndex = ulHeapItemsCount2 - 1;
-
-                pMemRecordThis->pObject = pObject;
-                pMemRecordThis->useflag = useflag;
-                pMemRecordThis->status = status;
-                pMemRecordThis->filename = filename;
-
-                pMemRecordThis->pszAddress = pMemRecordThis->szAddress;
-
-                pMemRecordThis->ulSize = Size;
-
-                pMemRecordThis->pszSource = pMemRecordThis->szSource;
-
-                pMemRecordThis->ulLine = line;
-
-                pMemRecordThis = (PMEMRECORD)pMemRecordThis->recc.preccNextRecord;
-            }
-            else
-                return (1);     // stop
-        }
-
-        return (0);
-    }
-
-    /*
-     *@@ memdCreateRecordsVAC:
-     *
-     *@@added V0.9.3 (2000-04-10) [umoeller]
-     */
-
-    VOID memdCreateRecordsVAC(HWND hwndCnr)
-    {
-        // count heap items
-        ulHeapItemsCount1 = 0;
-        ulTotalFreed = 0;
-        ulTotalAllocated = 0;
-        _heap_walk(fncbMemHeapWalkCount);
-
-        pMemRecordFirst = (PMEMRECORD)cnrhAllocRecords(hwndCnr,
-                                                       sizeof(MEMRECORD),
-                                                       ulHeapItemsCount1);
-        if (pMemRecordFirst)
-        {
-            ulHeapItemsCount2 = 0;
-            pMemRecordThis = pMemRecordFirst;
-            _heap_walk(fncbMemHeapWalkFill);
-
-            // the following doesn't work while _heap_walk is running
-            pMemRecordThis = pMemRecordFirst;
-            while (pMemRecordThis)
-            {
-                switch (pMemRecordThis->useflag)
-                {
-                    case _USEDENTRY: pMemRecordThis->pszUseFlag = "Used"; break;
-                    case _FREEENTRY: pMemRecordThis->pszUseFlag = "Freed"; break;
-                }
-
-                switch (pMemRecordThis->status)
-                {
-                    case _HEAPBADBEGIN: pMemRecordThis->pszStatus = "heap bad begin"; break;
-                    case _HEAPBADNODE: pMemRecordThis->pszStatus = "heap bad node"; break;
-                    case _HEAPEMPTY: pMemRecordThis->pszStatus = "heap empty"; break;
-                    case _HEAPOK: pMemRecordThis->pszStatus = "OK"; break;
-                }
-
-                sprintf(pMemRecordThis->szAddress, "0x%lX", pMemRecordThis->pObject);
-                strcpy(pMemRecordThis->szSource,
-                        (pMemRecordThis->filename)
-                            ? pMemRecordThis->filename
-                            : "?");
-
-                pMemRecordThis = (PMEMRECORD)pMemRecordThis->recc.preccNextRecord;
-            }
-
-            cnrhInsertRecords(hwndCnr,
-                              NULL,         // parent
-                              (PRECORDCORE)pMemRecordFirst,
-                              TRUE,
-                              NULL,
-                              CRA_RECORDREADONLY,
-                              ulHeapItemsCount2);
-        }
-    }
-
-#endif
-
-/*
- *@@ memdCreateRecords:
- *
- *@@added V0.9.3 (2000-04-10) [umoeller]
- */
-
-VOID memdCreateRecords(HWND hwndCnr,
-                       PULONG pulTotalItems,
-                       PULONG pulAllocatedItems,
-                       PULONG pulFreedItems,
-                       PULONG pulTotalBytes,
-                       PULONG pulAllocatedBytes,
-                       PULONG pulFreedBytes)
-{
-    // count heap items
-    ULONG       ulHeapItemsCount1 = 0;
-    PMEMRECORD  pMemRecordFirst;
-
-    if (memdLock())
-    {
-        // PLISTNODE   pNode = lstQueryFirstNode(&G_llHeapItems);
-        PHEAPITEM pHeapItem = G_pHeapItemsRoot;
-
-        *pulTotalItems = 0;
-        *pulAllocatedItems = 0;
-        *pulFreedItems = 0;
-
-        *pulTotalBytes = 0;
-        *pulAllocatedBytes = 0;
-        *pulFreedBytes = 0;
-
-        while (pHeapItem)
-        {
-            ulHeapItemsCount1++;
-            if (pHeapItem->fFreed)
-            {
-                (*pulFreedItems)++;
-                (*pulFreedBytes) += pHeapItem->ulSize;
-            }
-            else
-            {
-                (*pulAllocatedItems)++;
-                (*pulAllocatedBytes) += pHeapItem->ulSize;
-            }
-
-            (*pulTotalBytes) += pHeapItem->ulSize;
-
-            pHeapItem = pHeapItem->pNext;
-        }
-
-        *pulTotalItems = ulHeapItemsCount1;
-
-        pMemRecordFirst = (PMEMRECORD)cnrhAllocRecords(hwndCnr,
-                                                       sizeof(MEMRECORD),
-                                                       ulHeapItemsCount1);
-        if (pMemRecordFirst)
-        {
-            ULONG       ulHeapItemsCount2 = 0;
-            PMEMRECORD  pMemRecordThis = pMemRecordFirst;
-            pHeapItem = G_pHeapItemsRoot;
-            // PLISTNODE   pMemNode = lstQueryFirstNode(&G_llHeapItems);
-
-            while ((pMemRecordThis) && (pHeapItem))
-            {
-                // PHEAPITEM pHeapItem = (PHEAPITEM)pMemNode->pItemData;
-
-                pMemRecordThis->ulIndex = ulHeapItemsCount2++;
-
-                cnrhDateTimeDos2Win(&pHeapItem->dtAllocated,
-                                    &pMemRecordThis->cdateAllocated,
-                                    &pMemRecordThis->ctimeAllocated);
-
-                if (pHeapItem->fFreed)
-                    pMemRecordThis->pszFreed = "yes";
-
-                pMemRecordThis->ulTID = pHeapItem->ulTID;
-
-                strcpy(pMemRecordThis->szSource, pHeapItem->pcszSourceFile);
-                pMemRecordThis->pszSource = pMemRecordThis->szSource;
-
-                pMemRecordThis->ulLine = pHeapItem->ulLine;
-
-                strcpy(pMemRecordThis->szFunction, pHeapItem->pcszFunction);
-                pMemRecordThis->pszFunction = pMemRecordThis->szFunction;
-
-                sprintf(pMemRecordThis->szAddress, "0x%lX", pHeapItem->pAfterMagic);
-                pMemRecordThis->pszAddress = pMemRecordThis->szAddress;
-
-                pMemRecordThis->ulSize = pHeapItem->ulSize;
-
-
-                /* switch (pMemRecordThis->useflag)
-                {
-                    case _USEDENTRY: pMemRecordThis->pszUseFlag = "Used"; break;
-                    case _FREEENTRY: pMemRecordThis->pszUseFlag = "Freed"; break;
-                }
-
-                switch (pMemRecordThis->status)
-                {
-                    case _HEAPBADBEGIN: pMemRecordThis->pszStatus = "heap bad begin"; break;
-                    case _HEAPBADNODE: pMemRecordThis->pszStatus = "heap bad node"; break;
-                    case _HEAPEMPTY: pMemRecordThis->pszStatus = "heap empty"; break;
-                    case _HEAPOK: pMemRecordThis->pszStatus = "OK"; break;
-                }
-
-                sprintf(pMemRecordThis->szAddress, "0x%lX", pMemRecordThis->pObject);
-                strcpy(pMemRecordThis->szSource,
-                        (pMemRecordThis->filename)
-                            ? pMemRecordThis->filename
-                            : "?"); */
-
-                pMemRecordThis = (PMEMRECORD)pMemRecordThis->recc.preccNextRecord;
-                pHeapItem = pHeapItem->pNext;
-            }
-
-            cnrhInsertRecords(hwndCnr,
-                              NULL,         // parent
-                              (PRECORDCORE)pMemRecordFirst,
-                              TRUE,
-                              NULL,
-                              CRA_RECORDREADONLY,
-                              ulHeapItemsCount2);
-        }
-
-        memdUnlock();
-    }
-}
-
-/*
- *@@ mnu_fnCompareIndex:
- *
- *@@added V0.9.1 (99-12-03) [umoeller]
- */
-
-SHORT EXPENTRY mnu_fnCompareIndex(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
-{
-    // HAB habDesktop = WinQueryAnchorBlock(HWND_DESKTOP);
-    pStorage = pStorage; // to keep the compiler happy
-    if ((pmrc1) && (pmrc2))
-        if (pmrc1->ulIndex < pmrc2->ulIndex)
-            return (-1);
-        else if (pmrc1->ulIndex > pmrc2->ulIndex)
-            return (1);
-
-    return (0);
-}
-
-/*
- *@@ mnu_fnCompareSourceFile:
- *
- *@@added V0.9.1 (99-12-03) [umoeller]
- */
-
-SHORT EXPENTRY mnu_fnCompareSourceFile(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
-{
-    HAB habDesktop = WinQueryAnchorBlock(HWND_DESKTOP);
-    pStorage = pStorage; // to keep the compiler happy
-    if ((pmrc1) && (pmrc2))
-            switch (WinCompareStrings(habDesktop, 0, 0,
-                                      pmrc1->szSource,
-                                      pmrc2->szSource,
-                                      0))
-            {
-                case WCS_LT: return (-1);
-                case WCS_GT: return (1);
-                default:    // equal
-                    if (pmrc1->ulLine < pmrc2->ulLine)
-                        return (-1);
-                    else if (pmrc1->ulLine > pmrc2->ulLine)
-                        return (1);
-
-            }
-
-    return (0);
-}
-
-#define ID_MEMCNR   1000
-
-/*
- *@@ memd_fnwpMemDebug:
- *      client window proc for the heap debugger window
- *      accessible from the Desktop context menu if
- *      __XWPMEMDEBUG__ is defined. Otherwise, this is not
- *      compiled.
- *
- *      Usage: this is a regular PM client window procedure
- *      to be used with WinRegisterClass and WinCreateStdWindow.
- *      See dtpMenuItemSelected, which uses this.
- *
- *      This creates a container with all the memory objects
- *      with the size of the client area in turn.
- *
- *@@added V0.9.1 (99-12-04) [umoeller]
- */
-
-
-MRESULT EXPENTRY memd_fnwpMemDebug(HWND hwndClient, ULONG msg, MPARAM mp1, MPARAM mp2)
-{
-    MRESULT mrc = 0;
-
-    switch (msg)
-    {
-        case WM_CREATE:
-        {
-            TRY_LOUD(excpt1, NULL)
-            {
-                // PCREATESTRUCT pcs = (PCREATESTRUCT)mp2;
-                HWND hwndCnr;
-                hwndCnr = WinCreateWindow(hwndClient,        // parent
-                                          WC_CONTAINER,
-                                          "",
-                                          WS_VISIBLE | CCS_MINIICONS | CCS_READONLY | CCS_SINGLESEL,
-                                          0, 0, 0, 0,
-                                          hwndClient,        // owner
-                                          HWND_TOP,
-                                          ID_MEMCNR,
-                                          NULL, NULL);
-                if (hwndCnr)
-                {
-                    XFIELDINFO      xfi[11];
-                    PFIELDINFO      pfi = NULL;
-                    PMEMRECORD      pMemRecordFirst;
-                    int             i = 0;
-
-                    ULONG           ulTotalItems = 0,
-                                    ulAllocatedItems = 0,
-                                    ulFreedItems = 0;
-                    ULONG           ulTotalBytes = 0,
-                                    ulAllocatedBytes = 0,
-                                    ulFreedBytes = 0;
-
-                    // set up cnr details view
-                    xfi[i].ulFieldOffset = FIELDOFFSET(MEMRECORD, ulIndex);
-                    xfi[i].pszColumnTitle = "No.";
-                    xfi[i].ulDataType = CFA_ULONG;
-                    xfi[i++].ulOrientation = CFA_RIGHT;
-
-                    xfi[i].ulFieldOffset = FIELDOFFSET(MEMRECORD, cdateAllocated);
-                    xfi[i].pszColumnTitle = "Date";
-                    xfi[i].ulDataType = CFA_DATE;
-                    xfi[i++].ulOrientation = CFA_LEFT;
-
-                    xfi[i].ulFieldOffset = FIELDOFFSET(MEMRECORD, ctimeAllocated);
-                    xfi[i].pszColumnTitle = "Time";
-                    xfi[i].ulDataType = CFA_TIME;
-                    xfi[i++].ulOrientation = CFA_LEFT;
-
-                    xfi[i].ulFieldOffset = FIELDOFFSET(MEMRECORD, pszFreed);
-                    xfi[i].pszColumnTitle = "Freed";
-                    xfi[i].ulDataType = CFA_STRING;
-                    xfi[i++].ulOrientation = CFA_CENTER;
-
-                    xfi[i].ulFieldOffset = FIELDOFFSET(MEMRECORD, ulTID);
-                    xfi[i].pszColumnTitle = "TID";
-                    xfi[i].ulDataType = CFA_ULONG;
-                    xfi[i++].ulOrientation = CFA_RIGHT;
-
-                    xfi[i].ulFieldOffset = FIELDOFFSET(MEMRECORD, pszFunction);
-                    xfi[i].pszColumnTitle = "Function";
-                    xfi[i].ulDataType = CFA_STRING;
-                    xfi[i++].ulOrientation = CFA_LEFT;
-
-                    xfi[i].ulFieldOffset = FIELDOFFSET(MEMRECORD, pszSource);
-                    xfi[i].pszColumnTitle = "Source";
-                    xfi[i].ulDataType = CFA_STRING;
-                    xfi[i++].ulOrientation = CFA_LEFT;
-
-                    xfi[i].ulFieldOffset = FIELDOFFSET(MEMRECORD, ulLine);
-                    xfi[i].pszColumnTitle = "Line";
-                    xfi[i].ulDataType = CFA_ULONG;
-                    xfi[i++].ulOrientation = CFA_RIGHT;
-
-                    xfi[i].ulFieldOffset = FIELDOFFSET(MEMRECORD, ulSize);
-                    xfi[i].pszColumnTitle = "Size";
-                    xfi[i].ulDataType = CFA_ULONG;
-                    xfi[i++].ulOrientation = CFA_RIGHT;
-
-                    xfi[i].ulFieldOffset = FIELDOFFSET(MEMRECORD, pszAddress);
-                    xfi[i].pszColumnTitle = "Address";
-                    xfi[i].ulDataType = CFA_STRING;
-                    xfi[i++].ulOrientation = CFA_LEFT;
-
-                    pfi = cnrhSetFieldInfos(hwndCnr,
-                                            &xfi[0],
-                                            i,             // array item count
-                                            TRUE,          // no draw lines
-                                            3);            // return column
-
-                    {
-                        PSZ pszFont = "9.WarpSans";
-                        WinSetPresParam(hwndCnr,
-                                        PP_FONTNAMESIZE,
-                                        strlen(pszFont),
-                                        pszFont);
-                    }
-
-                    memdCreateRecords(hwndCnr,
-                                      &ulTotalItems,
-                                      &ulAllocatedItems,
-                                      &ulFreedItems,
-                                      &ulTotalBytes,
-                                      &ulAllocatedBytes,
-                                      &ulFreedBytes);
-
-                    BEGIN_CNRINFO()
-                    {
-                        CHAR    szCnrTitle[1000];
-                        CHAR    szTotalItems[100],
-                                szAllocatedItems[100],
-                                szFreedItems[100],
-                                szReleasedItems[100];
-                        CHAR    szTotalBytes[100],
-                                szAllocatedBytes[100],
-                                szFreedBytes[100],
-                                szReleasedBytes[100];
-                        sprintf(szCnrTitle,
-                                "Total logs in use: %s items = %s bytes\n"
-                                "    Total in use: %s items = %s bytes\n"
-                                "    Total freed: %s items = %s bytes\n"
-                                "Total logs released: %s items = %s bytes",
-                                strhThousandsDouble(szTotalItems,
-                                                    ulTotalItems,
-                                                    '.'),
-                                strhThousandsDouble(szTotalBytes,
-                                                    ulTotalBytes,
-                                                    '.'),
-                                strhThousandsDouble(szAllocatedItems,
-                                                    ulAllocatedItems,
-                                                    '.'),
-                                strhThousandsDouble(szAllocatedBytes,
-                                                    ulAllocatedBytes,
-                                                    '.'),
-                                strhThousandsDouble(szFreedItems,
-                                                    ulFreedItems,
-                                                    '.'),
-                                strhThousandsDouble(szFreedBytes,
-                                                    ulFreedBytes,
-                                                    '.'),
-                                strhThousandsDouble(szReleasedItems,
-                                                    G_ulItemsReleased,
-                                                    '.'),
-                                strhThousandsDouble(szReleasedBytes,
-                                                    G_ulBytesReleased,
-                                                    '.'));
-                        G_pszMemCnrTitle = strdup(szCnrTitle);
-                        cnrhSetTitle(G_pszMemCnrTitle);
-                        cnrhSetView(CV_DETAIL | CV_MINI | CA_DETAILSVIEWTITLES
-                                        | CA_DRAWICON
-                                    | CA_CONTAINERTITLE | CA_TITLEREADONLY
-                                        | CA_TITLESEPARATOR | CA_TITLELEFT);
-                        cnrhSetSplitBarAfter(pfi);
-                        cnrhSetSplitBarPos(250);
-                    } END_CNRINFO(hwndCnr);
-
-                    WinSetFocus(HWND_DESKTOP, hwndCnr);
-                }
-            }
-            CATCH(excpt1) {} END_CATCH();
-
-            mrc = WinDefWindowProc(hwndClient, msg, mp1, mp2);
-        break; }
-
-        case WM_WINDOWPOSCHANGED:
-        {
-            PSWP pswp = (PSWP)mp1;
-            mrc = WinDefWindowProc(hwndClient, msg, mp1, mp2);
-            if (pswp->fl & SWP_SIZE)
-            {
-                WinSetWindowPos(WinWindowFromID(hwndClient, ID_MEMCNR), // cnr
-                                HWND_TOP,
-                                0, 0, pswp->cx, pswp->cy,
-                                SWP_SIZE | SWP_MOVE | SWP_SHOW);
-            }
-        break; }
-
-        case WM_CONTROL:
-        {
-            USHORT usItemID = SHORT1FROMMP(mp1),
-                   usNotifyCode = SHORT2FROMMP(mp1);
-            if (usItemID == ID_MEMCNR)       // cnr
-            {
-                switch (usNotifyCode)
-                {
-                    case CN_CONTEXTMENU:
-                    {
-                        PMEMRECORD precc = (PMEMRECORD)mp2;
-                        if (precc == NULL)
-                        {
-                            // whitespace
-                            HWND hwndMenu = WinCreateMenu(HWND_DESKTOP,
-                                                          NULL); // no menu template
-                            winhInsertMenuItem(hwndMenu,
-                                               MIT_END,
-                                               1001,
-                                               "Sort by index",
-                                               MIS_TEXT, 0);
-                            winhInsertMenuItem(hwndMenu,
-                                               MIT_END,
-                                               1002,
-                                               "Sort by source file",
-                                               MIS_TEXT, 0);
-                            cnrhShowContextMenu(WinWindowFromID(hwndClient, ID_MEMCNR),
-                                                NULL,       // record
-                                                hwndMenu,
-                                                hwndClient);
-                        }
-                    }
-                }
-            }
-        break; }
-
-        case WM_COMMAND:
-            switch (SHORT1FROMMP(mp1))
-            {
-                case 1001:  // sort by index
-                    WinSendMsg(WinWindowFromID(hwndClient, ID_MEMCNR),
-                               CM_SORTRECORD,
-                               (MPARAM)mnu_fnCompareIndex,
-                               0);
-                break;
-
-                case 1002:  // sort by source file
-                    WinSendMsg(WinWindowFromID(hwndClient, ID_MEMCNR),
-                               CM_SORTRECORD,
-                               (MPARAM)mnu_fnCompareSourceFile,
-                               0);
-                break;
-            }
-        break;
-
-        case WM_CLOSE:
-            WinDestroyWindow(WinWindowFromID(hwndClient, ID_MEMCNR));
-            WinDestroyWindow(WinQueryWindow(hwndClient, QW_PARENT));
-            free(G_pszMemCnrTitle);
-            G_pszMemCnrTitle = NULL;
-        break;
-
-        default:
-            mrc = WinDefWindowProc(hwndClient, msg, mp1, mp2);
-    }
-
-    return (mrc);
-}
-
-/*
- *@@ memdCreateMemDebugWindow:
- *      creates a heap debugging window which
- *      is a standard frame with a container,
- *      listing all heap objects ever allocated.
- *
- *      The client of this standard frame is in
- *      memd_fnwpMemDebug.
- *
- *      This thing lists all calls to malloc()
- *      which were ever made, including the
- *      source file and source line number which
- *      made the call. Extreeeemely useful for
- *      detecting memory leaks.
- *
- *      This only works if the memory functions
- *      have been replaced with the debug versions
- *      in this file.
- */
-
-VOID memdCreateMemDebugWindow(VOID)
-{
-    ULONG flStyle = FCF_TITLEBAR | FCF_SYSMENU | FCF_HIDEMAX
-                    | FCF_SIZEBORDER | FCF_SHELLPOSITION
-                    | FCF_NOBYTEALIGN | FCF_TASKLIST;
-    if (WinRegisterClass(WinQueryAnchorBlock(HWND_DESKTOP),
-                         "XWPMemDebug",
-                         memd_fnwpMemDebug, 0L, 0))
-    {
-        HWND hwndClient;
-        HWND hwndMemFrame = WinCreateStdWindow(HWND_DESKTOP,
-                                               0L,
-                                               &flStyle,
-                                               "XWPMemDebug",
-                                               "Allocated XWorkplace Memory Objects",
-                                               0L,
-                                               NULLHANDLE,     // resource
-                                               0,
-                                               &hwndClient);
-        if (hwndMemFrame)
-        {
-            WinSetWindowPos(hwndMemFrame,
-                            HWND_TOP,
-                            0, 0, 0, 0,
-                            SWP_ZORDER | SWP_SHOW | SWP_ACTIVATE);
-        }
-    }
-}
 
 #else
 void memdDummy(void)

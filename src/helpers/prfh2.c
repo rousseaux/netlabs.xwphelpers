@@ -97,7 +97,7 @@ ULONG prfhINIError(ULONG ulOptions,
 
     if (fLog)
     {
-        fprintf(fLog, "    Error occured: %s\n    Return code: %s (%d)\n",
+        fprintf(fLog, "    Error occured: %s\n    Return code: %s (%lu)\n",
                 pszErrorString,
                     (ulrc == MBID_ABORT) ? "MBID_ABORT"
                     : (ulrc == MBID_IGNORE) ? "MBID_IGNORE"
@@ -178,7 +178,13 @@ BOOL prfhCopyProfile(HAB hab,               // in:  anchor block
         fprintf(fLog, "    Entering prfhCopyProfile, params: "
                       "hiniOld 0x%lX, pszOld %s, pfnwpCallback 0x%lX, "
                       "hwnd 0x%lX, msg 0x%lX, ulCount 0x%lX, ulMax 0x%lX\n",
-                hOld, pszOld, fncbUpdate, hwnd, msg, ulCount, ulMax);
+                hOld,
+                pszOld,
+                (ULONG)fncbUpdate,
+                hwnd,
+                msg,
+                ulCount,
+                ulMax);
         fflush(fLog);
     }
 
@@ -499,7 +505,7 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
 
                 arc2 = doshSetPathAttr(szSysBackup, FILE_NORMAL);
                 if (fLog)
-                    fprintf(fLog, "    rc2: %d\n", arc2);
+                    fprintf(fLog, "    rc2: %lu\n", arc2);
 
                 // delete OS2SYS.BAK
                 if (fLog)
@@ -508,7 +514,7 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
 
                 arc2 = DosDelete(szSysBackup);
                 if (fLog)
-                    fprintf(fLog, "    rc2: %d\n", arc2);
+                    fprintf(fLog, "    rc2: %lu\n", arc2);
 
                 // attrib -r -s -h -a OS2SYS.INI
                 if (fLog)
@@ -517,7 +523,7 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
 
                 arc2 = doshSetPathAttr(Profiles.pszSysName, FILE_NORMAL);
                 if (fLog)
-                    fprintf(fLog, "    rc2: %d\n", arc2);
+                    fprintf(fLog, "    rc2: %lu\n", arc2);
 
                 // move OS2SYS.INI OS2SYS.BAK
                 if (fLog)
@@ -525,7 +531,7 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
                             Profiles.pszSysName, szSysBackup);
                 arc = DosMove(Profiles.pszSysName, szSysBackup);
                 if (fLog)
-                    fprintf(fLog, "    rc: %d\n", arc);
+                    fprintf(fLog, "    rc: %lu\n", arc);
 
                 if (arc)
                     ulErrorOccured = prfhINIError(MB_ABORTRETRYIGNORE, fLog, fncbError, "Error moving original system profile to backup.");
@@ -538,7 +544,7 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
                             szSysNew, Profiles.pszSysName);
                 arc = DosMove(szSysNew, Profiles.pszSysName);
                 if (fLog)
-                    fprintf(fLog, "    rc: %d\n", arc);
+                    fprintf(fLog, "    rc: %lu\n", arc);
                 if (arc)
                     ulErrorOccured = prfhINIError(MB_ABORTRETRYIGNORE, fLog, fncbError, "Error moving newly created profile to system profile.");
             }
@@ -565,7 +571,7 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
 
                 arc2 = doshSetPathAttr(szUserBackup, FILE_NORMAL);
                 if (fLog)
-                    fprintf(fLog, "    rc2: %d\n", arc2);
+                    fprintf(fLog, "    rc2: %lu\n", arc2);
 
                 // delete OS2.BAK
                 if (fLog)
@@ -574,7 +580,7 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
 
                 arc2 = DosDelete(szUserBackup);
                 if (fLog)
-                    fprintf(fLog, "    rc2: %d\n", arc2);
+                    fprintf(fLog, "    rc2: %lu\n", arc2);
 
                 // attrib -r -s -h -a OS2.INI
                 if (fLog)
@@ -582,7 +588,7 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
                             Profiles.pszUserName);
                 arc2 = doshSetPathAttr(Profiles.pszUserName, FILE_NORMAL);
                 if (fLog)
-                    fprintf(fLog, "    rc2: %d\n", arc2);
+                    fprintf(fLog, "    rc2: %lu\n", arc2);
 
                 // move OS2.INI OS2.BAK
                 if (fLog)
@@ -590,7 +596,7 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
                             Profiles.pszUserName, szUserBackup);
                 arc = DosMove(Profiles.pszUserName, szUserBackup);
                 if (fLog)
-                    fprintf(fLog, "    rc: %d\n", arc);
+                    fprintf(fLog, "    rc: %lu\n", arc);
 
                 if (arc)
                     ulErrorOccured = prfhINIError(MB_ABORTRETRYIGNORE, fLog, fncbError, "Error moving original user profile to backup.");
@@ -605,7 +611,7 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
 
                 arc = DosMove(szUserNew, Profiles.pszUserName);
                 if (fLog)
-                    fprintf(fLog, "    rc: %d\n", arc);
+                    fprintf(fLog, "    rc: %lu\n", arc);
 
                 if (arc)
                     ulErrorOccured = prfhINIError(MB_ABORTRETRYIGNORE, fLog, fncbError, "Error moving newly created profile to user profile.");

@@ -40,6 +40,63 @@ extern "C" {
     // global variable for memory error logger func
     extern PFNCBMEMDLOG    G_pMemdLogFunc;
 
+    /* ******************************************************************
+     *
+     *   Private declarations
+     *
+     ********************************************************************/
+
+    #ifdef MEMDEBUG_PRIVATE
+
+        BOOL memdLock(VOID);
+
+        VOID memdUnlock(VOID);
+
+        /*
+         *@@ HEAPITEM:
+         *      informational structure created for each
+         *      malloc() call by memdMalloc. These are stored
+         *      in a global linked list (G_pHeapItemsRoot).
+         *
+         *      We cannot use the linklist.c functions for
+         *      managing the linked list because these use
+         *      malloc in turn, which would lead to infinite
+         *      loops.
+         *
+         *@@added V0.9.3 (2000-04-11) [umoeller]
+         */
+
+        typedef struct _HEAPITEM
+        {
+            struct _HEAPITEM    *pNext;     // next item in linked list or NULL if last
+
+            void                *pAfterMagic; // memory pointer returned by memdMalloc;
+                                            // this points to after the magic string
+            unsigned long       ulSize;     // requested size (without magic head and tail)
+
+            const char          *pcszSourceFile;    // as passed to memdMalloc
+            unsigned long       ulLine;             // as passed to memdMalloc
+            const char          *pcszFunction;      // as passed to memdMalloc
+
+            DATETIME            dtAllocated;        // system date/time at time of memdMalloc call
+
+            ULONG               ulTID;      // thread ID that memdMalloc was running on
+
+            BOOL                fFreed;     // TRUE only after item has been freed by memdFree
+        } HEAPITEM, *PHEAPITEM;
+
+        extern PHEAPITEM    G_pHeapItemsRoot;
+        extern ULONG        G_ulItemsReleased;
+        extern ULONG        G_ulBytesReleased;
+
+    #endif // MEMDEBUG_PRIVATE
+
+    /* ******************************************************************
+     *
+     *   Publics
+     *
+     ********************************************************************/
+
     void* memdMalloc(size_t stSize,
                      const char *pcszSourceFile,
                      unsigned long ulLine,
@@ -56,6 +113,12 @@ extern "C" {
                   unsigned long ulLine,
                   const char *pcszFunction);
 
+    void* memdRealloc(void *p,
+                      size_t stSize,
+                      const char *pcszSourceFile,
+                      unsigned long ulLine,
+                      const char *pcszFunction);
+
     unsigned long memdReleaseFreed(void);
 
     #ifdef __XWPMEMDEBUG__
@@ -63,6 +126,7 @@ extern "C" {
         #ifndef DONT_REPLACE_MALLOC
             #define malloc(ul) memdMalloc(ul, __FILE__, __LINE__, __FUNCTION__)
             #define calloc(n, size) memdCalloc(n, size, __FILE__, __LINE__, __FUNCTION__)
+            #define realloc(p, ul) memdRealloc(p, ul, __FILE__, __LINE__, __FUNCTION__)
             #define free(p) memdFree(p, __FILE__, __LINE__, __FUNCTION__)
 
             #ifdef __string_h
@@ -78,9 +142,9 @@ extern "C" {
 
     #ifdef PM_INCLUDED
         /********************************************************************
-         *                                                                  *
-         *   XFolder debugging helpers                                      *
-         *                                                                  *
+         *
+         *   XFolder debugging helpers
+         *
          ********************************************************************/
 
         #ifdef _PMPRINTF_
@@ -93,9 +157,9 @@ extern "C" {
         #endif
 
         /* ******************************************************************
-         *                                                                  *
-         *   Heap debugging window                                          *
-         *                                                                  *
+         *
+         *   Heap debugging window
+         *
          ********************************************************************/
 
         MRESULT EXPENTRY memd_fnwpMemDebug(HWND hwndClient, ULONG msg, MPARAM mp1, MPARAM mp2);

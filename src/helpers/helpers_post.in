@@ -113,6 +113,10 @@ $(OUTPUTDIR)\linklist.obj:  $(@B).c $(HLPINC)\$(@B).h \
 
 $(OUTPUTDIR)\memdebug.obj:  $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h \
+               $(HLPINC)\except.h $(HLPINC)\stringh.h
+
+$(OUTPUTDIR)\memdebug_win.obj:  $(@B).c $(HLPINC)\memdebug.h \
+               $(PROJECTINC)\setup.h \
                $(HLPINC)\cnrh.h $(HLPINC)\except.h $(HLPINC)\stringh.h $(HLPINC)\winh.h
 
 $(OUTPUTDIR)\prfh.obj:      $(@B).c $(HLPINC)\$(@B).h \

@@ -699,11 +699,12 @@ int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
                         {
                             NrPublic = pubfunc_ofs = pxdi->sspub32.offset;
                             read_types = TRUE;
-                            sprintf(pxdi->szNrPub, "%s %s (%s, seg %04X : ofs %08X\n",
+                            sprintf(pxdi->szNrPub,
+                                    "%s %s (%s, seg %04lX : ofs %08lX\n",
                                     (pxdi->sspub32.type == 1) ? " Abs" : " ",
                                     ename,
                                     ModName, // ()
-                                    pxdi->sspub32.segment,
+                                    (ULONG)pxdi->sspub32.segment,
                                     pxdi->sspub32.offset
                                 );
                             // but continue, because there might be a
@@ -1176,7 +1177,7 @@ VOID var_value(void *varptr,        // in: address of the variable on the stack
     else if (type == 9)
         sprintf(pszBuf, "%f", *(double*)varptr);
     else if (type == 10)
-        sprintf(pszBuf, "%f", *(long double*)varptr);
+        sprintf(pszBuf, "%f", (double)(*(long double*)varptr));
     else if (type == 16)
         sprintf(pszBuf, "%s", *(char*)varptr ? "TRUE" : "FALSE");
     else if (type == 17)
@@ -1186,14 +1187,14 @@ VOID var_value(void *varptr,        // in: address of the variable on the stack
     else if (type == 20)
         sprintf(pszBuf, "%c", *(char*)varptr);
     else if (type == 21)
-        sprintf(pszBuf, "%lc", *(short*)varptr);
+        sprintf(pszBuf, "%hd", (*(short*)varptr));
     else if (type == 22)
-        sprintf(pszBuf, "%lc", *(long*)varptr);
+        sprintf(pszBuf, "%ld", *(long*)varptr);
     else if (type == 23)
         sprintf(pszBuf, "void");
     else if (type >= 32)
     {
-        sprintf(pszBuf, "0x%p", *(ULONG *) varptr);
+        sprintf(pszBuf, "0x%p", (void*)(*(ULONG*)varptr));
         if (Attr & PAG_FREE)
         {
             strcat(pszBuf, " unallocated memory");
@@ -1246,7 +1247,8 @@ BOOL search_userdefs(FILE *LogFile,     // in: text log file to write to
                               sszVar3,
                               one_userdef[pos].type_index - 0x80);
 
-                fprintf(LogFile, "     %- 6d %- 20.20s %- 33.33s %s (user)\n",
+                fprintf(LogFile,
+                        "     %- 6ld %- 20.20s %- 33.33s %s (user)\n",
                         autovar_def[var_no].stack_offset,       // stack offset
                         autovar_def[var_no].name,               // identifier
                         one_userdef[pos].name,                  // type name
@@ -1294,7 +1296,7 @@ BOOL search_pointers(FILE *LogFile,     // in: text log file to write to
             var_value((void*)(stackofs + autovar_def[var_no].stack_offset),
                       sszVar,
                       32);
-            fprintf(LogFile, "     %- 6d %- 20.20s %- 33.33s %s (ptr1)\n",
+            fprintf(LogFile, "     %- 6ld %- 20.20s %- 33.33s %s (ptr1)\n",
                     autovar_def[var_no].stack_offset,
                     autovar_def[var_no].name,
                     str,
@@ -1318,7 +1320,7 @@ BOOL search_pointers(FILE *LogFile,     // in: text log file to write to
                 var_value((void *)(stackofs + autovar_def[var_no].stack_offset),
                           sszVar,
                           32);
-                fprintf(LogFile, "     %- 6d %- 20.20s %- 33.33s %s (ptr2)\n",
+                fprintf(LogFile, "     %- 6ld %- 20.20s %- 33.33s %s (ptr2)\n",
                         autovar_def[var_no].stack_offset,
                         autovar_def[var_no].name,
                         str,
@@ -1334,7 +1336,7 @@ BOOL search_pointers(FILE *LogFile,     // in: text log file to write to
                 var_value((void *)(stackofs + autovar_def[var_no].stack_offset),
                           sszVar,
                           32);
-                fprintf(LogFile, "     %- 6d %- 20.20s %- 33.33s %s (ptr3)\n",
+                fprintf(LogFile, "     %- 6ld %- 20.20s %- 33.33s %s (ptr3)\n",
                         autovar_def[var_no].stack_offset,
                         autovar_def[var_no].name,
                         str,
@@ -1371,7 +1373,9 @@ void dbgPrintVariables(FILE *LogFile,   // in: text log file to write to
             if (AutoVarsFound == FALSE)
             {
                 AutoVarsFound = TRUE;
-                fprintf(LogFile, "     List of auto variables at EBP %p in %s:\n", stackofs, func_name);
+                fprintf(LogFile, "     List of auto variables at EBP %p in %s:\n",
+                        (PVOID)stackofs,
+                        func_name);
                 fprintf(LogFile, "     Offset Name                 Type                              Value            \n");
                 fprintf(LogFile, "     컴컴컴 컴컴컴컴컴컴컴컴컴컴 컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴� 컴컴컴컴컴컴컴컴�\n");
             }
@@ -1387,7 +1391,7 @@ void dbgPrintVariables(FILE *LogFile,   // in: text log file to write to
                           sszVar2,
                           autovar_def[n].type_idx - 0x80);
 
-                fprintf(LogFile, "     %- 6d %- 20.20s %- 33.33s %s (simple)\n",
+                fprintf(LogFile, "     %- 6ld %- 20.20s %- 33.33s %s (simple)\n",
                         autovar_def[n].stack_offset,
                         autovar_def[n].name,
                         type_name[autovar_def[n].type_idx - 0x80],
@@ -1399,7 +1403,7 @@ void dbgPrintVariables(FILE *LogFile,   // in: text log file to write to
                 {
                     if (!search_pointers(LogFile, stackofs, n))
                     {
-                        fprintf(LogFile, "     %- 6d %-20.20s 0x%X (unknown)\n",
+                        fprintf(LogFile, "     %- 6ld %-20.20s 0x%X (unknown)\n",
                                 autovar_def[n].stack_offset,
                                 autovar_def[n].name,
                                 autovar_def[n].type_idx);
@@ -1505,10 +1509,10 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
                     if (SymDef32.wSymVal > TrapOffset)
                     {
                         // symbol found
-                        fprintf(LogFile, "between %s + 0x%X ", Buffer, TrapOffset - LastVal);
-                        fprintf(LogFile, "(ppLineDef: 0x%lX) ",
+                        fprintf(LogFile, "between %s + 0x%lX ", Buffer, TrapOffset - LastVal);
+                        /* fprintf(LogFile, "(ppLineDef: 0x%lX) ",
                                     LINEDEFOFFSET(SegDef)
-                                    );
+                                    ); */
                         fprintf(LogFile, "\n");
                     }
 
@@ -1521,7 +1525,7 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
                     {
                         // symbol found, as above
                         fprintf(LogFile, "                                         "
-                                         "and %s - 0x%X ", Buffer, LastVal - TrapOffset);
+                                         "and %s - 0x%lX ", Buffer, LastVal - TrapOffset);
                         fprintf(LogFile, "\n");
                         break;
                     }
@@ -1533,7 +1537,7 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
                     fread(&SymDef16, sizeof(SYMDEF16), 1, SymFile);
                     if (SymDef16.wSymVal > TrapOffset)
                     {
-                        fprintf(LogFile, "between %s + %X\n",
+                        fprintf(LogFile, "between %s + %lX\n",
                                          Buffer,
                                          TrapOffset - LastVal);
                     }
@@ -1544,7 +1548,7 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
                     if (SymDef16.wSymVal > TrapOffset)
                     {
                         fprintf(LogFile, "                                         "
-                                         "and %s - %X\n",
+                                         "and %s - %lX\n",
                                          Buffer,
                                          LastVal - TrapOffset);
                         break;
@@ -1680,7 +1684,7 @@ BOOL dbgPrintStackFrame(FILE *LogFile,
                     szSymName);
         else if (arc != 0)
             fprintf(LogFile,
-                    "Error %d reading symbol file %s\n",
+                    "Error %lu reading symbol file %s\n",
                     arc,
                     szSymName);
     }
@@ -1742,17 +1746,17 @@ VOID dbgPrintStack(FILE *LogFile,           // in: text log file to write to
         rc = DosQueryMem((PVOID) (Ebp + 2), &Size, &Attr);
         if (rc != NO_ERROR)
         {
-            fprintf(LogFile, "Invalid EBP %8.8p (DosQueryMem returned %d)\n", Ebp, rc);
+            fprintf(LogFile, "Invalid EBP %8.8lX (DosQueryMem returned %lu)\n", (ULONG)Ebp, rc);
             break;
         }
         if (!(Attr & PAG_COMMIT))
         {
-            fprintf(LogFile, "Invalid EBP %8.8p (not committed)\n", Ebp);
+            fprintf(LogFile, "Invalid EBP %8.8lX (not committed)\n", (ULONG)Ebp);
             break;
         }
         if (Size < 10)
         {
-            fprintf(LogFile, "Invalid EBP %8.8p (mem block size < 10)\n", Ebp);
+            fprintf(LogFile, "Invalid EBP %8.8lX (mem block size < 10)\n", (ULONG)Ebp);
             break;
         }
 
@@ -1852,11 +1856,11 @@ VOID dbgPrintStack(FILE *LogFile,           // in: text log file to write to
         if (fExceptionAddress)
             fprintf(LogFile, " Trap  ->  ");
         else
-            fprintf(LogFile, " %8.8p  ", Ebp);
+            fprintf(LogFile, " %8.8lX  ", (ULONG)Ebp);
 
         // "Address" column
         if (f32bit)
-            fprintf(LogFile, ":%8.8p  ", RetAddr);
+            fprintf(LogFile, ":%8.8lX  ", (ULONG)RetAddr);
         else
             fprintf(LogFile, "%04.04X:%04.04X  ", Cs, Ip);
 
@@ -1873,7 +1877,7 @@ VOID dbgPrintStack(FILE *LogFile,           // in: text log file to write to
             rc = DosQueryMem((PVOID) RetAddr, &Size, &Attr);
             if (rc != NO_ERROR || !(Attr & PAG_COMMIT))
             {
-                fprintf(LogFile, "Invalid RetAddr: %8.8p\n", RetAddr);
+                fprintf(LogFile, "Invalid RetAddr: %8.8lX\n", (ULONG)RetAddr);
                 break;          // avoid infinite loops
             }
             else
@@ -1894,7 +1898,7 @@ VOID dbgPrintStack(FILE *LogFile,           // in: text log file to write to
                     // _splitpath(Name, szJunk, szJunk, szName, szJunk);
 
                     // print module and object
-                    fprintf(LogFile, "%-8s %04X  ", szName, ObjNum + 1);
+                    fprintf(LogFile, "%-8s %04lX  ", szName, ObjNum + 1);
 
                     if (strlen(Name) > 3)
                     {
@@ -1906,7 +1910,7 @@ VOID dbgPrintStack(FILE *LogFile,           // in: text log file to write to
                 }
                 else
                     fprintf(LogFile,
-                            "DosQueryModFromEIP failed, returned %d\n",
+                            "DosQueryModFromEIP failed, returned %lu\n",
                             rc);
             }
         }
@@ -1948,7 +1952,7 @@ VOID dbgPrintStack(FILE *LogFile,           // in: text log file to write to
         rc = DosQueryMem((PVOID) Ebp, &Size, &Attr);
         if ((rc != NO_ERROR) || (Size < 4))
         {
-            fprintf(LogFile, "... lost stack chain - invalid EBP: %8.8p\n", Ebp);
+            fprintf(LogFile, "... lost stack chain - invalid EBP: %8.8lX\n", (ULONG)Ebp);
             break;
         }
     } while (TRUE);

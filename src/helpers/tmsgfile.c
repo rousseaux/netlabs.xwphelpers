@@ -723,7 +723,7 @@ APIRET CompileMsgTable(PSZ pszMessageFile,     // in: file to compile
                     // pszNextNameStart - pbFileData - ulCurrentMessagePos - 1;
 
             // determine entry
-            sprintf(szEntry, "%s %u %u" NEWLINE,
+            sprintf(szEntry, "%s %lu %lu" NEWLINE,
                     pCurrentNameStart,
                     ulCurrentMessagePos,
                     ulCurrentMessageLen);

@@ -262,7 +262,7 @@ VOID prfhQueryCountrySettings(PCOUNTRYSETTINGS pcs)
 LONG prfhQueryColor(PSZ pszKeyName, PSZ pszDefault)
 {
     CHAR szColor[30];
-    LONG r, g, b;
+    ULONG r, g, b;
     PrfQueryProfileString(
                 HINI_USER,
                 "PM_Colors",
@@ -270,8 +270,8 @@ LONG prfhQueryColor(PSZ pszKeyName, PSZ pszDefault)
                 pszDefault,
                 szColor,
                 sizeof(szColor)-1);
-    sscanf(szColor, "%d %d %d ", &r, &g, &b);
-    return (r*0x10000 + g*0x100 + b);
+    sscanf(szColor, "%lu %lu %lu ", &r, &g, &b);
+    return (LONG)(r*0x10000 + g*0x100 + b);
 }
 
 /*
@@ -467,7 +467,7 @@ BOOL prfhSetUserProfile(HAB hab,
             // get filenames
             if (PrfQueryProfile(hab, &Profiles))
             {
-                _Pmpf(("Old user profile: %s", Profiles.pszUserName));
+                // _Pmpf(("Old user profile: %s", Profiles.pszUserName));
 
                 // change INIs
                 free(Profiles.pszUserName);

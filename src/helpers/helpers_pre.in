@@ -39,46 +39,47 @@ OUTPUTDIR = $(HELPERS_OUTPUT_DIR)
 # These will be put into BIN\.
 
 PLAINCOBJS = \
-       $(OUTPUTDIR)\linklist.obj \
-       $(OUTPUTDIR)\tree.obj \
-       $(OUTPUTDIR)\xml.obj \
+$(OUTPUTDIR)\linklist.obj \
+$(OUTPUTDIR)\tree.obj \
+$(OUTPUTDIR)\xml.obj \
 
 CPOBJS = $(PLAINCOBJS) \
-       $(OUTPUTDIR)\datetime.obj \
-       $(OUTPUTDIR)\debug.obj \
-       $(OUTPUTDIR)\dosh.obj \
-       $(OUTPUTDIR)\dosh2.obj \
-       $(OUTPUTDIR)\eah.obj \
-       $(OUTPUTDIR)\except.obj \
-       $(OUTPUTDIR)\level.obj \
-       $(OUTPUTDIR)\procstat.obj \
-       $(OUTPUTDIR)\prfh.obj \
-       $(OUTPUTDIR)\prfh2.obj \
-       $(OUTPUTDIR)\resh.obj \
-       $(OUTPUTDIR)\stringh.obj \
-       $(OUTPUTDIR)\syssound.obj \
-       $(OUTPUTDIR)\threads.obj \
-       $(OUTPUTDIR)\tmsgfile.obj \
-       $(OUTPUTDIR)\wphandle.obj \
-       $(OUTPUTDIR)\xprf.obj \
-       $(OUTPUTDIR)\xprf2.obj \
-       $(OUTPUTDIR)\xstring.obj
+$(OUTPUTDIR)\datetime.obj \
+$(OUTPUTDIR)\debug.obj \
+$(OUTPUTDIR)\dosh.obj \
+$(OUTPUTDIR)\dosh2.obj \
+$(OUTPUTDIR)\eah.obj \
+$(OUTPUTDIR)\except.obj \
+$(OUTPUTDIR)\level.obj \
+$(OUTPUTDIR)\procstat.obj \
+$(OUTPUTDIR)\prfh.obj \
+$(OUTPUTDIR)\prfh2.obj \
+$(OUTPUTDIR)\resh.obj \
+$(OUTPUTDIR)\stringh.obj \
+$(OUTPUTDIR)\syssound.obj \
+$(OUTPUTDIR)\tmsgfile.obj \
+$(OUTPUTDIR)\wphandle.obj \
+$(OUTPUTDIR)\xprf.obj \
+$(OUTPUTDIR)\xprf2.obj \
+$(OUTPUTDIR)\xstring.obj
 
 OBJS = $(CPOBJS) \
-       $(OUTPUTDIR)\animate.obj \
-       $(OUTPUTDIR)\cctl_chart.obj \
-       $(OUTPUTDIR)\cctl_checkcnr.obj \
-       $(OUTPUTDIR)\cctl_progbar.obj \
-       $(OUTPUTDIR)\cctl_splitwin.obj \
-       $(OUTPUTDIR)\cctl_tooltip.obj \
-       $(OUTPUTDIR)\comctl.obj \
-       $(OUTPUTDIR)\cnrh.obj \
-       $(OUTPUTDIR)\gpih.obj \
-       $(OUTPUTDIR)\memdebug.obj \
-       $(OUTPUTDIR)\shapewin.obj \
-       $(OUTPUTDIR)\textview.obj \
-       $(OUTPUTDIR)\textv_html.obj \
-       $(OUTPUTDIR)\winh.obj
+$(OUTPUTDIR)\animate.obj \
+$(OUTPUTDIR)\cctl_chart.obj \
+$(OUTPUTDIR)\cctl_checkcnr.obj \
+$(OUTPUTDIR)\cctl_progbar.obj \
+$(OUTPUTDIR)\cctl_splitwin.obj \
+$(OUTPUTDIR)\cctl_tooltip.obj \
+$(OUTPUTDIR)\comctl.obj \
+$(OUTPUTDIR)\cnrh.obj \
+$(OUTPUTDIR)\gpih.obj \
+$(OUTPUTDIR)\memdebug.obj \
+$(OUTPUTDIR)\memdebug_win.obj \
+$(OUTPUTDIR)\shapewin.obj \
+$(OUTPUTDIR)\threads.obj \
+$(OUTPUTDIR)\textview.obj \
+$(OUTPUTDIR)\textv_html.obj \
+$(OUTPUTDIR)\winh.obj
 
 # helpers include path
 INC = ..\..\include

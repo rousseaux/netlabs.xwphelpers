@@ -1,3 +1,28 @@
+
+/*
+ *@@sourcefile tree.h:
+ *      header file for tree.c (red-black balanced binary trees).
+ *      See remarks there.
+ */
+
+/*
+ *      Written:    97/11/18  Jonathan Schultz <jonathan@imatix.com>
+ *      Revised:    98/12/08  Jonathan Schultz <jonathan@imatix.com>
+ *
+ *      Copyright (C) 1991-99 iMatix Corporation.
+ *      Copyright (C) 2000 Ulrich M”ller.
+ *      This file is part of the XWorkplace source package.
+ *      XWorkplace is free software; you can redistribute it and/or modify
+ *      it under the terms of the GNU General Public License as published
+ *      by the Free Software Foundation, in version 2 as it comes in the
+ *      "COPYING" file of the XWorkplace main distribution.
+ *      This program is distributed in the hope that it will be useful,
+ *      but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *      GNU General Public License for more details.
+ */
+
+
 /*  ----------------------------------------------------------------<Prolog>-
     Name:       sfltree.h
     Title:      Linked-list functions
@@ -51,6 +76,19 @@ extern "C" {
     /*
      *@@ TREE:
      *      tree node.
+     *
+     *      To use the tree functions, all your structures
+     *      must have a TREE structure as their first member.
+     *
+     *      Example:
+     *
+     +      typedef struct _MYTREENODE
+     +      {
+     +          TREE        tree;
+     +          char        acMyData[1000];
+     +      } MYTREENODE, *PMYTREENODE;
+     *
+     *      See tree.c for an introduction to the tree functions.
      */
 
     typedef struct _TREE
@@ -60,7 +98,7 @@ extern "C" {
                         *parent;
         unsigned long   id;
         TREE_COLOUR     colour;
-    } TREE;
+    } TREE, *PTREE;
 
     // The tree algorithm needs to know how to sort the data.
     // It does this using a functions provided by the calling program.

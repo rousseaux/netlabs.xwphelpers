@@ -174,7 +174,7 @@ typedef FNPROCESSTAG *PFNPROCESSTAG;
  */
 
 VOID AppendChar(PCOPYTARGET pct,  // in/out: formatting buffer
-                CHAR c)
+                unsigned char c)
 {
     // calculate ofs where to store next char
     ULONG   cbOfsNext = pct->pTarget - pct->pszNew;
@@ -684,13 +684,15 @@ VOID TagLI(PCOPYTARGET pct)
         pListDesc = (PLISTDESC)lstItemFromIndex(&pct->llLists,
                                                 pct->ulListLevel - 1);
         if (pListDesc)
+        {
             if (pListDesc->ulListType == 1)
                 // is ordered list:
-                sprintf(szMarker, "%d.", (pListDesc->ulItem)++);
+                sprintf(szMarker, "%lu.", (pListDesc->ulItem)++);
             else if (pListDesc->ulListType == 0)
                 // is unordered list:
                 // set bullet type according to unordered nesting
                 szMarker[2] = pct->ulUnorderedListLevel;
+        }
     }
 
     // add \n before any other character
@@ -863,7 +865,7 @@ VOID TagA(PCOPYTARGET pct)
 
     if (pct->fInLink)
     {
-        sprintf(szAnchor, "%04lX", pct->usAnchorIndex);
+        sprintf(szAnchor, "%04hX", pct->usAnchorIndex);
         AppendString(pct,
                      TXVESC_LINK);
         AppendString(pct,
@@ -932,10 +934,12 @@ PFNPROCESSTAG FindTagProcessor(PSZ pszTag)
                 case 'D': // ADDRESS
                 case 'd': // ADDRESS
                     if (stricmp(p2, "DRESS") == 0)
+                    {
                         if (!fEndOfTag)
                             return TagI;
                         else
                             return TagXI;
+                    }
             }
         break;
 
@@ -975,10 +979,12 @@ PFNPROCESSTAG FindTagProcessor(PSZ pszTag)
                 case 'O':
                 case 'o':
                     if (stricmp(p2, "DE") == 0)
+                    {
                         if (!fEndOfTag)
                             return TagCODE;
                         else
                             return TagXCODE;
+                    }
                 break;
             }
         break;
@@ -997,19 +1003,23 @@ PFNPROCESSTAG FindTagProcessor(PSZ pszTag)
                 case 'i': // DIR
                     if (*p2 == 'R')
                         if (*(pCheck + 3) == 0)
+                        {
                             if (!fEndOfTag)
                                 return TagUL;
                             else
                                 return TagXUL;
+                        }
                 break;
 
                 case 'L': // DL
                 case 'l': // DL
                     if (*p2 == 0)
+                    {
                         if (!fEndOfTag)
                             return TagDL;
                         else
                             return TagXDL;
+                    }
                 break;
 
                 case 'T': // DT
@@ -1024,10 +1034,12 @@ PFNPROCESSTAG FindTagProcessor(PSZ pszTag)
         case 'e':
             if ( (c1 == 'M') || (c1 == 'm') )  // EM
                 if (*p2 == 0)
+                {
                     if (!fEndOfTag)
                         return TagI;
                     else
                         return TagXI;
+                }
         break;
 
         case 'H':
@@ -1072,10 +1084,12 @@ PFNPROCESSTAG FindTagProcessor(PSZ pszTag)
         case 'I':
         case 'i':
             if (c1 == 0)
+            {
                 if (!fEndOfTag)
                     return TagI;
                 else
                     return TagXI;
+            }
         break;
 
         case 'L':
@@ -1088,20 +1102,24 @@ PFNPROCESSTAG FindTagProcessor(PSZ pszTag)
         case 'M':
         case 'm':
             if (stricmp(p2, "NU") == 0)
+            {
                 if (!fEndOfTag)
                     return TagUL;
                 else
                     return TagXUL;
+            }
         break;
 
         case 'O':
         case 'o':
             if ((c1 == 'L') || (c1 == 'l'))
                 if (*p2 == 0)
+                {
                     if (!fEndOfTag)
                         return TagOL;
                     else
                         return TagXOL;
+                }
         break;
 
         case 'P':
@@ -1117,10 +1135,12 @@ PFNPROCESSTAG FindTagProcessor(PSZ pszTag)
                 case 'r': // PRE
                     if ((*p2 == 'E') || (*p2 == 'e'))
                         if (*(pCheck + 3) == 0)
+                        {
                             if (!fEndOfTag)
                                 return TagPRE;
                             else
                                 return TagXPRE;
+                        }
                 break;
             }
         break;
@@ -1132,24 +1152,30 @@ PFNPROCESSTAG FindTagProcessor(PSZ pszTag)
                 case 'T': // STRONG
                 case 't': // STRONG
                     if (stricmp(p2, "RONG") == 0)
+                    {
                         if (!fEndOfTag)
                             return TagB;
                         else
                             return TagXB;
+                    }
                     else if (stricmp(p2, "RIKE") == 0)
+                    {
                         if (!fEndOfTag)
                             return TagSTRIKE;
                         else
                             return TagXSTRIKE;
+                    }
                 break;
 
                 case 'A':
                 case 'a':
                     if (stricmp(p2, "MP") == 0)
+                    {
                         if (!fEndOfTag)
                             return TagCODE;
                         else
                             return TagXCODE;
+                    }
                 break;
             }
         break;
@@ -1173,10 +1199,12 @@ PFNPROCESSTAG FindTagProcessor(PSZ pszTag)
                 case 'T': // TT
                 case 't':
                     if (*p2 == 0)
+                    {
                         if (!fEndOfTag)
                             return TagCODE;
                         else
                             return TagXCODE;
+                    }
                 break;
             }
         break;
@@ -1194,10 +1222,12 @@ PFNPROCESSTAG FindTagProcessor(PSZ pszTag)
                 case 'L':
                 case 'l':
                     if (*p2 == 0)
+                    {
                         if (!fEndOfTag)
                             return TagUL;
                         else
                             return TagXUL;
+                    }
                 break;
             }
         break;
@@ -1392,7 +1422,7 @@ VOID HandleTag(PCOPYTARGET pct)
  *@@added V0.9.4 (2000-06-10) [umoeller]
  */
 
-CHAR ConvertEscape(PSZ pszTag)
+unsigned char ConvertEscape(PSZ pszTag)
 {
     CHAR c0, c1;
     CHAR crc = 0;

@@ -239,6 +239,7 @@ ULONG xmlDeleteNode(PDOMNODE pNode)
 
 PSZ xmlTokenize(const char *pcszXML)
 {
+    return (0);
 }
 
 /* ******************************************************************

@@ -383,7 +383,7 @@ BOOL gpihSplitPresFont(PSZ pszFontNameSize,  // in: e.g. "12.Courier"
         if (pcDot)
         {
             // _Pmpf(("Found font PP: %s", pszFontFound));
-            sscanf(pszFontNameSize, "%d", pulSize);
+            sscanf(pszFontNameSize, "%lu", pulSize);
             *ppszFaceName = pcDot + 1;
             brc = TRUE;
         }
@@ -931,7 +931,7 @@ LONG gpihFindPresFont(HWND hwnd,          // in: window to search for presparam
         if (pcDot)
         {
             // _Pmpf(("Found font PP: %s", pszFontFound));
-            sscanf(pszFontFound, "%d", &ulFontSize);
+            sscanf(pszFontFound, "%lu", &ulFontSize);
             if (plSize)
                 *plSize = ulFontSize;
             strcpy(szFaceName, pcDot + 1);

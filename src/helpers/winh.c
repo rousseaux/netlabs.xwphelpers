@@ -2978,7 +2978,8 @@ BOOL winhReplaceWindowText(HWND hwnd,           // in: window whose text is to b
     PSZ     pszText = winhQueryWindowText(hwnd);
     if (pszText)
     {
-        if (strhrpl(&pszText, 0, pszSearch, pszReplaceWith, 0) > 0)
+        ULONG ulOfs = 0;
+        if (strhrpl(&pszText, &ulOfs, pszSearch, pszReplaceWith) > 0)
         {
             WinSetWindowText(hwnd, pszText);
             brc = TRUE;

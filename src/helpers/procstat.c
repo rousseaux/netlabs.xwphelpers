@@ -592,7 +592,7 @@ PQSEMA32 prc32FindSem16(PQTOPLEVEL32 pInfo,     // in: as returned by prc32GetIn
 PQSEM32STRUC32 prc32FindSem32(PQTOPLEVEL32 pInfo,     // in: as returned by prc32GetInfo
                               USHORT usSemID)         // in: as in QPROCESS32.pausSem16
 {
-    PQSEM32STRUC32  pSemThis = pInfo->pSem32Data;
+    // PQSEM32STRUC32  pSemThis = pInfo->pSem32Data;
 
     /* while (pSemThis)
     {

@@ -63,16 +63,18 @@ extern "C" {
                 const char *pcszInsert);
 
     ULONG strhrpl(PSZ *ppszBuf,
-                  ULONG ulOfs,
+                  PULONG pulOfs,
                   const char *pcszSearch,
-                  const char *pcszReplace,
-                  PULONG pulAfterOfs);
+                  const char *pcszReplace);
 
     ULONG strhWords(PSZ psz);
 
     PSZ strhThousandsULong(PSZ pszTarget, ULONG ul, CHAR cThousands);
 
     PSZ strhThousandsDouble(PSZ pszTarget, double dbl, CHAR cThousands);
+
+    PSZ strhVariableDouble(PSZ pszTarget, double dbl, PSZ pszUnits,
+                           CHAR cThousands);
 
     VOID strhFileDate(PSZ pszBuf,
                       FDATE *pfDate,
@@ -100,6 +102,12 @@ extern "C" {
                      const char *pcszBeginChars,
                      const char *pcszEndChars, //  = "\x0d\x0a /-";
                      PSZ *ppszEnd);
+
+    BOOL strhIsWord(const char *pcszBuf,
+                    const char *p,
+                    ULONG cbSearch,
+                    const char *pcszBeginChars,
+                    const char *pcszEndChars);
 
     PSZ strhFindWord(const char *pszBuf,
                      const char *pszSearch,
@@ -191,35 +199,12 @@ extern "C" {
      *                                                                  *
      ********************************************************************/
 
-    char* strhfind (const char *string,
-                    const char *pattern,
-                    BOOL repeat_find);
-
-    char* strhfind_r (const char *string,
-                      const char *pattern);
-
-    char* strhfind_rb (const char *string,
-                       const char *pattern,
-                       size_t     *shift,
-                       BOOL       *repeat_find);
-
-    void* strhmemfind (const void  *block,
-                       size_t       block_size,
-                       const void  *pattern,
-                       size_t       pattern_size,
-                       BOOL         repeat_find);
-
-    void* strhmemfind_r (const void  *block,
-                         size_t       block_size,
-                         const void  *pattern,
-                         size_t       pattern_size);
-
-    void* strhmemfind_rb (const void  *in_block,
-                          size_t       block_size,
-                          const void  *in_pattern,
-                          size_t       pattern_size,
-                          size_t      *shift,
-                          BOOL        *repeat_find);
+    void* strhmemfind(const void *in_block,
+                      size_t block_size,
+                      const void *in_pattern,
+                      size_t pattern_size,
+                      size_t *shift,
+                      BOOL *repeat_find);
 
     char* strhtxtfind (const char *string,
                        const char *pattern);

@@ -464,6 +464,8 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive) // in: 1 for A:, 2 for B:, 3 for C:
                          | OPEN_SHARE_DENYNONE,
                   NULL);
 
+    // _Pmpf((__FUNCTION__ ": DosOpen(OPEN_FLAGS_DASD) returned %d", arc));
+
     switch (arc)
     {
         case ERROR_NETWORK_ACCESS_DENIED: // 65
@@ -1069,7 +1071,7 @@ PSZ doshCreateBackupFileName(const char* pszExisting)
         pszLastDot = szFilename + strlen(szFilename);
     do
     {
-        sprintf(szCount, ".%03d", ulCount);
+        sprintf(szCount, ".%03lu", ulCount);
         strcpy(pszLastDot, szCount);
         ulCount++;
     } while (doshQueryPathSize(szFilename) != 0);

@@ -135,11 +135,28 @@ callmainmake:
 # out-of-date with respect to the target file.
 # The exclamation point ( ! ) preceding the LIB command causes NMAKE
 # to execute the LIB command once for each dependent file in the list.
+
 $(OUTPUTDIR)\helpers.lib: $(OBJS)
 !ifdef EMX
-    !emxomfar cr $(OUTPUTDIR)\helpers.lib $?
+    !emxomfar cr $* $?
 !else
-    !ilib /nol /nob $(OUTPUTDIR)\helpers.lib -+$?;
+    !ilib /nol /nob $* -+$?;
+!endif
+
+# same thing for cp.lib
+$(OUTPUTDIR)\cp.lib: $(CPOBJS)
+!ifdef EMX
+    !emxomfar cr $* $?
+!else
+    !ilib /nol /nob $* -+$?;
+!endif
+
+# same thing for plainc.lib
+$(OUTPUTDIR)\plainc.lib: $(PLAINCOBJS)
+!ifdef EMX
+    !emxomfar cr $* $?
+!else
+    !ilib /nol /nob $* -+$?;
 !endif
 
 !include helpers_post.in

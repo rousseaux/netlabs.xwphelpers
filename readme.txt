@@ -142,5 +142,13 @@ Last updated October 26, 2000, Ulrich M”ller
     so that the helpers headers won't interfere with your own
     headers.
 
+    Note that all the helpers C code includes their own include
+    files this way. As a result, the XWPHelpers "include"
+    directory must be in your include path, or this won't
+    compile.
+
+    Besides, the helpers C code expects a file called "setup.h"
+    in your include path somewhere. This is included by all
+    the C files so you can (re)define certain macros there.
 
 

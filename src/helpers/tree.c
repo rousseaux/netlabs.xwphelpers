@@ -14,9 +14,21 @@
  *
  *      This has been taken from the Standard Function Library (SFL)
  *      by iMatix Corporation and changed to user the "id" member for
- *      tree sorting/comparison.
+ *      tree sorting/comparison. This implementation is released
+ *      under the GPL.
  *
  *      <B>Using binary trees</B>
+ *
+ *      You can use any structure as elements in a tree, provided
+ *      that the first member in the structure is a TREE structure
+ *      (i.e. it has the left, right, parent, id, and colour members).
+ *      The tree functions don't care what follows.
+ *
+ *      So the implementation here is slightly different from the
+ *      linked lists in linklist.c, because the LISTNODE structs
+ *      only have pointers to the data. By contrast, the TREE structs
+ *      are expected to contain the data themselves. See treeInsertID()
+ *      for a sample.
  *
  *      Each TREE node does not only contain data, but also an
  *      "id" field. The order of nodes in the tree is determined
@@ -54,16 +66,17 @@
  *
  *      Differences compared to linklist.c:
  *
- *      -- As opposed to a LISTNODE, the TREE structure (which
- *         represents a tree node) does not contain a data pointer.
- *         Instead, all tree nodes are assumed to contain the
- *         data themselves. As a result, you must define your
- *         own structures which start with a TREE structure.
+ *      -- Trees are considerably slower when inserting and removing
+ *         nodes because the tree has to be rebalanced every time
+ *         a node changes. By contrast, trees are much faster finding
+ *         nodes because the tree is always sorted.
  *
- *         See treeInsertID() for samples.
- *
- *      -- You must supply a comparison function to allow the
+ *      -- You must always supply a comparison function to allow the
  *         tree functions to sort the tree.
+ *
+ *      -- As opposed to a LISTNODE, the TREE structure (which
+ *         represents a tree node) does not contain a data pointer,
+ *         as said above.
  *
  *@@added V0.9.5 (2000-09-29) [umoeller]
  *@@header "helpers\tree.h"
@@ -837,12 +850,19 @@ void* treeFindEQData(TREE **root,
  *
  *      and will receive the "pUser" parameter, which you can use
  *      as a data pointer to some structure for whatever you like.
+ *
+ *      "method" specifies in which order the nodes are traversed.
+ *      This can be:
+ *
+ *      -- 1: current node first, then left node, then right node.
+ *      -- 2: left node first, then right node, then current node.
+ *      -- other: left node first, then current node, then right node.
  */
 
-void treeTraverse(TREE *tree,
-                  TREE_PROCESS *process,
-                  void *pUser,
-                  int method)
+void treeTraverse(TREE *tree,               // in: root of tree
+                  TREE_PROCESS *process,    // in: callback for each node
+                  void *pUser,              // in: user param for callback
+                  int method)               // in: traversal mode
 {
     if ((!tree)
     ||  (tree == TREE_NULL))

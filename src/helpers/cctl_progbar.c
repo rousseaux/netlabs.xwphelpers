@@ -139,7 +139,7 @@ VOID PaintProgress(PPROGRESSBARDATA pData, HWND hwndBar, HPS hps)
     if (pData->ulAttr & PBA_PERCENTFLAGS)
     {
         // make string
-        sprintf(szPercent, "%d %%", ((100 * pData->ulNow) / pData->ulMax) );
+        sprintf(szPercent, "%lu %%", ((100 * pData->ulNow) / pData->ulMax) );
 
         // calculate string space
         GpiQueryTextBox(hps, strlen(szPercent), szPercent,

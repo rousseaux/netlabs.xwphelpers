@@ -1310,6 +1310,7 @@ VOID txvFormatText(HPS hps,             // in: HPS whose font is used for
                                 // store word in rectangle
                                 pWordThis->pvRectangle = (PVOID)pRect;
                                 lstAppendItem(&pRect->llWords, pWordThis);
+                                            // ### memory leak right here!!!
                                 ulWordsInThisRect++;
 
                                 // store highest word width found for this rect

@@ -78,17 +78,25 @@ extern "C" {
 
     #define xstrIsString(psz) ( (psz != 0) && (*(psz) != 0) )
 
+    PSZ xstrFindWord(const XSTRING *pxstr,
+                     ULONG ulOfs,
+                     const XSTRING *pstrFind,
+                     size_t *pShiftTable,
+                     PBOOL pfRepeatFind,
+                     const char *pcszBeginChars,
+                     const char *pcszEndChars);
+
     ULONG xstrrpl(PXSTRING pxstr,
-                  ULONG ulOfs,
+                  PULONG pulOfs,
                   const XSTRING *pstrSearch,
                   const XSTRING *pstrReplace,
-                  PULONG pulAfterOfs);
+                  size_t *pShiftTable,
+                  PBOOL pfRepeatFind);
 
     ULONG xstrcrpl(PXSTRING pxstr,
-                   ULONG ulOfs,
+                   PULONG pulOfs,
                    const char *pcszSearch,
-                   const char *pcszReplace,
-                   PULONG pulAfterOfs);
+                   const char *pcszReplace);
 #endif
 
 #if __cplusplus

@@ -298,7 +298,7 @@ VOID excPrintStackFrame(FILE *file,         // in: output log file
     ULONG   ulObject = 0,
             ulOffset = 0;
     fprintf(file,
-            "    %-8s: %08X ",
+            "    %-8s: %08lX ",
             pszDescription,
             ulAddress);
     arc = DosQueryModFromEIP(&hmod1,
@@ -311,7 +311,7 @@ VOID excPrintStackFrame(FILE *file,         // in: output log file
     {
         // error:
         fprintf(file,
-                " %-8s:%d   Error: DosQueryModFromEIP returned %d\n",
+                " %-8s:%lu   Error: DosQueryModFromEIP returned %lu\n",
                 szMod1,
                 ulObject,
                 arc);
@@ -321,7 +321,7 @@ VOID excPrintStackFrame(FILE *file,         // in: output log file
         CHAR szFullName[2*CCHMAXPATH];
 
         fprintf(file,
-                " %-8s:%d   ",
+                " %-8s:%lu   ",
                 szMod1,
                 ulObject);
 
@@ -392,15 +392,15 @@ VOID excDumpStackFrames(FILE *file,                   // in: logfile from fopen(
                     )
                )
             {
-                fprintf(file, "\n    %08X: ", pulStackWord);
+                fprintf(file, "\n    %08lX: ", (ULONG)pulStackWord);
                 fprintf(file, "Page inaccessible");
                 pulStackWord += 0x1000;
                 continue; // for
             }
         }
 
-        sprintf(szAddress, "%08X",
-                pulStackWord);
+        sprintf(szAddress, "%08lX",
+                (ULONG)pulStackWord);
         excPrintStackFrame(file,
                            szAddress,
                            *(pulStackWord+1));
@@ -415,13 +415,11 @@ VOID excDumpStackFrames(FILE *file,                   // in: logfile from fopen(
  *
  *      This calls excPrintStackFrame for each stack frame.
  *
- *      If DEBUG_EXCPT_STACKDUMP is #define'd, this also dumps
- *      the stack completely, which isn't that useful.
- *
  *@@changed V0.9.0 [umoeller]: added support for application hook
  *@@changed V0.9.0 (99-11-02) [umoeller]: added TID to dump
  *@@changed V0.9.2 (2000-03-10) [umoeller]: now using excPrintStackFrame
  *@@changed V0.9.3 (2000-05-03) [umoeller]: fixed crashes
+ *@@changed V0.9.6 (2000-11-06) [umoeller]: added more register dumps
  */
 
 VOID excExplainException(FILE *file,                   // in: logfile from fopen()
@@ -474,13 +472,13 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
 
     // generic exception info
     fprintf(file,
-            "\n%s:\n    Exception type: %08X\n    Address:        %08X\n    Params:         ",
+            "\n%s:\n    Exception type: %08lX\n    Address:        %08lX\n    Params:         ",
             pszHandlerName,
             pReportRec->ExceptionNum,
-            pReportRec->ExceptionAddress);
+            (ULONG)pReportRec->ExceptionAddress);
     for (ul = 0;  ul < pReportRec->cParameters;  ul++)
     {
-        fprintf(file, "%08X  ",
+        fprintf(file, "%08lX  ",
                 pReportRec->ExceptionInfo[ul]);
     }
 
@@ -493,18 +491,18 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
         {
             fprintf(file, "\nAccess violation: ");
             if (pReportRec->ExceptionInfo[0] & XCPT_READ_ACCESS)
-                fprintf(file, "Invalid read access from 0x%04X:%08X.\n",
+                fprintf(file, "Invalid read access from 0x%04lX:%08lX.\n",
                         pContextRec->ctx_SegDs, pReportRec->ExceptionInfo[1]);
             else if (pReportRec->ExceptionInfo[0] & XCPT_WRITE_ACCESS)
-                fprintf(file, "Invalid write access to 0x%04X:%08X.\n",
+                fprintf(file, "Invalid write access to 0x%04lX:%08lX.\n",
                         pContextRec->ctx_SegDs, pReportRec->ExceptionInfo[1]);
             else if (pReportRec->ExceptionInfo[0] & XCPT_SPACE_ACCESS)
-                fprintf(file, "Invalid space access at 0x%04X.\n",
+                fprintf(file, "Invalid space access at 0x%04lX.\n",
                         pReportRec->ExceptionInfo[1]);
             else if (pReportRec->ExceptionInfo[0] & XCPT_LIMIT_ACCESS)
                 fprintf(file, "Invalid limit access occurred.\n");
             else if (pReportRec->ExceptionInfo[0] == XCPT_UNKNOWN_ACCESS)
-                fprintf(file, "unknown at 0x%04X:%08X\n",
+                fprintf(file, "unknown at 0x%04lX:%08lX\n",
                             pContextRec->ctx_SegDs, pReportRec->ExceptionInfo[1]);
             fprintf(file,
                     "Explanation: An attempt was made to access a memory object which does\n"
@@ -585,7 +583,7 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
                     "\n    Process ID:      0x%lX"
                     "\n    Process module:  0x%lX (%s)"
                     "\n    Trapping module: 0x%lX (%s)"
-                    "\n    Object: %d\n",
+                    "\n    Object: %lu\n",
                     ppib->pib_ulpid,
                     hMod1, szMod1,
                     hMod2, szMod2,
@@ -593,7 +591,7 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
 
             fprintf(file,
                     "\nTrapping thread information:"
-                    "\n    Thread ID:       0x%lX (%d)"
+                    "\n    Thread ID:       0x%lX (%lu)"
                     "\n    Priority:        0x%lX\n",
                     ptib->tib_ptib2->tib2_ultid, ptib->tib_ptib2->tib2_ultid,
                     ulOldPriority);
@@ -617,23 +615,36 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
         fprintf(file, "\nRegisters:");
         if (pContextRec->ContextFlags & CONTEXT_INTEGER)
         {
+            // DS the following 4 added V0.9.6 (2000-11-06) [umoeller]
+            fprintf(file, "\n    DS  = %08lX  ", pContextRec->ctx_SegDs);
+            excDescribePage(file, pContextRec->ctx_SegDs);
+            // ES
+            fprintf(file, "\n    ES  = %08lX  ", pContextRec->ctx_SegEs);
+            excDescribePage(file, pContextRec->ctx_SegEs);
+            // FS
+            fprintf(file, "\n    FS  = %08lX  ", pContextRec->ctx_SegFs);
+            excDescribePage(file, pContextRec->ctx_SegFs);
+            // GS
+            fprintf(file, "\n    GS  = %08lX  ", pContextRec->ctx_SegGs);
+            excDescribePage(file, pContextRec->ctx_SegGs);
+
             // EAX
-            fprintf(file, "\n    EAX = %08X  ", pContextRec->ctx_RegEax);
+            fprintf(file, "\n    EAX = %08lX  ", pContextRec->ctx_RegEax);
             excDescribePage(file, pContextRec->ctx_RegEax);
             // EBX
-            fprintf(file, "\n    EBX = %08X  ", pContextRec->ctx_RegEbx);
+            fprintf(file, "\n    EBX = %08lX  ", pContextRec->ctx_RegEbx);
             excDescribePage(file, pContextRec->ctx_RegEbx);
             // ECX
-            fprintf(file, "\n    ECX = %08X  ", pContextRec->ctx_RegEcx);
+            fprintf(file, "\n    ECX = %08lX  ", pContextRec->ctx_RegEcx);
             excDescribePage(file, pContextRec->ctx_RegEcx);
             // EDX
-            fprintf(file, "\n    EDX = %08X  ", pContextRec->ctx_RegEdx);
+            fprintf(file, "\n    EDX = %08lX  ", pContextRec->ctx_RegEdx);
             excDescribePage(file, pContextRec->ctx_RegEdx);
             // ESI
-            fprintf(file, "\n    ESI = %08X  ", pContextRec->ctx_RegEsi);
+            fprintf(file, "\n    ESI = %08lX  ", pContextRec->ctx_RegEsi);
             excDescribePage(file, pContextRec->ctx_RegEsi);
             // EDI
-            fprintf(file, "\n    EDI = %08X  ", pContextRec->ctx_RegEdi);
+            fprintf(file, "\n    EDI = %08lX  ", pContextRec->ctx_RegEdi);
             excDescribePage(file, pContextRec->ctx_RegEdi);
             fprintf(file, "\n");
         }
@@ -645,28 +656,29 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
 
             // *** instruction
 
-            fprintf(file, "Instruction pointer (where exception occured):\n    CS:EIP = %04X:%08X  ",
+            fprintf(file, "Instruction pointer (where exception occured):\n    CS:EIP = %04lX:%08lX  ",
                     pContextRec->ctx_SegCs,
                     pContextRec->ctx_RegEip);
             excDescribePage(file, pContextRec->ctx_RegEip);
 
             // *** CPU flags
 
-            fprintf(file, "\n    FLG    = %08X", pContextRec->ctx_EFlags);
+            fprintf(file, "\n    EFLAGS = %08lX", pContextRec->ctx_EFlags);
 
             /*
              * stack:
              *
              */
 
-            fprintf(file, "\nStack:\n    Base:         %08X\n    Limit:        %08X",
-                   (ptib ? ptib->tib_pstack : 0),
-                   (ptib ? ptib->tib_pstacklimit :0));
-            fprintf(file, "\n    SS:ESP = %04X:%08X  ",
-                    pContextRec->ctx_SegSs, pContextRec->ctx_RegEsp);
+            fprintf(file, "\nStack:\n    Base:         %08lX\n    Limit:        %08lX",
+                   (ULONG)(ptib ? ptib->tib_pstack : 0),
+                   (ULONG)(ptib ? ptib->tib_pstacklimit : 0));
+            fprintf(file, "\n    SS:ESP = %04lX:%08lX  ",
+                    pContextRec->ctx_SegSs,
+                    pContextRec->ctx_RegEsp);
             excDescribePage(file, pContextRec->ctx_RegEsp);
 
-            fprintf(file, "\n    EBP    =      %08X  ", pContextRec->ctx_RegEbp);
+            fprintf(file, "\n    EBP    =      %08lX  ", pContextRec->ctx_RegEbp);
             excDescribePage(file, pContextRec->ctx_RegEbp);
 
             /*

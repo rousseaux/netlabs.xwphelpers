@@ -2,7 +2,13 @@
 /*
  *@@sourcefile stringh.c:
  *      contains string/text helper functions. These are good for
- *      parsing/splitting strings and other stuff used throughout XWorkplace.
+ *      parsing/splitting strings and other stuff used throughout
+ *      XWorkplace.
+ *
+ *      Note that these functions are really a bunch of very mixed
+ *      up string helpers, which you may or may not find helpful.
+ *      If you're looking for string functions with memory
+ *      management, look at xstring.c instead.
  *
  *      Usage: All OS/2 programs.
  *
@@ -179,7 +185,8 @@ BOOL strhIsDecimal(PSZ psz)
  *@@ strhSubstr:
  *      this creates a new PSZ containing the string
  *      from pBegin to pEnd, excluding the pEnd character.
- *      The new string is null-terminated.
+ *      The new string is null-terminated. The caller
+ *      must free() the new string after use.
  *
  *      Example:
  +              "1234567890"
@@ -423,22 +430,24 @@ PSZ strhins(const char *pcszBuffer,
  *      Note that *ppszBuf can get reallocated and must
  *      be free()'able.
  *
- *      Use of this wrapper is not recommended because
- *      it is considerably slower than xstrrpl.
+ *      Repetitive use of this wrapper is not recommended
+ *      because it is considerably slower than xstrrpl.
  *
  *@@added V0.9.6 (2000-11-01) [umoeller]
  */
 
 ULONG strhrpl(PSZ *ppszBuf,                // in/out: string
-              ULONG ulOfs,                  // in: where to begin search (0 = start)
-              const char *pcszSearch,    // in: search string; cannot be NULL
-              const char *pcszReplace,   // in: replacement string; cannot be NULL
-              PULONG pulAfterOfs)           // out: offset where found (ptr can be NULL)
+              PULONG pulOfs,               // in: where to begin search (0 = start);
+                                           // out: ofs of first char after replacement string
+              const char *pcszSearch,      // in: search string; cannot be NULL
+              const char *pcszReplace)     // in: replacement string; cannot be NULL
 {
     ULONG   ulrc = 0;
     XSTRING xstrBuf,
             xstrFind,
             xstrReplace;
+    size_t  ShiftTable[256];
+    BOOL    fRepeat = FALSE;
     xstrInit(&xstrBuf, 0);
     xstrset(&xstrBuf, *ppszBuf);
     xstrInit(&xstrFind, 0);
@@ -446,7 +455,12 @@ ULONG strhrpl(PSZ *ppszBuf,                // in/out: string
     xstrInit(&xstrReplace, 0);
     xstrset(&xstrReplace, (PSZ)pcszReplace);
 
-    if (ulrc = xstrrpl(&xstrBuf, ulOfs, &xstrFind, &xstrReplace, pulAfterOfs))
+    if ((ulrc = xstrrpl(&xstrBuf,
+                        pulOfs,
+                        &xstrFind,
+                        &xstrReplace,
+                        ShiftTable,
+                        &fRepeat)))
         // replaced:
         *ppszBuf = xstrBuf.psz;
 
@@ -481,12 +495,17 @@ ULONG strhWords(PSZ psz)
  *@@ strhThousandsULong:
  *      converts a ULONG into a decimal string, while
  *      inserting thousands separators into it. Specify
- *      the separator char in cThousands.
+ *      the separator character in cThousands.
+ *
  *      Returns pszTarget so you can use it directly
  *      with sprintf and the "%s" flag.
+ *
  *      For cThousands, you should use the data in
  *      OS2.INI ("PM_National" application), which is
  *      always set according to the "Country" object.
+ *      You can use prfhQueryCountrySettings to
+ *      retrieve this setting.
+ *
  *      Use strhThousandsDouble for "double" values.
  */
 
@@ -496,7 +515,7 @@ PSZ strhThousandsULong(PSZ pszTarget,       // out: decimal as string
 {
     USHORT ust, uss, usc;
     CHAR   szTemp[40];
-    sprintf(szTemp, "%d", ul);
+    sprintf(szTemp, "%lu", ul);
 
     ust = 0;
     usc = strlen(szTemp);
@@ -547,6 +566,32 @@ PSZ strhThousandsDouble(PSZ pszTarget, double dbl, CHAR cThousands)
 }
 
 /*
+ *@@ strhVariableDouble:
+ *      like strhThousandsULong, but for a "double" value, and
+ *      with a variable number of decimal places depending on the
+ *      size of the quantity.
+ *
+ *@@added V0.9.6 (2000-11-12) [pr]
+ */
+
+PSZ strhVariableDouble(PSZ pszTarget,
+                       double dbl,
+                       PSZ pszUnits,
+                       CHAR cThousands)
+{
+    if (dbl < 100.0)
+        sprintf(pszTarget, "%.2f%s", dbl, pszUnits);
+    else
+        if (dbl < 1000.0)
+            sprintf(pszTarget, "%.1f%s", dbl, pszUnits);
+        else
+            strcat(strhThousandsDouble(pszTarget, dbl, cThousands),
+                   pszUnits);
+
+    return(pszTarget);
+}
+
+/*
  *@@ strhFileDate:
  *      converts file date data to a string (to pszBuf).
  *      You can pass any FDATE structure to this function,
@@ -565,10 +610,10 @@ PSZ strhThousandsDouble(PSZ pszTarget, double dbl, CHAR cThousands)
  *
  *      cDateSep is used as a date separator (e.g. '.').
  *      This can be queried using:
- +              prfhQueryProfileChar(HINI_USER, "PM_National", "sDate", '/');
+ +          prfhQueryProfileChar(HINI_USER, "PM_National", "sDate", '/');
  *
  *      Alternatively, you can query all the country settings
- *      at once using prfhQueryCountrySettings (prfh.c, new with V0.9.0).
+ *      at once using prfhQueryCountrySettings (prfh.c).
  *
  *@@changed (99-11-07) [umoeller]: now calling strhDateTime
  */
@@ -610,7 +655,7 @@ VOID strhFileDate(PSZ pszBuf,           // out: string returned
  +              prfhQueryProfileChar(HINI_USER, "PM_National", "sTime", ':');
  *
  *      Alternatively, you can query all the country settings
- *      at once using prfhQueryCountrySettings (prfh.c, new with V0.9.0).
+ *      at once using prfhQueryCountrySettings (prfh.c).
  *
  *@@changed 99-03-15 fixed 12-hour crash
  *@@changed (99-11-07) [umoeller]: now calling strhDateTime
@@ -636,8 +681,8 @@ VOID strhFileTime(PSZ pszBuf,           // out: string returned
 
 /*
  *@@ strhDateTime:
- *      converts Control Programe DATETIME info
- *      to two strings. See strhFileDate and strhFileTime
+ *      converts Control Program DATETIME info
+ *      into two strings. See strhFileDate and strhFileTime
  *      for more detailed parameter descriptions.
  *
  *@@added V0.9.0 (99-11-07) [umoeller]
@@ -820,6 +865,53 @@ BOOL strhGetWord(PSZ *ppszStart,        // in: start of search,
 }
 
 /*
+ *@@ strhIsWord:
+ *      returns TRUE if p points to a "word"
+ *      in pcszBuf.
+ *
+ *      p is considered a word if the character _before_
+ *      it is in pcszBeginChars and the char _after_
+ *      it (i.e. *(p+cbSearch)) is in pcszEndChars.
+ *
+ *@@added V0.9.6 (2000-11-12) [umoeller]
+ */
+
+BOOL strhIsWord(const char *pcszBuf,
+                const char *p,                 // in: start of word
+                ULONG cbSearch,                // in: length of word
+                const char *pcszBeginChars,    // suggestion: "\x0d\x0a ()/\\-,."
+                const char *pcszEndChars)      // suggestion: "\x0d\x0a ()/\\-,.:;"
+{
+    BOOL    fEndOK = FALSE;
+
+    // check previous char
+    if (    (p == pcszBuf)
+         || (strchr(pcszBeginChars, *(p-1)))
+       )
+    {
+        // OK, valid begin char:
+        // check end char
+        CHAR    cNextChar = *(p + cbSearch);
+        if (cNextChar == 0)
+            fEndOK = TRUE;
+        else
+        {
+            char *pc = strchr(pcszEndChars, cNextChar);
+            if (pc)
+                // OK, is end char: avoid doubles of that char,
+                // but allow spaces
+                if (    (cNextChar+1 != *pc)
+                     || (cNextChar+1 == ' ')
+                     || (cNextChar+1 == 0)
+                   )
+                    fEndOK = TRUE;
+        }
+    }
+
+    return (fEndOK);
+}
+
+/*
  *@@ strhFindWord:
  *      searches for pszSearch in pszBuf, which is
  *      returned if found (or NULL if not).
@@ -835,12 +927,10 @@ BOOL strhGetWord(PSZ *ppszStart,        // in: start of search,
  +          returns ...........^ this, but not the "is" in "This".
  *
  *      The algorithm here uses strstr to find pszSearch in pszBuf
- *      and performs additional "is-word" checks for each item found.
- *      With VAC++ 3.0, this is still much faster than searching
- *      words first and then comparing each word with pszSearch.
- *      I've tried it that way too, and that took nearly double as
- *      long. Apparently, the VAC++ runtime library uses some
- *      optimized search algorithm here, so we better use that one.
+ *      and performs additional "is-word" checks for each item found
+ *      (by calling strhIsWord).
+ *
+ *      Note that this function is fairly slow compared to xstrFindWord.
  *
  *@@added V0.9.0 (99-11-08) [umoeller]
  *@@changed (99-11-10) [umoeller]: tried second algorithm, reverted to original...
@@ -859,63 +949,6 @@ PSZ strhFindWord(const char *pszBuf,
     {
         const char *p = pszBuf;
 
-        /*  // go thru all characters
-        while (*p)
-        {
-            // check if current character is either the
-            // very first or a "begin word" character
-            if (    (p == pszBuf)
-                 || (strchr(pcszBeginChars, *p) == 0)
-               )
-            {
-                // yes: go for next
-                if (*(++p))
-                {
-                    // compare with search string
-                    if (strcmp(p, pszSearch) == 0)
-                    {
-                        // is the same:
-                        // check if still in buffer
-                        if (p < pszBuf + cbBuf)
-                        {
-                            CHAR    cAfterEndOfWord = *(p + cbSearch);
-                            if (cAfterEndOfWord == 0)
-                            {
-                                // end of string:
-                                // that's ok
-                                pszReturn = (PSZ)p;
-                                break;
-                            }
-                            else
-                            {
-                                // check if in "end of word" list
-                                char *pc2 = strchr(pcszEndChars, cAfterEndOfWord);
-                                if (pc2)
-                                    // OK, is end char: avoid doubles of that char,
-                                    // but allow spaces
-                                    if (    (cAfterEndOfWord+1 != *pc2)
-                                         || (cAfterEndOfWord+1 == ' ')
-                                         || (cAfterEndOfWord+1 == 0)
-                                       )
-                                    {
-                                        // end of string:
-                                        // that's ok
-                                        pszReturn = (PSZ)p;
-                                        break;
-                                    }
-                            }
-                        }
-                    }
-                }
-                else
-                    // end of string:
-                    break;
-            }
-
-            ++p;
-        } // end while
-        */
-
         do  // while p
         {
             p = strstr(p, pszSearch);
@@ -924,37 +957,17 @@ PSZ strhFindWord(const char *pszBuf,
                 // string found:
                 // check if that's a word
 
-                // check previous char
-                if (    (p == pszBuf)
-                     || (strchr(pcszBeginChars, *(p-1)))
-                   )
+                if (strhIsWord(pszBuf,
+                               p,
+                               cbSearch,
+                               pcszBeginChars,
+                               pcszEndChars))
                 {
-                    // OK, valid begin char:
-                    BOOL    fEndOK = FALSE;
-                    // check end char
-                    CHAR    cNextChar = *(p + cbSearch);
-                    if (cNextChar == 0)
-                        fEndOK = TRUE;
-                    else
-                    {
-                        char *pc = strchr(pcszEndChars, cNextChar);
-                        if (pc)
-                            // OK, is end char: avoid doubles of that char,
-                            // but allow spaces
-                            if (    (cNextChar+1 != *pc)
-                                 || (cNextChar+1 == ' ')
-                                 || (cNextChar+1 == 0)
-                               )
-                                fEndOK = TRUE;
-                    }
-
-                    if (fEndOK)
-                    {
-                        // valid end char:
-                        pszReturn = (PSZ)p;
-                        break;
-                    }
+                    // valid end char:
+                    pszReturn = (PSZ)p;
+                    break;
                 }
+
                 p += cbSearch;
             }
         } while (p);
@@ -1185,9 +1198,8 @@ PSZ strhSetParameter(PSZ* ppszBuf,    // in: text buffer to search
 
             if (pEOL)
             {
-                XSTRING strBuf,
-                        strFind,
-                        strReplace;
+                XSTRING strBuf;
+                ULONG   ulOfs = 0;
 
                 PSZ pszOldCopy = (PSZ)malloc(cbOldParam+1);
                 strncpy(pszOldCopy, pOldParam, cbOldParam);
@@ -1195,17 +1207,18 @@ PSZ strhSetParameter(PSZ* ppszBuf,    // in: text buffer to search
 
                 xstrInit(&strBuf, 0);
                 xstrset(&strBuf, *ppszBuf);         // this must not be freed!
-                xstrInit(&strFind, 0);
+                /* xstrInit(&strFind, 0);
                 xstrset(&strFind, pszOldCopy);      // this must not be freed!
                 xstrInit(&strReplace, 0);
                 xstrset(&strReplace, pszNewParam);  // this must not be freed!
+                   */
 
                 // check for upper case desired?
                 if (fRespectCase)
                     if (fIsAllUpperCase)
                         strupr(pszNewParam);
 
-                xstrrpl(&strBuf, 0, &strFind, &strReplace, NULL);
+                xstrcrpl(&strBuf, &ulOfs, pszOldCopy, pszNewParam);
 
                 free(pszOldCopy);
 
@@ -1372,7 +1385,7 @@ PSZ strhGetNumAttribValue(const char *pszSearchIn,       // in: where to search
 {
     PSZ pParam;
     if ((pParam = strhFindAttribValue(pszSearchIn, pszTag)))
-        sscanf(pParam, "%d", pl);
+        sscanf(pParam, "%ld", pl);
 
     return (pParam);
 }
@@ -1798,7 +1811,7 @@ PSZ strhCreateDump(PBYTE pb,            // in: start address of buffer
             memset(szLine, ' ', ulIndent);
             pszLine += ulIndent;
         }
-        pszLine += sprintf(pszLine, "%02lX ", *pbCurrent);
+        pszLine += sprintf(pszLine, "%02lX ", (ULONG)*pbCurrent);
 
         if ( (*pbCurrent > 31) && (*pbCurrent < 127) )
             // printable character:
@@ -1868,7 +1881,7 @@ PSZ strhCreateDump(PBYTE pb,            // in: start address of buffer
 #define IS_OS2_COMP_END(C)  ((C) == 0 || IS_OS2_COMP_SEP (C))
 
 /*
- *@@ skip_comp_os2:
+ * skip_comp_os2:
  *      Return a pointer to the next component of the path SRC, for OS/2
  *      and DOS styles.  When the end of the string is reached, a pointer
  *      to the terminating null character is returned.
@@ -2466,257 +2479,75 @@ BOOL strhMatchOS2(const unsigned char* pcszMask,     // in: mask (e.g. "*.txt")
  */
 
 /*
- *@@ strhfind:
- *      searches for a pattern in a string using the Boyer-Moore-
- *      Horspool-Sunday algorithm.  The string and pattern are null-terminated
- *      strings.  Returns a pointer to the pattern if found within the string,
- *      or NULL if the pattern was not found.  If you repeatedly scan for the
- *      same pattern, use the repeat_find argument.  If this is TRUE, the
- *      function does not re-parse the pattern.  You must of course call the
- *      function with repeat_find equal to FALSE the first time.  This function
- *      is meant to handle  character data, and is most effective when you work
- *      with large strings.  To search binary data use strhmemfind().  Will not work
- *      on multibyte characters.
- *
- *      Examples:
- +      char *result;
- +
- +      result = strhfind ("abracadabra", "cad", FALSE);
- +      if (result)
- +          puts (result);
- +
- *      Taken from the "Standard Function Library", file sflfind.c.
- *      Copyright:  Copyright (c) 1991-99 iMatix Corporation.
- *      Slightly modified.
- *
- *@@added V0.9.3 (2000-05-08) [umoeller]
- */
-
-char* strhfind (const char *string,            //  String containing data
-                const char *pattern,           //  Pattern to search for
-                BOOL repeat_find)              //  Same pattern as last time
-{
-    static size_t
-        searchbuf [256];                //  Fixed search buffer
-
-    ASSERT (string);                    //  Expect non-NULL pointers, but
-    ASSERT (pattern);                   //  fall through if not debugging
-
-    return (char *) strhmemfind_rb (string,    strlen (string),
-                                pattern,   strlen (pattern),
-                                searchbuf, &repeat_find);
-}
-
-/*
- *@@ strhfind_r:
- *      searches for a pattern in a string using the Boyer-Moore-
- *      Horspool-Sunday algorithm.  The string and pattern are null-terminated
- *      strings.  Returns a pointer to the pattern if found within the string,
- *      or NULL if the pattern was not found.  This function is meant to handle
- *      character data, and is most effective when you work with large strings.
- *      To search binary data use strhmemfind().  Will not work on multibyte
- *      characters.  Reentrant.
- *
- *      Examples:
- +      char *result;
- +
- +      result = strhfind_r ("abracadabra", "cad");
- +      if (result)
- +          puts (result);
- *
- *      Taken from the "Standard Function Library", file sflfind.c.
- *      Copyright:  Copyright (c) 1991-99 iMatix Corporation.
- *      Slightly modified.
- *
- *@@added V0.9.3 (2000-05-08) [umoeller]
- */
-
-char* strhfind_r (const char *string,          //  String containing data
-                  const char *pattern)         //  Pattern to search for
-{
-    size_t
-        searchbuf [256];                //  One-time search buffer
-    BOOL
-        secondtime = FALSE;             //  Search buffer init needed
-
-    ASSERT (string);                    //  Expect non-NULL pointers, but
-    ASSERT (pattern);                   //  fall through if not debugging
-
-    return (char *) strhmemfind_rb (string,    strlen (string),
-                                    pattern,   strlen (pattern),
-                                    searchbuf, &secondtime);
-}
-
-/*
- *@@ strhfind_rb:
- *      searches for a pattern in a string using the Boyer-Moore-
- *      Horspool-Sunday algorithm.  The string and pattern are null-terminated
- *      strings.  Returns a pointer to the pattern if found within the string,
- *      or NULL if the pattern was not found.  Supports more efficient repeat
- *      searches (for the same pattern), through a supplied search buffer.  The
- *      search buffer must be long enough to contain 256 (2**8) size_t entries.
- *      On the first call repeat_find must be set to FALSE.  After the search
- *      buffer has been initialised, repeat_find will be set to TRUE by the
- *      function, avoiding the search buffer initialisation on later calls.
- *
- *      This function is most effective when repeated searches are made for
- *      the same pattern in one or more strings.  This function is meant to
- *      handle  character data, and is most effective when you work with
- *      large strings.  To search binary data use strhmemfind().  Will not work
- *      on multibyte characters.  Reentrant.
- *
- *      Examples:
- +      char   *result;
- +      BOOL   repeat_search = FALSE;
- +      size_t searchbuf[256];
- +
- +      result = strhfind_rb ("abracadabra", "cad", searchbuf, &repeat_search);
- +      if (result)
- +        {
- +          puts (result);
- +          result = strhfind_rb ("cad/cam", "cad", searchbuf, &repeat_search);
- +          if (result)
- +              puts (result);
- +        }
- *
- *      Taken from the "Standard Function Library", file sflfind.c.
- *      Copyright:  Copyright (c) 1991-99 iMatix Corporation.
- *      Slightly modified.
- *
- *@@added V0.9.3 (2000-05-08) [umoeller]
- */
-
-char* strhfind_rb (const char *string,         //  String containing data
-                   const char *pattern,        //  Pattern to search for
-                   size_t     *shift,          //  Working buffer between searches
-                   BOOL       *repeat_find)    //  Flag for first/later search
-{
-    ASSERT (string);                    //  Expect non-NULL pointers, but
-    ASSERT (pattern);                   //  fall through if not debugging
-    ASSERT (shift);
-    ASSERT (repeat_find);
-
-    return (char *) strhmemfind_rb (string,    strlen (string),
-                                    pattern,   strlen (pattern),
-                                    shift,     repeat_find);
-}
-
-/*
  *@@ strhmemfind:
- *      searches for a pattern in a block of memory using the Boyer-
- *      Moore-Horspool-Sunday algorithm.  The block and pattern may contain any
- *      values; you must explicitly provide their lengths.  Returns a pointer to
- *      the pattern if found within the block, or NULL if the pattern was not
- *      found.  If you repeatedly scan for the same pattern, use the repeat_find
- *      argument.  If this is TRUE, the function does not re-parse the pattern.
- *      This function is meant to handle binary data.  If you need to search
- *      strings, use the strhfind_r or strhfind_rb() functions.  Non-Reentrant.
+ *      searches for a pattern in a block of memory using the
+ *      Boyer-Moore-Horspool-Sunday algorithm.
+ *
+ *      The block and pattern may contain any values; you must
+ *      explicitly provide their lengths. If you search for strings,
+ *      use strlen() on the buffers.
+ *
+ *      Returns a pointer to the pattern if found within the block,
+ *      or NULL if the pattern was not found.
+ *
+ *      This algorithm needs a "shift table" to cache data for the
+ *      search pattern. This table can be reused when performing
+ *      several searches with the same pattern.
+ *
+ *      "shift" must point to an array big enough to hold 256 (8**2)
+ *      "size_t" values.
+ *
+ *      If (*repeat_find == FALSE), the shift table is initialized.
+ *      So on the first search with a given pattern, *repeat_find
+ *      should be FALSE. This function sets it to TRUE after the
+ *      shift table is initialised, allowing the initialisation
+ *      phase to be skipped on subsequent searches.
+ *
+ *      This function is most effective when repeated searches are
+ *      made for the same pattern in one or more large buffers.
+ *
+ *      Example:
+ *
+ +          PSZ     pszHaystack = "This is a sample string.",
+ +                  pszNeedle = "string";
+ +          size_t  shift[256];
+ +          BOOL    fRepeat = FALSE;
+ +
+ +          PSZ     pFound = strhmemfind(pszHaystack,
+ +                                       strlen(pszHaystack),   // block size
+ +                                       pszNeedle,
+ +                                       strlen(pszNeedle),     // pattern size
+ +                                       shift,
+ +                                       &fRepeat);
  *
  *      Taken from the "Standard Function Library", file sflfind.c.
  *      Copyright:  Copyright (c) 1991-99 iMatix Corporation.
- *      Slightly modified.
+ *      Slightly modified by umoeller.
  *
  *@@added V0.9.3 (2000-05-08) [umoeller]
  */
 
-void* strhmemfind (const void  *block,            //  Block containing data
-                   size_t       block_size,       //  Size of block in bytes
-                   const void  *pattern,          //  Pattern to search for
-                   size_t       pattern_size,     //  Size of pattern block
-                   BOOL         repeat_find)      //  Same pattern as last time
+void* strhmemfind(const void *in_block,     // in: block containing data
+                  size_t block_size,        // in: size of block in bytes
+                  const void *in_pattern,   // in: pattern to search for
+                  size_t pattern_size,      // in: size of pattern block
+                  size_t *shift,            // in/out: shift table (search buffer)
+                  BOOL *repeat_find)        // in/out: if TRUE, *shift is already initialized
 {
-    static size_t
-        searchbuf [256];                //  Static shared search buffer
-
-    ASSERT (block);                     //  Expect non-NULL pointers, but
-    ASSERT (pattern);                   //  full through if not debugging
-
-    return strhmemfind_rb (block, block_size, pattern, pattern_size,
-                       searchbuf, &repeat_find);
-}
-
-/*
- *@@ strhmemfind_r:
- *      searches for a pattern in a block of memory using the Boyer-
- *      Moore-Horspool-Sunday algorithm.  The block and pattern may contain any
- *      values; you must explicitly provide their lengths.  Returns a pointer to
- *      the pattern if found within the block, or NULL if the pattern was not
- *      found.
- *
- *      This function is meant to handle binary data, for a single search for
- *      a given pattern.  If you need to search strings, use the strhfind_r()
- *      or strhfind_rb() functions.  If you want to do efficient repeated searches
- *      for one pattern, use strhmemfind_rb().  Reentrant.
- *
- *      Taken from the "Standard Function Library", file sflfind.c.
- *      Copyright:  Copyright (c) 1991-99 iMatix Corporation.
- *      Slightly modified.
- *
- *@@added V0.9.3 (2000-05-08) [umoeller]
- */
-
-void* strhmemfind_r (const void  *block,          //  Block containing data
-                     size_t       block_size,     //  Size of block in bytes
-                     const void  *pattern,        //  Pattern to search for
-                     size_t       pattern_size)   //  Size of pattern block
-{
-    size_t
-        searchbuf [256];                //  One-time search buffer
-    BOOL
-        secondtime  = FALSE;
-
-    ASSERT (block);                     //  Expect non-NULL pointers, but
-    ASSERT (pattern);                   //  full through if not debugging
-
-    return strhmemfind_rb (block, block_size, pattern, pattern_size,
-                           searchbuf, &secondtime);
-}
-
-/*
- *@@ strhmemfind_rb:
- *      searches for a pattern in a block of memory using the Boyer-
- *      Moore-Horspool-Sunday algorithm.  The block and pattern may contain any
- *      values; you must explicitly provide their lengths.  Returns a pointer to
- *      the pattern if found within the block, or NULL if the pattern was not
- *      found.  On the first search with a given pattern, *repeat_find should
- *      be FALSE.  It will be set to TRUE after the shift table is initialised,
- *      allowing the initialisation phase to be skipped on subsequent searches.
- *      shift must point to an array big enough to hold 256 (8**2) size_t values.
- *
- *      This function is meant to handle binary data, for repeated searches
- *      for the same pattern.  If you need to search strings, use the
- *      strhfind_r() or strhfind_rb() functions.  If you wish to search for a
- *      pattern only once consider using strhmemfind_r(). Reentrant.
- *
- *      Taken from the "Standard Function Library", file sflfind.c.
- *      Copyright:  Copyright (c) 1991-99 iMatix Corporation.
- *      Slightly modified.
- *
- *@@added V0.9.3 (2000-05-08) [umoeller]
- */
-
-void* strhmemfind_rb (const void  *in_block,      //  Block containing data
-                      size_t       block_size,    //  Size of block in bytes
-                      const void  *in_pattern,    //  Pattern to search for
-                      size_t       pattern_size,  //  Size of pattern block
-                      size_t      *shift,         //  Shift table (search buffer)
-                      BOOL        *repeat_find)   //  TRUE: search buffer already init
-{
-    size_t
-        byte_nbr,                       //  Distance through block
-        match_size;                     //  Size of matched part
+    size_t      byte_nbr,                       //  Distance through block
+                match_size;                     //  Size of matched part
     const unsigned char
-        *match_base = NULL,             //  Base of match of pattern
-        *match_ptr  = NULL,             //  Point within current match
-        *limit      = NULL;             //  Last potiental match point
+                *match_base = NULL,             //  Base of match of pattern
+                *match_ptr  = NULL,             //  Point within current match
+                *limit      = NULL;             //  Last potiental match point
     const unsigned char
-        *block   = (unsigned char *) in_block,   //  Concrete pointer to block data
-        *pattern = (unsigned char *) in_pattern; //  Concrete pointer to search value
+                *block   = (unsigned char *) in_block,   //  Concrete pointer to block data
+                *pattern = (unsigned char *) in_pattern; //  Concrete pointer to search value
 
-    ASSERT (block);                     //  Expect non-NULL pointers, but
-    ASSERT (pattern);                   //  fail gracefully if not debugging
-    ASSERT (shift);                     //  NULL repeat_find => is false
-    if (block == NULL || pattern == NULL || shift == NULL)
+    if (    (block == NULL)
+         || (pattern == NULL)
+         || (shift == NULL)
+       )
         return (NULL);
 
     //  Pattern must be smaller or equal in size to string
@@ -2735,15 +2566,19 @@ void* strhmemfind_rb (const void  *in_block,      //  Block containing data
     //  of that byte in our pattern under that byte, and try match again.
 
     if (!repeat_find || !*repeat_find)
-      {
-        for (byte_nbr = 0; byte_nbr < 256; byte_nbr++)
-            shift [byte_nbr] = pattern_size + 1;
-        for (byte_nbr = 0; byte_nbr < pattern_size; byte_nbr++)
-            shift [(unsigned char) pattern [byte_nbr]] = pattern_size - byte_nbr;
+    {
+        for (byte_nbr = 0;
+             byte_nbr < 256;
+             byte_nbr++)
+            shift[byte_nbr] = pattern_size + 1;
+        for (byte_nbr = 0;
+             byte_nbr < pattern_size;
+             byte_nbr++)
+            shift[(unsigned char)pattern[byte_nbr]] = pattern_size - byte_nbr;
 
         if (repeat_find)
             *repeat_find = TRUE;
-      }
+    }
 
     //  Search for the block, each time jumping up by the amount
     //  computed in the shift table
@@ -2753,23 +2588,23 @@ void* strhmemfind_rb (const void  *in_block,      //  Block containing data
 
     for (match_base = block;
          match_base < limit;
-         match_base += shift [*(match_base + pattern_size)])
-      {
+         match_base += shift[*(match_base + pattern_size)])
+    {
         match_ptr  = match_base;
         match_size = 0;
 
         //  Compare pattern until it all matches, or we find a difference
-        while (*match_ptr++ == pattern [match_size++])
-          {
+        while (*match_ptr++ == pattern[match_size++])
+        {
             ASSERT (match_size <= pattern_size &&
                     match_ptr == (match_base + match_size));
 
-            //  If we found a match, return the start address
+            // If we found a match, return the start address
             if (match_size >= pattern_size)
-              return ((void*)(match_base));
+                return ((void*)(match_base));
 
-          }
-      }
+        }
+    }
     return (NULL);                      //  Found nothing
 }
 

@@ -152,7 +152,7 @@ ULONG sndParseSoundData(PSZ pszSoundData,  // in: INI data from MMPM.INI
             if (pulVolume)
             {
                 // individual volume settings per sound
-                sscanf(p1, "%d", pulVolume);
+                sscanf(p1, "%lu", pulVolume);
                 ulrc++;
             }
         }
@@ -289,7 +289,7 @@ BOOL sndQuerySystemSound(HAB hab,           // in: caller's anchor block
                                           MMINIKEY_SOUNDSETTINGS, "Volume",
                                           "100",
                                           szData2, sizeof(szData2));
-                    sscanf(szData2, "%d", pulVolume);
+                    sscanf(szData2, "%lu", pulVolume);
                 }
 
                 rc = TRUE;
@@ -331,7 +331,7 @@ BOOL sndWriteSoundData(HINI hiniMMPM,       // in: MMPM.INI handle (from sndOpen
     {
         CHAR szData[1000];
         // format: soundfile#description#volume
-        sprintf(szData, "%s#%s#%d", pszFile, pszDescr, ulVolume);
+        sprintf(szData, "%s#%s#%lu", pszFile, pszDescr, ulVolume);
         brc = PrfWriteProfileString(hiniMMPM,
                                     MMINIKEY_SYSSOUNDS, szKey,
                                     szData);
@@ -474,7 +474,7 @@ APIRET sndCreateSoundScheme(HINI hiniMMPM,      // in: MMPM.INI handle (from snd
                                       &ulVolume);
                     ulKeyLen = strlen(szFile)+1;    // go beyond null byte
                     ulKeyLen += sprintf(szFile+ulKeyLen,
-                                "%d",
+                                "%lu",
                                 ulVolume) + 1;
                     // and write to OS2SYS.INI
                     PrfWriteProfileData(HINI_SYSTEM,
@@ -607,12 +607,12 @@ APIRET sndLoadSoundScheme(HINI hiniMMPM,      // in: HINI of ?:\MMOS2\MMPM.INI (
                             // after the null byte (sndCreateSoundScheme);
                             // copy it
                             sscanf(pSchemeSoundData + cbSchemeSoundFile,
-                                   "%d",
+                                   "%lu",
                                    &ulVolume);
 
                         // and write data to MMPM.INI
                         // format: soundfile#description#volume
-                        sprintf(szData, "%s#%s#%d", szFile, szDescription, ulVolume);
+                        sprintf(szData, "%s#%s#%lu", szFile, szDescription, ulVolume);
                         if (PrfWriteProfileString(hiniMMPM,
                                                   MMINIKEY_SYSSOUNDS, // "MMPM2_AlarmSounds"
                                                   pMMPMKey2,    // key (decimal number)
