@@ -2737,6 +2737,7 @@ MRESULT EXPENTRY fnwpMessageBox(HWND hwndBox, ULONG msg, MPARAM mp1, MPARAM mp2)
  *@@added V0.9.13 (2001-06-21) [umoeller]
  *@@changed V0.9.14 (2001-07-26) [umoeller]: fixed missing focus on buttons
  *@@changed V0.9.19 (2002-04-24) [umoeller]: added pfnHelp
+ *@@changed V0.9.20 (2002-07-12) [umoeller]: made icon spacing wider
  */
 
 APIRET dlghCreateMessageBox(HWND *phwndDlg,
@@ -2753,7 +2754,8 @@ APIRET dlghCreateMessageBox(HWND *phwndDlg,
     APIRET arc;
 
     CONTROLDEF
-        Icon = CONTROLDEF_ICON(NULLHANDLE, 0),
+        Icon = CONTROLDEF_ICON_WIDER(NULLHANDLE, 0),
+                // made icon spacing wider V0.9.20 (2002-07-12) [umoeller]
         Spacing = CONTROLDEF_TEXT(NULL, 0, 1, 1),
         InfoText = CONTROLDEF_TEXT_WORDBREAK(NULL, 10, MSGBOX_TEXTWIDTH),
         Buttons[] =

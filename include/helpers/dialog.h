@@ -302,6 +302,10 @@ extern "C" {
             WS_VISIBLE | SS_ICON | DT_LEFT | DT_VCENTER, \
             id, CTL_COMMON_FONT, 0, {SZL_AUTOSIZE, SZL_AUTOSIZE}, COMMON_SPACING }
 
+    #define CONTROLDEF_ICON_WIDER(hptr, id) { WC_STATIC, (PCSZ)(hptr), \
+            WS_VISIBLE | SS_ICON | DT_LEFT | DT_VCENTER, \
+            id, CTL_COMMON_FONT, 0, {SZL_AUTOSIZE, SZL_AUTOSIZE}, 2 * COMMON_SPACING }
+
     #define CONTROLDEF_BITMAP(hbm, id) { WC_STATIC, (PCSZ)(hbm), \
             WS_VISIBLE | SS_BITMAP | DT_LEFT | DT_VCENTER, \
             id, CTL_COMMON_FONT, 0, {SZL_AUTOSIZE, SZL_AUTOSIZE}, COMMON_SPACING }
