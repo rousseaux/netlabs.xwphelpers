@@ -3226,7 +3226,8 @@ APIRET doshReadText(PXFILE pFile,
                 // after install, and stupid E.EXE writes this
                 // all the time when saving a file
                 // V0.9.18 (2002-03-08) [umoeller]
-                if (p = strchr(pszContent, '\26'))
+                // if (p = strchr(pszContent, '\26')) What the hell is this??? Octal 26 = Decimal 22 != Ctrl-Z
+                if (p = strchr(pszContent, '\x1A')) // V1.0.4 (2004-12-18) [pr]
                 {
                     *p = '\0';
                     cbRead = p - pszContent;

@@ -251,6 +251,11 @@ BSCfgSysManip::BSCfgSysManip(const ustring &ustrConfigSys)
     // memset(&_ConfigManip, 0, sizeof(_ConfigManip));
             // V0.9.12 (2001-05-22) [umoeller]
 
+    _iReplaceMode = CFGRPL_ADD; // V1.0.4 (2004-12-18) [pr]
+    _iVertical = CFGVRT_BOTTOM;
+    // Moved above statements here from the else{} block below. If there wasn't a modifier,
+    // this was uninitialised garbage and CONFIG.SYS never got modified.
+
     // now check if we have modifiers
     PSZ     pSep;
     if (!(pSep = strchr(pcszConfigSys, '|')))
@@ -274,7 +279,6 @@ BSCfgSysManip::BSCfgSysManip(const ustring &ustrConfigSys)
         BOOL    fReplaceModeFound = FALSE;
         // now check for the replace mode;
         // the default is 0 (CFGRPL_ADD)
-        _iReplaceMode = CFGRPL_ADD;
         fVerticalsAllowed = TRUE;
 
         PSZ pszUnique;
@@ -355,7 +359,6 @@ BSCfgSysManip::BSCfgSysManip(const ustring &ustrConfigSys)
         }
 
         // now parse vertical modifiers
-        _iVertical = CFGVRT_BOTTOM;      // default
         BOOL fVerticalFound = FALSE;
         if (strhistr(pModifiers, "ADDTOP"))
         {
