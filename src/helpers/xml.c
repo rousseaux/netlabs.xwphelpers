@@ -713,33 +713,33 @@ APIRET xmlCreateElementNode(PDOMNODE pParent,         // in: parent node (either
  *          not point to an @DOM_ELEMENT node.
  *
  *@@added V0.9.9 (2001-02-14) [umoeller]
+ *@@changed V1.0.2 (2003-02-07) [umoeller]: added lenValue param
  */
 
 APIRET xmlCreateAttributeNode(PDOMNODE pElement,        // in: element node
                               const char *pcszName,     // in: attribute name (null-terminated)
                               const char *pcszValue,    // in: attribute value (null-terminated)
+                              ULONG lenValue,           // in: length of value (must be specified)
                               PDOMNODE *ppNew)
 {
-    APIRET arc = NO_ERROR;
+    APIRET      arc;
+    PDOMNODE    pNew = NULL;
 
     if (    (!pElement)
          || (pElement->NodeBase.ulNodeType != DOMNODE_ELEMENT)
        )
-        arc = ERROR_DOM_NO_ELEMENT;
-    else
-    {
-        PDOMNODE pNew = NULL;
-        if (!(arc = xmlCreateDomNode(pElement,          // this takes care of adding to the list
-                                     DOMNODE_ATTRIBUTE,
-                                     pcszName,
-                                     0,
-                                     &pNew)))
-        {
-            pNew->pstrNodeValue = xstrCreate(0);
-            xstrcpy(pNew->pstrNodeValue, pcszValue, 0);
+        return ERROR_DOM_NO_ELEMENT;
 
-            *ppNew = pNew;
-        }
+    if (!(arc = xmlCreateDomNode(pElement,          // this takes care of adding to the list
+                                 DOMNODE_ATTRIBUTE,
+                                 pcszName,
+                                 0,
+                                 &pNew)))
+    {
+        pNew->pstrNodeValue = xstrCreate(lenValue + 1);
+        xstrcpy(pNew->pstrNodeValue, pcszValue, lenValue);
+
+        *ppNew = pNew;
     }
 
     return arc;
@@ -758,7 +758,7 @@ APIRET xmlCreateAttributeNode(PDOMNODE pElement,        // in: element node
 
 APIRET xmlCreateTextNode(PDOMNODE pParent,         // in: parent element node
                          const char *pcszText,     // in: ptr to start of text
-                         ULONG ulLength,           // in: length of *pcszText
+                         ULONG lenText,            // in: length of *pcszText
                          PDOMNODE *ppNew)
 {
     PDOMNODE pNew = NULL;
@@ -771,10 +771,10 @@ APIRET xmlCreateTextNode(PDOMNODE pParent,         // in: parent element node
                                  &pNew)))
     {
         PSZ pszNodeValue;
-        if (pszNodeValue = (PSZ)malloc(ulLength + 1))
+        if (pszNodeValue = (PSZ)malloc(lenText + 1))
         {
-            memcpy(pszNodeValue, pcszText, ulLength);
-            pszNodeValue[ulLength] = '\0';
+            memcpy(pszNodeValue, pcszText, lenText);
+            pszNodeValue[lenText] = '\0';
             pNew->pstrNodeValue = xstrCreate(0);
             xstrset(pNew->pstrNodeValue, pszNodeValue);
 
@@ -1551,9 +1551,11 @@ STATIC void EXPATENTRY StartElementHandler(void *pUserData,      // in: our PXML
                      i += 2)
                 {
                     PDOMNODE pAttrib;
+                    PCSZ    pcszValue = papcszAttribs[i + 1];  // attr value
                     if (!(pDom->arcDOM = xmlCreateAttributeNode(pNew,                  // element,
                                                                 papcszAttribs[i],      // attr name
-                                                                papcszAttribs[i + 1],  // attr value
+                                                                pcszValue,
+                                                                strlen(pcszValue),
                                                                 &pAttrib)))
                     {
                         // shall we validate?
@@ -2427,6 +2429,51 @@ STATIC void EXPATENTRY EntityDeclHandler(void *pUserData,      // in: our PXMLDO
  *              0x94 in CP850 and 0x00f6 in Unicode. So set
  *              the int at index 0x94 to 0x00f6.
  *
+ *      --  pfnExternalHandler should be specified if you want the
+ *          parser to be able to handle @external_entities. Since
+ *          the parser has no concept of storage whatsoever, it is
+ *          the responsibility of this callback to supply the parser
+ *          with additional XML data when an external entity reference
+ *          is encountered.
+ *
+ *          This callback must have the following prototype:
+ *
+ +              APIRET APIENTRY ParseExternal(PXMLDOM pDom,
+ +                                            XML_Parser pSubParser,
+ +                                            const char *pcszSystemID,
+ +                                            const char *pcszPublicID)
+ +
+ *
+ *          The callback will be called for each reference that refers
+ *          to an external entity. pSubParser is a sub-parser created
+ *          by the DOM engine, and pcszSystemID and pcszPublicID
+ *          reference the external entity by means of a URI. As always
+ *          with XML, the system ID is required, while the public ID is
+ *          optional.
+ *
+ *          In the simplest case, this code could look as follows:
+ *
+ +              APIRET arc = ERROR_FILE_NOT_FOUND;
+ +
+ +              if (pcszSystemID)
+ +              {
+ +                  PSZ pszContents = NULL;
+ +                  if (!(arc = doshLoadTextFile(pcszSystemID,
+ +                                               &pszContents,
+ +                                               NULL)))
+ +                  {
+ +                      if (!XML_Parse(pSubParser,
+ +                                     pszContents,
+ +                                     strlen(pszContents),
+ +                                     TRUE))
+ +                          arc = -1;
+ +
+ +                      free(pszContents);
+ +                  }
+ +              }
+ +
+ +              return arc;
+ *
  *      --  pvCallbackUser is a user parameter which is simply stored
  *          in the XMLDOM struct which is returned. Since the XMLDOM
  *          is passed to all the callbacks, you can access that pointer
@@ -2434,6 +2481,7 @@ STATIC void EXPATENTRY EntityDeclHandler(void *pUserData,      // in: our PXMLDO
  *
  *@@added V0.9.9 (2001-02-14) [umoeller]
  *@@changed V0.9.14 (2001-08-09) [umoeller]: added DF_DROP_WHITESPACE support
+ *@@changed V0.9.20 (2002-07-06) [umoeller]: added static system IDs
  */
 
 APIRET xmlCreateDOM(ULONG flParserFlags,            // in: DF_* parser flags
@@ -2444,107 +2492,104 @@ APIRET xmlCreateDOM(ULONG flParserFlags,            // in: DF_* parser flags
                     PVOID pvCallbackUser,           // in: user param for callbacks
                     PXMLDOM *ppDom)                 // out: XMLDOM struct created
 {
-    APIRET  arc = NO_ERROR;
+    APIRET      arc = NO_ERROR;
+    PXMLDOM     pDom;
+    PDOMNODE    pDocument = NULL;
 
-    PXMLDOM pDom = (PXMLDOM)malloc(sizeof(*pDom));
-    if (!pDom)
-        arc = ERROR_NOT_ENOUGH_MEMORY;
-    else
+    if (!(pDom = (PXMLDOM)malloc(sizeof(*pDom))))
+        return ERROR_NOT_ENOUGH_MEMORY;
+
+    memset(pDom, 0, sizeof(XMLDOM));
+
+    pDom->flParserFlags = flParserFlags;
+    pDom->pfnGetCPData = pfnGetCPData;
+    pDom->pfnExternalHandler = pfnExternalHandler;
+    pDom->pvCallbackUser = pvCallbackUser;
+
+    // these added with V0.9.20 (2002-07-06) [umoeller]
+    pDom->paSystemIds = paSystemIds;
+    pDom->cSystemIds = cSystemIds;
+
+    lstInit(&pDom->llElementStack,
+            TRUE);                 // auto-free
+
+    // create the document node
+    if (!(arc = xmlCreateDomNode(NULL, // no parent
+                                 DOMNODE_DOCUMENT,
+                                 NULL,
+                                 0,
+                                 &pDocument)))
     {
-        PDOMNODE pDocument = NULL;
+        // store the document in the DOM
+        pDom->pDocumentNode = (PDOMDOCUMENTNODE)pDocument;
 
-        memset(pDom, 0, sizeof(XMLDOM));
+        // push the document on the stack so the handlers
+        // will append to that
+        PushElementStack(pDom,
+                         pDocument);
 
-        pDom->flParserFlags = flParserFlags;
-        pDom->pfnGetCPData = pfnGetCPData;
-        pDom->pfnExternalHandler = pfnExternalHandler;
-        pDom->pvCallbackUser = pvCallbackUser;
+        pDom->pParser = XML_ParserCreate(NULL);
 
-        // these added with V0.9.20 (2002-07-06) [umoeller]
-        pDom->paSystemIds = paSystemIds;
-        pDom->cSystemIds = cSystemIds;
-
-        lstInit(&pDom->llElementStack,
-                TRUE);                 // auto-free
-
-        // create the document node
-        if (!(arc = xmlCreateDomNode(NULL, // no parent
-                                     DOMNODE_DOCUMENT,
-                                     NULL,
-                                     0,
-                                     &pDocument)))
+        if (!pDom->pParser)
+            arc = ERROR_NOT_ENOUGH_MEMORY;
+        else
         {
-            // store the document in the DOM
-            pDom->pDocumentNode = (PDOMDOCUMENTNODE)pDocument;
+            if (pfnGetCPData)
+                XML_SetUnknownEncodingHandler(pDom->pParser,
+                                              UnknownEncodingHandler,
+                                              pDom);        // user data
 
-            // push the document on the stack so the handlers
-            // will append to that
-            PushElementStack(pDom,
-                             pDocument);
+            XML_SetParamEntityParsing(pDom->pParser,
+                                      XML_PARAM_ENTITY_PARSING_ALWAYS);
 
-            pDom->pParser = XML_ParserCreate(NULL);
+            XML_SetElementHandler(pDom->pParser,
+                                  StartElementHandler,
+                                  EndElementHandler);
 
-            if (!pDom->pParser)
-                arc = ERROR_NOT_ENOUGH_MEMORY;
-            else
+            XML_SetCharacterDataHandler(pDom->pParser,
+                                        CharacterDataHandler);
+
+            // XML_SetProcessingInstructionHandler(XML_Parser parser,
+            //                          XML_ProcessingInstructionHandler handler);
+
+
+            if (flParserFlags & DF_PARSECOMMENTS)
+                XML_SetCommentHandler(pDom->pParser,
+                                      CommentHandler);
+
+            if (    (pfnExternalHandler)
+                 || (cSystemIds)     // V0.9.20 (2002-07-06) [umoeller]
+               )
+                XML_SetExternalEntityRefHandler(pDom->pParser,
+                                                ExternalEntityRefHandler);
+
+            if (flParserFlags & DF_PARSEDTD)
             {
-                if (pfnGetCPData)
-                    XML_SetUnknownEncodingHandler(pDom->pParser,
-                                                  UnknownEncodingHandler,
-                                                  pDom);        // user data
+                XML_SetDoctypeDeclHandler(pDom->pParser,
+                                          StartDoctypeDeclHandler,
+                                          EndDoctypeDeclHandler);
+
+                XML_SetNotationDeclHandler(pDom->pParser,
+                                           NotationDeclHandler);
+
+                XML_SetElementDeclHandler(pDom->pParser,
+                                          ElementDeclHandler);
+
+                XML_SetAttlistDeclHandler(pDom->pParser,
+                                          AttlistDeclHandler);
+
+                XML_SetEntityDeclHandler(pDom->pParser,
+                                         EntityDeclHandler);
 
                 XML_SetParamEntityParsing(pDom->pParser,
                                           XML_PARAM_ENTITY_PARSING_ALWAYS);
-
-                XML_SetElementHandler(pDom->pParser,
-                                      StartElementHandler,
-                                      EndElementHandler);
-
-                XML_SetCharacterDataHandler(pDom->pParser,
-                                            CharacterDataHandler);
-
-                // XML_SetProcessingInstructionHandler(XML_Parser parser,
-                //                          XML_ProcessingInstructionHandler handler);
-
-
-                if (flParserFlags & DF_PARSECOMMENTS)
-                    XML_SetCommentHandler(pDom->pParser,
-                                          CommentHandler);
-
-                if (    (pfnExternalHandler)
-                     || (cSystemIds)     // V0.9.20 (2002-07-06) [umoeller]
-                   )
-                    XML_SetExternalEntityRefHandler(pDom->pParser,
-                                                    ExternalEntityRefHandler);
-
-                if (flParserFlags & DF_PARSEDTD)
-                {
-                    XML_SetDoctypeDeclHandler(pDom->pParser,
-                                              StartDoctypeDeclHandler,
-                                              EndDoctypeDeclHandler);
-
-                    XML_SetNotationDeclHandler(pDom->pParser,
-                                               NotationDeclHandler);
-
-                    XML_SetElementDeclHandler(pDom->pParser,
-                                              ElementDeclHandler);
-
-                    XML_SetAttlistDeclHandler(pDom->pParser,
-                                              AttlistDeclHandler);
-
-                    XML_SetEntityDeclHandler(pDom->pParser,
-                                             EntityDeclHandler);
-
-                    XML_SetParamEntityParsing(pDom->pParser,
-                                              XML_PARAM_ENTITY_PARSING_ALWAYS);
-                }
-
-                // XML_SetXmlDeclHandler ... do we care for this? I guess not
-
-                // pass the XMLDOM as user data to the handlers
-                XML_SetUserData(pDom->pParser,
-                                pDom);
             }
+
+            // XML_SetXmlDeclHandler ... do we care for this? I guess not
+
+            // pass the XMLDOM as user data to the handlers
+            XML_SetUserData(pDom->pParser,
+                            pDom);
         }
     }
 

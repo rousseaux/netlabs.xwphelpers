@@ -89,6 +89,25 @@ COUNTRYCODE G_cc = { 0, 0 };
 DBCSVECTOR  G_aDBCSVector[8];
 
 /*
+ *@@ nlsQueryCodepage:
+ *      returns the current process codepage as a ULONG.
+ *
+ *@@added V1.0.2 (2003-02-07) [umoeller]
+ */
+
+ULONG nlsQueryCodepage(VOID)
+{
+    ULONG   acp[8];
+    ULONG   cb = 0;
+    if (DosQueryCp(sizeof(acp),
+                   acp,
+                   &cb))
+        return 437;         // I think this is still the system default
+
+    return acp[0];
+}
+
+/*
  *@@ nlsDBCS:
  *      returns TRUE if the system is currently using DBCS.
  *

@@ -8,8 +8,8 @@
 !error in $(MAKEDIR)\makefile: PROJECT_BASE_DIR must be set before calling the HELPERS makefile. Terminating.
 !endif
 
-!if [@echo     $(MAKEDIR)\makefile: PROJECT_BASE_DIR is: $(PROJECT_BASE_DIR)]
-!endif
+# !if [@echo     $(MAKEDIR)\makefile: PROJECT_BASE_DIR is: $(PROJECT_BASE_DIR)]
+# !endif
 
 # include setup (compiler options etc.)
 !include $(PROJECT_BASE_DIR)\config.in
@@ -29,8 +29,8 @@
 # files created by this makefile.
 OUTPUTDIR = $(HELPERS_OUTPUT_DIR)
 
-!if [@echo     $(MAKEDIR)\makefile: helpers OBJs will be written to $(OUTPUTDIR)]
-!endif
+# !if [@echo     $(MAKEDIR)\makefile: helpers OBJs will be written to $(OUTPUTDIR)]
+# !endif
 
 !if [@md $(OUTPUTDIR) 2> NUL]
 !endif
@@ -67,10 +67,5 @@ PROJECTINC = $(PROJECT_BASE_DIR)\include
     $(CC_HELPERS) /fi"$(PRECH)\$(@B).pch" /si"$(PRECH)\$(@B).pch" /Fo$(OUTPUTDIR)\$(@B).obj $(@B).c
 !endif
 !endif
-
-.asm.{$(OUTPUTDIR)}.obj:
-    @echo $(MAKEDIR)\makefile: Assembling $(@B).asm
-    alp -Sv:ALP -Fdo:$(OUTPUTDIR) $(@B).asm
-
 
 

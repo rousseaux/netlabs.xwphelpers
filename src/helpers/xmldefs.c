@@ -221,8 +221,8 @@
  *      As a result, each external parsed entity in an XML document may
  *      use a different encoding for its characters.
  *
- *      In the document entity, the encoding declaration is part of the XML
- *      @text_declaration.
+ *      In the document entity, the encoding declaration is part of the
+ *      XML @text_declaration.
  *
  *      Also see @entities.
  */

@@ -44,6 +44,8 @@ extern "C" {
     #define TYPE_DBCS_1ST       0x0001
     #define TYPE_DBCS_2ND       0x0002
 
+    ULONG XWPENTRY nlsQueryCodepage(VOID);
+
     BOOL XWPENTRY nlsDBCS(VOID);
 
     ULONG XWPENTRY nlsQueryDBCSChar(PCSZ pcszString,

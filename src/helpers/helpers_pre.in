@@ -9,16 +9,14 @@
 # created from the files in SRC\MAIN _and_ SRC\HELPERS.
 # These will be put into BIN\.
 
-PLAINCOBJS = \
-$(OUTPUTDIR)\encodings.obj\
+PLAINCOBJS = $(OUTPUTDIR)\encodings.obj\
 $(OUTPUTDIR)\linklist.obj\
 $(OUTPUTDIR)\math.obj\
 $(OUTPUTDIR)\regexp.obj\
 $(OUTPUTDIR)\tree.obj\
 $(OUTPUTDIR)\xml.obj\
 
-XMLOBJS = \
-$(OUTPUTDIR)\xmlparse.obj\
+XMLOBJS = $(OUTPUTDIR)\xmlparse.obj\
 $(OUTPUTDIR)\xmlrole.obj\
 $(OUTPUTDIR)\xmltok.obj\
 

@@ -62,9 +62,13 @@ DEPEND_RES = $(OUTPUTDIR)\$(MODULESTEM).res
 LINKOBJS = $(OBJS)
 !endif
 
+!ifndef LINKCMD
+LINKCMD = $(LINK)
+!endif
+
 $(MODULESDIR)\$(MODULESTEM).exe: $(LINKOBJS) $(MODULEDEF) $(DEPEND_RES)
     @echo   ### [$@]: Linking $(@F)
-    $(LINK) @<<
+    $(LINKCMD) @<<
 /OUT:$@ $(MODULEDEF) $(LINKOBJS) $(PMPRINTF_LIB)
 <<KEEP
 !ifdef DEPEND_RES
@@ -75,7 +79,7 @@ $(MODULESDIR)\$(MODULESTEM).exe: $(LINKOBJS) $(MODULEDEF) $(DEPEND_RES)
     @$(XWP_OUTPUT_ROOT_DRIVE)
 !endif
     @cd $(MODULESDIR)
-    $(RUN_MAPSYM) $(@B).map
+    $(RUN_MAPSYM) $(MAPDIR)\$(@B).map
 !ifdef CVS_WORK_ROOT_DRIVE
     @$(CVS_WORK_ROOT_DRIVE)
 !endif

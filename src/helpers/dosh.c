@@ -3892,6 +3892,122 @@ APIRET doshCanonicalize(PCSZ pcszFileIn,        // in: path to canonicalize
     return(ulrc);
 }
 
+#define FINDBUFSIZE             0x10000     // 64K
+#define FINDCOUNT               500
+
+/*
+ *@@ doshForAllFiles:
+ *      this calles pfncb for all files in a directory matching
+ *      the given file mask.
+ *
+ *      This is to avoid having to recode the typical but
+ *      easy-to-get-wrong DosFindFirst/Next loop.
+ *
+ *      pfncb must be prototyped as follows:
+ *
+ +          APIRET XWPENTRY fnMyCallback(const FILEFINDBUF3 *pfb3,
+ +                                       PVOID pvCallback)
+ *
+ *      On each iteration, it receives the current file-find
+ *      buffer in pfb3. pvCallback is constantly set to what
+ *      was passed in to this function.
+ *
+ *      The callback will get called for every file returned
+ *      from the loop. This function will automatically
+ *      filter out the stupid "." and ".." directory entries
+ *      that DosFindFirst/Next always return, so the callback
+ *      will never see those.
+ *
+ *      If the callback returns any value other than NO_ERROR,
+ *      this function aborts and returns that error. The
+ *      exception is that if the callback returns
+ *      ERROR_NO_MORE_FILES, this function will abort also,
+ *      but return NO_ERROR still. This is useful if you are
+ *      looking for a specific file and want to cancel the
+ *      search early without provoking an error.
+ *
+ *@@added V1.0.2 (2003-02-03) [umoeller]
+ */
+
+APIRET doshForAllFiles(PCSZ pcszSearchMask,         // in: search mask (e.g. "C:\dir\*.txt")
+                       ULONG flFile,                // in: any of FILE_ARCHIVED | FILE_HIDDEN | FILE_SYSTEM | FILE_READONLY | FILE_DIRECTORY
+                       FNCBFORALLFILES *pfncb,      // in: address of callback function
+                       PVOID pvCallback)            // in: parameter passed to callback
+{
+    APIRET  arc = NO_ERROR;
+    HDIR    hdirFindHandle = HDIR_CREATE;
+    ULONG   ulFindCount = FINDCOUNT;
+
+    PBYTE   pbFindBuf;
+
+    if (arc = DosAllocMem((PVOID*)&pbFindBuf,
+                          FINDBUFSIZE,
+                          PAG_COMMIT | PAG_READ | PAG_WRITE | OBJ_TILE))
+        return arc;
+
+    arc = DosFindFirst((PSZ)pcszSearchMask,
+                       &hdirFindHandle,
+                       flFile,
+                       pbFindBuf,
+                       FINDBUFSIZE,
+                       &ulFindCount,
+                       FIL_STANDARD);
+
+    while (    (arc == NO_ERROR)
+            || (arc == ERROR_BUFFER_OVERFLOW)
+          )
+    {
+        ULONG           ul;
+        PFILEFINDBUF3   pfb3 = (PFILEFINDBUF3)pbFindBuf;
+
+        for (ul = 0;
+             ul < ulFindCount;
+             ul++)
+        {
+            // filter out the "." and ".." entries
+            if (!(    (pfb3->attrFile & FILE_DIRECTORY)
+                   && (pfb3->achName[0] == '.')
+                   && (    (pfb3->achName[1] == '\0')
+                        || (    (pfb3->achName[1] == '.')
+                             && (pfb3->achName[2] == '\0')
+                           )
+                      )
+               ))
+            {
+                // call callback
+                if (arc = pfncb(pfb3, pvCallback))
+                    // callback returned error:
+                    break;
+            }
+
+            // next item in buffer
+            if (pfb3->oNextEntryOffset)
+                pfb3 = (PFILEFINDBUF3)(   (PBYTE)pfb3
+                                        + pfb3->oNextEntryOffset
+                                      );
+        }
+
+        if (!arc)
+        {
+            ulFindCount = FINDCOUNT;
+            arc = DosFindNext(hdirFindHandle,
+                              pbFindBuf,
+                              FINDBUFSIZE,
+                              &ulFindCount);
+        }
+    }
+
+    // no more files is not an error
+    if (arc == ERROR_NO_MORE_FILES)
+        arc = NO_ERROR;
+
+    DosFindClose(hdirFindHandle);
+
+    DosFreeMem(pbFindBuf);
+
+    return arc;
+}
+
 /*
  *@@category: Helpers\Control program helpers\Module handling
  *      helpers for importing functions from a module (DLL).

@@ -358,11 +358,12 @@ extern "C" {
     APIRET xmlCreateAttributeNode(PDOMNODE pElement,
                                   const char *pcszName,
                                   const char *pcszValue,
+                                  ULONG lenValue,
                                   PDOMNODE *ppNew);
 
     APIRET xmlCreateTextNode(PDOMNODE pParent,
                              const char *pcszText,
-                             ULONG ulLength,
+                             ULONG lenText,
                              PDOMNODE *ppNew);
 
     APIRET xmlCreateCommentNode(PDOMNODE pParent,

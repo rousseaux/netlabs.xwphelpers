@@ -12,9 +12,13 @@
 #       compiler setup.
 #
 
+!ifndef CC_DLL_MT
+!error CC_DLL_MT is not defined.
+!endif
+
 CC = $(CC_DLL_MT)
 
-OUTPUTDIR = $(PROJECT_OUTPUT_DIR)
+OUTPUTDIR = $(PROJECT_OUTPUT_DIR)\dll_mt
 
 !include $(MAKE_INCLUDE_DIR)\_sub_compile.in
 

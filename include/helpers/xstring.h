@@ -224,6 +224,8 @@ extern "C" {
     typedef ULONG XWPENTRY XSTRENCODE(PXSTRING pxstr, const char *pcszEncode);
     typedef XSTRENCODE *PXSTRENCODE;
 
+    ULONG XWPENTRY xstrEncodeASCII(PXSTRING pxstr);
+
     ULONG XWPENTRY xstrDecode2(PXSTRING pxstr,
                                CHAR cKey);
 

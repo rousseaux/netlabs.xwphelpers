@@ -1257,7 +1257,7 @@ ULONG xstrFindReplaceC(PXSTRING pxstr,              // in/out: string
 }
 
 // static encoding table for xstrEncode
-STATIC PSZ apszEncoding[] =
+static PSZ apszEncoding[] =
 {
     "%00", "%01", "%02", "%03", "%04", "%05", "%06", "%07",
     "%08", "%09", "%0A", "%0B", "%0C", "%0D", "%0E", "%0F",
@@ -1364,7 +1364,7 @@ ULONG xstrEncode(PXSTRING pxstr,     // in/out: string to convert
                     {
                         // use the static encoding table for speed
                         memcpy(pszDestCurr,
-                               apszEncoding[(unsigned char)pcszEncode[ulEncode]],
+                               apszEncoding[(UCHAR)pcszEncode[ulEncode]],
                                3);
                         pszDestCurr += 3;
                         ulrc++;
@@ -1384,7 +1384,69 @@ ULONG xstrEncode(PXSTRING pxstr,     // in/out: string to convert
         {
             *pszDestCurr = 0;
 
-            xstrcpy(pxstr, pszDest, pszDestCurr-pszDest);
+            xstrcpy(pxstr, pszDest, pszDestCurr - pszDest);
+        }
+
+        free(pszDest);
+    }
+
+    return ulrc;
+}
+
+/*
+ *@@ xstrEncodeASCII:
+ *      like xstrEncode, but instead of encoding characters
+ *      from an array given by the caller, this encodes all
+ *      non-ASCII characters (i.e. >= 128) plus the '%' char.
+ *
+ *@@added V1.0.2 (2003-02-07) [umoeller]
+ */
+
+ULONG xstrEncodeASCII(PXSTRING pxstr)     // in/out: string to convert
+{
+    ULONG ulrc = 0,
+          ul,
+          ulEncodeLength;
+
+    if (    (pxstr)
+         && (pxstr->ulLength)
+       )
+    {
+        PSZ pszDest = (PSZ)malloc(pxstr->ulLength * 3
+                                  + 1),
+            pszDestCurr = pszDest;
+
+        if (pszDest)
+        {
+            for (ul = 0;
+                 ul < pxstr->ulLength;
+                 ul++)
+            {
+                if (    ((UCHAR)pxstr->psz[ul] >= 128)
+                     || (pxstr->psz[ul] == '%')
+                   )
+                {
+                    memcpy(pszDestCurr,
+                           apszEncoding[(UCHAR)pxstr->psz[ul]],
+                           3);
+                    pszDestCurr += 3;
+                    ulrc++;
+                    goto iterate;
+                }
+
+                *pszDestCurr++ = pxstr->psz[ul];
+
+                iterate:
+                    ;
+            }
+        }
+
+        // something was encoded; update pxstr
+        if (ulrc)
+        {
+            *pszDestCurr = 0;
+
+            xstrcpy(pxstr, pszDest, pszDestCurr - pszDest);
         }
 
         free(pszDest);

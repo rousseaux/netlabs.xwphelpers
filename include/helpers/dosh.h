@@ -703,6 +703,14 @@ extern "C" {
                             PSZ pszFileOut,
                             ULONG cbFileOut);
 
+    typedef APIRET XWPENTRY FNCBFORALLFILES(const FILEFINDBUF3 *pfb3,
+                                            PVOID pvCallback);
+
+    APIRET doshForAllFiles(PCSZ pcszSearchMask,
+                           ULONG flFile,
+                           FNCBFORALLFILES *pfncb,
+                           PVOID pvCallback);
+
     /* ******************************************************************
      *
      *   Process helpers

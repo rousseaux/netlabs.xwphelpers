@@ -50,7 +50,13 @@ OUTPUTDIR = $(OUTPUTDIR_HELPERS)
 # *
 # ***************************************************************************
 
-!include helpers_pre.in
+OBJS = $(OUTPUTDIR)\bs_base.obj\
+$(OUTPUTDIR)\bs_config.obj\
+$(OUTPUTDIR)\bs_logger.obj\
+$(OUTPUTDIR)\bs_string_base.obj\
+$(OUTPUTDIR)\bs_string.obj\
+$(OUTPUTDIR)\bs_string_uni.obj\
+$(OUTPUTDIR)\bs_string_conv.obj
 
 # ***************************************************************************
 # *
@@ -64,7 +70,7 @@ OUTPUTDIR = $(OUTPUTDIR_HELPERS)
 # *
 # ***************************************************************************
 
-ALLTARGET = $(OUTPUTDIR)\helpers.lib
+ALLTARGET = $(OUTPUTDIR)\cppbase.lib
 
 # ***************************************************************************
 # *
@@ -74,26 +80,10 @@ ALLTARGET = $(OUTPUTDIR)\helpers.lib
 
 !include $(MAKE_INCLUDE_DIR)\targets.in
 
-$(OUTPUTDIR)\helpers.lib: $(OBJS)
+$(OUTPUTDIR)\cppbase.lib: $(OBJS)
     - del $@
     ilib /nol /nob $@ @<<$(TEMP)\ilib.lnk
 +$(OBJS: =&^
 );
 <<KEEP
-
-# ***************************************************************************
-# *
-# *     explicit targets
-# *
-# ***************************************************************************
-
-cp: $(OUTPUTDIR)\helpers_cp.lib
-
-$(OUTPUTDIR)\helpers_cp.lib: $(CPOBJS)
-    - del $@
-    ilib /nol /nob $@ @<<$(TEMP)\ilib.lnk
-+$(CPOBJS: =&^
-);
-<<KEEP
-
 
