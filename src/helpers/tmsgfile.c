@@ -35,8 +35,8 @@
  *      This file was originally added V0.9.0. The original
  *      code was contributed by Christian Langanke, but this
  *      has been completely rewritten with V0.9.16 to use my
- *      fast string functions now. Also, tmfGetMessage requires
- *      tmfOpenMessageFile to be called beforehand.
+ *      fast string functions now. Also, tmfGetMessage now
+ *      requires tmfOpenMessageFile to be called beforehand.
  *
  *      Usage: All OS/2 programs.
  *
@@ -427,20 +427,19 @@ APIRET tmfGetMessage(PTMFMSGFILE pMsgFile,      // in: msg file opened by tmfOpe
             // now replace strings from the table
             if (cTableEntries && pTable)
             {
-                CHAR szFind[34] = "%0";
+                CHAR szFind[10] = "%0";
                 ULONG ul;
                 for (ul = 0;
                      ul < cTableEntries;
                      ul++)
                 {
                     ULONG ulOfs = 0;
-                    PSZ pszReplThis = pTable[ul];
 
                     _ultoa(ul + 1, szFind + 1, 10);
                     while (xstrFindReplaceC(pstr,
                                             &ulOfs,
                                             szFind,
-                                            pszReplThis))
+                                            pTable[ul]))
                         ;
                 }
             }

@@ -459,6 +459,7 @@ VOID excDumpStackFrames(FILE *file,                   // in: logfile from fopen(
  *@@changed V0.9.3 (2000-05-03) [umoeller]: fixed crashes
  *@@changed V0.9.6 (2000-11-06) [umoeller]: added more register dumps
  *@@changed V0.9.13 (2001-06-19) [umoeller]: added global flag for whether this is running
+ *@@changed V0.9.16 (2001-11-02) [pr]: make object display signed
  */
 
 VOID excExplainException(FILE *file,                   // in: logfile from fopen()
