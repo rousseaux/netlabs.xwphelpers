@@ -105,6 +105,11 @@ extern "C" {
 
         BOOL XWPENTRY winhSetDlgItemText(HWND hwnd, ULONG id, const char *pcsz);
         #define WinSetDlgItemText(a,b,c) winhSetDlgItemText((a),(b),(c))
+
+        #ifdef INCL_WINMESSAGEMGR
+            APIRET XWPENTRY winhRequestMutexSem(HMTX hmtx, ULONG ulTimeout);
+            #define WinRequestMutexSem(a, b) winhRequestMutexSem((a), (b))
+        #endif
     #endif
 
     /* ******************************************************************

@@ -54,6 +54,9 @@
 
 #include "setup.h"                      // code generation and debugging options
 
+#ifdef WINH_STANDARDWRAPPERS
+#undef WINH_STANDARDWRAPPERS
+#endif
 #include "helpers\winh.h"
 #include "helpers\gpih.h"
 

@@ -218,6 +218,18 @@
         return (WinSetDlgItemText)(hwnd, id, (PSZ)pcsz);
     }
 
+    /*
+     *@@ winhRequestMutexSem:
+     *
+     *@@added V0.9.16 (2002-01-26) [umoeller]
+     */
+
+    APIRET winhRequestMutexSem(HMTX hmtx, ULONG ulTimeout)
+    {
+        // put the call in brackets so the macro won't apply here
+        return (WinRequestMutexSem)(hmtx, ulTimeout);
+    }
+
 #endif // WINH_STANDARDWRAPPERS
 
 /*

@@ -34,6 +34,53 @@ extern "C" {
 
     /* ******************************************************************
      *
+     *   Wrappers
+     *
+     ********************************************************************/
+
+    // if DOSH_STANDARDWRAPPERS is #define'd before including dosh.h,
+    // all the following Dos* API calls are redirected to the dosh*
+    // counterparts
+
+    #ifdef DOSH_STANDARDWRAPPERS
+
+        #ifdef INCL_DOSPROCESS
+
+            APIRET XWPENTRY doshSleep(ULONG msec);
+            #define DosSleep(a) doshSleep((a))
+
+        #endif
+
+        #ifdef INCL_DOSSEMAPHORES
+
+            APIRET XWPENTRY doshCreateMutexSem(PSZ pszName,
+                                               PHMTX phmtx,
+                                               ULONG flAttr,
+                                               BOOL32 fState);
+            #define DosCreateMutexSem(a, b, c, d) doshCreateMutexSem((a), (b), (c), (d))
+
+            APIRET XWPENTRY doshRequestMutexSem(HMTX hmtx, ULONG ulTimeout);
+            #define DosRequestMutexSem(h, t) doshRequestMutexSem((h), (t))
+
+            APIRET XWPENTRY doshReleaseMutexSem(HMTX hmtx);
+            #define DosReleaseMutexSem(h) doshReleaseMutexSem((h))
+
+        #endif
+
+        #ifdef INCL_DOSEXCEPTIONS
+
+            APIRET XWPENTRY doshSetExceptionHandler(PEXCEPTIONREGISTRATIONRECORD pERegRec);
+            #define DosSetExceptionHandler(a) doshSetExceptionHandler((a))
+
+            APIRET XWPENTRY doshUnsetExceptionHandler(PEXCEPTIONREGISTRATIONRECORD pERegRec);
+            #define DosUnsetExceptionHandler(a) doshUnsetExceptionHandler((a))
+
+        #endif
+
+    #endif
+
+    /* ******************************************************************
+     *
      *   Miscellaneous
      *
      ********************************************************************/
@@ -161,7 +208,9 @@ extern "C" {
         APIRET doshQueryDiskParams(ULONG ulLogicalDrive,
                                    PBIOSPARAMETERBLOCK pdp);
 
-        BYTE doshQueryRemoveableType(PBIOSPARAMETERBLOCK pdp);
+        BYTE doshQueryDriveType(ULONG ulLogicalDrive,
+                                PBIOSPARAMETERBLOCK pdp,
+                                BOOL fFixed);
 
         APIRET XWPENTRY doshHasAudioCD(ULONG ulLogicalDrive,
                                        HFILE hfDrive,
@@ -184,6 +233,8 @@ extern "C" {
 
     #define DRVFL_MIXEDMODECD        0x0001
     #define DRVFL_TOUCHFLOPPIES      0x0002
+    #define DRVFL_CHECKEAS           0x0004
+    #define DRVFL_CHECKLONGNAMES     0x0008
 
     APIRET doshAssertDrive(ULONG ulLogicalDrive,
                            ULONG fl);
@@ -221,14 +272,19 @@ extern "C" {
                             // 0x19 BYTE   abReserved[6];
                             // 0x1a USHORT cCylinders;
                             // 0x1c BYTE   bDeviceType;
-                                    // DEVTYPE_48TPI                      0x0000
-                                    // DEVTYPE_96TPI                      0x0001
-                                    // DEVTYPE_35                         0x0002
-                                    // DEVTYPE_8SD                        0x0003
-                                    // DEVTYPE_8DD                        0x0004
-                                    // DEVTYPE_FIXED                      0x0005
-                                    // DEVTYPE_TAPE                       0x0006
-                                    // DEVTYPE_UNKNOWN                    0x0007
+                                #ifndef DEVTYPE_48TPI
+                                #define DEVTYPE_48TPI                      0x0000
+                                #define DEVTYPE_96TPI                      0x0001
+                                #define DEVTYPE_35                         0x0002
+                                #define DEVTYPE_8SD                        0x0003
+                                #define DEVTYPE_8DD                        0x0004
+                                #define DEVTYPE_FIXED                      0x0005
+                                #define DEVTYPE_TAPE                       0x0006
+                                #endif
+                                #define DEVTYPE_OTHER                      0x0007
+                                            // includes 1.44 3.5" floppy
+                                #define DEVTYPE_RWOPTICAL                  0x0008
+                                #define DEVTYPE_35_288MB                   0x0009
                             // 0x1d USHORT fsDeviceAttr;
                                 #define DEVATTR_REMOVEABLE              0x0001
                                             // drive is removeable
@@ -239,18 +295,19 @@ extern "C" {
                                             // physical device driver supports physical
                                             // addresses > 16 MB
                                 #define DEVATTR_PARTITIONALREMOVEABLE   0x0008
+                                            // undocumented flag; set for ZIP drives
 
             BYTE        bType;
                 // do not change these codes, XWorkplace relies
                 // on them too to parse WPDisk data
-                #define DRVTYPE_HARDDISK        0
-                #define DRVTYPE_FLOPPY          1
-                #define DRVTYPE_TAPE            2
-                #define DRVTYPE_VDISK           3
-                #define DRVTYPE_CDROM           4
-                #define DRVTYPE_LAN             5
+                #define DRVTYPE_HARDDISK                0
+                #define DRVTYPE_FLOPPY                  1
+                #define DRVTYPE_TAPE                    2
+                #define DRVTYPE_VDISK                   3
+                #define DRVTYPE_CDROM                   4
+                #define DRVTYPE_LAN                     5
                 #define DRVTYPE_PARTITIONABLEREMOVEABLE 6
-                #define DRVTYPE_UNKNOWN       255
+                #define DRVTYPE_UNKNOWN               255
 
             ULONG       flDevice;
                 // any combination of the following:
@@ -258,7 +315,9 @@ extern "C" {
                             // drive is remote (not local)
                 #define DFL_FIXED                       0x0002
                             // drive is fixed; otherwise it is removeable!
+                            // always set for harddisks and zip drives
                 #define DFL_PARTITIONABLEREMOVEABLE     0x0004
+                            // set for zip drives;
                             // in that case, DFL_FIXED is set also
                 #define DFL_BOOTDRIVE                   0x0008
                             // drive was booted from
@@ -266,15 +325,23 @@ extern "C" {
                 // media flags:
 
                 #define DFL_MEDIA_PRESENT               0x1000
-                            // media is present in drive; always
-                            // true for fixed and remove drives and
-                            // drives A: and B:
+                            // media is present in drive;
+                            // -- always set for harddisks,
+                            //    unless the file system is not
+                            //    understood
+                            // -- always set for remove drives
+                            // -- always set for A: and B:
+                            // -- set for CD-ROMS only if data
+                            //    CD-ROM is inserted
                 #define DFL_AUDIO_CD                    0x2000
                             // set for CD-ROMs only, if an audio CD
                             // is currently inserted; in that case,
                             // DFL_MEDIA_PRESENT is _not_ set
                 #define DFL_SUPPORTS_EAS                0x4000
                             // drive supports extended attributes
+                            // (assumption based on DosFSCtl,
+                            // might not be correct for remote drives;
+                            // reports correctly for FAT32 though)
                 #define DFL_SUPPORTS_LONGNAMES          0x8000
                             // drive supports long names; this does not
                             // necessarily mean that we support all IFS
@@ -286,15 +353,26 @@ extern "C" {
             CHAR        szFileSystem[30];
                             // e.g. "FAT" or "HPFS" or "JFS" or "CDFS"
 
-            BYTE        bFileSystem;
+            LONG        lFileSystem;
                 // do not change these codes, XWorkplace relies
                 // on them too to parse WPDisk data
+                #define FSYS_UNKNOWN         0
+                            // drive not formatted, or unknown file system
                 #define FSYS_FAT             1
                 #define FSYS_HPFS_JFS        2
                 #define FSYS_CDFS            3
-                #define FSYS_FAT32           8      // not used by WPS!
+                #define FSYS_TVFS            7      // not used by WPS!
+                #define FSYS_FAT32_EXT2      8      // not used by WPS!
                 #define FSYS_RAMFS           9      // not used by WPS!
                 #define FSYS_REMOTE         10
+                // NOTE: if this has a negative value, this is
+                // the APIRET code from DosQueryFSAttach
+
+            // error codes for various operations
+            APIRET  arcIsFixedDisk,
+                    arcQueryDiskParams,
+                    arcQueryMedia,
+                    arcOpenLongnames;
 
         } XDISKINFO, *PXDISKINFO;
 
@@ -476,7 +554,7 @@ extern "C" {
     typedef struct _XFILE
     {
         HFILE       hf;
-        ULONG       hmtx;       // a HMTX really
+        // ULONG       hmtx;       // a HMTX really
 
         PSZ         pszFilename;    // as given to doshOpen
         ULONG       flOpenMode;     // as given to doshOpen
@@ -810,6 +888,9 @@ extern "C" {
      *   Wildcard matching
      *
      ********************************************************************/
+
+    BOOL doshMatchCase(PCSZ pcszMask,
+                       PCSZ pcszName);
 
     BOOL doshMatch(PCSZ pcszMask,
                    PCSZ pcszName);

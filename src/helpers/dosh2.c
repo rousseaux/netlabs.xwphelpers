@@ -2112,6 +2112,8 @@ BOOL PerformMatch(PCSZ pMask,
  *          match "*.ZIP" against "whatever-0.9.3.zip", but this
  *          one will.
  *
+ *      --  THIS COMPARES WITH RESPECT TO CASE.
+ *
  *      This replaces strhMatchOS2 which has been removed with
  *      V0.9.16 and is a lot faster than the old code, which has
  *      been completely rewritten.
@@ -2119,18 +2121,18 @@ BOOL PerformMatch(PCSZ pMask,
  *@@added V0.9.16 (2002-01-01) [umoeller]
  */
 
-BOOL doshMatch(const char *pcszMask,     // in: mask (e.g. "*.txt")
-               const char *pcszName)     // in: string to check (e.g. "test.txt")
+BOOL doshMatchCase(const char *pcszMask,     // in: mask (e.g. "*.TXT")
+                   const char *pcszName)     // in: string to check (e.g. "TEST.TXT")
 {
     BOOL    brc = FALSE;
 
     int     iMaskDrive = -1,
             iNameDrive = -1;
 
-    ULONG   cbMask = strlen(pcszMask),
-            cbName = strlen(pcszName);
-    PSZ     pszMask = (PSZ)_alloca(cbMask + 1),
-            pszName = (PSZ)_alloca(cbName + 1);
+    // ULONG   cbMask = strlen(pcszMask),
+    //         cbName = strlen(pcszName);
+    // PSZ     pszMask = (PSZ)_alloca(cbMask + 1),
+    //         pszName = (PSZ)_alloca(cbName + 1);
 
     PCSZ    pLastMaskComponent,
             pLastNameComponent;
@@ -2140,34 +2142,29 @@ BOOL doshMatch(const char *pcszMask,     // in: mask (e.g. "*.txt")
 
     CHAR    c;
 
-    memcpy(pszMask, pcszMask, cbMask + 1);
-    nlsUpper(pszMask, cbMask);
-    memcpy(pszName, pcszName, cbName + 1);
-    nlsUpper(pszName, cbName);
-
-    if (pLastMaskComponent = strrchr(pszMask, '\\'))
+    if (pLastMaskComponent = strrchr(pcszMask, '\\'))
     {
         // length of path component
-        cbMaskPath = pLastMaskComponent - pszMask;
+        cbMaskPath = pLastMaskComponent - pcszMask;
         pLastMaskComponent++;
     }
     else
-        pLastMaskComponent = pszMask;
+        pLastMaskComponent = pcszMask;
 
-    if (pLastNameComponent = strrchr(pszName, '\\'))
+    if (pLastNameComponent = strrchr(pcszName, '\\'))
     {
         // length of path component
-        cbNamePath = pLastNameComponent - pszName;
+        cbNamePath = pLastNameComponent - pcszName;
         pLastNameComponent++;
     }
     else
-        pLastNameComponent = pszName;
+        pLastNameComponent = pcszName;
 
     // compare paths; if the lengths are different
     // or memcmp fails, we can't match
     if (    (cbMaskPath == cbNamePath)      // can both be null
          && (    (cbMaskPath == 0)
-              || (!memcmp(pszMask, pszName, cbMaskPath))
+              || (!memcmp(pcszMask, pcszName, cbMaskPath))
             )
        )
     {
@@ -2182,4 +2179,27 @@ BOOL doshMatch(const char *pcszMask,     // in: mask (e.g. "*.txt")
     return brc;
 }
 
+/*
+ *@@ doshMatch:
+ *      like doshMatchCase, but compares without respect
+ *      to case.
+ *
+ *@@added V0.9.16 (2002-01-26) [umoeller]
+ */
 
+BOOL doshMatch(const char *pcszMask,     // in: mask (e.g. "*.TXT")
+               const char *pcszName)     // in: string to check (e.g. "TEST.TXT")
+{
+    ULONG   cbMask = strlen(pcszMask),
+            cbName = strlen(pcszName);
+    PSZ     pszMask = (PSZ)_alloca(cbMask + 1),
+            pszName = (PSZ)_alloca(cbName + 1);
+
+    memcpy(pszMask, pcszMask, cbMask + 1);
+    nlsUpper(pszMask, cbMask);
+    memcpy(pszName, pcszName, cbName + 1);
+    nlsUpper(pszName, cbName);
+
+    return (doshMatchCase(pszMask,
+                          pszName));
+}

@@ -48,6 +48,7 @@
 
 #define INCL_DOSMODULEMGR
 #define INCL_DOSPROCESS
+#define INCL_DOSEXCEPTIONS
 #define INCL_DOSSESMGR
 #define INCL_DOSQUEUES
 #define INCL_DOSSEMAPHORES
@@ -73,6 +74,93 @@
 #pragma hdrstop
 
 // static const CHAR  G_acDriveLetters[28] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+/*
+ *@@category: Helpers\Control program helpers\Wrappers
+ */
+
+/* ******************************************************************
+ *
+ *   Wrappers
+ *
+ ********************************************************************/
+
+#ifdef DOSH_STANDARDWRAPPERS
+
+    /*
+     *@@ doshSleep:
+     *
+     *@@added V0.9.16 (2002-01-26) [umoeller]
+     */
+
+    APIRET doshSleep(ULONG msec)
+    {
+        // put the call in brackets so the macro won't apply here
+        return (DosSleep)(msec);
+    }
+
+    /*
+     *@@ doshCreateMutexSem:
+     *
+     *@@added V0.9.16 (2002-01-26) [umoeller]
+     */
+
+    APIRET doshCreateMutexSem(PSZ pszName,
+                              PHMTX phmtx,
+                              ULONG flAttr,
+                              BOOL32 fState)
+    {
+        // put the call in brackets so the macro won't apply here
+        return (DosCreateMutexSem)(pszName, phmtx, flAttr, fState);
+    }
+
+    /*
+     *@@ doshRequestMutexSem:
+     *
+     *@@added V0.9.16 (2002-01-26) [umoeller]
+     */
+
+    APIRET doshRequestMutexSem(HMTX hmtx, ULONG ulTimeout)
+    {
+        return (DosRequestMutexSem)(hmtx, ulTimeout);
+    }
+
+    /*
+     *@@ doshReleaseMutexSem:
+     *
+     *@@added V0.9.16 (2002-01-26) [umoeller]
+     */
+
+    APIRET doshReleaseMutexSem(HMTX hmtx)
+    {
+        return (DosReleaseMutexSem)(hmtx);
+    }
+
+    /*
+     *@@ doshSetExceptionHandler:
+     *
+     *@@added V0.9.16 (2002-01-26) [umoeller]
+     */
+
+    APIRET doshSetExceptionHandler(PEXCEPTIONREGISTRATIONRECORD pERegRec)
+    {
+        // put the call in brackets so the macro won't apply here
+        return (DosSetExceptionHandler)(pERegRec);
+    }
+
+    /*
+     *@@ doshUnsetExceptionHandler:
+     *
+     *@@added V0.9.16 (2002-01-26) [umoeller]
+     */
+
+    APIRET doshUnsetExceptionHandler(PEXCEPTIONREGISTRATIONRECORD pERegRec)
+    {
+        // put the call in brackets so the macro won't apply here
+        return (DosUnsetExceptionHandler)(pERegRec);
+    }
+
+#endif
 
 /*
  *@@category: Helpers\Control program helpers\Miscellaneous
@@ -426,6 +514,14 @@ PVOID doshRequestSharedMem(PCSZ pcszName)
  *      to cause problems with some device drivers for
  *      removeable disks.
  *
+ *      Returns:
+ *
+ *      --  NO_ERROR: *pfFixed was set.
+ *
+ *      --  ERROR_INVALID_DRIVE: drive letter invalid
+ *
+ *      --  ERROR_NOT_SUPPORTED (50): for network drives.
+ *
  *@@changed V0.9.14 (2001-08-03) [umoeller]: added extra fix for A: and B:
  */
 
@@ -554,19 +650,26 @@ APIRET doshQueryDiskParams(ULONG ulLogicalDrive,        // in:  1 for A:, 2 for 
 }
 
 /*
- *@@ doshQueryRemoveableType:
+ *@@ doshQueryDriveType:
  *      tests the specified BIOSPARAMETERBLOCK
  *      for whether it represents a CD-ROM or
  *      some other removeable drive type.
  *
  *      Returns one of:
  *
- *      --  0
+ *      --  DRVTYPE_HARDDISK (0)
+ *
+ *      --  DRVTYPE_PARTITIONABLEREMOVEABLE
  *
  *      --  DRVTYPE_CDROM
  *
- *      Call this only if doshIsFixedDisk
- *      returned FALSE.
+ *      --  DRVTYPE_TAPE
+ *
+ *      --  DRVTYPE_VDISK
+ *
+ *      --  DRVTYPE_FLOPPY
+ *
+ *      --  DRVTYPE_UNKNOWN (255)
  *
  *      The BIOSPARAMETERBLOCK must be filled
  *      first using doshQueryDiskParams.
@@ -574,22 +677,45 @@ APIRET doshQueryDiskParams(ULONG ulLogicalDrive,        // in:  1 for A:, 2 for 
  *@@added V0.9.16 (2002-01-13) [umoeller]
  */
 
-BYTE doshQueryRemoveableType(PBIOSPARAMETERBLOCK pdp)
+BYTE doshQueryDriveType(ULONG ulLogicalDrive,
+                        PBIOSPARAMETERBLOCK pdp,
+                        BOOL fFixed)
 {
     if (pdp)
     {
-        if (    (pdp->bDeviceType == 7)     // "other"
-             && (pdp->usBytesPerSector == 2048)
-             && (pdp->usSectorsPerTrack == (USHORT)-1)
-           )
-            return DRVTYPE_CDROM;
-        else if (pdp->fsDeviceAttr & DEVATTR_PARTITIONALREMOVEABLE) // 0x08
+        if (pdp->fsDeviceAttr & DEVATTR_PARTITIONALREMOVEABLE) // 0x08
             return DRVTYPE_PARTITIONABLEREMOVEABLE;
-        else if (pdp->bDeviceType == 6)     // tape
-            return DRVTYPE_TAPE;
+        else if (fFixed)
+            return DRVTYPE_HARDDISK;
+        else if (    (pdp->bDeviceType == 7)     // "other"
+                  && (pdp->usBytesPerSector == 2048)
+                  && (pdp->usSectorsPerTrack == (USHORT)-1)
+                )
+                 return DRVTYPE_CDROM;
+        else switch (pdp->bDeviceType)
+        {
+            case DEVTYPE_TAPE: // 6
+                return DRVTYPE_TAPE;
+
+            case DEVTYPE_48TPI:     // 0, 360k  5.25" floppy
+            case DEVTYPE_96TPI:     // 1, 1.2M  5.25" floppy
+            case DEVTYPE_35:        // 2, 720k  3.5" floppy
+            case DEVTYPE_OTHER:     // 7, 1.44  3.5" floppy
+                                    //    1.84M 3.5" floppy
+            case DEVTYPE_35_288MB:
+                if (    (ulLogicalDrive == 1)
+                     || (ulLogicalDrive == 2)
+                   )
+                    return DRVTYPE_FLOPPY;
+                else
+                    return DRVTYPE_VDISK;
+
+            case DEVTYPE_RWOPTICAL: // 8, what is this?!?
+                return DRVTYPE_FLOPPY;
+        }
     }
 
-    return (0);
+    return (DRVTYPE_UNKNOWN);
 }
 
 /*
@@ -853,7 +979,7 @@ CHAR doshQueryBootDrive(VOID)
  */
 
 APIRET doshQueryMedia(ULONG ulLogicalDrive,
-                      BOOL fCDROM,
+                      BOOL fCDROM,             // in: is drive CD-ROM?
                       ULONG fl)                // in: DRVFL_* flags
 {
     APIRET  arc;
@@ -977,7 +1103,9 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
             // _Pmpf(("   doshQueryDiskParams returned %d", arc));
 
             if (    (!arc)
-                 && (DRVTYPE_CDROM == doshQueryRemoveableType(&bpb))
+                 && (DRVTYPE_CDROM == doshQueryDriveType(ulLogicalDrive,
+                                                         &bpb,
+                                                         fFixed))
                )
             {
                 // _Pmpf(("   --> is CD-ROM"));
@@ -1034,16 +1162,7 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
  *      information about the given logical drive.
  *
  *      This function will not provoke "Drive not
- *      ready" popups, hopefully. Tested with the
- *      following drive types:
- *
- *      --  all kinds of local partitions (FAT,
- *          FAT32, HPFS, JFS)
- *
- *      --  remote NetBIOS drives added via "net use"
- *
- *      --  CD-ROM drives; one DVD drive and one
- *          CD writer, even if no media is present
+ *      ready" popups, hopefully.
  *
  *      fl can be any combination of the following:
  *
@@ -1054,15 +1173,109 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
  *          otherwise they will be left alone and
  *          default values will be returned.
  *
+ *      --  DRVFL_CHECKEAS: drive should always be
+ *          checked for EA support. If this is set,
+ *          we will call DosFSCtl for the non-well-known
+ *          file systems so we will always have a
+ *          value for the DFL_SUPPORTS_EAS flags.
+ *          Otherwise that flag might or might not
+ *          be set correctly.
+ *
+ *          The EA support returned by DosFSCtl
+ *          might not be correct for remote file
+ *          systems since not all of them support
+ *          that query.
+ *
+ *      --  DRVFL_CHECKLONGNAMES: drive should always be
+ *          checked for longname support. If this is
+ *          set, we will try a DosOpen on the drive
+ *          to see if it supports long filenames
+ *          (unless it's a "well-known" file-system
+ *          and we know it does). In enabled, the
+ *          DFL_SUPPORTS_LONGNAMES flag is reliable.
+ *
  *      This should return only one of the following:
- *
- *      --  ERROR_INVALID_DRIVE: drive letter is invalid
- *
- *      --  ERROR_DRIVE_LOCKED
  *
  *      --  NO_ERROR: disk info was filled, but not
  *          necessarily all info was available (e.g.
  *          if no media was present in CD-ROM drive).
+ *          See remarks below.
+ *
+ *      --  ERROR_INVALID_DRIVE 15): ulLogicalDrive
+ *          is not used at all (invalid drive letter)
+ *
+ *      --  ERROR_BAD_UNIT (20): if drive was renamed for
+ *          some reason (according to user reports
+ *
+ *      --  ERROR_NOT_READY (21): for ZIP disks where
+ *          no media is inserted, depending on the
+ *          driver apparently... normally ZIP drive
+ *          letters should disappear when no media
+ *          is present
+ *
+ *      --  ERROR_DRIVE_LOCKED (108)
+ *
+ *      So in order to check whether a drive is present
+ *      and available, use this function as follows:
+ *
+ *      1)  Call this function and check whether it
+ *          returns NO_ERROR for the given drive.
+ *          This will rule out invalid drive letters
+ *          and drives that are presently locked.
+ *
+ *      2)  If so, check whether XDISKINFO.flDevice
+ *          has the DFL_MEDIA_PRESENT flag set.
+ *          This will rule out removeable drives without
+ *          media and unformatted hard disks.
+ *
+ *      3)  If so, you can test the other fields if
+ *          you need more information. For example,
+ *          it would not be a good idea to create
+ *          a new file if the bType field is
+ *          DRVTYPE_CDROM.
+ *
+ *          If you want to exclude removeable disks,
+ *          instead of checking bType, you should
+ *          rather check flDevice for the DFL_FIXED
+ *          flag, which will be set for ZIP drives also.
+ *
+ *      Remarks for special drive types:
+ *
+ *      --  Hard disks always have bType == DRVTYPE_HARDDISK.
+ *          For them, we always check the file system.
+ *          If this is reported as "UNKNOWN", this means
+ *          that the drive is unformatted or formatted
+ *          with a file system that OS/2 does not understand
+ *          (e.g. NTFS). Only in that case, flDevice
+ *          has the DFL_MEDIA_PRESENT bit clear.
+ *
+ *          DFL_FIXED is always set.
+ *
+ *      --  Remote (LAN) drives always have bType == DRVTYPE_LAN.
+ *          flDevice will always have the DFL_REMOTE and
+ *          DFL_MEDIA_PRESENT bits set.
+ *
+ *      --  ZIP disks will have bType == DRVTYPE_PARTITIONABLEREMOVEABLE.
+ *          For them, flDevice will have both the
+ *          and DFL_PARTITIONABLEREMOVEABLE and DFL_FIXED
+ *          bits set.
+ *
+ *          ZIP disks are a bit special because they are
+ *          dynamically mounted and unmounted when media
+ *          is inserted and removed. In other words, if
+ *          no media is present, the drive letter becomes
+ *          invalid.
+ *
+ *      --  CD-ROM and DVD drives and CD writers will always
+ *          be reported as DRVTYPE_CDROM. The DFL_FIXED bit
+ *          will be clear always. For them, always check the
+ *          DFL_MEDIA_PRESENT present bit to avoid "Drive not
+ *          ready" popups.
+ *
+ *          As a special goody, we can also determine if the
+ *          drive currently has audio media inserted (which
+ *          would provoke errors also), by setting the
+ *          DFL_AUDIO_CD bit.
  *
  *@@added V0.9.16 (2002-01-13) [umoeller]
  */
@@ -1075,7 +1288,10 @@ APIRET doshGetDriveInfo(ULONG ulLogicalDrive,
 
     HFILE   hf;
     ULONG   dummy;
-    BOOL    fCheck = TRUE;
+    BOOL    fCheck = TRUE,
+            fCheckFS = FALSE,
+            fCheckLongnames = FALSE,
+            fCheckEAs = FALSE;
 
     memset(pdi, 0, sizeof(XDISKINFO));
 
@@ -1099,7 +1315,7 @@ APIRET doshGetDriveInfo(ULONG ulLogicalDrive,
             // these support EAs too
             pdi->flDevice  = DFL_MEDIA_PRESENT | DFL_SUPPORTS_EAS;
             strcpy(pdi->szFileSystem, "FAT");
-            pdi->bFileSystem = FSYS_FAT;
+            pdi->lFileSystem = FSYS_FAT;
         }
     }
 
@@ -1111,29 +1327,48 @@ APIRET doshGetDriveInfo(ULONG ulLogicalDrive,
         arc = doshIsFixedDisk(ulLogicalDrive,
                               &fFixed);
 
-        if (arc == ERROR_INVALID_DRIVE)
-            // drive letter doesn't exist at all:
-            pdi->fPresent = FALSE;
-            // return this APIRET
-        else
+        switch (arc)
         {
-            BOOL fCheckFS = FALSE;
-            BOOL fCheckLongnames = FALSE;
+            case ERROR_INVALID_DRIVE:
+                // drive letter doesn't exist at all:
+                pdi->fPresent = FALSE;
+                // return this APIRET
+            break;
 
-            if (fFixed)
-                // fixed drive:
-                pdi->flDevice |= DFL_FIXED | DFL_MEDIA_PRESENT;
+            case ERROR_NOT_SUPPORTED:       // 50 for network drives
+                // we get this for remote drives added
+                // via "net use", so set these flags
+                pdi->bType = DRVTYPE_LAN;
+                pdi->lFileSystem = FSYS_REMOTE;
+                pdi->flDevice |= DFL_REMOTE | DFL_MEDIA_PRESENT;
+                // but still check what file-system we
+                // have and whether longnames are supported
+                fCheckFS = TRUE;
+                fCheckLongnames = TRUE;
+                fCheckEAs = TRUE;
+            break;
 
-            if (!(arc = doshQueryDiskParams(ulLogicalDrive,
-                                            &pdi->bpb)))
+            case NO_ERROR:
             {
-                if (!fFixed)
+                if (fFixed)
                 {
-                    // removeable:
-                    BYTE bTemp;
-                    if (bTemp = doshQueryRemoveableType(&pdi->bpb))
+                    // fixed drive:
+                    pdi->flDevice |= DFL_FIXED | DFL_MEDIA_PRESENT;
+
+                    fCheckFS = TRUE;
+                    fCheckLongnames = TRUE;
+                    fCheckEAs = TRUE;
+                }
+
+                if (!(arc = doshQueryDiskParams(ulLogicalDrive,
+                                                &pdi->bpb)))
+                {
+                    BYTE bTemp = doshQueryDriveType(ulLogicalDrive,
+                                                    &pdi->bpb,
+                                                    fFixed);
+                    if (bTemp != DRVTYPE_UNKNOWN)
                     {
-                        // DRVTYPE_TAPE or DRVTYPE_CDROM
+                        // recognized: store it then
                         pdi->bType = bTemp;
 
                         if (bTemp == DRVTYPE_PARTITIONABLEREMOVEABLE)
@@ -1141,114 +1376,172 @@ APIRET doshGetDriveInfo(ULONG ulLogicalDrive,
                                               | DFL_PARTITIONABLEREMOVEABLE;
                     }
 
-                    // before checking the drive, try if we have media
-                    if (!(arc = doshQueryMedia(ulLogicalDrive,
-                                               (pdi->bType == DRVTYPE_CDROM),
-                                               fl)))
+                    if (!fFixed)
                     {
-                        pdi->flDevice |= DFL_MEDIA_PRESENT;
-                        fCheckFS = TRUE;
-                        fCheckLongnames = TRUE;
-                    }
-                    else if (arc == ERROR_AUDIO_CD_ROM)
-                    {
-                        pdi->flDevice |= DFL_AUDIO_CD;
-                        // do not check longnames and file-system
-                    }
+                        // removeable:
 
-                    arc = NO_ERROR;
+                        // before checking the drive, try if we have media
+                        if (!(arc = doshQueryMedia(ulLogicalDrive,
+                                                   (pdi->bType == DRVTYPE_CDROM),
+                                                   fl)))
+                        {
+                            pdi->flDevice |= DFL_MEDIA_PRESENT;
+                            fCheckFS = TRUE;
+                            fCheckLongnames = TRUE;
+                                    // but never EAs
+                        }
+                        else if (arc == ERROR_AUDIO_CD_ROM)
+                        {
+                            pdi->flDevice |= DFL_AUDIO_CD;
+                            // do not check longnames and file-system
+                        }
+                        else
+                            pdi->arcQueryMedia = arc;
+
+                        arc = NO_ERROR;
+                    }
                 }
                 else
-                {
-                    pdi->bType = DRVTYPE_HARDDISK;
-                    fCheckFS = TRUE;
-                }
+                    pdi->arcQueryDiskParams = arc;
             }
-            else if (arc == ERROR_NOT_SUPPORTED)       // 50
+            break;
+
+            default:
+                pdi->arcIsFixedDisk = arc;
+                // and return this
+            break;
+
+        } // end swich arc = doshIsFixedDisk(ulLogicalDrive, &fFixed);
+    }
+
+    if (fCheckFS)
+    {
+        // TRUE only for local fixed disks or
+        // remote drives or if media was present above
+        if (!(arc = doshQueryDiskFSType(ulLogicalDrive,
+                                        pdi->szFileSystem,
+                                        sizeof(pdi->szFileSystem))))
+        {
+            if (!stricmp(pdi->szFileSystem, "UNKNOWN"))
             {
-                // we get this for remote drives added
-                // via "net use", so set these flags
-                pdi->bType = DRVTYPE_LAN;
-                pdi->bFileSystem = FSYS_REMOTE;
-                pdi->flDevice |= DFL_REMOTE | DFL_MEDIA_PRESENT;
-                // but still check what file-system we
-                // have and whether longnames are supported
-                fCheckFS = TRUE;
+                // this is returned by the stupid DosQueryFSAttach
+                // if the file system is not recognized by OS/2,
+                // or if the drive is unformatted
+                pdi->lFileSystem = FSYS_UNKNOWN;
+                pdi->flDevice &= ~DFL_MEDIA_PRESENT;
+                fCheckLongnames = FALSE;
+                fCheckEAs = FALSE;
+                        // should we return ERROR_NOT_DOS_DISK (26)
+                        // in this case?
+            }
+            else if (!stricmp(pdi->szFileSystem, "FAT"))
+            {
+                pdi->lFileSystem = FSYS_FAT;
+                pdi->flDevice |= DFL_SUPPORTS_EAS;
+                fCheckLongnames = FALSE;
+                fCheckEAs = FALSE;
+            }
+            else if (    (!stricmp(pdi->szFileSystem, "HPFS"))
+                      || (!stricmp(pdi->szFileSystem, "JFS"))
+                    )
+            {
+                pdi->lFileSystem = FSYS_HPFS_JFS;
+                pdi->flDevice |= DFL_SUPPORTS_EAS | DFL_SUPPORTS_LONGNAMES;
+                fCheckLongnames = FALSE;
+                fCheckEAs = FALSE;
+            }
+            else if (!stricmp(pdi->szFileSystem, "CDFS"))
+                pdi->lFileSystem = FSYS_CDFS;
+            else if (    (!stricmp(pdi->szFileSystem, "FAT32"))
+                      || (!stricmp(pdi->szFileSystem, "ext2"))
+                    )
+            {
+                pdi->lFileSystem = FSYS_FAT32_EXT2;
                 fCheckLongnames = TRUE;
+                fCheckEAs = TRUE;
             }
-
-            if (fCheckFS)
+            else if (!stricmp(pdi->szFileSystem, "RAMFS"))
             {
-                // TRUE only for local fixed disks or
-                // remote drives or if media was present above
-                if (!(arc = doshQueryDiskFSType(ulLogicalDrive,
-                                                pdi->szFileSystem,
-                                                sizeof(pdi->szFileSystem))))
-                {
-                    if (!stricmp(pdi->szFileSystem, "FAT"))
-                    {
-                        pdi->bFileSystem = FSYS_FAT;
-                        pdi->flDevice |= DFL_SUPPORTS_EAS;
-                        fCheckLongnames = FALSE;
-                    }
-                    else if (    (!stricmp(pdi->szFileSystem, "HPFS"))
-                              || (!stricmp(pdi->szFileSystem, "JFS"))
-                            )
-                    {
-                        pdi->bFileSystem = FSYS_HPFS_JFS;
-                        pdi->flDevice |= DFL_SUPPORTS_EAS | DFL_SUPPORTS_LONGNAMES;
-                        fCheckLongnames = FALSE;
-                    }
-                    else if (!stricmp(pdi->szFileSystem, "CDFS"))
-                        pdi->bFileSystem = FSYS_CDFS;
-                    else if (!stricmp(pdi->szFileSystem, "FAT32"))
-                    {
-                        pdi->bFileSystem = FSYS_FAT32;
-                        pdi->flDevice |= DFL_SUPPORTS_LONGNAMES;
-                                // @@todo check EA support
-                        fCheckLongnames = FALSE;
-                    }
-                    else if (!stricmp(pdi->szFileSystem, "RAMFS"))
-                    {
-                        pdi->bFileSystem = FSYS_RAMFS;
-                        pdi->flDevice |= DFL_SUPPORTS_EAS | DFL_SUPPORTS_LONGNAMES;
-                        fCheckLongnames = FALSE;
-                    }
-                }
-                // else if this failed, we had an error popup!!
-                // shouldn't happen!!
+                pdi->lFileSystem = FSYS_RAMFS;
+                pdi->flDevice |= DFL_SUPPORTS_EAS | DFL_SUPPORTS_LONGNAMES;
+                fCheckLongnames = FALSE;
+                fCheckEAs = FALSE;
             }
-
-            if (fCheckLongnames)
+            else if (!stricmp(pdi->szFileSystem, "TVFS"))
             {
-                CHAR szTemp[30] = "?:\\long.name.file";
-                szTemp[0]  = ulLogicalDrive + 'A' - 1;
-                if (!(arc = DosOpen(szTemp,
-                                    &hf,
-                                    &dummy,
-                                    0,
-                                    0,
-                                    FILE_READONLY,
-                                    OPEN_SHARE_DENYNONE | OPEN_FLAGS_NOINHERIT,
-                                    0)))
-                {
-                    DosClose(hf);
-                }
-
-                switch (arc)
-                {
-                    case NO_ERROR:
-                    case ERROR_OPEN_FAILED:
-                        pdi->flDevice |= DFL_SUPPORTS_LONGNAMES;
-
-                    // otherwise we get ERROR_INVALID_NAME
-                    // default:
-                       //  printf("      drive %d returned %d\n", ulLogicalDrive, arc);
-                }
-
-                arc = NO_ERROR;
+                pdi->lFileSystem = FSYS_TVFS;
+                fCheckLongnames = TRUE;
+                fCheckEAs = TRUE;
             }
         }
+        else
+            // store negative error code
+            pdi->lFileSystem = -(LONG)arc;
+    }
+
+    if (    (!arc)
+         && (fCheckLongnames)
+         && (fl & DRVFL_CHECKLONGNAMES)
+       )
+    {
+        CHAR szTemp[30] = "?:\\long.name.file";
+        szTemp[0]  = ulLogicalDrive + 'A' - 1;
+        if (!(arc = DosOpen(szTemp,
+                            &hf,
+                            &dummy,
+                            0,
+                            0,
+                            FILE_READONLY,
+                            OPEN_SHARE_DENYNONE | OPEN_FLAGS_NOINHERIT,
+                            0)))
+        {
+            DosClose(hf);
+        }
+
+        switch (arc)
+        {
+            case NO_ERROR:
+            case ERROR_OPEN_FAILED:
+            case ERROR_FILE_NOT_FOUND:      // returned by TVFS
+                pdi->flDevice |= DFL_SUPPORTS_LONGNAMES;
+            break;
+
+            // if longnames are not supported,
+            // we get ERROR_INVALID_NAME
+            default:
+                pdi->arcOpenLongnames = arc;
+            break;
+
+            // default:
+               //  printf("      drive %d returned %d\n", ulLogicalDrive, arc);
+        }
+
+        arc = NO_ERROR;
+    }
+
+    if (    (!arc)
+         && (fCheckEAs)
+         && (fl & DRVFL_CHECKEAS)
+       )
+    {
+        EASIZEBUF easb = {0};
+        ULONG   cbData = sizeof(easb),
+                cbParams = 0;
+        CHAR    szDrive[] = "?:\\";
+        szDrive[0] = pdi->cDriveLetter;
+        if (!(arc = DosFSCtl(&easb,
+                             cbData,
+                             &cbData,
+                             NULL, // params,
+                             cbParams,
+                             &cbParams,
+                             FSCTL_MAX_EASIZE,
+                             szDrive,
+                             -1,        // HFILE
+                             FSCTL_PATHNAME)))
+            if (easb.cbMaxEASize != 0)
+                        // the other field (cbMaxEAListSize) is 0 always, I think
+                pdi->flDevice |= DFL_SUPPORTS_EAS;
     }
 
     if (doshQueryBootDrive() == pdi->cDriveLetter)
@@ -2126,7 +2419,7 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
  *@@added V0.9.16 (2001-10-19) [umoeller]
  */
 
-APIRET doshLockFile(PXFILE pFile)
+/* APIRET doshLockFile(PXFILE pFile)
 {
     if (!pFile)
         return (ERROR_INVALID_PARAMETER);
@@ -2139,7 +2432,7 @@ APIRET doshLockFile(PXFILE pFile)
                                   TRUE));        // request!
 
     return (DosRequestMutexSem(pFile->hmtx, SEM_INDEFINITE_WAIT));
-}
+} */
 
 /*
  *@@ doshUnlockFile:
@@ -2147,13 +2440,13 @@ APIRET doshLockFile(PXFILE pFile)
  *@@added V0.9.16 (2001-10-19) [umoeller]
  */
 
-APIRET doshUnlockFile(PXFILE pFile)
+/* APIRET doshUnlockFile(PXFILE pFile)
 {
     if (pFile)
         return (DosReleaseMutexSem(pFile->hmtx));
 
     return (ERROR_INVALID_PARAMETER);
-}
+} */
 
 /*
  *@@ doshReadAt:
@@ -2197,11 +2490,11 @@ APIRET doshReadAt(PXFILE pFile,
                   PBYTE pbData,     // out: read buffer (must be cb bytes)
                   ULONG fl)         // in: DRFL_* flags
 {
-    APIRET arc;
+    APIRET arc = NO_ERROR;
     ULONG cb = *pcb;
     ULONG ulDummy;
 
-    if (!(arc = doshLockFile(pFile)))   // this checks for pFile
+    // if (!(arc = doshLockFile(pFile)))   // this checks for pFile
     {
         *pcb = 0;
 
@@ -2356,7 +2649,7 @@ APIRET doshReadAt(PXFILE pFile,
             }
         }
 
-        doshUnlockFile(pFile);
+        // doshUnlockFile(pFile);
     }
 
     return (arc);
@@ -2443,7 +2736,7 @@ APIRET doshWrite(PXFILE pFile,
             }
 
             if (!arc)
-                if (!(arc = doshLockFile(pFile)))   // this checks for pFile
+                // if (!(arc = doshLockFile(pFile)))   // this checks for pFile
                 {
                     ULONG cbWritten;
                     if (!(arc = DosWrite(pFile->hf,
@@ -2458,7 +2751,7 @@ APIRET doshWrite(PXFILE pFile,
                         FREE(pFile->pbCache);
                     }
 
-                    doshUnlockFile(pFile);
+                    // doshUnlockFile(pFile);
                 }
 
             if (pszNew)
@@ -2483,8 +2776,8 @@ APIRET doshWriteAt(PXFILE pFile,
                    ULONG cb,        // in: bytes to write
                    PCSZ pbData)     // in: ptr to bytes to write (must be cb bytes)
 {
-    APIRET arc;
-    if (!(arc = doshLockFile(pFile)))   // this checks for pFile
+    APIRET arc = NO_ERROR;
+    // if (!(arc = doshLockFile(pFile)))   // this checks for pFile
     {
         ULONG cbWritten;
         if (!(arc = DosSetFilePtr(pFile->hf,
@@ -2502,7 +2795,7 @@ APIRET doshWriteAt(PXFILE pFile,
             }
         }
 
-        doshUnlockFile(pFile);
+        // doshUnlockFile(pFile);
     }
 
     return (arc);
@@ -2581,10 +2874,10 @@ APIRET doshClose(PXFILE *ppFile)
     {
         // request the mutex so that we won't be
         // taking the file away under someone's butt
-        if (!(arc = doshLockFile(pFile)))
+        // if (!(arc = doshLockFile(pFile)))
         {
-            HMTX hmtx = pFile->hmtx;
-            pFile->hmtx = NULLHANDLE;
+            // HMTX hmtx = pFile->hmtx;
+            // pFile->hmtx = NULLHANDLE;
 
             // now that the file is locked,
             // set the ptr to NULL
@@ -2600,8 +2893,8 @@ APIRET doshClose(PXFILE *ppFile)
                 pFile->hf = NULLHANDLE;
             }
 
-            doshUnlockFile(pFile);
-            DosCloseMutexSem(pFile->hmtx);
+            // doshUnlockFile(pFile);
+            // DosCloseMutexSem(pFile->hmtx);
         }
 
         free(pFile);
@@ -3960,7 +4253,8 @@ int main (int argc, char *argv[])
 {
     ULONG ul;
 
-            printf("    type     fs       remot fixed parrm bootd       media audio eas   longn\n");
+            printf("Drive checker ("__DATE__")\n");
+            printf("    type   fs      remot fixed parrm bootd       media audio eas   longn\n");
 
     for (ul = 1;
          ul <= 26;
@@ -3970,7 +4264,6 @@ int main (int argc, char *argv[])
         APIRET arc = doshGetDriveInfo(ul,
                                       0, // DRVFL_TOUCHFLOPPIES,
                                       &xdi);
-        PCSZ pcsz = "unknown";
 
         printf(" %c: ", xdi.cDriveLetter, ul);
 
@@ -3979,7 +4272,11 @@ int main (int argc, char *argv[])
         else
         {
             if (arc)
-                printf("error %4d\n", arc);
+                printf("error %d (IsFixedDisk: %d, QueryDiskParams %d, QueryMedia %d)\n",
+                        arc,
+                        xdi.arcIsFixedDisk,
+                        xdi.arcQueryDiskParams,
+                        xdi.arcQueryMedia);
             else
             {
                 ULONG   aulFlags[] =
@@ -3996,21 +4293,33 @@ int main (int argc, char *argv[])
                     };
                 ULONG ul2;
 
+                PCSZ pcsz = NULL;
+
                 switch (xdi.bType)
                 {
-                    case DRVTYPE_HARDDISK:  pcsz = "HARDDISK";    break;
-                    case DRVTYPE_FLOPPY:    pcsz = "FLOPPY  "; break;
-                    case DRVTYPE_TAPE:      pcsz = "TAPE    "; break;
-                    case DRVTYPE_VDISK:     pcsz = "VDISK   "; break;
-                    case DRVTYPE_CDROM:     pcsz = "CDROM   "; break;
-                    case DRVTYPE_LAN:       pcsz = "LAN     "; break;
+                    case DRVTYPE_HARDDISK:  pcsz = "HDISK ";    break;
+                    case DRVTYPE_FLOPPY:    pcsz = "FLOPPY"; break;
+                    case DRVTYPE_TAPE:      pcsz = "TAPE  "; break;
+                    case DRVTYPE_VDISK:     pcsz = "VDISK "; break;
+                    case DRVTYPE_CDROM:     pcsz = "CDROM "; break;
+                    case DRVTYPE_LAN:       pcsz = "LAN   "; break;
                     case DRVTYPE_PARTITIONABLEREMOVEABLE:
-                                            pcsz = "PARTREMV"; break;
+                                            pcsz = "PRTREM"; break;
+                    default:
+                                            printf("bType=%d, BPB.bDevType=%d",
+                                                    xdi.bType,
+                                                    xdi.bpb.bDeviceType);
+                                            printf("\n           ");
                 }
 
-                printf("%s ", pcsz);
+                if (pcsz)
+                    printf("%s ", pcsz);
 
-                printf("%8s ", xdi.szFileSystem); // , xdi.bFileSystem);
+                if (xdi.lFileSystem < 0)
+                    // negative means error
+                    printf("E%3d    ", xdi.lFileSystem); // , xdi.bFileSystem);
+                else
+                    printf("%7s ", xdi.szFileSystem); // , xdi.bFileSystem);
 
                 for (ul2 = 0;
                      ul2 < ARRAYITEMCOUNT(aulFlags);
@@ -4019,7 +4328,12 @@ int main (int argc, char *argv[])
                     if (xdi.flDevice & aulFlags[ul2])
                         printf("  X   ");
                     else
-                        printf("  -   ");
+                        if (    (xdi.arcOpenLongnames)
+                             && (aulFlags[ul2] == DFL_SUPPORTS_LONGNAMES)
+                           )
+                            printf(" E%03d ", xdi.arcOpenLongnames);
+                        else
+                            printf("  -   ");
                 }
                 printf("\n");
             }
