@@ -4,7 +4,10 @@
  *      contains PM helper functions to create and
  *      auto-format dialogs from control arrays in memory.
  *
- *      See dlghCreateDlg for details.
+ *      As a summary, this code allows you to get rid of
+ *      PM dialog resources completely.
+ *
+ *      See dlghCreateDlg for an introduction.
  *
  *      See @dlg_algorithm for the gory details of the new
  *      algorithm used since V0.9.21. Even though much
@@ -2741,7 +2744,7 @@ static APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
                 if (!(arc = CreateColumn(pDlgData,
                                          pCurrentRow,
                                          FALSE,        // no nested table
-                                         (PVOID)pItemThis->ul1, // pCtlDef, V0.9.21 (2002-08-18) [umoeller]
+                                         (const CONTROLDEF *)pItemThis->ul1, // pCtlDef, V0.9.21 (2002-08-18) [umoeller]
                                          &pColumn)))
                     lstAppendItem(&pCurrentRow->llColumns,
                                   pColumn);

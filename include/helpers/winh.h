@@ -254,7 +254,7 @@ extern "C" {
      */
 
     #define winhRemoveMenuItem(hwndMenu, sItemID) \
-            (SHORT)WinSendMsg(hwndMenu, MM_REMOVEITEM, MPFROM2SHORT(sItemID, FALSE), 0)
+            SHORT1FROMMR(WinSendMsg(hwndMenu, MM_REMOVEITEM, MPFROM2SHORT(sItemID, FALSE), 0))
 
     BOOL XWPENTRY winhRemoveMenuItems(HWND hwndMenu,
                                       const SHORT *asItemIDs,

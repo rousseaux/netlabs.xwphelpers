@@ -548,19 +548,22 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
         case XCPT_ACCESS_VIOLATION:
             fprintf(file, "\nXCPT_ACCESS_VIOLATION: ");
             if (pReportRec->ExceptionInfo[0] & XCPT_READ_ACCESS)
-                fprintf(file, "Invalid read access from 0x%04lX:%08lX.\n",
-                        pContextRec->ctx_SegDs, pReportRec->ExceptionInfo[1]);
+                fprintf(file, "XCPT_READ_ACCESS -- Invalid read access from 0x%04lX:%08lX.\n",
+                        pContextRec->ctx_SegDs,
+                        pReportRec->ExceptionInfo[1]);
             else if (pReportRec->ExceptionInfo[0] & XCPT_WRITE_ACCESS)
-                fprintf(file, "Invalid write access to 0x%04lX:%08lX.\n",
-                        pContextRec->ctx_SegDs, pReportRec->ExceptionInfo[1]);
+                fprintf(file, "XCPT_WRITE_ACCESS -- Invalid write access to 0x%04lX:%08lX.\n",
+                        pContextRec->ctx_SegDs,
+                        pReportRec->ExceptionInfo[1]);
             else if (pReportRec->ExceptionInfo[0] & XCPT_SPACE_ACCESS)
-                fprintf(file, "Invalid space access at 0x%04lX.\n",
+                fprintf(file, "XCPT_SPACE_ACCESS -- Invalid space access at 0x%04lX.\n",
                         pReportRec->ExceptionInfo[1]);
             else if (pReportRec->ExceptionInfo[0] & XCPT_LIMIT_ACCESS)
-                fprintf(file, "Invalid limit access occurred.\n");
+                fprintf(file, "XCPT_LIMIT_ACCESS -- Invalid limit access occurred.\n");
             else if (pReportRec->ExceptionInfo[0] == XCPT_UNKNOWN_ACCESS)
-                fprintf(file, "unknown at 0x%04lX:%08lX\n",
-                            pContextRec->ctx_SegDs, pReportRec->ExceptionInfo[1]);
+                fprintf(file, "XCPT_UNKNOWN_ACCESS -- unknown at 0x%04lX:%08lX\n",
+                        pContextRec->ctx_SegDs,
+                        pReportRec->ExceptionInfo[1]);
             fprintf(file,
                     "Explanation: An attempt was made to access a memory object which does\n"
                     "             not belong to the current process. Most probable causes\n"

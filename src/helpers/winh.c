@@ -592,8 +592,9 @@ BOOL XWPENTRY winhRemoveMenuItems(HWND hwndMenu,            // in: menu to remov
          ul < cItemIDs;
          ++ul)
     {
+        SHORT s = asItemIDs[ul];
         winhRemoveMenuItem(hwndMenu,
-                           asItemIDs[ul]);
+                           s);
     }
 
     return TRUE;
