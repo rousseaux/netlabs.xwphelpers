@@ -656,7 +656,7 @@ VOID nlsDate(const COUNTRYSETTINGS2 *pcs2,
                     year);
         break;
 
-        case 2: // yyyy.mm.dd  (Japanese)
+        case 2: // yyyy.mm.dd  (ISO and Japanese)
             sprintf(pszDate, "%04d%c%02d%c%02d",
                     year,
                         pcs2->cs.cDateSep,
@@ -848,7 +848,7 @@ STATIC VOID InitUpperMap(VOID)
     BOOL fDBCS = nlsDBCS();
 
     for (ul = 0;
-         ul < sizeof(G_szUpperMap);
+         ul < 256;
          ++ul)
     {
         G_szUpperMap[ul] = (CHAR)ul;
@@ -900,14 +900,13 @@ STATIC VOID InitUpperMap(VOID)
 ULONG nlsUpper(PSZ psz)            // in/out: string
 {
     ULONG   ul = 0;
+    PSZ     p;
 
     if (!G_fUpperMapInited)
         InitUpperMap();
 
-    if (psz)
+    if (p = psz)
     {
-        PSZ     p = psz;
-
         while (*p++ = G_szUpperMap[*p])
             ++ul;
     }

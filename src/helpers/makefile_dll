@@ -20,6 +20,9 @@
 !if [@echo +++++ Entering $(MAKEDIR)\makefile_dll]
 !endif
 
+# set up shared environment variables
+!include ..\..\make\helpers.in
+# define $(OBJ), which contains all object targets
 !include helpers_pre.in
 
 # The main target:

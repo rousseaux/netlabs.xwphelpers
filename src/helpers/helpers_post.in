@@ -1,38 +1,9 @@
 #
-#   Post-Include file for the main helpers makefile.
-#   This contains inference rules for the files.
+#   Post-include file for the main helpers makefile.
 #
-
-# Now define inference rules for what to do with certain file
-# types, based on their file extension.
-# The syntax we need here is ".fromext.toext".
-# So whenever NMAKE encounters a .toext file, it
-# executes what we specify here.
-# The ugly {} brackets are some awkward syntax for specifying
-# files in other directories.
-
-# Special macros used here: $(@B) is the current target w/out ext.
-
-# -- compile C files to .OBJ files, using the CC_HELPPERS macro
-#    given to us.
-#    The output will be placed in the directory specified by
-#    the OUTPUTDIR variable (set above).
-
-.c.{$(OUTPUTDIR)}.obj:
-    @echo $(MAKEDIR)\makefile: Compiling $(@B).c
-!ifdef EMX
-    $(CC_HELPERS) -o $(OUTPUTDIR)\$(@B).obj $(@B).c
-!else
-!ifndef PRECH
-    $(CC_HELPERS) /Fo$(OUTPUTDIR)\$(@B).obj $(@B).c
-!else
-    $(CC_HELPERS) /fi"$(PRECH)\$(@B).pch" /si"$(PRECH)\$(@B).pch" /Fo$(OUTPUTDIR)\$(@B).obj $(@B).c
-!endif
-!endif
-
-$(OUTPUTDIR)\interlock.obj: $(@B).asm
-    @echo $(MAKEDIR)\makefile: Assembling $(@B).asm
-    alp -Sv:ALP -Fdo:$(OUTPUTDIR) $(@B).asm
+#   This is shared between makefile and makefile_dll
+#   and contains inference rules for the files.
+#
 
 # The .OBJ-from-sources dependencies are now automatically
 # created by "nmake dep" into the .depend include file.
@@ -42,5 +13,5 @@ $(OUTPUTDIR)\interlock.obj: $(@B).asm
 !include .depend
 !endif
 
-
+$(OUTPUTDIR)\interlock.obj: $(@B).asm
 

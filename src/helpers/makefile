@@ -1,5 +1,3 @@
-# $Id$
-
 #
 # makefile:
 #       makefile for src/helpers directory.
@@ -8,11 +6,12 @@
 #
 #       This makefile is even more complicated than the other makefiles
 #       because the helpers code has been designed to be independent
-#       of any single project. For example, the helpers code is used
-#       by XWorkplace also. As a result, I had to design a way so that
+#       of any single project. Presently the helpers code is used in
+#       XWorkplace and WarpIN. As a result, I had to design a way so that
 #       this makefile can produce output in a variable directory, with
 #       variable compiler flags, and so on. This is done via environment
-#       variables (see below).
+#       variables passed in from the "parent" makefile of a specific
+#       project.
 #
 #       Even worse, with V0.9.5, I chose to create a shared runtime DLL
 #       for the various WarpIN executables. For that, I chose to use
@@ -84,12 +83,9 @@
 #       Edit "setup.in" to set up the make process.
 #
 
-# Say hello to yourself.
-!if [@echo +++++ Entering $(MAKEDIR)\makefile]
-!endif
-
-# helpers_pre.in: sets up more environment variables
-# and defines $(OBJ), which contains all object targets
+# set up shared environment variables
+!include ..\..\make\helpers.in
+# define $(OBJ), which contains all object targets
 !include helpers_pre.in
 
 # The main target:
@@ -193,12 +189,14 @@ $(OUTPUTDIR)\plainc.lib: $(PLAINCOBJS) makefile
 
 TESTCASE_DIR = testcase
 
-DEBUGDIALOG =
+!undef DEBUGDIALOG
 !ifdef DBGDLG
 DEBUGDIALOG = /DDEBUG_DIALOG_WINDOWS=1
 !endif
 
-TESTCASE_CC = icc /c /ti+ /w2 /ss /se /D__DEBUG__=1 $(DEBUGDIALOG) /i$(HELPERS_BASE)\include /Fo$(TESTCASE_DIR)\$(@B).obj $(@B).c
+TESTCASE_CC_BASE = icc /c /ti+ /w2 /ss /se /D__DEBUG__=1 $(DEBUGDIALOG) /i..\..\include
+
+TESTCASE_CC = $(TESTCASE_CC_BASE) /Fo$(TESTCASE_DIR)\$(@B).obj  $(@B).c
 
 .c.{$(TESTCASE_DIR)}.obj:
     @echo $(MAKEDIR)\makefile: Compiling $(@B).c
@@ -211,6 +209,7 @@ TESTCASE_TARGETS = \
     dialog.exe \
     exeh.exe \
     fdlg.exe \
+    fdlg_pm.exe \
     xmap.exe \
     vcard.exe
 
@@ -264,7 +263,7 @@ exeh.exe: $(EXEH_TEST_OBJS)
     ilink /debug /optfunc /pmtype:vio $(EXEH_TEST_OBJS) pmprintf.lib /o:$@
 
 # fdlg.exe
-FDLG_TEST_OBJS = \
+FDLG_TEST_OBJS_SHARED = \
     $(TESTCASE_DIR)\comctl.obj \
     $(TESTCASE_DIR)\cctl_cnr.obj \
     $(TESTCASE_DIR)\cctl_cnr_dtls.obj \
@@ -281,11 +280,28 @@ FDLG_TEST_OBJS = \
     $(TESTCASE_DIR)\prfh.obj \
     $(TESTCASE_DIR)\tree.obj \
     $(TESTCASE_DIR)\nls.obj \
-    $(TESTCASE_DIR)\nlscache.obj \
+    $(TESTCASE_DIR)\nlscache.obj
+
+FDLG_TEST_OBJS = \
+    $(FDLG_TEST_OBJS_SHARED) \
     $(TESTCASE_DIR)\_call_filedlg.obj
 
-fdlg.exe: $(FDLG_TEST_OBJS)
-    ilink /debug /pmtype:pm $(FDLG_TEST_OBJS) pmprintf.lib /o:$@
+$(TESTCASE_DIR)\_call_filedlg_pm.obj: _call_filedlg.c
+    @echo $(MAKEDIR)\makefile: Compiling $(@B).c (PM version)
+    @echo INCLUDE is $(INCLUDE)
+    $(TESTCASE_CC_BASE) /D__USE_PM_CNR__=1 /Fo$(TESTCASE_DIR)\_call_filedlg_pm.obj _call_filedlg.c
+
+FDLG_TEST_OBJS_PM = \
+    $(FDLG_TEST_OBJS_SHARED) \
+    $(TESTCASE_DIR)\_call_filedlg_pm.obj
+
+fdlg.exe: $(FDLG_TEST_OBJS) makefile
+    @echo $(MAKEDIR)\makefile: Linking $@
+    ilink /nologo /debug /pmtype:pm $(FDLG_TEST_OBJS) pmprintf.lib /o:$@
+
+fdlg_pm.exe: $(FDLG_TEST_OBJS_PM) makefile
+    @echo $(MAKEDIR)\makefile: Linking $@ (PM version)
+    ilink /nologo /debug /pmtype:pm $(FDLG_TEST_OBJS_PM) pmprintf.lib /o:$@
 
 # xmap.exe
 MAP_TEST_OBJS = \

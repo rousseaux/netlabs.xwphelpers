@@ -5,7 +5,7 @@
  *      Usage: All OS/2 programs.
  *
  *      Function prefixes (new with V0.81):
- *      --  stc*
+ *      --  nls*
  *
  *      This file is new with V0.9.19, but contains functions
  *      formerly in nls.c.

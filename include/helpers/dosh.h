@@ -620,6 +620,7 @@ extern "C" {
     #define XOPEN_ACCESS_MASK             0xffff
 
     #define XOPEN_BINARY              0x10000000
+    #define XOPEN_WRITETHRU           0x20000000
 
     APIRET doshOpen(PCSZ pcszFilename,
                     ULONG flOpenMode,
@@ -657,6 +658,10 @@ extern "C" {
     APIRET doshLoadTextFile(PCSZ pcszFile,
                             PSZ* ppszContent,
                             PULONG pcbRead);
+
+    BOOL doshCreateLogFilename(PSZ pszBuf,
+                               PCSZ pcszFilename,
+                               BOOL fAllowBootDrive);
 
     PSZ doshCreateBackupFileName(const char* pszExisting);
 

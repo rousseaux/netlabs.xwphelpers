@@ -736,12 +736,12 @@ VOID gpihDrawString(HPS hps,                // in: presentation space for output
     if (fl & (DT_VCENTER | DT_BOTTOM))
     {
         ULONG cLines = strhCount(pcsz, '\n') + 1;
-        cyString = cLines * (pfm->lMaxBaselineExt + pfm->lExternalLeading);
+        cyString = cLines * (pfm->lMaxBaselineExt + pfm->lMaxDescender + pfm->lExternalLeading);
 
         if (fl & DT_VCENTER)
-            ptlRun.y += (cyRect - cyString) / 2;
+            ptlRun.y = (cyRect - cyString) / 2;
         else
-            ptlRun.y += cyRect - cyString;
+            ptlRun.y = cyString;
     }
 
     while (*pThis)
@@ -788,9 +788,12 @@ VOID gpihDrawString(HPS hps,                // in: presentation space for output
 
         ptlRun.y -= pfm->lExternalLeading;
 
+        if (!*pNext)
+            break;
+
         if (*pNext == '\r')
             pNext++;
-        pThis = pNext;
+        pThis = ++pNext;
     }
 }
 
@@ -2552,8 +2555,8 @@ APIRET gpihLoadBitmapFile(HBITMAP *phbm,        // out: bitmap if NO_ERROR
 
 LONG gpihStretchBitmap(HPS hpsTarget,       // in: memory PS to copy bitmap to
                        HBITMAP hbmSource,   // in: bitmap to be copied into hpsTarget (must be free)
-                       PRECTL prclSource,   // in: source rectangle -- if NULL, use size of bitmap
-                       PRECTL prclTarget,   // in: target rectangle (req.)
+                       PRECTL prclSource,   // in: source rectangle -- if NULL, use size of source bmp
+                       PRECTL prclTarget,   // in: target rectangle (required)
                        BOOL fProportional)  // in: preserve proportions when stretching?
 {
     SIZEL               szlBmp;

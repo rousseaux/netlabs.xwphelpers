@@ -62,11 +62,11 @@ extern "C" {
 
     APIRET semRelease(PFASTMTX pmtx);
 
-    LONG APIENTRY DosInterlockedCompareExchange(PLONG dest, LONG xchg, LONG compare);
-    LONG APIENTRY DosInterlockedDecrement(PLONG);
-    LONG APIENTRY DosInterlockedExchange(PLONG, LONG);
-    LONG APIENTRY DosInterlockedExchangeAdd(PLONG dest, LONG incr);
-    LONG APIENTRY DosInterlockedIncrement(PLONG);
+    LONG APIENTRY lockCompareExchange(PLONG dest, LONG xchg, LONG compare);
+    LONG APIENTRY lockDecrement(PLONG);
+    LONG APIENTRY lockExchange(PLONG, LONG);
+    LONG APIENTRY lockExchangeAdd(PLONG dest, LONG incr);
+    LONG APIENTRY lockIncrement(PLONG);
 
 #endif
 

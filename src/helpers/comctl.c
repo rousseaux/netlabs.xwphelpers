@@ -177,23 +177,59 @@ BOOL ctlPostWmControl(HWND hwndControl,     // in: control who's posting
  *      ininitializes the DEFWINDATA struct for the
  *      given window. This must be called in WM_CREATE
  *      of a window proc if it intends to use
- *      ctlDefWindowProc as its default window procedure.
+ *      ctlDefWindowProc as its default window procedure
+ *      for generic message handling.
+ *
+ *      Parameter remarks:
+ *
+ *      --  For hwnd and mp2, pass in what you get in WM_CREATE.
+ *
+ *      --  pdwd must point to a static DEFWINDATA which will
+ *          maintain instance data for this control. It is
+ *          recommended to have a DEFWINDATA struct in your
+ *          window's instance data, which you must allocate
+ *          in WM_CREATE anyway. So just pass the address of
+ *          that struct within your instance buffer.
+ *
+ *      --  pDefWindowProc is called by ctlDefWindowProc
+ *          after its own message processing. In most cases,
+ *          pass in WinDefWindowProc, unless you're superclassing
+ *          a standard PM control.
+ *
+ *      --  flCtl fine-tunes the behavior of ctlDefWindowProc:
+ *
+ *          --  If CCS_NOSENDCTLPTR, we do not send WM_CONTROLPOINTER
+ *              on every mouse move, but force the system "arrow"
+ *              pointer over the control.
+ *
+ *      --  paCtlColors must point to a CCTLCOLOR array. This
+ *          enables automatic presparams and syscolor caching
+ *          within ctlDefWindowProc so your window gets invalidated
+ *          automatically. If you always use ctlQueryColor() in your
+ *          WM_PAINT handler to determine the colors to be used for
+ *          painting, you have full presparams support.
  *
  *@@added V1.0.1 (2002-11-30) [umoeller]
  */
 
 VOID ctlInitDWD(HWND hwnd,
-                MPARAM mp2,
+                MPARAM mp2,                     // in: mp2 of WM_CREATE
                 PDEFWINDATA pdwd,
-                PFNWP pDefWindowProc,
-                const SYSCOLORSET *pSysColorSet)
+                PFNWP pDefWindowProc,           // in: parent window proc
+                ULONG flCtl,                    // in: CTL_* flags
+                const CCTLCOLOR *paCtlColors,
+                ULONG cCtlColors)
 {
     pdwd->hwnd = hwnd;
-    pdwd->szlWin.cx = ((PCREATESTRUCT)mp2)->cx;
-    pdwd->szlWin.cy = ((PCREATESTRUCT)mp2)->cy;
     pdwd->hab = WinQueryAnchorBlock(hwnd);
     pdwd->pDefWindowProc = pDefWindowProc;
-    pdwd->pSysColorSet = pSysColorSet;
+    pdwd->flCtl = flCtl;
+    pdwd->szlWin.cx = ((PCREATESTRUCT)mp2)->cx;
+    pdwd->szlWin.cy = ((PCREATESTRUCT)mp2)->cy;
+    pdwd->paCtlColors = paCtlColors;
+    pdwd->cCtlColors = cCtlColors;
+
+    pdwd->palColorValues = (PLONG)malloc(sizeof(LONG) * cCtlColors);
 
     ctlRefreshColors(pdwd);
 }
@@ -206,16 +242,36 @@ VOID ctlInitDWD(HWND hwnd,
 
 VOID ctlRefreshColors(PDEFWINDATA pdwd)
 {
-    pdwd->lcolBackground = winhQueryPresColor2(pdwd->hwnd,
-                                               PP_BACKGROUNDCOLOR,
-                                               PP_BACKGROUNDCOLORINDEX,
-                                               pdwd->pSysColorSet->fInheritPP,
-                                               pdwd->pSysColorSet->lBackIndex);
-    pdwd->lcolForeground = winhQueryPresColor2(pdwd->hwnd,
-                                               PP_FOREGROUNDCOLOR,
-                                               PP_FOREGROUNDCOLORINDEX,
-                                               pdwd->pSysColorSet->fInheritPP,
-                                               pdwd->pSysColorSet->lForeIndex);
+    ULONG   ul;
+    for (ul = 0;
+         ul < pdwd->cCtlColors;
+         ++ul)
+    {
+        pdwd->palColorValues[ul] = winhQueryPresColor2(pdwd->hwnd,
+                                                       pdwd->paCtlColors[ul].ulPP,
+                                                       0,
+                                                       pdwd->paCtlColors[ul].fInheritPP,
+                                                       pdwd->paCtlColors[ul].ulSysColor);
+    }
+}
+
+/*
+ *@@ ctlQueryColor:
+ *      returns the color value corresponding to the given
+ *      color index. The color index is interpreted according
+ *      to the CCTLCOLOR array that was given to ctlInitDWD
+ *      and must not be larger than the number of colors in
+ *      that array minus 1.
+ *
+ *@@added V1.0.1 (2003-01-22) [umoeller]
+ */
+
+LONG ctlQueryColor(PDEFWINDATA pdwd, ULONG ulIndex)
+{
+    if (ulIndex < pdwd->cCtlColors)
+        return pdwd->palColorValues[ulIndex];
+
+    return 0;
 }
 
 /*
@@ -237,9 +293,26 @@ VOID ctlRefreshColors(PDEFWINDATA pdwd)
 MRESULT ctlDefWindowProc(PDEFWINDATA pdwd, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT mrc = 0;
+    BOOL    fCallDefault = TRUE;
+    HWND    hwndOwner;
 
     switch (msg)
     {
+        case WM_MOUSEMOVE:
+            if (    (!(pdwd->flCtl & CCS_NOSENDCTLPTR))
+                 && (hwndOwner = WinQueryWindow(pdwd->hwnd, QW_OWNER))
+               )
+            {
+                HPOINTER hptrArrow = WinQuerySysPointer(HWND_DESKTOP, SPTR_ARROW, FALSE);
+                WinSetPointer(HWND_DESKTOP,
+                              (HPOINTER)WinSendMsg(hwndOwner,
+                                                   WM_CONTROLPOINTER,
+                                                   (MPARAM)WinQueryWindowUShort(pdwd->hwnd, QWS_ID),
+                                                   (MPARAM)hptrArrow));
+                fCallDefault = FALSE;
+            }
+        break;
+
         case WM_SYSCOLORCHANGE:
         case WM_PRESPARAMCHANGED:
             ctlRefreshColors(pdwd);
@@ -257,9 +330,13 @@ MRESULT ctlDefWindowProc(PDEFWINDATA pdwd, ULONG msg, MPARAM mp1, MPARAM mp2)
             }
         break;
 
-        default:
-            mrc = pdwd->pDefWindowProc(pdwd->hwnd, msg, mp1, mp2);
+        case WM_DESTROY:
+            FREE(pdwd->palColorValues);
+        break;
     }
+
+    if (fCallDefault)
+        mrc = pdwd->pDefWindowProc(pdwd->hwnd, msg, mp1, mp2);
 
     return mrc;
 }

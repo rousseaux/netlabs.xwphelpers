@@ -3269,6 +3269,41 @@ APIRET doshLoadTextFile(PCSZ pcszFile,      // in: file name to read
 }
 
 /*
+ *@@ doshCreateLogFilename:
+ *      produces a log filename in pszBuf.
+ *      If $(LOGFILES) is set, that directory
+ *      is used; otherwise we use the root
+ *      directory of the boot drive.
+ *
+ *@@added V1.0.1 (2003-01-25) [umoeller]
+ */
+
+BOOL doshCreateLogFilename(PSZ pszBuf,             // out: fully qualified filename
+                           PCSZ pcszFilename,      // in: short log filename
+                           BOOL fAllowBootDrive)   // in: allow creating log files on boot drive?
+{
+    CHAR    szBoot[] = "?:";
+    PSZ     pszLogDir;
+    if (DosScanEnv("LOGFILES",      // new eCS 1.1 setting
+                   &pszLogDir))
+    {
+        // variable not set:
+        if (!fAllowBootDrive)
+            return FALSE;
+
+        szBoot[0] = doshQueryBootDrive();
+        pszLogDir = szBoot;
+    }
+
+    sprintf(pszBuf,
+            "%s\\%s",
+            pszLogDir,
+            pcszFilename);
+
+    return TRUE;
+}
+
+/*
  *@@ doshCreateBackupFileName:
  *      creates a valid backup filename of pszExisting
  *      with a numerical file name extension which does

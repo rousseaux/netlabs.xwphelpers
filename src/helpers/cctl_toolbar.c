@@ -185,7 +185,7 @@ VOID ctlPaintTBButton(HPS hps,               // in: presentation space (RGB mode
             lOfs = 0;
     LONG    lLeft,
             lRight,
-            lColorMiddle = pbd->dwd.lcolBackground;
+            lColorMiddle = ctlQueryColor(&pbd->dwd, CTLCOL_BGND); // pbd->dwd.lcolBackground;
     RECTL   rclWin,
             rclTemp;
     POINTL  ptl;
@@ -343,7 +343,8 @@ VOID ctlPaintTBButton(HPS hps,               // in: presentation space (RGB mode
          && (fl & TBBS_TEXT)
        )
     {
-        GpiSetColor(hps, pbd->dwd.lcolForeground);
+        GpiSetColor(hps,
+                    ctlQueryColor(&pbd->dwd, CTLCOL_FGND)); // pbd->dwd.lcolForeground);
         rclTemp.yTop -= 2 * TBB_TEXTSPACING + lOfs;
         rclTemp.xRight += 2 * lOfs;     // twice the offset because we center horizontally
         winhDrawFormattedText(hps,
@@ -353,12 +354,19 @@ VOID ctlPaintTBButton(HPS hps,               // in: presentation space (RGB mode
     }
 }
 
-static const SYSCOLORSET G_scsToolbarButton =
+/* static const SYSCOLORSET G_scsToolbarButton =
     {
         TRUE,       // inherit presparams
 
         SYSCLR_BUTTONMIDDLE,
         SYSCLR_MENUTEXT
+    };
+*/
+
+static const CCTLCOLOR G_scsToolbarButton[] =
+    {
+        TRUE, PP_BACKGROUNDCOLOR, SYSCLR_BUTTONMIDDLE,
+        TRUE, PP_FOREGROUNDCOLOR, SYSCLR_MENUTEXT,
     };
 
 /*
@@ -444,7 +452,9 @@ STATIC MRESULT BtnCreate(HWND hwndButton, MPARAM mp1, MPARAM mp2)
                    mp2,
                    &pData->bd.dwd,
                    WinDefWindowProc,
-                   &G_scsToolbarButton);
+                   0,
+                   G_scsToolbarButton,
+                   ARRAYITEMCOUNT(G_scsToolbarButton));
 
         if (    (pcszText)
              && (*pcszText == '#')
@@ -850,11 +860,10 @@ MRESULT EXPENTRY ctl_fnwpToolbarButton(HWND hwndButton, ULONG msg, MPARAM mp1, M
  *
  ********************************************************************/
 
-static const SYSCOLORSET G_scsToolbar =
+static const CCTLCOLOR G_scsToolbar[] =
     {
-        TRUE,       // inherit presparams
-        SYSCLR_MENU,
-        SYSCLR_MENUTEXT
+        TRUE, PP_BACKGROUNDCOLOR, SYSCLR_MENU,
+        TRUE, PP_FOREGROUNDCOLOR, SYSCLR_MENUTEXT
     };
 
 /*
@@ -1016,21 +1025,13 @@ STATIC ULONG TbAddControls(PTOOLBARDATA pData,
                            strlen(pcszFont) + 1,
                            (PVOID)pcszFont);
 
-        lColor = winhQueryPresColor2(pData->dwd.hwnd,
-                                     PP_BACKGROUNDCOLOR,
-                                     PP_BACKGROUNDCOLORINDEX,
-                                     FALSE,
-                                     G_scsToolbar.lBackIndex);
+        lColor = ctlQueryColor(&pData->dwd, CTLCOL_BGND);
         winhStorePresParam(&ppp,
                            PP_BACKGROUNDCOLOR,
                            sizeof(lColor),
                            &lColor);
 
-        lColor = winhQueryPresColor2(pData->dwd.hwnd,
-                                     PP_FOREGROUNDCOLOR,
-                                     PP_FOREGROUNDCOLORINDEX,
-                                     FALSE,
-                                     G_scsToolbar.lForeIndex);
+        lColor = ctlQueryColor(&pData->dwd, CTLCOL_FGND);
         winhStorePresParam(&ppp,
                            PP_FOREGROUNDCOLOR,
                            sizeof(lColor),
@@ -1111,7 +1112,9 @@ STATIC MRESULT TbCreate(HWND hwndToolBar, MPARAM mp1, MPARAM mp2)
                mp2,
                &pData->dwd,
                WinDefWindowProc,
-               &G_scsToolbar);
+               0,
+               G_scsToolbar,
+               ARRAYITEMCOUNT(G_scsToolbar));
 
     pData->hwndControlsOwner = ptbcd->hwndControlsOwner;
     pData->lSpacing = 5;

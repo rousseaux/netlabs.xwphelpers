@@ -1,12 +1,10 @@
 
 /*
  *@@sourcefile sem.c:
- *      implements fast mutex semaphores a la Win32
- *      critical sections.
+ *      implements fast mutex semaphores.
  *
- *      This is an OS/2 implementation of what Win32 calls as
- *      "critical sections"
- *      It is an implementation that is highly optimized for
+ *      This is an OS/2 implementation of what Win32 calls
+ *      "critical sections". This is highly optimized for
  *      the case where there is only one thread trying to
  *      access the critical section, i.e. it is available most
  *      of the time. Therefore we can use these critical
@@ -193,7 +191,7 @@ APIRET semRequest(PFASTMTX pmtx)
 
     // do an atomic increase of the lockcounter and see if it is > 0
     // (i.e. it is already posessed)
-    if (DosInterlockedIncrement(&pmtx->LockCount))
+    if (lockIncrement(&pmtx->LockCount))
     {
         // semaphore was already requested:
 
@@ -205,11 +203,11 @@ testenter:
             return NO_ERROR;
         }
 
-        // current owner is different thread thread:
+        // current owner is different thread:
 
         // do an atomic operation where we compare the owning thread id with 0
         // and if this is true, exchange it with the id of the current thread
-        if (DosInterlockedCompareExchange((PLONG)&pmtx->OwningThread, threadid, 0))
+        if (lockCompareExchange((PLONG)&pmtx->OwningThread, threadid, 0))
         {
             // the compare did not return equal, i.e. the pmtx sect is in use
 
@@ -256,7 +254,7 @@ BOOL semAssert(PFASTMTX pmtx)
 
 BOOL semTry(PFASTMTX pmtx)
 {
-    if (DosInterlockedIncrement(&pmtx->LockCount))
+    if (lockIncrement(&pmtx->LockCount))
     {
         if (pmtx->OwningThread == GetTID())
         {
@@ -264,7 +262,7 @@ BOOL semTry(PFASTMTX pmtx)
             return TRUE;
         }
 
-        DosInterlockedDecrement(&pmtx->LockCount);
+        lockDecrement(&pmtx->LockCount);
 
         return FALSE;
     }
@@ -290,13 +288,13 @@ APIRET semRelease(PFASTMTX pmtx)
 
     if (--pmtx->RecursionCount)
     {
-        DosInterlockedDecrement(&pmtx->LockCount );
+        lockDecrement(&pmtx->LockCount );
         return NO_ERROR;
     }
 
     pmtx->OwningThread = 0;
 
-    if (DosInterlockedDecrement(&pmtx->LockCount) >= 0)
+    if (lockDecrement(&pmtx->LockCount) >= 0)
         // someone is waiting
         DosPostEventSem(pmtx->hmtxLock);
 

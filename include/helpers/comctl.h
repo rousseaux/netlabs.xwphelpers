@@ -51,18 +51,22 @@ extern "C" {
                           MPARAM mp2);
 
     /*
-     *@@ SYSCOLORSET:
+     *@@ CCTLCOLOR:
      *
      *@@added V1.0.1 (2002-11-30) [umoeller]
      */
 
-    typedef struct _SYSCOLORSET
+    typedef struct _CCTLCOLOR
     {
         BOOL    fInheritPP;
+        ULONG   ulPP,
+                ulSysColor;
+    } CCTLCOLOR, *PCCTLCOLOR;
 
-        LONG    lBackIndex,
-                lForeIndex;
-    } SYSCOLORSET, *PSYSCOLORSET;
+    #define CTLCOL_BGND         0
+    #define CTLCOL_FGND         1
+
+    #define CCS_NOSENDCTLPTR            0x0001
 
     /*
      *@@ DEFWINDOWDATA:
@@ -76,14 +80,17 @@ extern "C" {
         HAB         hab;
 
         PFNWP       pDefWindowProc;
-        const SYSCOLORSET *pSysColorSet;
 
-        LONG        lcolBackground,
-                    lcolForeground;
+        ULONG       flCtl;              // CTL_* flags
 
         SIZEL       szlWin;             // current window dimensions
 
         PSZ         pszText;            // window text or NULL
+
+        const CCTLCOLOR *paCtlColors;
+        ULONG       cCtlColors;
+
+        PLONG       palColorValues;
 
     } DEFWINDATA, *PDEFWINDATA;
 
@@ -91,9 +98,13 @@ extern "C" {
                     MPARAM mp2,
                     PDEFWINDATA pdwd,
                     PFNWP pDefWindowProc,
-                    const SYSCOLORSET *pSysColorSet);
+                    ULONG flCtl,
+                    const CCTLCOLOR *paCtlColors,
+                    ULONG cCtlColors);
 
     VOID ctlRefreshColors(PDEFWINDATA pdwd);
+
+    LONG ctlQueryColor(PDEFWINDATA pdwd, ULONG ulIndex);
 
     MRESULT ctlDefWindowProc(PDEFWINDATA pdwd, ULONG msg, MPARAM mp1, MPARAM mp2);
 
@@ -1004,8 +1015,6 @@ extern "C" {
 
         HPOINTER    hptr;               // icon to paint or NULLHANDLE
 
-        // BOOL        fPaintButtonSunk;
-
     } XBUTTONDATA, *PXBUTTONDATA;
 
     /*
@@ -1408,6 +1417,16 @@ extern "C" {
      ********************************************************************/
 
     #define WC_CCTL_CNR             "ComctlCnr"
+
+    typedef struct _CNRVIEWPORT
+    {
+        HWND        hwndCnr;
+        SIZEL       szlWorkarea,
+                    szlWin;
+        POINTL      ptlScroll;
+    } CNRVIEWPORT, *PCNRVIEWPORT;
+
+    #define CN_VIEWPORTCHANGED              159
 
     MRESULT EXPENTRY fnwpCnr(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2);
 

@@ -1521,7 +1521,7 @@ BOOL txvPaintText(HAB hab,
                   PRECTL prcl2Paint,   // in: invalid rectangle to be drawn,
                                        // can be NULL to paint all
                   LONG lViewXOfs,      // in: x offset to paint; 0 means rightmost
-                  PULONG pulViewYOfs,  // in: y offset to paint; 0 means _top_most;
+                  PLONG plViewYOfs,    // in: y offset to paint; 0 means _top_most;
                                        // out: y offset which should be passed to next call
                                        // (if TRUE is returned and fPaintHalfLines == FALSE)
                   BOOL fPaintHalfLines, // in: if FALSE, lines which do not fully fit on
@@ -1533,7 +1533,7 @@ BOOL txvPaintText(HAB hab,
     BOOL    brc = FALSE,
             fAnyLinesPainted = FALSE;
     ULONG   ulCurrentLineIndex = *pulLineIndex;
-    // LONG    lViewYOfsSaved = *pulViewYOfs;
+    // LONG    lViewYOfsSaved = *plViewYOfs;
     PLISTNODE pRectNode = lstNodeFromIndex(&pxfd->llRectangles,
                                            ulCurrentLineIndex);
 
@@ -1549,8 +1549,8 @@ BOOL txvPaintText(HAB hab,
         RECTL           rclLine;
         rclLine.xLeft = pLineRcl->rcl.xLeft - lViewXOfs;
         rclLine.xRight = pLineRcl->rcl.xRight - lViewXOfs;
-        rclLine.yBottom = pLineRcl->rcl.yBottom + *pulViewYOfs;
-        rclLine.yTop = pLineRcl->rcl.yTop + *pulViewYOfs;
+        rclLine.yBottom = pLineRcl->rcl.yBottom + *plViewYOfs;
+        rclLine.yTop = pLineRcl->rcl.yTop + *plViewYOfs;
 
         /* if (pmpf)
         {
@@ -1710,10 +1710,10 @@ BOOL txvPaintText(HAB hab,
                     PTXVRECTANGLE   pLineRcl2 = (PTXVRECTANGLE)pRectNode->pNext->pItemData;
                     // return TRUE
                     brc = TRUE;
-                    // and set *pulViewYOfs to the top of
+                    // and set *plViewYOfs to the top of
                     // the next line, which wasn't visible
                     // on the page any more
-                    *pulViewYOfs = pLineRcl2->rcl.yTop + *pulViewYOfs;
+                    *plViewYOfs = pLineRcl2->rcl.yTop + *plViewYOfs;
                 }
                 break;
             }
@@ -1866,8 +1866,10 @@ typedef struct _TEXTVIEWWINDATA
 
     XFORMATDATA xfd;
 
-    HWND    hwndVScroll,        // vertical scroll bar
-            hwndHScroll;        // horizontal scroll bar
+    SCROLLABLEWINDOW scrw;      // V1.0.1 (2003-01-25) [umoeller]
+
+//     HWND    hwndVScroll,        // vertical scroll bar
+//             hwndHScroll;        // horizontal scroll bar
 
     BOOL    fVScrollVisible,    // TRUE if vscroll is currently used
             fHScrollVisible;    // TRUE if hscroll is currently used
@@ -1877,8 +1879,8 @@ typedef struct _TEXTVIEWWINDATA
             rclViewPaint,       // same as rclViewReal, but excluding scroll bars
             rclViewText;        // same as rclViewPaint, but excluding cdata borders
 
-    ULONG   ulViewXOfs,         // pixels that we have scrolled to the RIGHT; 0 means very left
-            ulViewYOfs;         // pixels that we have scrolled to the BOTTOM; 0 means very top
+//     LONG    lViewXOfs,          // pixels that we have scrolled to the RIGHT; 0 means very left
+//             lViewYOfs;          // pixels that we have scrolled to the BOTTOM; 0 means very top
 
     BOOL    fAcceptsPresParamsNow; // TRUE after first WM_PAINT
 
@@ -1992,7 +1994,7 @@ STATIC VOID AdjustViewRects(HWND hwndTextView,
         ulOfs = 0;
         if (ptxvd->fHScrollVisible)
             ulOfs = ulScrollCX;
-        WinSetWindowPos(ptxvd->hwndVScroll,
+        WinSetWindowPos(ptxvd->scrw.hwndVScroll,
                         HWND_TOP,
                         ptxvd->rclViewReal.xRight - ulScrollCX,
                         ulOfs,          // y
@@ -2006,7 +2008,7 @@ STATIC VOID AdjustViewRects(HWND hwndTextView,
         ulOfs = 0;
         if (ptxvd->fVScrollVisible)
             ulOfs = ulScrollCX;
-        WinSetWindowPos(ptxvd->hwndHScroll,
+        WinSetWindowPos(ptxvd->scrw.hwndHScroll,
                         HWND_TOP,
                         0,
                         0,
@@ -2042,18 +2044,18 @@ STATIC VOID FormatText2Screen(HWND hwndTextView,
 
     ulWinCY = (ptxvd->rclViewText.yTop - ptxvd->rclViewText.yBottom);
 
-    if (ptxvd->ulViewYOfs < 0)
-        ptxvd->ulViewYOfs = 0;
-    if (ptxvd->ulViewYOfs > ((LONG)ptxvd->xfd.szlWorkspace.cy - ulWinCY))
-        ptxvd->ulViewYOfs = (LONG)ptxvd->xfd.szlWorkspace.cy - ulWinCY;
+    if (ptxvd->scrw.ptlScrollOfs.y < 0)
+        ptxvd->scrw.ptlScrollOfs.y = 0;
+    if (ptxvd->scrw.ptlScrollOfs.y > ((LONG)ptxvd->xfd.szlWorkspace.cy - ulWinCY))
+        ptxvd->scrw.ptlScrollOfs.y = (LONG)ptxvd->xfd.szlWorkspace.cy - ulWinCY;
 
     // vertical scroll bar enabled at all?
     if (ptxvd->flStyle & XS_VSCROLL)
     {
-        BOOL fEnabled = winhUpdateScrollBar(ptxvd->hwndVScroll,
+        BOOL fEnabled = winhUpdateScrollBar(ptxvd->scrw.hwndVScroll,
                                             ulWinCY,
                                             ptxvd->xfd.szlWorkspace.cy,
-                                            ptxvd->ulViewYOfs,
+                                            ptxvd->scrw.ptlScrollOfs.y,
                                             (ptxvd->flStyle & XS_AUTOVHIDE));
         // is auto-hide on?
         if (ptxvd->flStyle & XS_AUTOVHIDE)
@@ -2081,10 +2083,10 @@ STATIC VOID FormatText2Screen(HWND hwndTextView,
     // horizontal scroll bar enabled at all?
     if (ptxvd->flStyle & XS_HSCROLL)
     {
-        BOOL fEnabled = winhUpdateScrollBar(ptxvd->hwndHScroll,
+        BOOL fEnabled = winhUpdateScrollBar(ptxvd->scrw.hwndHScroll,
                                             ulWinCX,
                                             ptxvd->xfd.szlWorkspace.cx,
-                                            ptxvd->ulViewXOfs,
+                                            ptxvd->scrw.ptlScrollOfs.x,
                                             (ptxvd->flStyle & XS_AUTOHHIDE));
         // is auto-hide on?
         if (ptxvd->flStyle & XS_AUTOHHIDE)
@@ -2164,8 +2166,8 @@ VOID SetWindowText(HWND hwndTextView,
         if (pstr->psz[pstr->ulLength - 1] != '\n')
             xstrcatc(pstr, '\n');
 
-        ptxvd->ulViewXOfs = 0;
-        ptxvd->ulViewYOfs = 0;
+        ptxvd->scrw.ptlScrollOfs.x = 0;
+        ptxvd->scrw.ptlScrollOfs.y = 0;
         AdjustViewRects(hwndTextView,
                         ptxvd);
         FormatText2Screen(hwndTextView,
@@ -2186,13 +2188,13 @@ STATIC VOID PaintViewText2Screen(PTEXTVIEWWINDATA ptxvd,
                                  PRECTL prcl2Paint)  // in: invalid rectangle, can be NULL == paint all
 {
     ULONG   ulLineIndex = 0;
-    ULONG   ulYOfs = ptxvd->ulViewYOfs;
+    LONG    lYOfs = ptxvd->scrw.ptlScrollOfs.y;
     txvPaintText(ptxvd->hab,
                  ptxvd->hps,        // paint PS: screen
                  &ptxvd->xfd,       // formatting data
                  prcl2Paint,        // update rectangle given to us
-                 ptxvd->ulViewXOfs,  // current X scrolling offset
-                 &ulYOfs,            // current Y scrolling offset
+                 ptxvd->scrw.ptlScrollOfs.x,  // current X scrolling offset
+                 &lYOfs,            // current Y scrolling offset
                  TRUE,              // draw even partly visible lines
                  &ulLineIndex);
 }
@@ -2242,16 +2244,16 @@ STATIC VOID RepaintWord(PTEXTVIEWWINDATA ptxvd,
     PTXVRECTANGLE pLineRcl = pWordThis->pRectangle;
 
     RECTL           rclLine;
-    rclLine.xLeft = pLineRcl->rcl.xLeft - ptxvd->ulViewXOfs;
-    rclLine.xRight = pLineRcl->rcl.xRight - ptxvd->ulViewXOfs;
-    rclLine.yBottom = pLineRcl->rcl.yBottom + ptxvd->ulViewYOfs;
-    rclLine.yTop = pLineRcl->rcl.yTop + ptxvd->ulViewYOfs;
+    rclLine.xLeft = pLineRcl->rcl.xLeft - ptxvd->scrw.ptlScrollOfs.x;
+    rclLine.xRight = pLineRcl->rcl.xRight - ptxvd->scrw.ptlScrollOfs.x;
+    rclLine.yBottom = pLineRcl->rcl.yBottom + ptxvd->scrw.ptlScrollOfs.y;
+    rclLine.yTop = pLineRcl->rcl.yTop + ptxvd->scrw.ptlScrollOfs.y;
 
     if (pWordThis->pcszLinkTarget)
         flChar |= CHS_UNDERSCORE;
 
     // x start: this word's X coordinate
-    ptlStart.x = pWordThis->lX - ptxvd->ulViewXOfs;
+    ptlStart.x = pWordThis->lX - ptxvd->scrw.ptlScrollOfs.x;
     // y start: bottom line of rectangle plus highest
     // base line offset found in all words (format step 2)
     ptlStart.y = rclLine.yBottom + pLineRcl->ulMaxBaseLineOfs;
@@ -2279,7 +2281,7 @@ STATIC VOID RepaintWord(PTEXTVIEWWINDATA ptxvd,
         DrawListMarker(ptxvd->hps,
                        &rclLine,
                        pWordThis,
-                       ptxvd->ulViewXOfs);
+                       ptxvd->scrw.ptlScrollOfs.x);
 }
 
 /*
@@ -2378,16 +2380,17 @@ STATIC MRESULT ProcessCreate(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
         ptxvd->rclViewReal.xRight = pcs->cx;
         ptxvd->rclViewReal.yTop = pcs->cy;
 
-        winhCreateScrollBars(hwndTextView,
-                             &ptxvd->hwndVScroll,
-                             &ptxvd->hwndHScroll);
+        winhCreateScroller(hwndTextView,
+                           &ptxvd->scrw,
+                           ID_VSCROLL,
+                           ID_HSCROLL);
 
         fShow = ((ptxvd->flStyle & XS_VSCROLL) != 0);
-        WinShowWindow(ptxvd->hwndVScroll, fShow);
+        WinShowWindow(ptxvd->scrw.hwndVScroll, fShow);
         ptxvd->fVScrollVisible = fShow;
 
         fShow = ((ptxvd->flStyle & XS_HSCROLL) != 0);
-        WinShowWindow(ptxvd->hwndHScroll, fShow);
+        WinShowWindow(ptxvd->scrw.hwndHScroll, fShow);
         ptxvd->fHScrollVisible = fShow;
 
         if (ptxvd->flStyle & XS_WORDWRAP)
@@ -2555,6 +2558,52 @@ STATIC VOID ProcessPresParamChanged(HWND hwndTextView, MPARAM mp1)
 }
 
 /*
+ *@@ ProcessScroll:
+ *
+ *@@added V1.0.1 (2003-01-25) [umoeller]
+ */
+
+STATIC VOID ProcessScroll(HWND hwndTextView,
+                          ULONG msg,
+                          MPARAM mp2)
+{
+    PTEXTVIEWWINDATA ptxvd;
+    if (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+    {
+        POINTL  ptlScroll = {0, 0};
+        if (    (msg == WM_VSCROLL)
+             && (ptxvd->fVScrollVisible)
+           )
+        {
+            LONG cy = ptxvd->rclViewText.yTop - ptxvd->rclViewText.yBottom;
+            ptlScroll.y = winhHandleScrollMsg(ptxvd->scrw.hwndVScroll,
+                                              &ptxvd->scrw.ptlScrollOfs.y,
+                                              cy,
+                                              ptxvd->xfd.szlWorkspace.cy,
+                                              ptxvd->cdata.ulVScrollLineUnit,
+                                              msg,
+                                              mp2);
+        }
+        else if (ptxvd->fHScrollVisible)
+        {
+            LONG cx = ptxvd->rclViewText.xRight - ptxvd->rclViewText.xLeft;
+            ptlScroll.x = winhHandleScrollMsg(ptxvd->scrw.hwndHScroll,
+                                              &ptxvd->scrw.ptlScrollOfs.x,
+                                              cx,
+                                              ptxvd->xfd.szlWorkspace.cx,
+                                              ptxvd->cdata.ulHScrollLineUnit,
+                                              msg,
+                                              mp2);
+        }
+
+        if (ptlScroll.x || ptlScroll.y)
+            winhScrollWindow(hwndTextView,
+                             &ptxvd->rclViewText,
+                             &ptlScroll);
+    }
+}
+
+/*
  *@@ ProcessSetFocus:
  *      implementation for WM_SETFOCUS in fnwpTextView.
  *
@@ -2634,8 +2683,8 @@ STATIC MRESULT ProcessButton1Down(HWND hwndTextView, MPARAM mp1)
         POINTL ptlPos;
         PLISTNODE pWordNodeClicked;
 
-        ptlPos.x = SHORT1FROMMP(mp1) + ptxvd->ulViewXOfs;
-        ptlPos.y = SHORT2FROMMP(mp1) - ptxvd->ulViewYOfs;
+        ptlPos.x = SHORT1FROMMP(mp1) + ptxvd->scrw.ptlScrollOfs.x;
+        ptlPos.y = SHORT2FROMMP(mp1) - ptxvd->scrw.ptlScrollOfs.y;
 
         if (    (!(ptxvd->flStyle & XS_STATIC))
                         // V0.9.20 (2002-08-10) [umoeller]
@@ -2706,8 +2755,8 @@ STATIC MRESULT ProcessButton1Up(HWND hwndTextView, MPARAM mp1)
         POINTL      ptlPos;
         HWND        hwndOwner = NULLHANDLE;
 
-        ptlPos.x = SHORT1FROMMP(mp1) + ptxvd->ulViewXOfs;
-        ptlPos.y = SHORT2FROMMP(mp1) - ptxvd->ulViewYOfs;
+        ptlPos.x = SHORT1FROMMP(mp1) + ptxvd->scrw.ptlScrollOfs.x;
+        ptlPos.y = SHORT2FROMMP(mp1) - ptxvd->scrw.ptlScrollOfs.y;
         WinSetCapture(HWND_DESKTOP, NULLHANDLE);
 
         if (ptxvd->pcszLastLinkClicked)
@@ -2885,20 +2934,20 @@ STATIC MRESULT ProcessJumpToAnchorName(HWND hwndTextView, MPARAM mp1)
             // Since rectangles start out with the height of the window (e.g. +768)
             // and then have lower y coordinates down to way in the negatives,
             // to get the y offset, we must...
-            ptxvd->ulViewYOfs = (-pRect->rcl.yTop) - ulWinCY;
+            ptxvd->scrw.ptlScrollOfs.y = (-pRect->rcl.yTop) - ulWinCY;
 
-            if (ptxvd->ulViewYOfs < 0)
-                ptxvd->ulViewYOfs = 0;
-            if (ptxvd->ulViewYOfs > ((LONG)ptxvd->xfd.szlWorkspace.cy - ulWinCY))
-                ptxvd->ulViewYOfs = (LONG)ptxvd->xfd.szlWorkspace.cy - ulWinCY;
+            if (ptxvd->scrw.ptlScrollOfs.y < 0)
+                ptxvd->scrw.ptlScrollOfs.y = 0;
+            if (ptxvd->scrw.ptlScrollOfs.y > ((LONG)ptxvd->xfd.szlWorkspace.cy - ulWinCY))
+                ptxvd->scrw.ptlScrollOfs.y = (LONG)ptxvd->xfd.szlWorkspace.cy - ulWinCY;
 
             // vertical scroll bar enabled at all?
             if (ptxvd->flStyle & XS_VSCROLL)
             {
-                /* BOOL fEnabled = */ winhUpdateScrollBar(ptxvd->hwndVScroll,
+                /* BOOL fEnabled = */ winhUpdateScrollBar(ptxvd->scrw.hwndVScroll,
                                                     ulWinCY,
                                                     ptxvd->xfd.szlWorkspace.cy,
-                                                    ptxvd->ulViewYOfs,
+                                                    ptxvd->scrw.ptlScrollOfs.y,
                                                     (ptxvd->flStyle & XS_AUTOVHIDE));
                 WinInvalidateRect(hwndTextView, NULL, FALSE);
             }
@@ -2989,6 +3038,7 @@ STATIC MRESULT ProcessDestroy(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
  *@@changed V0.9.20 (2002-08-10) [umoeller]: added support for XS_STATIC
  *@@changed V0.9.20 (2002-08-10) [umoeller]: added support for formatting HTML and plain text automatically
  *@@changed V1.0.0 (2002-08-12) [umoeller]: optimized locality by moving big chunks into subfuncs
+ *@@changed V1.0.1 (2003-01-25) [umoeller]: adjusted scroll msgs for new handler code
  */
 
 STATIC MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM mp2)
@@ -3080,40 +3130,9 @@ STATIC MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          */
 
         case WM_VSCROLL:
-            if (    (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
-                 && (ptxvd->fVScrollVisible)
-               )
-            {
-                winhHandleScrollMsg(hwndTextView,
-                                    ptxvd->hwndVScroll,
-                                    &ptxvd->ulViewYOfs,
-                                    &ptxvd->rclViewText,
-                                    ptxvd->xfd.szlWorkspace.cy,
-                                    ptxvd->cdata.ulVScrollLineUnit,
-                                    msg,
-                                    mp2);
-            }
-        break;
-
-        /*
-         * WM_HSCROLL:
-         *
-         */
-
         case WM_HSCROLL:
-            if (    (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
-                 && (ptxvd->fHScrollVisible)
-               )
-            {
-                winhHandleScrollMsg(hwndTextView,
-                                    ptxvd->hwndHScroll,
-                                    &ptxvd->ulViewXOfs,
-                                    &ptxvd->rclViewText,
-                                    ptxvd->xfd.szlWorkspace.cx,
-                                    ptxvd->cdata.ulHScrollLineUnit,
-                                    msg,
-                                    mp2);
-            }
+            ProcessScroll(hwndTextView, msg, mp2);
+                    // V1.0.1 (2003-01-22) [umoeller]
         break;
 
         /*
@@ -3776,7 +3795,7 @@ BOOL txvPrint(HAB hab,
     BOOL        fAnotherPage = FALSE;
     ULONG       ulCurrentLineIndex = 0,
                 ulCurrentPage = 1;
-    ULONG       ulCurrentYOfs = 0;
+    LONG        lCurrentYOfs = 0;
 
     /* MATRIXLF    matlf;
     POINTL      ptlCenter;
@@ -3846,7 +3865,7 @@ BOOL txvPrint(HAB hab,
                                     &xfd,
                                     &rclPageWorld,
                                     0,
-                                    &ulCurrentYOfs,
+                                    &lCurrentYOfs,
                                     FALSE,      // draw only fully visible lines
                                     &ulCurrentLineIndex); // in/out: line to start with
         if (fAnotherPage)

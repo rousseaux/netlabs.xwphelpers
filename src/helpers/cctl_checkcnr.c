@@ -356,6 +356,7 @@ MRESULT ctlDrawCheckBoxRecord(MPARAM mp2)
  *
  *@@added V0.9.0 (99-11-29) [umoeller]
  *@@changed V0.9.18 (2002-03-03) [umoeller]: fixed bad orig win msg, other optimizations
+ *@@changed V1.0.1 (2003-01-22) [umoeller]: fixed wrong mouse pointers on WM_MOUSEMOVE
  */
 
 STATIC MRESULT EXPENTRY fnwpSubclCheckboxCnr(HWND hwndCnr, ULONG msg, MPARAM mp1, MPARAM mp2)
@@ -456,6 +457,10 @@ STATIC MRESULT EXPENTRY fnwpSubclCheckboxCnr(HWND hwndCnr, ULONG msg, MPARAM mp1
                         }
                     }
                 }
+
+                // always call parent cos container changes mouse pointers
+                // V1.0.1 (2003-01-22) [umoeller]
+                mrc = pfnwpOrig(hwndCnr, msg, mp1, mp2);
             break;
 
             case WM_BUTTON1UP:

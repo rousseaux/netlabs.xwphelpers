@@ -672,35 +672,20 @@ extern "C" {
      *
      ********************************************************************/
 
-    #define ID_VSCROLL      100
-    #define ID_HSCROLL      101
-
-    BOOL XWPENTRY winhCreateScrollBars(HWND hwndParent,
-                                       HWND *phwndV,
-                                       HWND *phwndH);
-
     BOOL XWPENTRY winhUpdateScrollBar(HWND hwndScrollBar,
                                       ULONG ulWinPels,
                                       ULONG ulViewportPels,
                                       ULONG ulCurUnitOfs,
                                       BOOL fAutoHide);
 
-    BOOL XWPENTRY winhHandleScrollMsg(HWND hwnd2Scroll,
-                                      HWND hwndScrollBar,
-                                      PULONG pulCurPelsOfs,
-                                      PRECTL prcl2Scroll,
-                                      LONG ulViewportPels,
-                                      USHORT usLineStepUnits,
+    LONG XWPENTRY winhHandleScrollMsg(HWND hwndScrollBar,
+                                      PLONG plCurPelsOfs,
+                                      LONG lWindowPels,
+                                      LONG lWorkareaPels,
+                                      USHORT usLineStepPels,
                                       ULONG msg,
                                       MPARAM mp2);
 
-    LONG XWPENTRY winhHandleScrollMsg2(HWND hwndScrollBar,
-                                       PLONG plCurPelsOfs,
-                                       LONG lWindowPels,
-                                       LONG lWorkareaPels,
-                                       USHORT usLineStepPels,
-                                       ULONG msg,
-                                       MPARAM mp2);
     BOOL XWPENTRY winhScrollWindow(HWND hwnd2Scroll,
                                    PRECTL prclClip,
                                    PPOINTL pptlScroll);
@@ -712,6 +697,41 @@ extern "C" {
                                          MPARAM mp2,
                                          ULONG ulVertMax,
                                          ULONG ulHorzMax);
+
+    /*
+     *@@ SCROLLABLEWINDOW:
+     *      scroll data struct for use with winhHandleScrollerMsgs.
+     *
+     *@@added V1.0.1 (2003-01-25) [umoeller]
+     */
+
+    typedef struct _SCROLLABLEWINDOW
+    {
+        LONG    cxScrollBar,
+                cyScrollBar;
+        HWND    hwndVScroll,        // vertical scroll bar
+                hwndHScroll;        // horizontal scroll bar
+        ULONG   idVScroll,
+                idHScroll;
+        SIZEL   szlWorkarea;        // workarea dimensions (over which window scrolls)
+        POINTL  ptlScrollOfs;       // current scroll offset; positive x means right,
+                                    // positive y means down
+    } SCROLLABLEWINDOW, *PSCROLLABLEWINDOW;
+
+    #define ID_VSCROLL      100
+    #define ID_HSCROLL      101
+
+    BOOL XWPENTRY winhCreateScroller(HWND hwndParent,
+                                     PSCROLLABLEWINDOW pscrw,
+                                     ULONG idVScroll,
+                                     ULONG idHScroll);
+
+    MRESULT XWPENTRY winhHandleScrollerMsgs(HWND hwnd2Scroll,
+                                            PSCROLLABLEWINDOW pscrw,
+                                            PSIZEL pszlWin,
+                                            ULONG msg,
+                                            MPARAM mp1,
+                                            MPARAM mp2);
 
     /* ******************************************************************
      *
@@ -840,6 +860,8 @@ extern "C" {
     BOOL XWPENTRY winhAnotherInstance(const char *pcszSemName, BOOL fSwitch);
 
     HSWITCH XWPENTRY winhAddToTasklist(HWND hwnd, HPOINTER hIcon);
+
+    BOOL XWPENTRY winhUpdateTasklist(HWND hwnd, PCSZ pcszNewTitle);
 
     /* ******************************************************************
      *

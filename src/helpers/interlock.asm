@@ -18,7 +18,7 @@
 
 CODE32         SEGMENT DWORD PUBLIC USE32 'CODE'
 
-;* LONG DosInterlockedIncrement(PLONG);
+;* LONG lockIncrement(PLONG);
 ;*
 ;* InterlockedIncrement adds 1 to a long variable and returns
 ;*  -  a negative number if the result < 0
@@ -27,17 +27,17 @@ CODE32         SEGMENT DWORD PUBLIC USE32 'CODE'
 ;*
 ;* The returned number need not be equal to the result!!!!
 
-public  DosInterlockedIncrement
-DosInterlockedIncrement proc near
+public  lockIncrement
+lockIncrement proc near
         ;we are allowed to trash edx
         mov     edx, dword ptr [esp+4] ; LPLONG lpAddend
         mov     eax, 1
         lock    xadd dword ptr [edx], eax
         inc     eax
         ret     4
-DosInterlockedIncrement endp
+lockIncrement endp
 
-;* LONG DosInterlockedDecrement(PLONG);
+;* LONG lockDecrement(PLONG);
 ;*
 ;* InterlockedIncrement adds 1 to a long variable and returns
 ;*  -  a negative number if the result < 0
@@ -46,45 +46,45 @@ DosInterlockedIncrement endp
 ;*
 ;* The returned number need not be equal to the result!!!!
 
-public  DosInterlockedDecrement
-DosInterlockedDecrement proc near
+public  lockDecrement
+lockDecrement proc near
         ;we are allowed to trash edx
         mov     edx, dword ptr [esp+4] ; LPLONG lpAddend
         mov     eax, -1
         lock    xadd dword ptr [edx], eax
         dec     eax
         ret     4
-DosInterlockedDecrement endp
+lockDecrement endp
 
 
-; * LONG DosInterlockedExchange(PLONG, LONG);
+; * LONG lockExchange(PLONG, LONG);
 ; *
 ; * Atomically exchanges a pair of values.
 ; *
 ; * RETURNS
 ; * Prior value of value pointed to by Target
 
-public  DosInterlockedExchange
-DosInterlockedExchange proc near
+public  lockExchange
+lockExchange proc near
         push    edx
         mov     eax, [esp+12]           ; LONG value
         mov     edx,[esp+8]             ; LPLONG target
         lock    xchg eax, dword ptr [edx]
         pop     edx
         ret     8
-DosInterlockedExchange endp
+lockExchange endp
 
 
 ;/************************************************************************
-; * LONG DosInterlockedCompareExchange(PLONG dest, LONG xchg, LONG compare)
+; * LONG lockCompareExchange(PLONG dest, LONG xchg, LONG compare)
 ; *
 ; * Atomically compares Destination and Comperand, and if found equal exchanges
 ; * the value of Destination with Exchange
 ; *
 ; */
 
-public DosInterlockedCompareExchange
-DosInterlockedCompareExchange proc near
+public lockCompareExchange
+lockCompareExchange proc near
         push    ebp
         mov     ebp, esp
         push    edx
@@ -99,9 +99,9 @@ DosInterlockedCompareExchange proc near
         pop     edx
         pop     ebp
         ret     12
-DosInterlockedCompareExchange endp
+lockCompareExchange endp
 
-; * LONG DosInterlockedExchangeAdd(PLONG dest, LONG incr);
+; * LONG lockExchangeAdd(PLONG dest, LONG incr);
 ; *
 ; * Atomically adds Increment to Addend and returns the previous value of
 ; * Addend
@@ -110,15 +110,15 @@ DosInterlockedCompareExchange endp
 ; * Prior value of value pointed to by cwAddendTarget
 ; */
 
-public DosInterlockedExchangeAdd
-DosInterlockedExchangeAdd proc near
+public lockExchangeAdd
+lockExchangeAdd proc near
         push    edx
         mov     eax, dword ptr [esp+12] ;LONG Increment /* Value to add */
         mov     edx, dword ptr [esp+8]  ;PLONG Addend, /* Address of 32-bit value to exchange */
         lock    xadd dword ptr [edx], eax
         pop     edx
         ret     8
-DosInterlockedExchangeAdd endp
+lockExchangeAdd endp
 
 CODE32          ENDS
 

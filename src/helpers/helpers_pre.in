@@ -1,39 +1,9 @@
 #
 #   Pre-include file for the main helpers makefile.
-#   This contains shared definitions and all the objects
-#   that have to be built.
 #
-
-!ifndef PROJECT_BASE_DIR
-!error in $(MAKEDIR)\makefile: PROJECT_BASE_DIR must be set before calling the HELPERS makefile. Terminating.
-!endif
-
-!if [@echo     $(MAKEDIR)\makefile: PROJECT_BASE_DIR is: $(PROJECT_BASE_DIR)]
-!endif
-
-# include setup (compiler options etc.)
-!include $(PROJECT_BASE_DIR)\config.in
-!include $(PROJECT_BASE_DIR)\make\setup.in
-
-!ifndef HELPERS_OUTPUT_DIR
-!error in $(MAKEDIR)\makefile: HELPERS_OUTPUT_DIR must be set before calling the HELPERS makefile. Terminating.
-!endif
-
-# Define the suffixes for files which NMAKE will work on.
-# .SUFFIXES is a reserved NMAKE keyword ("pseudotarget") for
-# defining file extensions that NMAKE will recognize in inference
-# rules.
-.SUFFIXES: .c .h .ih .obj .lib .dll
-
-# OUTPUTDIR specifies the directory where we will put the
-# files created by this makefile.
-OUTPUTDIR = $(HELPERS_OUTPUT_DIR)
-
-!if [@echo     $(MAKEDIR)\makefile: helpers OBJs will be written to $(OUTPUTDIR)]
-!endif
-
-!if [@md $(OUTPUTDIR) 2> NUL]
-!endif
+#   This is shared between makefile and makefile_dll
+#   and defines all the objects that have to be built.
+#
 
 # The OBJS macro contains all the .OBJ files which need to be
 # created from the files in SRC\MAIN _and_ SRC\HELPERS.
@@ -100,6 +70,7 @@ $(OUTPUTDIR)\dialog.obj\
 $(OUTPUTDIR)\gpih.obj\
 $(OUTPUTDIR)\memdebug.obj\
 $(OUTPUTDIR)\memdebug_win.obj\
+$(OUTPUTDIR)\mmpmh.obj\
 $(OUTPUTDIR)\shapewin.obj\
 $(OUTPUTDIR)\threads.obj\
 $(OUTPUTDIR)\textview.obj\
@@ -107,8 +78,3 @@ $(OUTPUTDIR)\textv_html.obj\
 $(OUTPUTDIR)\timer.obj\
 $(OUTPUTDIR)\winh.obj
 
-# helpers include path
-INC = ..\..\include
-HLPINC = $(INC)\helpers
-
-PROJECTINC = $(PROJECT_BASE_DIR)\include

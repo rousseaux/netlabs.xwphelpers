@@ -27,6 +27,7 @@
 
 #define INCL_WINWINDOWMGR
 #define INCL_WINFRAMEMGR
+#define INCL_WININPUT
 #define INCL_WINSYS
 #define INCL_WINSCROLLBARS
 #define INCL_WINSTDCNR
@@ -61,11 +62,16 @@
  *
  ********************************************************************/
 
-extern const SYSCOLORSET G_scsCnr =
+extern const CCTLCOLOR G_scsCnr[] =
     {
-        TRUE,       // inherit presparams
-        SYSCLR_WINDOW,
-        SYSCLR_WINDOWTEXT
+            TRUE, PP_BACKGROUNDCOLOR, SYSCLR_WINDOW,
+            TRUE, PP_FOREGROUNDCOLOR, SYSCLR_WINDOWTEXT,
+            TRUE, PP_HILITEBACKGROUNDCOLOR, SYSCLR_HILITEBACKGROUND,
+            TRUE, PP_HILITEFOREGROUNDCOLOR, SYSCLR_HILITEFOREGROUND,
+            TRUE, PP_BORDERCOLOR, SYSCLR_WINDOWFRAME,
+            TRUE, PP_PAGEBACKGROUNDCOLOR, RGBCOL_WHITE,
+            TRUE, PP_PAGEFOREGROUNDCOLOR, RGBCOL_BLACK,
+            TRUE, PP_FIELDBACKGROUNDCOLOR, SYSCLR_SCROLLBAR
     };
 
 /* ******************************************************************
@@ -74,7 +80,33 @@ extern const SYSCOLORSET G_scsCnr =
  *
  ********************************************************************/
 
-VOID cnrDrawString(HPS hps,
+/*
+ *@@ ctnrInit:
+ *
+ */
+
+VOID ctnrInit(HWND hwnd,
+              MPARAM mp2,
+              ULONG flMainCnrStyle,     // in: window style bits of main cnr
+              PDEFWINDATA pdwd)
+{
+    ctlInitDWD(hwnd,
+               mp2,
+               pdwd,
+               WinDefWindowProc,
+               (flMainCnrStyle & CCS_NOCONTROLPTR)
+                    ? CCS_NOSENDCTLPTR
+                    : 0,
+               G_scsCnr,
+               ARRAYITEMCOUNT(G_scsCnr));
+}
+
+/*
+ *@@ ctnrDrawString:
+ *
+ */
+
+VOID ctnrDrawString(HPS hps,
                    PCSZ pcsz,              // in: string to test
                    PRECTL prcl,            // in: clipping rectangle (inclusive!)
                    ULONG fl,               // in: alignment flags
@@ -114,13 +146,144 @@ VOID cnrDrawString(HPS hps,
 }
 
 /*
+ *@@ ctnrGetRecordRect:
+ *      returns the rectangle of the given record
+ *      converted to window coordinates. Works for
+ *      all views.
+ */
+
+VOID ctnrGetRecordRect(PCNRDATA pData,
+                       PRECTL prcl,
+                       const RECORDLISTITEM *prli)
+{
+    LONG    deltaWorkspace =   (   pData->scrw.szlWorkarea.cy
+                                 - pData->dwdContent.szlWin.cy)
+                             - pData->scrw.ptlScrollOfs.y;
+    prcl->xLeft = 0;
+    prcl->xRight = pData->dwdContent.szlWin.cx;
+    prcl->yBottom = prli->ptl.y - deltaWorkspace;
+    prcl->yTop = prcl->yBottom + prli->szlBox.cy;
+}
+
+/*
+ *@@ ctnrRepaintRecord:
+ *
+ */
+
+BOOL ctnrRepaintRecord(PCNRDATA pData,
+                         const RECORDLISTITEM *prli)
+{
+    RECTL   rcl;
+    ctnrGetRecordRect(pData, &rcl, prli);
+    ++rcl.xRight;       // for separators, if any
+    return WinInvalidateRect(pData->dwdContent.hwnd, &rcl, FALSE);
+}
+
+/*
+ *@@ ctnrQuerySelMode:
+ *      returns one of CCS_EXTENDSEL, CCS_MULTIPLESEL, or
+ *      CCS_SINGLESEL, depending on the cnr's current view
+ *      and window style bits.
+ */
+
+ULONG ctnrQuerySelMode(PCNRDATA pData)
+{
+    // in tree view, there is always only single-sel mode
+    if (!(pData->CnrInfo.flWindowAttr & CV_TREE))
+    {
+        // not tree view: then check window style bits
+        ULONG   flStyle = winhQueryWindowStyle(pData->dwdMain.hwnd);
+        if (flStyle & CCS_EXTENDSEL)
+            return CCS_EXTENDSEL;
+        else if (flStyle & CCS_MULTIPLESEL)
+            return CCS_MULTIPLESEL;
+
+        // this appears to be what the pm cnr does...
+        // the CCS_SINGLESEL is totally superfluous cos
+        // if none of the "selection style" bits are
+        // set, the cnr operates in "single sel" mode
+    }
+
+    return CCS_SINGLESEL;
+}
+
+/*
+ *@@ ctnrChangeEmphasis:
+ *
+ */
+
+BOOL ctnrChangeEmphasis(PCNRDATA pData,
+                        PRECORDLISTITEM prliSet,
+                        BOOL fTurnOn,
+                        ULONG fsEmphasis)
+{
+    PRECORDLISTITEM prliOld;
+    ULONG   flRecordAttrOld = prliSet->flRecordAttr;
+
+/* #define CCS_EXTENDSEL             0x00000001L
+#define CCS_MULTIPLESEL           0x00000002L
+#define CCS_SINGLESEL             0x00000004L */
+
+    ULONG ulSel = ctnrQuerySelMode(pData);
+
+    if (fTurnOn)
+    {
+        ULONG   flMask;
+        if (ulSel == CCS_SINGLESEL)
+            flMask = CRA_CURSORED | CRA_SELECTED;
+        else
+            flMask = CRA_CURSORED;
+
+        if (fsEmphasis & flMask)
+        {
+            if (prliOld = pData->prliCursored)
+            {
+                prliOld->flRecordAttr &= ~flMask;
+                ctnrRepaintRecord(pData, prliOld);
+            }
+
+            pData->prliCursored = prliSet;
+        }
+
+        prliSet->flRecordAttr |= fsEmphasis;
+    }
+    else
+        prliSet->flRecordAttr &= ~fsEmphasis;
+
+    if (flRecordAttrOld != prliSet->flRecordAttr)
+        ctnrRepaintRecord(pData, prliSet);
+
+    return TRUE;
+}
+
+/*
+ *@@ ctnrRecordEnter:
+ *      helper function when a record gets double-clicked
+ *      upon or when "Enter" key gets pressed.
+ */
+
+VOID ctnrRecordEnter(PCNRDATA pData,
+                     const RECORDLISTITEM *prli,
+                     BOOL fKeyboard)
+{
+    NOTIFYRECORDENTER nre;
+    nre.hwndCnr = pData->dwdMain.hwnd;
+    nre.fKey = fKeyboard;
+    nre.pRecord = (prli) ? (PRECORDCORE)prli->precc : NULL;
+
+    ctlSendWmControl(nre.hwndCnr,
+                     CN_ENTER,
+                     &nre);
+}
+
+/*
  *@@ CreateChild:
  *      creates a container child window.
  */
 
-HWND CreateChild(PCNRDATA pData,
-                 PCSZ pcszClass,
-                 ULONG id)
+STATIC HWND CreateChild(PCNRDATA pData,
+                        PCSZ pcszClass,
+                        ULONG id)
 {
     return WinCreateWindow(pData->dwdMain.hwnd,
                            (PSZ)pcszClass,
@@ -142,14 +305,14 @@ HWND CreateChild(PCNRDATA pData,
  *
  */
 
-PDETAILCOLUMN FindColumnFromFI(PCNRDATA pData,
-                               const FIELDINFO *pfi,
-                               PLISTNODE *ppNode)       // out: listnode of column
+STATIC PDETAILCOLUMN FindColumnFromFI(PCNRDATA pData,
+                                      const FIELDINFO *pfi,
+                                      PLISTNODE *ppNode)       // out: listnode of column
 {
     PLISTNODE pNode;
     FOR_ALL_NODES(&pData->llColumns, pNode)
     {
-        PDETAILCOLUMN pCol = pNode->pItemData;
+        PDETAILCOLUMN pCol = (PDETAILCOLUMN)pNode->pItemData;
         if (pCol->pfi == pfi)
         {
             if (ppNode)
@@ -163,12 +326,12 @@ PDETAILCOLUMN FindColumnFromFI(PCNRDATA pData,
 }
 
 /*
- *@@ FindListNodeForRecc:
+ *@@ ctnrFindListNodeForRecc:
  *
  */
 
-PLISTNODE FindListNodeForRecc(PCNRDATA pData,
-                              const RECORDCORE *precc)
+PLISTNODE ctnrFindListNodeForRecc(PCNRDATA pData,
+                                  const RECORDCORE *precc)
 {
     RECORDTREEITEM  *pti;
     if (pti = (PRECORDTREEITEM)treeFind(pData->RecordsTree,
@@ -177,6 +340,54 @@ PLISTNODE FindListNodeForRecc(PCNRDATA pData,
         return pti->pListNode;
 
     return NULL;
+}
+
+VOID SendViewportChanged(PCNRDATA pData)
+{
+    CNRVIEWPORT cvp;
+    cvp.hwndCnr = pData->dwdMain.hwnd;
+    cvp.szlWorkarea = pData->scrw.szlWorkarea;
+    cvp.szlWin = pData->dwdContent.szlWin;
+    cvp.ptlScroll = pData->scrw.ptlScrollOfs;
+
+    ctlSendWmControl(pData->dwdMain.hwnd,
+                     CN_VIEWPORTCHANGED,
+                     &cvp);
+}
+
+/*
+ *@@ ctnrUpdateScrollbars:
+ *
+ */
+
+VOID ctnrUpdateScrollbars(PCNRDATA pData,
+                          LONG cx,
+                          LONG cy)
+{
+    BOOL    fNotify = FALSE;
+
+    if (cx && pData->scrw.hwndHScroll)
+    {
+        winhUpdateScrollBar(pData->scrw.hwndHScroll,
+                            cx,
+                            pData->scrw.szlWorkarea.cx,
+                            pData->scrw.ptlScrollOfs.x,
+                            FALSE);
+        fNotify = TRUE;
+    }
+
+    if (cy && pData->scrw.hwndVScroll)
+    {
+        winhUpdateScrollBar(pData->scrw.hwndVScroll,
+                            cy,
+                            pData->scrw.szlWorkarea.cy,
+                            pData->scrw.ptlScrollOfs.y,
+                            FALSE);
+        fNotify = TRUE;
+    }
+
+    if (fNotify)
+        SendViewportChanged(pData);
 }
 
 /* ******************************************************************
@@ -190,7 +401,9 @@ PLISTNODE FindListNodeForRecc(PCNRDATA pData,
  *      implementation for WM_CREATE in fnwpCnr.
  */
 
-MRESULT CnrCreate(HWND hwnd, MPARAM mp1, MPARAM mp2)
+STATIC MRESULT CnrCreate(HWND hwnd,
+                         MPARAM mp1,
+                         MPARAM mp2)
 {
     PCNRDATA    pData;
 
@@ -201,13 +414,12 @@ MRESULT CnrCreate(HWND hwnd, MPARAM mp1, MPARAM mp2)
     ZERO(pData);
 
     // initialize DEFWINDOWDATA
-    ctlInitDWD(hwnd,
-               mp2,
-               &pData->dwdMain,
-               WinDefWindowProc,
-               &G_scsCnr);
+    ctnrInit(hwnd,
+             mp2,
+             ((PCREATESTRUCT)mp2)->flStyle,
+             &pData->dwdMain);
 
-    if (winhQueryWindowStyle(hwnd) & CCS_MINIRECORDCORE)
+    if (((PCREATESTRUCT)mp2)->flStyle & CCS_MINIRECORDCORE)
         pData->fMiniRecords = TRUE;
 
     // set up non-zero default values in cnrinfo
@@ -228,12 +440,10 @@ MRESULT CnrCreate(HWND hwnd, MPARAM mp1, MPARAM mp2)
 
     nlsQueryCountrySettings(&pData->cs);
 
-    winhCreateScrollBars(hwnd,
-                         &pData->hwndVScroll,
-                         &pData->hwndHScroll);
-
-    pData->cxScrollBar = WinQuerySysValue(HWND_DESKTOP, SV_CXVSCROLL);
-    pData->cyScrollBar = WinQuerySysValue(HWND_DESKTOP, SV_CYHSCROLL);
+    winhCreateScroller(hwnd,
+                       &pData->scrw,
+                       CID_VSCROLL,
+                       CID_HSCROLL);
 
     return (MRESULT)FALSE;
 }
@@ -247,92 +457,80 @@ MRESULT CnrCreate(HWND hwnd, MPARAM mp1, MPARAM mp2)
  *      case, we resize and/or invalidate the window.
  */
 
-VOID CnrSem2(HWND hwnd, ULONG fl)
+STATIC VOID CnrSem2(PCNRDATA pData,
+                    ULONG fl)
 {
-    PCNRDATA    pData;
-    if (pData = (PCNRDATA)WinQueryWindowPtr(hwnd, QWL_USER + 1))
+    HWND    hwnd = pData->dwdMain.hwnd;
+
+    if (pData->CnrInfo.flWindowAttr & CV_DETAIL)
     {
-        if (pData->CnrInfo.flWindowAttr & CV_DETAIL)
+        if (fl & (DDFL_INVALIDATECOLUMNS | DDFL_INVALIDATERECORDS | DDFL_INVALIDATESOME))
         {
-            if (fl & (DDFL_INVALIDATECOLUMNS | DDFL_INCALIDATERECORDS))
-            {
-                HPS hps = WinGetPS(hwnd);
-                cdtlRecalcDetails(pData, hps, &fl);
-                WinReleasePS(hps);
+            HPS hps = WinGetPS(hwnd);
+            cdtlRecalcDetails(pData, hps, &fl);
+            WinReleasePS(hps);
+        }
 
-                if (fl & DDFL_WINDOWSIZECHANGED)
-                    WinInvalidateRect(pData->dwdMain.hwnd, NULL, TRUE);
+        if (fl & (DDFL_WINDOWSIZECHANGED | DDFL_WORKAREACHANGED))
+        {
+            LONG    y = 0,
+                    cx = pData->dwdMain.szlWin.cx,
+                    cy = pData->dwdMain.szlWin.cy - pData->cyColTitlesBox;
+
+            if (pData->scrw.hwndVScroll)
+                cx -= pData->scrw.cxScrollBar;
+            if (pData->scrw.hwndHScroll)
+            {
+                y += pData->scrw.cyScrollBar;
+                cy -= pData->scrw.cyScrollBar;
             }
 
-            if (fl & (DDFL_WINDOWSIZECHANGED | DDFL_WORKAREACHANGED))
+            _PmpfF(("cyColTitlesBox %d, new cy: %d", pData->cyColTitlesBox, cy));
+
+            if (fl & DDFL_WINDOWSIZECHANGED)
+                WinSetWindowPos(pData->dwdContent.hwnd,
+                                HWND_TOP,
+                                0,
+                                y,
+                                cx,
+                                cy,
+                                SWP_MOVE | SWP_SIZE);
+                                        // SWP_MOVE is required or PM will move our
+                                        // subwindow to some adjustment position
+
+            if (pData->scrw.hwndVScroll)
             {
-                LONG    y = 0,
-                        cx = pData->dwdMain.szlWin.cx,
-                        cy = pData->dwdMain.szlWin.cy - pData->cyColTitlesBox;
+                WinSetWindowPos(pData->scrw.hwndVScroll,
+                                HWND_TOP,
+                                cx,
+                                y,
+                                pData->scrw.cxScrollBar,
+                                cy,
+                                SWP_MOVE | SWP_SIZE);
 
-                if (pData->hwndVScroll)
-                    cx -= pData->cxScrollBar;
-                if (pData->hwndHScroll)
-                {
-                    y += pData->cyScrollBar;
-                    cy -= pData->cyScrollBar;
-                }
-
-                _PmpfF(("cyColTitlesBox %d, new cy: %d", pData->cyColTitlesBox, cy));
-
-                if (fl & DDFL_WINDOWSIZECHANGED)
-                    WinSetWindowPos(pData->hwndDetails,
-                                    HWND_TOP,
-                                    0,
-                                    y,
-                                    cx,
-                                    cy,
-                                    SWP_MOVE | SWP_SIZE);
-                                            // SWP_MOVE is required or PM will move our
-                                            // subwindow to some adjustment position
-
-                if (pData->hwndVScroll)
-                {
-                    WinSetWindowPos(pData->hwndVScroll,
-                                    HWND_TOP,
-                                    cx,
-                                    y,
-                                    pData->cxScrollBar,
-                                    cy,
-                                    SWP_MOVE | SWP_SIZE);
-
-                    _PmpfF(("updating VScroll, cy: %d, szlWorkarea.cy: %d",
-                            cy,
-                            pData->szlWorkarea.cy));
-
-                    winhUpdateScrollBar(pData->hwndVScroll,
-                                        cy,
-                                        pData->szlWorkarea.cy,
-                                        pData->ptlScrollOfs.y,
-                                        FALSE);
-                }
-
-                if (pData->hwndHScroll)
-                {
-                    WinSetWindowPos(pData->hwndHScroll,
-                                    HWND_TOP,
-                                    0,
-                                    0,
-                                    cx,
-                                    pData->cyScrollBar,
-                                    SWP_MOVE | SWP_SIZE);
-
-                    _PmpfF(("updating HScroll, cx: %d, szlWorkarea.cx: %d",
-                            cx,
-                            pData->szlWorkarea.cx));
-
-                    winhUpdateScrollBar(pData->hwndHScroll,
-                                        cx,
-                                        pData->szlWorkarea.cx,
-                                        pData->ptlScrollOfs.x,
-                                        FALSE);
-                }
+                _PmpfF(("updating VScroll, cy: %d, scrw.szlWorkarea.cy: %d",
+                        cy,
+                        pData->scrw.szlWorkarea.cy));
             }
+
+            if (pData->scrw.hwndHScroll)
+            {
+                WinSetWindowPos(pData->scrw.hwndHScroll,
+                                HWND_TOP,
+                                0,
+                                0,
+                                cx,
+                                pData->scrw.cyScrollBar,
+                                SWP_MOVE | SWP_SIZE);
+
+                _PmpfF(("updating HScroll, cx: %d, scrw.szlWorkarea.cx: %d",
+                        cx,
+                        pData->scrw.szlWorkarea.cx));
+            }
+
+            ctnrUpdateScrollbars(pData,
+                                 cx,
+                                 cy);
         }
     }
 }
@@ -340,16 +538,19 @@ VOID CnrSem2(HWND hwnd, ULONG fl)
 /*
  *@@ CnrPaint:
  *      implementation for WM_PAINT in fnwpCnr.
+ *
+ *      This paints only the part of the container that belongs
+ *      to the main container window, which is the title area
+ *      and/or the details column headings.
  */
 
-VOID CnrPaint(HWND hwnd)
+STATIC VOID CnrPaint(PCNRDATA pData)
 {
-    HPS         hps;
-    PCNRDATA    pData;
-    RECTL       rclPaint;
+    HPS     hps;
+    RECTL   rclPaint;
 
-    if (    (pData = (PCNRDATA)WinQueryWindowPtr(hwnd, QWL_USER + 1))
-         && (hps = WinBeginPaint(hwnd, NULLHANDLE, &rclPaint))
+    if (    (pData)
+         && (hps = WinBeginPaint(pData->dwdMain.hwnd, NULLHANDLE, &rclPaint))
        )
     {
         gpihSwitchToRGB(hps);
@@ -375,7 +576,7 @@ VOID CnrPaint(HWND hwnd)
 
                 WinFillRect(hps,
                             &rclPaint,
-                            pData->dwdMain.lcolBackground);
+                            ctlQueryColor(&pData->dwdMain, CTLCOL_BGND));
 
                 FOR_ALL_NODES(&pData->llColumns, pColNode)
                 {
@@ -385,8 +586,8 @@ VOID CnrPaint(HWND hwnd)
                     PLISTNODE   pRecNode;
                     ULONG       cRow;
 
-                    rcl.xLeft = pCol->xLeft + COLUMN_PADDING_X - pData->ptlScrollOfs.x;
-                    rcl.xRight = rcl.xLeft + pCol->cxTotal;
+                    rcl.xLeft = pCol->xLeft + COLUMN_PADDING_X - pData->scrw.ptlScrollOfs.x;
+                    rcl.xRight = rcl.xLeft + pCol->cxContent;
 
                     // we start out at the top and work our way down,
                     // decrementing rcl.yTop with every item we painted
@@ -401,7 +602,7 @@ VOID CnrPaint(HWND hwnd)
                         ;
                     else
                     {
-                        cnrDrawString(hps,
+                        ctnrDrawString(hps,
                                       (PCSZ)pfi->pTitleData,
                                       &rcl,
                                       pfi->flTitle,
@@ -437,19 +638,19 @@ VOID CnrPaint(HWND hwnd)
  *      implementation for WM_WINDOWPOSCHANGED in fnwpCnr.
  */
 
-MRESULT CnrWindowPosChanged(HWND hwnd,
-                            MPARAM mp1,
-                            MPARAM mp2)
+STATIC MRESULT CnrWindowPosChanged(PCNRDATA pData,
+                                   MPARAM mp1,
+                                   MPARAM mp2)
 {
     MRESULT mrc = 0;
-    PCNRDATA pData;
-    if (pData = (PCNRDATA)WinQueryWindowPtr(hwnd, QWL_USER + 1))
+
+    if (pData)
     {
         mrc = ctlDefWindowProc(&pData->dwdMain, WM_WINDOWPOSCHANGED, mp1, mp2);
 
         if (((PSWP)mp1)->fl & SWP_SIZE)
         {
-            WinPostMsg(hwnd,
+            WinPostMsg(pData->dwdMain.hwnd,
                        WM_SEM2,
                        (MPARAM)DDFL_WINDOWSIZECHANGED,
                        0);
@@ -460,48 +661,55 @@ MRESULT CnrWindowPosChanged(HWND hwnd,
 }
 
 /*
- *@@ cnrPresParamChanged:
+ *@@ ctnrPresParamChanged:
  *      implementation for WM_PRESPARAMCHANGED for both
  *      fnwpCnr and fnwpCnrDetails.
  */
 
-VOID cnrPresParamChanged(HWND hwnd,
+VOID ctnrPresParamChanged(HWND hwnd,         // in: either main cnr or content subwindow
                          ULONG ulpp)
 {
-    PCNRDATA pData;
+    PCNRDATA    pData;
     if (pData = (PCNRDATA)WinQueryWindowPtr(hwnd, QWL_USER + 1))
     {
-        // note, we use the dwdMain buffer here cos
-        // we share presparams with the cnr
+        // note, no matter what hwnd is passed in,
+        // we use the dwdMain buffer here cos we share presparams
+        // between all cnr child windows
         ctlRefreshColors(&pData->dwdMain);
 
         switch (ulpp)
         {
             case 0:     // layout palette thing dropped
             case PP_FONTNAMESIZE:
-                if (pData->CnrInfo.flWindowAttr & CV_DETAIL)
+                if (!pData->fSettingPP)
                 {
-                    // if we got this on the details window,
-                    // set it on the main cnr as well, and
-                    // vice versa
-                    PSZ pszFont;
-                    if (pszFont = winhQueryWindowFont(hwnd))
-                    {
-                        HWND hwndOther;
-                        DosBeep(1000, 10);
-                        if (hwnd == pData->dwdMain.hwnd)
-                            hwndOther = pData->dwdContent.hwnd;
-                        else
-                            hwndOther = pData->dwdMain.hwnd;
+                    pData->fSettingPP = TRUE;
 
-                        winhSetWindowFont(hwndOther, pszFont);
-                        free(pszFont);
+                    if (pData->CnrInfo.flWindowAttr & CV_DETAIL)
+                    {
+                        // if we got this on the contents window,
+                        // set it on the main cnr as well, and
+                        // vice versa
+                        PSZ pszFont;
+                        if (pszFont = winhQueryWindowFont(hwnd))
+                        {
+                            HWND hwndOther;
+                            if (hwnd == pData->dwdMain.hwnd)
+                                hwndOther = pData->dwdContent.hwnd;
+                            else
+                                hwndOther = pData->dwdMain.hwnd;
+
+                            winhSetWindowFont(hwndOther, pszFont);
+                            free(pszFont);
+                        }
+
+                        WinPostMsg(pData->dwdMain.hwnd,
+                                   WM_SEM2,
+                                   (MPARAM)(DDFL_INVALIDATECOLUMNS | DDFL_INVALIDATERECORDS),
+                                   0);
                     }
 
-                    WinPostMsg(pData->dwdMain.hwnd,
-                               WM_SEM2,
-                               (MPARAM)(DDFL_INVALIDATECOLUMNS | DDFL_INCALIDATERECORDS),
-                               0);
+                    pData->fSettingPP = FALSE;
                 }
             break;
 
@@ -517,25 +725,37 @@ VOID cnrPresParamChanged(HWND hwnd,
  *      implementation for WM_HSCROLL and WM_VSCROLL in fnwpCnr.
  */
 
-VOID CnrScroll(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
+STATIC VOID CnrScroll(PCNRDATA pData,
+                      ULONG msg,
+                      MPARAM mp1,
+                      MPARAM mp2)
 {
-    PCNRDATA pData;
-    if (pData = (PCNRDATA)WinQueryWindowPtr(hwnd, QWL_USER + 1))
+    if (pData)
     {
+        BOOL    fNotify = FALSE;
+
         if (pData->CnrInfo.flWindowAttr & CV_DETAIL)
         {
-            POINTL  ptlScroll;
+            POINTL          ptlScroll;
+            NOTIFYSCROLL    ns;
+            ns.hwndCnr = pData->dwdMain.hwnd;
+
             if (msg == WM_HSCROLL)
             {
                 ptlScroll.y = 0;
-                if (ptlScroll.x = winhHandleScrollMsg2(pData->hwndHScroll,
-                                                       &pData->ptlScrollOfs.x,
-                                                       pData->dwdContent.szlWin.cx,
-                                                       pData->szlWorkarea.cx,
-                                                       5,
-                                                       msg,
-                                                       mp2))
+                if (ptlScroll.x = winhHandleScrollMsg(pData->scrw.hwndHScroll,
+                                                      &pData->scrw.ptlScrollOfs.x,
+                                                      pData->dwdContent.szlWin.cx,
+                                                      pData->scrw.szlWorkarea.cx,
+                                                      5,
+                                                      msg,
+                                                      mp2))
                 {
+                    winhScrollWindow(pData->dwdContent.hwnd,
+                                     NULL,
+                                     &ptlScroll);
+
+                    // scroll main cnr with detail titles too
                     if (pData->CnrInfo.flWindowAttr & CA_DETAILSVIEWTITLES)
                     {
                         RECTL rclClip;
@@ -543,30 +763,48 @@ VOID CnrScroll(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
                         rclClip.xRight = pData->dwdMain.szlWin.cx;
                         rclClip.yBottom = pData->dwdMain.szlWin.cy - pData->cyColTitlesBox;
                         rclClip.yTop = pData->dwdMain.szlWin.cy;
-                        winhScrollWindow(hwnd,
+                        winhScrollWindow(pData->dwdMain.hwnd,
                                          &rclClip,
                                          &ptlScroll);
                     }
-                    winhScrollWindow(pData->hwndDetails,
-                                     NULL,
-                                     &ptlScroll);
+
+                    ns.lScrollInc = ptlScroll.y;
+                    ns.fScroll = CMA_HORIZONTAL;        // @@todo details flags
+                    ctlSendWmControl(pData->dwdMain.hwnd,
+                                     CN_SCROLL,
+                                     &ns);
+
+                    fNotify = TRUE;
                 }
             }
             else
             {
                 ptlScroll.x = 0;
-                if (ptlScroll.y = winhHandleScrollMsg2(pData->hwndVScroll,
-                                                       &pData->ptlScrollOfs.y,
-                                                       pData->dwdContent.szlWin.cy,
-                                                       pData->szlWorkarea.cy,
-                                                       5,
-                                                       msg,
-                                                       mp2))
-                    winhScrollWindow(pData->hwndDetails,
+                if (ptlScroll.y = winhHandleScrollMsg(pData->scrw.hwndVScroll,
+                                                      &pData->scrw.ptlScrollOfs.y,
+                                                      pData->dwdContent.szlWin.cy,
+                                                      pData->scrw.szlWorkarea.cy,
+                                                      5,
+                                                      msg,
+                                                      mp2))
+                {
+                    winhScrollWindow(pData->dwdContent.hwnd,
                                      NULL,
                                      &ptlScroll);
+
+                    ns.lScrollInc = ptlScroll.x;
+                    ns.fScroll = CMA_VERTICAL;        // @@todo details flags
+                    ctlSendWmControl(pData->dwdMain.hwnd,
+                                     CN_SCROLL,
+                                     &ns);
+
+                    fNotify = TRUE;
+                }
             }
         }
+
+        if (fNotify)
+            SendViewportChanged(pData);
     }
 }
 
@@ -575,10 +813,9 @@ VOID CnrScroll(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
  *      implementation for WM_DESTROY in fnwpCnr.
  */
 
-VOID CnrDestroy(HWND hwnd)
+STATIC VOID CnrDestroy(PCNRDATA pData)
 {
-    PCNRDATA pData;
-    if (pData = (PCNRDATA)WinQueryWindowPtr(hwnd, QWL_USER + 1))
+    if (pData)
     {
         // free all data that we ever allocated;
         // all these lists are auto-free
@@ -604,12 +841,11 @@ VOID CnrDestroy(HWND hwnd)
  *      Returns no. of bytes copied.
  */
 
-USHORT CnrQueryCnrInfo(HWND hwnd,
-                       PCNRINFO pci,        // in: mp1 of CM_QUERYCNRINFO
-                       USHORT cb)           // in: mp2 of CM_QUERYCNRINFO
+STATIC USHORT CnrQueryCnrInfo(PCNRDATA pData,
+                              PCNRINFO pci,        // out: target buffer (mp1 of CM_QUERYCNRINFO)
+                              USHORT cb)           // in: mp2 of CM_QUERYCNRINFO
 {
-    PCNRDATA pData;
-    if (pData = (PCNRDATA)WinQueryWindowPtr(hwnd, QWL_USER + 1))
+    if (pData)
     {
         USHORT cbCopied = max(cb, sizeof(CNRINFO));
         memcpy(pci,
@@ -628,12 +864,11 @@ USHORT CnrQueryCnrInfo(HWND hwnd,
  *      Returns no. of bytes copied.
  */
 
-BOOL CnrSetCnrInfo(HWND hwnd,
-                   PCNRINFO pci,        // in: mp1 of CM_SETCNRINFO
-                   ULONG flCI)          // in: CMA_* flags in mp2 of CM_SETCNRINFO
+STATIC BOOL CnrSetCnrInfo(PCNRDATA pData,
+                          PCNRINFO pci,        // in: mp1 of CM_SETCNRINFO
+                          ULONG flCI)          // in: CMA_* flags in mp2 of CM_SETCNRINFO
 {
-    PCNRDATA pData;
-    if (pData = (PCNRDATA)WinQueryWindowPtr(hwnd, QWL_USER + 1))
+    if (pData)
     {
         ULONG   flDirty = 0;
 
@@ -679,11 +914,11 @@ BOOL CnrSetCnrInfo(HWND hwnd,
                 // details subwindow
                 if (pData->CnrInfo.flWindowAttr & CV_DETAIL)
                 {
-                    if (!pData->hwndDetails)
+                    if (!pData->dwdContent.hwnd)
                     {
-                        if (pData->hwndDetails = CreateChild(pData,
-                                                             WC_CCTL_CNR_DETAILS,
-                                                             CID_LEFTDVWND))
+                        if (pData->dwdContent.hwnd = CreateChild(pData,
+                                                                 WC_CCTL_CNR_DETAILS,
+                                                                 CID_LEFTDVWND))
                         {
                             flDirty = DDFL_ALL;
                         }
@@ -691,7 +926,7 @@ BOOL CnrSetCnrInfo(HWND hwnd,
                 }
                 else
                 {
-                    winhDestroyWindow(&pData->hwndDetails);
+                    winhDestroyWindow(&pData->dwdContent.hwnd);
                 }
             }
         }
@@ -781,6 +1016,8 @@ BOOL CnrSetCnrInfo(HWND hwnd,
             // CA_TREELINE container attribute of the CNRINFO data structure's
             // flWindowAttr field is not specified, these lines are not drawn.
             pData->CnrInfo.cxTreeLine = pci->cxTreeLine;
+
+            // @@todo recalc window components, repaint
         }
 
         if (flCI & CMA_XVERTSPLITBAR)
@@ -789,14 +1026,68 @@ BOOL CnrSetCnrInfo(HWND hwnd,
             // details view. If this value is less than 0, the split bar is not used. The default
             // value is negative one (-1).
             pData->CnrInfo.xVertSplitbar = pci->xVertSplitbar;
+
+            // @@todo recalc window components, repaint
         }
 
         if (flDirty)
             // post semaphore to force resize of details wnd
-            WinPostMsg(hwnd,
+            WinPostMsg(pData->dwdMain.hwnd,
                        WM_SEM2,
                        (MPARAM)flDirty,
                        0);
+
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+/*
+ *@@ CnrQueryViewportRect:
+ *      implementation for CM_QUERYVIEWPORTRECT in fnwpCnr.
+ *
+ *      From my testing, this simply returns the extensions
+ *      of the container content window, which the cnr docs
+ *      dub the "viewport". This never returns the workarea
+ *      size, that is, the total size of the container's
+ *      viewable content.
+ */
+
+STATIC BOOL CnrQueryViewportRect(PCNRDATA pData,
+                                 PRECTL prcl,
+                                 USHORT usIndicator,
+                                 BOOL fRightSplitView)      // @@todo
+{
+    if (pData && prcl)
+    {
+        prcl->xLeft = 0;
+        prcl->yBottom = 0;
+        prcl->xRight = pData->dwdContent.szlWin.cx;
+        prcl->yTop = pData->dwdContent.szlWin.cy;
+
+        switch (usIndicator)
+        {
+            case CMA_WORKSPACE:
+                // for CMA_WORKSPACE, the PM cnr returns a 0 yBottom when
+                // the cnr is scrolled to the very top and negative y
+                // values when it has been scrolled down to some extent;
+                // wonder what the use for this would be
+                prcl->xLeft += pData->scrw.ptlScrollOfs.x;
+                prcl->xRight += pData->scrw.ptlScrollOfs.x;
+                prcl->yBottom -= pData->scrw.ptlScrollOfs.y;
+                prcl->yTop -= pData->scrw.ptlScrollOfs.y;
+            break;
+
+            case CMA_WINDOW:
+                // for CMA_WINDOW, the PM cnr returns a constant
+                // rectangle without scrolling taken into account
+                WinMapWindowPoints(pData->dwdContent.hwnd,
+                                   pData->dwdMain.hwnd,
+                                   (PPOINTL)prcl,
+                                   2);
+            break;
+        }
 
         return TRUE;
     }
@@ -817,14 +1108,13 @@ BOOL CnrSetCnrInfo(HWND hwnd,
  *      Returns: PFIELDINFO linked list or NULL.
  */
 
-PFIELDINFO CnrAllocDetailFieldInfo(HWND hwnd,
-                                   USHORT cFieldInfos)      // in: no. of fieldinfos to allocate (> 0)
+STATIC PFIELDINFO CnrAllocDetailFieldInfo(PCNRDATA pData,
+                                          USHORT cFieldInfos)      // in: no. of fieldinfos to allocate (> 0)
 {
     PFIELDINFO  pfiFirst = NULL,
                 pfiPrev = NULL;
 
-    PCNRDATA    pData;
-    if (pData = (PCNRDATA)WinQueryWindowPtr(hwnd, QWL_USER + 1))
+    if (pData)
     {
         ULONG       ul;
         for (ul = 0;
@@ -862,13 +1152,13 @@ PFIELDINFO CnrAllocDetailFieldInfo(HWND hwnd,
  *      implementation for CM_INSERTDETAILFIELDINFO in fnwpCnr.
  */
 
-USHORT CnrInsertDetailFieldInfo(HWND hwnd,
-                                PFIELDINFO pfiFirst,
-                                PFIELDINFOINSERT pfii)
+STATIC USHORT CnrInsertDetailFieldInfo(PCNRDATA pData,
+                                       PFIELDINFO pfiFirst,
+                                       PFIELDINFOINSERT pfii)
 {
     USHORT      usrc = 0;
-    PCNRDATA    pData;
-    if (    (pData = (PCNRDATA)WinQueryWindowPtr(hwnd, QWL_USER + 1))
+
+    if (    (pData)
          && (pfiFirst)
          && (pfii)
          && (pfii->cb = sizeof(FIELDINFOINSERT))
@@ -932,7 +1222,7 @@ USHORT CnrInsertDetailFieldInfo(HWND hwnd,
            )
         {
             // post semaphore to force resize of details wnd
-            WinPostMsg(hwnd,
+            WinPostMsg(pData->dwdMain.hwnd,
                        WM_SEM2,
                        (MPARAM)DDFL_ALL,
                        0);
@@ -947,18 +1237,59 @@ USHORT CnrInsertDetailFieldInfo(HWND hwnd,
  *      implementation for CM_INVALIDATEDETAILFIELDINFO in fnwpCnr.
  */
 
-BOOL CnrInvalidateDetailFieldInfo(HWND hwnd)
+STATIC BOOL CnrInvalidateDetailFieldInfo(PCNRDATA pData)
 {
-    PCNRDATA    pData;
-    if (pData = (PCNRDATA)WinQueryWindowPtr(hwnd, QWL_USER + 1))
-    {
-        WinPostMsg(hwnd,
-                   WM_SEM2,
-                   (MPARAM)DDFL_INVALIDATECOLUMNS,
-                   0);
-    }
+    if (pData)
+        return WinPostMsg(pData->dwdMain.hwnd,
+                          WM_SEM2,
+                          (MPARAM)DDFL_INVALIDATECOLUMNS,
+                          0);
 
     return FALSE;
+}
+
+/*
+ *@@ CnrQueryDetailFieldInfo:
+ *      implementation for CM_QUERYDETAILFIELDINFO in fnwpCnr.
+ */
+
+STATIC const FIELDINFO* CnrQueryDetailFieldInfo(PCNRDATA pData,
+                                                PFIELDINFO pfiIn,
+                                                USHORT cmd)        // in: mp2 (CMA_FIRST, CMA_LAST, CMA_NEXT, CMA_PREV)
+{
+    const FIELDINFO *pfiReturn = NULL;
+
+    if (pData)
+    {
+        PLISTNODE pNode;
+
+        switch (cmd)
+        {
+            case CMA_FIRST:
+                pNode = lstQueryFirstNode(&pData->llColumns);
+            break;
+
+            case CMA_LAST:
+                pNode = lstQueryLastNode(&pData->llColumns);
+            break;
+
+            case CMA_NEXT:
+            case CMA_PREV:
+                if (FindColumnFromFI(pData,
+                                     pfiIn,
+                                     &pNode))
+                    if (cmd == CMA_NEXT)
+                        pNode = pNode->pNext;
+                    else
+                        pNode = pNode->pPrevious;
+            break;
+        }
+
+        if (pNode)
+            pfiReturn = ((PDETAILCOLUMN)pNode->pItemData)->pfi;
+    }
+
+    return pfiReturn;
 }
 
 /*
@@ -966,13 +1297,12 @@ BOOL CnrInvalidateDetailFieldInfo(HWND hwnd)
  *      implementation for CM_REMOVEDETAILFIELDINFO in fnwpCnr.
  */
 
-SHORT CnrRemoveDetailFieldInfo(HWND hwnd,
-                               PFIELDINFO* ppafi,
-                               USHORT cfi,
-                               USHORT fl)
+STATIC SHORT CnrRemoveDetailFieldInfo(PCNRDATA pData,
+                                      PFIELDINFO* ppafi,
+                                      USHORT cfi,
+                                      USHORT fl)
 {
-    PCNRDATA    pData;
-    if (pData = (PCNRDATA)WinQueryWindowPtr(hwnd, QWL_USER + 1))
+    if (pData)
     {
         SHORT   rc = lstCountItems(&pData->llColumns);
         ULONG   fAnythingFound = FALSE,
@@ -1010,7 +1340,7 @@ SHORT CnrRemoveDetailFieldInfo(HWND hwnd,
              && (fl & CMA_INVALIDATE)
            )
         {
-            WinPostMsg(hwnd,
+            WinPostMsg(pData->dwdMain.hwnd,
                        WM_SEM2,
                        (MPARAM)DDFL_INVALIDATECOLUMNS,
                        0);
@@ -1027,14 +1357,13 @@ SHORT CnrRemoveDetailFieldInfo(HWND hwnd,
  *      implementation for CM_FREEDETAILFIELDINFO in fnwpCnr.
  */
 
-BOOL CnrFreeDetailFieldInfo(HWND hwnd,
-                            PFIELDINFO *ppafi,      // in: mp1 of CM_FREEDETAILFIELDINFO
-                            USHORT cFieldInfos)     // in: no. of items in array
+STATIC BOOL CnrFreeDetailFieldInfo(PCNRDATA pData,
+                                   PFIELDINFO *ppafi,      // in: mp1 of CM_FREEDETAILFIELDINFO
+                                   USHORT cFieldInfos)     // in: no. of items in array
 {
     BOOL        brc = FALSE;
 
-    PCNRDATA    pData;
-    if (pData = (PCNRDATA)WinQueryWindowPtr(hwnd, QWL_USER + 1))
+    if (pData)
     {
         ULONG   ul;
 
@@ -1069,13 +1398,13 @@ BOOL CnrFreeDetailFieldInfo(HWND hwnd,
  *      implementation for CM_ALLOCRECORD in fnwpCnr.
  */
 
-PRECORDCORE CnrAllocRecord(HWND hwnd,
-                           ULONG cbExtra,
-                           USHORT cRecords)
+STATIC PRECORDCORE CnrAllocRecord(PCNRDATA pData,
+                                  ULONG cbExtra,
+                                  USHORT cRecords)
 {
     PRECORDCORE preccFirst = NULL;
-    PCNRDATA    pData;
-    if (pData = (PCNRDATA)WinQueryWindowPtr(hwnd, QWL_USER + 1))
+
+    if (pData)
     {
         ULONG   ul;
         ULONG   cbAlloc = (   (pData->fMiniRecords)
@@ -1123,13 +1452,13 @@ PRECORDCORE CnrAllocRecord(HWND hwnd,
  *      implementation for CM_INSERTRECORD in fnwpCnr.
  */
 
-ULONG CnrInsertRecord(HWND hwnd,
-                      PRECORDCORE preccFirst,
-                      PRECORDINSERT pri)
+STATIC ULONG CnrInsertRecord(PCNRDATA pData,
+                             PRECORDCORE preccFirst,
+                             PRECORDINSERT pri)
 {
     ULONG       cReturn = 0;
-    PCNRDATA    pData;
-    if (    (pData = (PCNRDATA)WinQueryWindowPtr(hwnd, QWL_USER + 1))
+
+    if (    (pData)
          && (preccFirst)
          && (pri)
          && (pri->cb = sizeof(RECORDINSERT))
@@ -1162,25 +1491,40 @@ ULONG CnrInsertRecord(HWND hwnd,
             break;
 
             default:
-                pNodeInsertAfter = FindListNodeForRecc(pData,
-                                                       pri->pRecordOrder);
+                pNodeInsertAfter = ctnrFindListNodeForRecc(pData,
+                                                           pri->pRecordOrder);
         }
 
         for (ul = 0;
              ul < pri->cRecordsInsert;
              ++ul)
         {
-            PRECORDLISTITEM pListItem;
+            PRECORDLISTITEM prli;
 
-            if (pListItem = NEW(RECORDLISTITEM))
+            if (prli = NEW(RECORDLISTITEM))
             {
-                ZERO(pListItem);
+                ZERO(prli);
 
-                pListItem->precc = preccThis;
-                pListItem->preccParent = pri->pRecordParent;
+                prli->precc = preccThis;
+                prli->preccParent = pri->pRecordParent;
+
+                // make private copy of record attributes
+                prli->flRecordAttr = preccThis->flRecordAttr;
+
+                // PM container gives the first record in the cnr
+                // "cursored" and "selected" emphasis, so that's
+                // what we'll do too
+                if (    (!cReturn)       // @@todo filtered records
+                     && (!(prli->flRecordAttr & CRA_FILTERED))
+                   )
+                {
+                    prli->flRecordAttr |= CRA_CURSORED | CRA_SELECTED;
+
+                    pData->prliCursored = prli;
+                }
 
                 if (pNodeInsertAfter = lstInsertItemAfterNode(pll,
-                                                              pListItem,
+                                                              prli,
                                                               pNodeInsertAfter))
                 {
                     PRECORDTREEITEM pTreeItem;
@@ -1211,10 +1555,10 @@ ULONG CnrInsertRecord(HWND hwnd,
                                   pNodeInsertAfter);
                 }
 
-                free(pListItem);
+                free(prli);
             }
 
-            free(pListItem);
+            free(prli);
 
             cReturn = 0;
             break;      // for
@@ -1224,14 +1568,177 @@ ULONG CnrInsertRecord(HWND hwnd,
              && (pri->fInvalidateRecord)
            )
         {
-            WinPostMsg(hwnd,
+            WinPostMsg(pData->dwdMain.hwnd,
                        WM_SEM2,
-                       (MPARAM)DDFL_INCALIDATERECORDS,
+                       (MPARAM)DDFL_INVALIDATERECORDS,
                        0);
         }
     }
 
     return cReturn;
+}
+
+/*
+ *@@ CnrInsertRecordArray:
+ *      implementation for CM_INSERTRECORDARRAY in fnwpCnr.
+ */
+
+STATIC ULONG CnrInsertRecordArray(PCNRDATA pData,
+                                  PRECORDCORE *papRecords,
+                                  PRECORDINSERT pri)
+{
+    ULONG       cReturn = 0;
+
+    if (    (pData)
+         && (papRecords)
+         && (pri)
+         && (pri->cb = sizeof(RECORDINSERT))
+       )
+    {
+        // produce a linked list off the array and call
+        // the CM_INSERTRECORD implementation
+        ULONG   ul;
+        for (ul = 0;
+             ul < (pri->cRecordsInsert - 1);
+             ++ul)
+        {
+            papRecords[ul]->preccNextRecord = papRecords[ul + 1];
+        }
+
+        papRecords[pri->cRecordsInsert - 1]->preccNextRecord = (PRECORDCORE)NULL;
+
+        cReturn = CnrInsertRecord(pData,
+                                  papRecords[0],
+                                  pri);
+    }
+
+    return cReturn;
+}
+
+/*
+ *@@ CnrSetRecordEmphasis:
+ *      implementation for CM_SETRECORDEMPHASIS in fnwpCnr.
+ */
+
+STATIC BOOL CnrSetRecordEmphasis(PCNRDATA pData,
+                                 PRECORDCORE precc,
+                                 BOOL fTurnOn,
+                                 USHORT fsEmphasis)
+{
+    BOOL        brc = FALSE;
+
+    if (pData)
+    {
+        if (precc)
+        {
+            PLISTNODE   pNode;
+            if (pNode = ctnrFindListNodeForRecc(pData,
+                                                precc))
+            {
+                PRECORDLISTITEM prli = (PRECORDLISTITEM)pNode->pItemData;
+
+                ctnrChangeEmphasis(pData,
+                                   prli,
+                                   fTurnOn,
+                                   fsEmphasis);
+
+                // update caller's buffer too
+                precc->flRecordAttr = prli->flRecordAttr;
+
+                brc = TRUE;
+            }
+        } // if (precc)
+        // @@todo else set emphasis on entire cnr
+    }
+
+    return brc;
+}
+
+/*
+ *@@ CnrQueryRecordEmphasis:
+ *      implementation for CM_QUERYRECORDEMPHASIS in fnwpCnr.
+ *
+ *      Note, if several flags are set in fsEmphasis, all
+ *      of them must be set in the record to match.
+ */
+
+PRECORDCORE CnrQueryRecordEmphasis(PCNRDATA pData,
+                                   PRECORDCORE preccSearchAfter,
+                                   USHORT fsEmphasis)
+{
+    if (pData)
+    {
+        PLISTNODE pNode = NULL;
+        if (preccSearchAfter == (PRECORDCORE)CMA_FIRST)
+            pNode = lstQueryFirstNode(&pData->llRootRecords);
+        else
+            if (pNode = ctnrFindListNodeForRecc(pData, preccSearchAfter))
+                pNode = pNode->pNext;
+            else
+                return (PRECORDCORE)-1;
+        // @@todo how does this search tree subrecords?
+
+        while (pNode)
+        {
+            PRECORDLISTITEM prli = (PRECORDLISTITEM)pNode->pItemData;
+            if ((prli->flRecordAttr & fsEmphasis) == fsEmphasis)
+                return (PRECORDCORE)prli->precc;
+
+            pNode = pNode->pNext;
+        }
+    }
+
+    return NULL;
+}
+
+/*
+ *@@ CnrInvalidateRecord:
+ *      implementation for CM_INVALIDATERECORD in fnwpCnr.
+ *
+ */
+
+STATIC BOOL CnrInvalidateRecord(PCNRDATA pData,
+                                PRECORDCORE *papRecs,
+                                USHORT cRecs,
+                                USHORT fsInvalidate)
+{
+    BOOL    brc = TRUE;
+
+    if (pData)
+    {
+        if (    (!papRecs)
+             || (!cRecs)
+           )
+            // invalidate all:
+            CnrSem2(pData, DDFL_INVALIDATERECORDS);
+        else
+        {
+            ULONG   ul;
+            for (ul = 0;
+                 ul < cRecs;
+                 ++cRecs)
+            {
+                PRECORDCORE precc = papRecs[ul];
+                PLISTNODE pRecNode;
+                if (!(pRecNode = ctnrFindListNodeForRecc(pData,
+                                                         precc)))
+                {
+                    brc = FALSE;
+                    break;
+                }
+
+                // set special flag for recompute
+                ((PRECORDLISTITEM)pRecNode->pItemData)->flInvalidate = fsInvalidate;
+            }
+
+            if (brc)
+                CnrSem2(pData, DDFL_INVALIDATESOME);
+                // @@todo optimize: post sem only if a column size has
+                // actually changed
+        }
+    }
+
+    return brc;
 }
 
 /* ******************************************************************
@@ -1248,7 +1755,8 @@ ULONG CnrInsertRecord(HWND hwnd,
 MRESULT EXPENTRY fnwpCnr(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT     mrc = 0;
-    PCNRDATA    pData;
+
+    PCNRDATA    pData = (PCNRDATA)WinQueryWindowPtr(hwnd, QWL_USER + 1);
 
     switch (msg)
     {
@@ -1263,24 +1771,52 @@ MRESULT EXPENTRY fnwpCnr(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
         break;
 
         case WM_SEM2:
-            CnrSem2(hwnd, (ULONG)mp1);
+            CnrSem2(pData, (ULONG)mp1);
         break;
 
         case WM_PAINT:
-            CnrPaint(hwnd);
+            CnrPaint(pData);
         break;
 
         case WM_WINDOWPOSCHANGED:
-            mrc = CnrWindowPosChanged(hwnd, mp1, mp2);
+            mrc = CnrWindowPosChanged(pData, mp1, mp2);
+        break;
+
+        case WM_SYSCOLORCHANGE:
+            ctnrPresParamChanged(hwnd, 0);
+        break;
+
+        case WM_PRESPARAMCHANGED:
+            ctnrPresParamChanged(hwnd, (ULONG)mp1);
         break;
 
         case WM_HSCROLL:
         case WM_VSCROLL:
-            CnrScroll(hwnd, msg, mp1, mp2);
+            CnrScroll(pData, msg, mp1, mp2);
         break;
 
         case WM_DESTROY:
-            CnrDestroy(hwnd);
+            CnrDestroy(pData);
+        break;
+
+        /* ******************************************************************
+         *
+         *   Mouse and keyboard input
+         *
+         ********************************************************************/
+
+        /*
+         * WM_OPEN:
+         *      when the user double-clicks on the _main_ cnr
+         *      (i.e. details titles), we notify the owner
+         *      of a "whitespace" enter event.
+         */
+
+        case WM_OPEN:
+            ctnrRecordEnter(pData,
+                            NULL,
+                            FALSE);     // mouse, not keyboard
+            mrc = (MRESULT)TRUE;
         break;
 
         /* ******************************************************************
@@ -1300,10 +1836,10 @@ MRESULT EXPENTRY fnwpCnr(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
          *      Returns no. of bytes copied or 0 on errors.
          */
 
-        case CM_QUERYCNRINFO:
-            mrc = (MRESULT)CnrQueryCnrInfo(hwnd,
+        case CM_QUERYCNRINFO:       // done
+            mrc = (MRESULT)CnrQueryCnrInfo(pData,
                                            (PCNRINFO)mp1,
-                                           (USHORT)mp2);
+                                           SHORT1FROMMP(mp2));
         break;
 
         /*
@@ -1318,100 +1854,39 @@ MRESULT EXPENTRY fnwpCnr(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
          *      Returns BOOL.
          */
 
-        case CM_SETCNRINFO:
-            mrc = (MRESULT)CnrSetCnrInfo(hwnd,
+        case CM_SETCNRINFO:         // parlty done
+            mrc = (MRESULT)CnrSetCnrInfo(pData,
                                          (PCNRINFO)mp1,
                                          (ULONG)mp2);
         break;
 
-        /* ******************************************************************
-         *
-         *   FIELDINFO-related messages
-         *
-         ********************************************************************/
+        case CM_PAINTBACKGROUND:        // @@todo
+        break;
+
+        case CM_SCROLLWINDOW:           // @@todo
+        break;
 
         /*
-         * CM_ALLOCDETAILFIELDINFO:
+         * CM_QUERYVIEWPORTRECT:
          *
          *      Parameters:
          *
-         *      --  USHORT mp1: no. of fieldinfos to allocate
-         *      --  mp2: reserved
+         *      --  PRECTL mp1
          *
-         *      Returns PFIELDINFO linked list of fieldinfos,
-         *      or NULL on errors.
+         *      --  SHORT1FROMMP(mp2): -- CMA_WINDOW: return window coordinates
+         *                             -- CMA_WORKSPACE: return workspace coordinates
+         *
+         *      --  BOOL SHORT2FROMMP(mp2): if TRUE, return right split details view
          */
 
-        case CM_ALLOCDETAILFIELDINFO:
-            mrc = (MRESULT)CnrAllocDetailFieldInfo(hwnd,
-                                                   (USHORT)mp1);
+        case CM_QUERYVIEWPORTRECT:          // done
+            mrc = (MRESULT)CnrQueryViewportRect(pData,
+                                                (PRECTL)mp1,
+                                                SHORT1FROMMP(mp2),
+                                                SHORT2FROMMP(mp2));
         break;
 
-        /*
-         * CM_INSERTDETAILFIELDINFO:
-         *
-         *      Parameters:
-         *
-         *      --  PFIELDINFO mp1
-         *
-         *      --  PFIELDINFOINSERT mp2
-         *
-         *      Returns the no. of FI's in the cnr or 0 on errors.
-         */
-
-        case CM_INSERTDETAILFIELDINFO:
-            mrc = (MRESULT)CnrInsertDetailFieldInfo(hwnd,
-                                                    (PFIELDINFO)mp1,
-                                                    (PFIELDINFOINSERT)mp2);
-        break;
-
-        /*
-         * CM_INVALIDATEDETAILFIELDINFO:
-         *      No parameters.
-         *
-         *      Returns BOOL.
-         */
-
-        case CM_INVALIDATEDETAILFIELDINFO:
-            mrc = (MRESULT)CnrInvalidateDetailFieldInfo(hwnd);
-        break;
-
-        /*
-         * CM_REMOVEDETAILFIELDINFO:
-         *
-         *      Parameters:
-         *
-         *      --  PFIELDINFO* mp1: ptr to array of PFIELDINFO's
-         *
-         *      --  SHORT1FROMMP(mp1): no. of fieldinfos in array
-         *
-         *      --  SHORT2FROMMP(mp2): flRemove (CMA_FREE, CMA_INVALIDATE)
-         *
-         *      Returns the no. of FI's in the cnr or -1 on errors.
-         */
-
-        case CM_REMOVEDETAILFIELDINFO:
-            mrc = (MRESULT)CnrRemoveDetailFieldInfo(hwnd,
-                                                    (PFIELDINFO*)mp1,
-                                                    SHORT1FROMMP(mp2),
-                                                    SHORT2FROMMP(mp2));
-        break;
-
-        /*
-         * CM_FREEDETAILFIELDINFO:
-         *
-         *      Paramters:
-         *
-         *      --  PFIELDINFO* mp1: ptr to array of PFIELDINFO's
-         *      --  USHORT mp2: no. of ptrs in array
-         *
-         *      Returns BOOL.
-         */
-
-        case CM_FREEDETAILFIELDINFO:
-            mrc = (MRESULT)CnrFreeDetailFieldInfo(hwnd,
-                                                  (PFIELDINFO*)mp1,
-                                                  (USHORT)mp2);
+        case CM_SETTEXTVISIBILITY:      // @@todo
         break;
 
         /* ******************************************************************
@@ -1432,14 +1907,16 @@ MRESULT EXPENTRY fnwpCnr(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
          *      Returns linked list of RECORDCORE's or NULL on errors.
          */
 
-        case CM_ALLOCRECORD:
-            mrc = (MRESULT)CnrAllocRecord(hwnd,
+        case CM_ALLOCRECORD:          // done
+            mrc = (MRESULT)CnrAllocRecord(pData,
                                           (ULONG)mp1,
-                                          (USHORT)mp2);
+                                          SHORT1FROMMP(mp2));
         break;
 
         /*
          * CM_INSERTRECORD:
+         *      inserts one or more records. If there's more
+         *      than one record, we assume it's a linked list.
          *
          *      Parameters:
          *
@@ -1450,14 +1927,287 @@ MRESULT EXPENTRY fnwpCnr(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
          *      Returns the no. of records in the container or 0 on errors.
          */
 
-        case CM_INSERTRECORD:
-            mrc = (MRESULT)CnrInsertRecord(hwnd,
+        case CM_INSERTRECORD:           // done
+            mrc = (MRESULT)CnrInsertRecord(pData,
                                            (PRECORDCORE)mp1,
                                            (PRECORDINSERT)mp2);
         break;
 
+        /*
+         * CM_INSERTRECORDARRAY:
+         *      inserts one or more records. As opposed to with
+         *      CM_INSERTRECORD, mp1 points to an array of
+         *      record pointers instead of to a linked list
+         *      of records.
+         *
+         *      Parameters:
+         *
+         *      --  PRECORDCORE mp1: first record
+         *
+         *      --  PRECORDINSERT pri
+         *
+         *      Returns the no. of records in the container or 0 on errors.
+         */
+
+        case CM_INSERTRECORDARRAY:      // done
+            mrc = (MRESULT)CnrInsertRecordArray(pData,
+                                               (PRECORDCORE*)mp1,
+                                               (PRECORDINSERT)mp2);
+        break;
+
+        /*
+         * CM_QUERYRECORD:
+         *
+         *      Parameters:
+         *
+         *      --  PRECORDCORE mp1: preccSearch
+         *
+         *      --  SHORT1FROMMP(mp1): CMA_FIRST, CMA_LAST, CMA_NEXT, CMA_PREV
+         *
+         *          or for tree views: CMA_FIRSTCHILD, CMA_LASTCHILD, CMA_PARENT
+         *
+         *      --  SHORT2FROMMP(mp1): CMA_ITEMORDER or CMA_ZORDER
+         */
+
+        case CM_QUERYRECORD:            // @@todo
+        break;
+
+        /*
+         * CM_SETRECORDEMPHASIS:
+         *
+         *      Parameters:
+         *
+         *      --  PRECORDCORE mp1: record to change emphasis for.
+         *
+         *      --  SHORT1FROMMP(mp2): TRUE == turn flags on, FALSE == turn flags off.
+         *
+         *      --  SHORT2FROMMP(mp2): any combination of CRA_CURSORED, CRA_DISABLED,
+         *          CRA_INUSE, CRA_PICKED, CRA_SELECTED, CRA_SOURCE
+         *
+         *      Returns BOOL.
+         */
+
+        case CM_SETRECORDEMPHASIS:
+            mrc = (MRESULT)CnrSetRecordEmphasis(pData,
+                                                (PRECORDCORE)mp1,
+                                                SHORT1FROMMP(mp2),
+                                                SHORT2FROMMP(mp2));
+        break;
+
+        /*
+         * CM_QUERYRECORDEMPHASIS:
+         *
+         *      Parameters:
+         *
+         *      --  PRECORDCORE mp1: record after which to start search
+         *          or NULL to start search from beginning.
+         *
+         *      --  USHORT mp2: any combination of CRA_COLLAPSED, CRA_CURSORED,
+         *          CRA_DISABLED, CRA_DROPONABLE, CRA_EXPANDED, CRA_FILTERED,
+         *          CRA_INUSE, CRA_PICKED, CRA_SELECTED, CRA_SOURCE
+         */
+
+        case CM_QUERYRECORDEMPHASIS:    // done
+            mrc = (MRESULT)CnrQueryRecordEmphasis(pData,
+                                                  (PRECORDCORE)mp1,
+                                                  SHORT1FROMMP(mp2));
+        break;
+
+        case CM_QUERYRECORDFROMRECT:    // @@todo
+        break;
+
+        case CM_QUERYRECORDINFO:        // @@todo
+        break;
+
+        case CM_QUERYRECORDRECT:        // @@todo
+        break;
+
+        /*
+         * CM_INVALIDATERECORD:
+         *
+         *      Parameters:
+         *
+         *      --  PRECORDCORE* mp1: ptr to array of record pointers
+         *
+         *      --  SHORT1FROMMP(mp2): no. of records in array
+         *
+         *      --  SHORT2FROMMP(mp2): CMA_ERASE, CMA_REPOSITION,
+         *          CMA_NOREPOSITION, CMA_TEXTCHANGED
+         *
+         *      Returns BOOL.
+         */
+
+        case CM_INVALIDATERECORD:       // done
+            mrc = (MRESULT)CnrInvalidateRecord(pData,
+                                               (PRECORDCORE*)mp1,
+                                               SHORT1FROMMP(mp2),
+                                               SHORT2FROMMP(mp2));
+        break;
+
+        case CM_REMOVERECORD:   // @@todo
+        case CM_FREERECORD:     // @@todo
+        break;
+
+        case CM_ERASERECORD:    // @@todo
+        break;
+
+        case CM_ARRANGE:        // @@todo
+        break;
+
+        case CM_FILTER:         // @@todo
+        break;
+
+        case CM_QUERYDRAGIMAGE: // @@todo
+
+        case CM_SEARCHSTRING:
+
+        case CM_SORTRECORD:     // @@todo
+
+        /* ******************************************************************
+         *
+         *   Details view
+         *
+         ********************************************************************/
+
+        /*
+         * CM_ALLOCDETAILFIELDINFO:
+         *
+         *      Parameters:
+         *
+         *      --  USHORT mp1: no. of fieldinfos to allocate
+         *      --  mp2: reserved
+         *
+         *      Returns PFIELDINFO linked list of fieldinfos,
+         *      or NULL on errors.
+         */
+
+        case CM_ALLOCDETAILFIELDINFO: // done
+            mrc = (MRESULT)CnrAllocDetailFieldInfo(pData,
+                                                   SHORT1FROMMP(mp1));
+        break;
+
+        /*
+         * CM_INSERTDETAILFIELDINFO:
+         *
+         *      Parameters:
+         *
+         *      --  PFIELDINFO mp1
+         *
+         *      --  PFIELDINFOINSERT mp2
+         *
+         *      Returns the no. of FI's in the cnr or 0 on errors.
+         */
+
+        case CM_INSERTDETAILFIELDINFO:      // done
+            mrc = (MRESULT)CnrInsertDetailFieldInfo(pData,
+                                                    (PFIELDINFO)mp1,
+                                                    (PFIELDINFOINSERT)mp2);
+        break;
+
+        /*
+         * CM_INVALIDATEDETAILFIELDINFO:
+         *      No parameters.
+         *
+         *      Returns BOOL.
+         */
+
+        case CM_INVALIDATEDETAILFIELDINFO:  // done
+            mrc = (MRESULT)CnrInvalidateDetailFieldInfo(pData);
+        break;
+
+        /*
+         * CM_QUERYDETAILFIELDINFO:
+         *
+         *      Parameters:
+         *
+         *      --  PFIELDINFO mp1
+         *
+         *      --  USHORT mp2: CMA_FIRST, CMA_LAST, CMA_NEXT, CMA_PREV
+         */
+
+        case CM_QUERYDETAILFIELDINFO:       // done
+            mrc = (MRESULT)CnrQueryDetailFieldInfo(pData,
+                                                   (PFIELDINFO)mp1,
+                                                   SHORT1FROMMP(mp2));
+        break;
+
+        /*
+         * CM_REMOVEDETAILFIELDINFO:
+         *
+         *      Parameters:
+         *
+         *      --  PFIELDINFO* mp1: ptr to array of PFIELDINFO's
+         *
+         *      --  SHORT1FROMMP(mp1): no. of fieldinfos in array
+         *
+         *      --  SHORT2FROMMP(mp2): flRemove (CMA_FREE, CMA_INVALIDATE)
+         *
+         *      Returns the no. of FI's in the cnr or -1 on errors.
+         */
+
+        case CM_REMOVEDETAILFIELDINFO:      // done
+            mrc = (MRESULT)CnrRemoveDetailFieldInfo(pData,
+                                                    (PFIELDINFO*)mp1,
+                                                    SHORT1FROMMP(mp2),
+                                                    SHORT2FROMMP(mp2));
+        break;
+
+        /*
+         * CM_FREEDETAILFIELDINFO:
+         *
+         *      Paramters:
+         *
+         *      --  PFIELDINFO* mp1: ptr to array of PFIELDINFO's
+         *      --  USHORT mp2: no. of ptrs in array
+         *
+         *      Returns BOOL.
+         */
+
+        case CM_FREEDETAILFIELDINFO:        // done
+            mrc = (MRESULT)CnrFreeDetailFieldInfo(pData,
+                                                  (PFIELDINFO*)mp1,
+                                                  SHORT1FROMMP(mp2));
+        break;
+
+        case CM_HORZSCROLLSPLITWINDOW:
+        break;
+
+        /* ******************************************************************
+         *
+         *   Icon view
+         *
+         ********************************************************************/
+
+        case CM_SETGRIDINFO:    // @@todo
+        case CM_QUERYGRIDINFO:  // @@todo
+        case CM_SNAPTOGRID:     // @@todo
+        break;
+
+        /* ******************************************************************
+         *
+         *   Tree management
+         *
+         ********************************************************************/
+
+        case CM_COLLAPSETREE:   // @@todo
+        case CM_EXPANDTREE:
+        case CM_MOVETREE:       // @@todo
+        break;
+
+        /* ******************************************************************
+         *
+         *   Direct editing
+         *
+         ********************************************************************/
+
+        case CM_OPENEDIT:       // @@todo
+
+        case CM_CLOSEEDIT:      // @@todo
+        break;
+
+
         default:
-            if (pData = (PCNRDATA)WinQueryWindowPtr(hwnd, QWL_USER + 1))
+            if (pData)
                 mrc = ctlDefWindowProc(&pData->dwdMain, msg, mp1, mp2);
         break;
 

@@ -1895,52 +1895,6 @@ ULONG winhLboxFindItemFromHandle(HWND hwndListBox,
  ********************************************************************/
 
 /*
- *@@ winhCreateScrollBars:
- *      creates two scroll bars with an arbitrary
- *      position for later use with winhUpdateScrollBar.
- *
- *@@added V1.0.1 (2003-01-17) [umoeller]
- */
-
-BOOL winhCreateScrollBars(HWND hwndParent,
-                          HWND *phwndV,     // out: vertical scroll bar
-                          HWND *phwndH)     // out: horizontal scroll bar
-{
-    SBCDATA     sbcd;
-    sbcd.cb = sizeof(SBCDATA);
-    sbcd.sHilite = 0;
-    sbcd.posFirst = 0;
-    sbcd.posLast = 100;
-    sbcd.posThumb = 30;
-    sbcd.cVisible = 50;
-    sbcd.cTotal = 50;
-
-    return (    (*phwndV = WinCreateWindow(hwndParent,
-                                           WC_SCROLLBAR,
-                                           "",
-                                           SBS_VERT | SBS_THUMBSIZE | WS_VISIBLE,
-                                           10, 10,
-                                           20, 100,
-                                           hwndParent,     // owner
-                                           HWND_TOP,
-                                           ID_VSCROLL,
-                                           &sbcd,
-                                           0))
-             && (*phwndH = WinCreateWindow(hwndParent,
-                                           WC_SCROLLBAR,
-                                           "",
-                                           SBS_THUMBSIZE | WS_VISIBLE,
-                                           10, 10,
-                                           20, 100,
-                                           hwndParent,     // owner
-                                           HWND_TOP,
-                                           ID_HSCROLL,
-                                           &sbcd,
-                                           0))
-           );
-}
-
-/*
  *@@ winhUpdateScrollBar:
  *      updates the given scroll bar according to the given
  *      values. This updates the scroll bar's thumb size,
@@ -1957,34 +1911,38 @@ BOOL winhCreateScrollBars(HWND hwndParent,
  *
  *      Terminology:
  *
- *      -- "window": the actual window with scroll bars which displays
- *         a subrectangle of the available data. With a typical PM
- *         application, this will be your client window.
+ *      --  "window": the actual window with scroll bars which displays
+ *          a subrectangle of the available data. With a typical PM
+ *          application, this will be your client window.
  *
- *         The width or height of this must be passed in ulWinPels.
+ *          The width or height of this must be passed in ulWinPels.
  *
- *      -- "workarea": the entire data to be displayed, of which the
- *         "window" can only display a subrectangle, if the workarea
- *         is larger than the window.
+ *      --  "workarea": the entire data to be displayed, of which the
+ *          "window" can only display a subrectangle, if the workarea
+ *          is larger than the window.
  *
- *         The width or height of this must be passed in ulWorkareaPels.
- *         This can be smaller than ulWinPels (if the window is larger
- *         than the data) or the same or larger than ulWinPels
- *         (if the window is too small to show all the data).
+ *          The width or height of this must be passed in ulWorkareaPels.
+ *          This can be smaller than ulWinPels (if the window is larger
+ *          than the data) or the same or larger than ulWinPels
+ *          (if the window is too small to show all the data).
  *
- *      -- "window offset": the offset of the current window within
- *         the workarea.
+ *          This value is exclusive in the sense that the maximum
+ *          window offset (below) can be the workarea minus one.
  *
- *         For horizontal scroll bars, this is the X coordinate,
- *         counting from the left of the window (0 means leftmost).
+ *      --  "window offset": the zero-based offset of the current
+ *          window within the workarea, whose maximum value is
+ *          the workarea minus one.
  *
- *         For vertical scroll bars, this is counted from the _top_
- *         of the workarea (0 means topmost, as opposed to OS/2
- *         window coordinates!). This is because for vertical scroll
- *         bars controls, higher values move the thumb _down_. Yes
- *         indeed, this conflicts with PM's coordinate system.
+ *          For horizontal scroll bars, this is the X coordinate,
+ *          counting from the left of the window (0 means leftmost).
  *
- *         The window offset is therefore always positive.
+ *          For vertical scroll bars, this is counted from the _top_
+ *          of the workarea (0 means topmost, as opposed to OS/2
+ *          window coordinates!). This is because for vertical scroll
+ *          bars controls, higher values move the thumb _down_. Yes
+ *          indeed, this conflicts with PM's coordinate system.
+ *
+ *          The window offset is therefore always positive.
  *
  *      The scroll bar gets disabled if the entire workarea is visible,
  *      that is, if ulWorkareaPels <= ulWinPels. In that case
@@ -2008,6 +1966,8 @@ BOOL winhCreateScrollBars(HWND hwndParent,
  *@@added V0.9.1 (2000-02-14) [umoeller]
  *@@changed V0.9.3 (2000-04-30) [umoeller]: fixed pels/unit confusion
  *@@changed V0.9.3 (2000-05-08) [umoeller]: now handling scroll units automatically
+ *@@changed V1.0.1 (2003-01-25) [umoeller]: fixed max value which caused right/bottommost scroll button to never be disabled
+ *@@changed V1.0.1 (2003-01-25) [umoeller]: fixed bad thumb position for large offsets
  */
 
 BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or horizontal)
@@ -2025,25 +1985,16 @@ BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or h
 {
     BOOL brc = FALSE;
 
-    // _Pmpf(("Entering winhUpdateScrollBar"));
-
-    // for large workareas, adjust scroll bar units
-    USHORT  usScrollUnitPels = 1;
-    if (ulWorkareaPels > 10000)
-        usScrollUnitPels = 100;
-
-    if (ulWorkareaPels > ulWinPels)
+    if (ulWorkareaPels >= ulWinPels)
     {
-        // scrollbar needed:
-        USHORT  usThumbDivisorUnits = usScrollUnitPels;
+        // for large workareas, adjust scroll bar units
+        USHORT  usDivisor = 1;
         USHORT  lMaxAllowedUnitOfs;
-        // _Pmpf(("winhUpdateScrollBar: ulWorkareaPels > ulWinPels, enabling scroller"));
-        // divisor for thumb size (below)
+
         if (ulWorkareaPels > 10000)
-            // for very large workareas, we need to
-            // raise the divisor, because we only
-            // have a USHORT
-            usThumbDivisorUnits = usScrollUnitPels * 100;
+            usDivisor = 100;
+
+        // scrollbar needed:
 
         // workarea is larger than window:
         WinEnableWindow(hwndScrollBar, TRUE);
@@ -2051,17 +2002,13 @@ BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or h
             WinShowWindow(hwndScrollBar, TRUE);
 
         // calculate limit
-        lMaxAllowedUnitOfs = ((ulWorkareaPels - ulWinPels + usScrollUnitPels)
-                               // scroll unit is 10
-                               / usScrollUnitPels);
-
-        // _Pmpf(("    usCurUnitOfs: %d", ulCurUnitOfs));
-        // _Pmpf(("    usMaxUnits: %d", lMaxAllowedUnitOfs));
+        lMaxAllowedUnitOfs =   (ulWorkareaPels - ulWinPels)
+                             / usDivisor;
 
         // set thumb position and limit
         WinSendMsg(hwndScrollBar,
                    SBM_SETSCROLLBAR,
-                   (MPARAM)(ulCurPelsOfs), //  / usThumbDivisorUnits),   // position: 0 means top
+                   (MPARAM)(ulCurPelsOfs / usDivisor),   // position: 0 means top
                    MPFROM2SHORT(0,  // minimum
                                 lMaxAllowedUnitOfs));    // maximum
 
@@ -2069,14 +2016,13 @@ BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or h
         // ulWorkareaPels
         WinSendMsg(hwndScrollBar,
                    SBM_SETTHUMBSIZE,
-                   MPFROM2SHORT(    ulWinPels / usThumbDivisorUnits,       // visible
-                                    ulWorkareaPels / usThumbDivisorUnits), // total
+                   MPFROM2SHORT(    ulWinPels / usDivisor,       // visible
+                                    ulWorkareaPels / usDivisor), // total
                    0);
         brc = TRUE;
     }
     else
     {
-        // _Pmpf(("winhUpdateScrollBar: ulWorkareaPels <= ulWinPels"));
         // entire workarea is visible:
         WinEnableWindow(hwndScrollBar, FALSE);
         if (fAutoHide)
@@ -2090,54 +2036,52 @@ BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or h
 
 /*
  *@@ winhHandleScrollMsg:
- *      this helper handles a WM_VSCROLL or WM_HSCROLL
- *      message posted to a client window when the user
- *      has worked on a client scroll bar. Calling this
- *      function is ALL you need to do to handle those
- *      two messages.
+ *      this helper handles a WM_VSCROLL or WM_HSCROLL message
+ *      posted to a client window when the user has worked on a
+ *      client scroll bar. Calling this function is all you need to
+ *      do to handle those two messages.
  *
  *      This is most useful in conjunction with winhUpdateScrollBar.
  *      See that function for the terminology also.
  *
- *      This function calculates the new scrollbar position
- *      (from the mp2 value, which can be line up/down,
- *      page up/down, or slider track) and calls WinScrollWindow
- *      accordingly. The window part which became invalid
- *      because of the scrolling is automatically invalidated
- *      (using WinInvalidateRect), so expect a WM_PAINT after
- *      calling this function.
+ *      This function calculates the new scrollbar position (from
+ *      the mp2 value, which can be line up/down, page up/down, or
+ *      slider track) and calculates the scrolling offset
+ *      accordingly, which is returned as a LONG.
  *
  *      This function assumes that the scrollbar operates
  *      on values starting from zero. The maximum value
- *      of the scroll bar is:
+ *      of the scroll bar is therefore
  *
- +          ulWorkareaPels - (prcl2Scroll->yTop - prcl2Scroll->yBottom)
+ +          lWorkareaPels - (prcl2Scroll->yTop - prcl2Scroll->yBottom)
  *
- *      This function also automatically changes the scroll bar
+ *      This function also automatically shrinks the scroll bar
  *      units, should you have a workarea size which doesn't fit
  *      into the SHORT's that the scroll bar uses internally. As
  *      a result, this function handles a the complete range of
- *      a ULONG for the workarea.
+ *      a LONG for the workarea. (The PM scroll bar implementation
+ *      is really brain-dead in this respect... the workarea can
+ *      easily be larger than 32768 pixels. That's what scroll bars
+ *      are for in the first place, dammit.)
  *
  *      Replace "bottom" and "top" with "right" and "left" for
  *      horizontal scrollbars in the above formula.
+ *
+ *      Returns the amount of pixels to be passed to winhScrollWindow
+ *      afterwards.
  *
  *@@added V0.9.1 (2000-02-13) [umoeller]
  *@@changed V0.9.3 (2000-04-30) [umoeller]: changed prototype, fixed pels/unit confusion
  *@@changed V0.9.3 (2000-05-08) [umoeller]: now handling scroll units automatically
  *@@changed V0.9.7 (2001-01-17) [umoeller]: changed PLONG to PULONG
+ *@@changed V1.0.1 (2003-01-25) [umoeller]: changed prototype, no longer calling WinScrollWindow, fixed offset bugs
  */
 
-BOOL winhHandleScrollMsg(HWND hwnd2Scroll,          // in: client window to scroll
-                         HWND hwndScrollBar,        // in: vertical or horizontal scroll bar window
-                         PULONG pulCurPelsOfs,      // in/out: current workarea offset;
-                                                    // this is updated with the proper scroll units
-                         PRECTL prcl2Scroll,        // in: hwnd2Scroll rectangle to scroll
-                                                    // (in window coordinates);
-                                                    // this is passed to WinScrollWindow,
-                                                    // which considers this inclusive!
-                         LONG ulWorkareaPels,       // in: total workarea dimension,
-                                                    // into which *pulCurPelsOfs is an offset
+LONG winhHandleScrollMsg(HWND hwndScrollBar,        // in: vertical or horizontal scroll bar window
+                         PLONG plCurPelsOfs,        // in/out: current workarea offset (in window coordinates)
+                         LONG lWindowPels,          // in: window cx or cy (in window coordinates)
+                         LONG lWorkareaPels,        // in: total workarea dimension,
+                                                    // into which *plCurPelsOfs is an offset
                          USHORT usLineStepPels,     // in: pixels to scroll line-wise
                                                     // (scroll bar buttons pressed)
                          ULONG msg,                 // in: either WM_VSCROLL or WM_HSCROLL
@@ -2145,209 +2089,63 @@ BOOL winhHandleScrollMsg(HWND hwnd2Scroll,          // in: client window to scro
                                                     // this has two SHORT's (usPos and usCmd),
                                                     // see PMREF for details
 {
-    ULONG   ulOldPelsOfs = *pulCurPelsOfs;
-    USHORT  usPosUnits = SHORT1FROMMP(mp2), // in scroll units
-            usCmd = SHORT2FROMMP(mp2);
-    LONG    lMaxAllowedUnitOfs;
-    ULONG   ulWinPels;
-
-    // for large workareas, adjust scroll bar units
-    USHORT  usScrollUnitPels = 1;
-    if (ulWorkareaPels > 10000)
-        usScrollUnitPels = 100;
-
-    // calculate window size (vertical or horizontal)
-    if (msg == WM_VSCROLL)
-        ulWinPels = (prcl2Scroll->yTop - prcl2Scroll->yBottom);
-    else
-        ulWinPels = (prcl2Scroll->xRight - prcl2Scroll->xLeft);
-
-    lMaxAllowedUnitOfs = ((LONG)ulWorkareaPels - ulWinPels) / usScrollUnitPels;
-
-    // _Pmpf(("Entering winhHandleScrollMsg"));
-
-    switch (usCmd)
-    {
-        case SB_LINEUP:
-            if (*pulCurPelsOfs > usLineStepPels)
-                *pulCurPelsOfs -= usLineStepPels;  //  * usScrollUnitPels);
-            else
-                *pulCurPelsOfs = 0;
-        break;
-
-        case SB_LINEDOWN:
-            *pulCurPelsOfs += usLineStepPels;  //  * usScrollUnitPels);
-        break;
-
-        case SB_PAGEUP:
-            if (*pulCurPelsOfs > ulWinPels)
-                *pulCurPelsOfs -= ulWinPels; // convert to units
-            else
-                *pulCurPelsOfs = 0;
-        break;
-
-        case SB_PAGEDOWN:
-            *pulCurPelsOfs += ulWinPels; // convert to units
-        break;
-
-        case SB_SLIDERTRACK:
-            *pulCurPelsOfs = (usPosUnits * usScrollUnitPels);
-            // _Pmpf(("    SB_SLIDERTRACK: usUnits = %d", usPosUnits));
-        break;
-
-        case SB_SLIDERPOSITION:
-            *pulCurPelsOfs = (usPosUnits * usScrollUnitPels);
-        break;
-    }
-
-    // are we close to the lower limit?
-    /* if (*plCurUnitOfs < usLineStepUnits) // usScrollUnit)
-        *plCurUnitOfs = 0;
-    // are we close to the upper limit?
-    else if (*plCurUnitOfs + usLineStepUnits > lMaxUnitOfs)
-    {
-        _Pmpf(("        !!! limiting: %d to %d", *plCurUnitOfs, lMaxUnitOfs));
-        *plCurUnitOfs = lMaxUnitOfs;
-    } */
-
-    /* if (*plCurPelsOfs < 0)
-        *plCurPelsOfs = 0; */       // checked above
-    if (*pulCurPelsOfs > (lMaxAllowedUnitOfs * usScrollUnitPels))
-    {
-        *pulCurPelsOfs = (lMaxAllowedUnitOfs * usScrollUnitPels);
-    }
-    if (    (*pulCurPelsOfs != ulOldPelsOfs)
-         || (*pulCurPelsOfs == 0)
-         || (*pulCurPelsOfs == (lMaxAllowedUnitOfs * usScrollUnitPels))
-       )
-    {
-        RECTL   rcl2Scroll,
-                rcl2Update;
-
-        // changed:
-        WinSendMsg(hwndScrollBar,
-                   SBM_SETPOS,
-                   (MPARAM)(*pulCurPelsOfs / usScrollUnitPels), //  / usScrollUnit),
-                   0);
-        // scroll window rectangle:
-        rcl2Scroll.xLeft =  prcl2Scroll->xLeft;
-        rcl2Scroll.xRight =  prcl2Scroll->xRight;
-        rcl2Scroll.yBottom =  prcl2Scroll->yBottom;
-        rcl2Scroll.yTop =  prcl2Scroll->yTop;
-
-        if (msg == WM_VSCROLL)
-            WinScrollWindow(hwnd2Scroll,
-                            0,
-                            (*pulCurPelsOfs - ulOldPelsOfs)  // scroll units changed
-                            ,    // * usScrollUnitPels,     // convert to pels
-                            &rcl2Scroll,  // rcl to scroll
-                            prcl2Scroll, // clipping rect
-                            NULLHANDLE, // no region
-                            &rcl2Update,
-                            0);
-        else
-            WinScrollWindow(hwnd2Scroll,
-                            -(LONG)(*pulCurPelsOfs - ulOldPelsOfs) // scroll units changed
-                            ,    // * usScrollUnitPels,
-                            0,
-                            &rcl2Scroll,  // rcl to scroll
-                            prcl2Scroll, // clipping rect
-                            NULLHANDLE, // no region
-                            &rcl2Update,
-                            0);
-
-        // WinScrollWindow has stored the invalid window
-        // rectangle which needs to be repainted in rcl2Update:
-        WinInvalidateRect(hwnd2Scroll, &rcl2Update, FALSE);
-    }
-
-    // _Pmpf(("End of winhHandleScrollMsg"));
-
-    return TRUE;
-}
-
-/*
- *@@ winhHandleScrollMsg2:
- *
- *      Returns the amount of pixels to be passed to
- *      WinScrollWindow.
- *
- *@@added V1.0.1 (2003-01-17) [umoeller]
- */
-
-LONG winhHandleScrollMsg2(HWND hwndScrollBar,        // in: vertical or horizontal scroll bar window
-                          PLONG plCurPelsOfs,        // in/out: current workarea offset;
-                                                     // this is updated with the proper scroll units
-                          LONG lWindowPels,          // in: window cx or cy (in window coordinates);
-                          LONG lWorkareaPels,        // in: total workarea dimension,
-                                                     // into which *plCurPelsOfs is an offset
-                          USHORT usLineStepPels,     // in: pixels to scroll line-wise
-                                                     // (scroll bar buttons pressed)
-                          ULONG msg,                 // in: either WM_VSCROLL or WM_HSCROLL
-                          MPARAM mp2)                // in: complete mp2 of WM_VSCROLL/WM_HSCROLL;
-                                                     // this has two SHORT's (usPos and usCmd),
-                                                     // see PMREF for details
-{
     LONG    lOldPelsOfs = *plCurPelsOfs;
     USHORT  usPosUnits = SHORT1FROMMP(mp2), // in scroll units
             usCmd = SHORT2FROMMP(mp2);
-    LONG    lMaxAllowedUnitOfs;
+    LONG    lLimitPels;
 
     // for large workareas, adjust scroll bar units
-    USHORT  usScrollUnitPels = 1;
+    LONG    lScrollUnitPels = 1;
     if (lWorkareaPels > 10000)
-        usScrollUnitPels = 100;
-
-    lMaxAllowedUnitOfs = (lWorkareaPels - lWindowPels) / usScrollUnitPels;
-
-    // _Pmpf(("Entering winhHandleScrollMsg"));
+        lScrollUnitPels = 100;
 
     switch (usCmd)
     {
         case SB_LINEUP:
-            if (*plCurPelsOfs > usLineStepPels)
-                *plCurPelsOfs -= usLineStepPels;  //  * usScrollUnitPels);
-            else
-                *plCurPelsOfs = 0;
+            *plCurPelsOfs -= usLineStepPels;
         break;
 
         case SB_LINEDOWN:
-            *plCurPelsOfs += usLineStepPels;  //  * usScrollUnitPels);
+            *plCurPelsOfs += usLineStepPels;
         break;
 
         case SB_PAGEUP:
-            if (*plCurPelsOfs > lWindowPels)
-                *plCurPelsOfs -= lWindowPels; // convert to units
-            else
-                *plCurPelsOfs = 0;
+            *plCurPelsOfs -= lWindowPels;
         break;
 
         case SB_PAGEDOWN:
-            *plCurPelsOfs += lWindowPels; // convert to units
+            *plCurPelsOfs += lWindowPels;
         break;
 
         case SB_SLIDERTRACK:
-            *plCurPelsOfs = (usPosUnits * usScrollUnitPels);
-            // _Pmpf(("    SB_SLIDERTRACK: usUnits = %d", usPosUnits));
+            *plCurPelsOfs = (LONG)usPosUnits * lScrollUnitPels;
         break;
 
         case SB_SLIDERPOSITION:
-            *plCurPelsOfs = (usPosUnits * usScrollUnitPels);
+            *plCurPelsOfs = (LONG)usPosUnits * lScrollUnitPels;
         break;
     }
 
-    if (*plCurPelsOfs > (lMaxAllowedUnitOfs * usScrollUnitPels))
-        *plCurPelsOfs = (lMaxAllowedUnitOfs * usScrollUnitPels);
+    // calc max scroll offset:
+    // if we have a viewport of 200 and the window size is 199,
+    // we can have scroll values of 0 or 1
+    lLimitPels = lWorkareaPels - lWindowPels;
+
+    // now delimit
+    if (*plCurPelsOfs < 0)
+        *plCurPelsOfs = 0;
+    else if (*plCurPelsOfs > lLimitPels)
+        *plCurPelsOfs = lLimitPels;
 
     if (    (*plCurPelsOfs != lOldPelsOfs)
          || (*plCurPelsOfs == 0)
-         || (*plCurPelsOfs == (lMaxAllowedUnitOfs * usScrollUnitPels))
+         || (*plCurPelsOfs == lLimitPels)
        )
     {
         // changed:
         WinSendMsg(hwndScrollBar,
                    SBM_SETPOS,
-                   (MPARAM)(*plCurPelsOfs / usScrollUnitPels), //  / usScrollUnit),
+                   (MPARAM)(*plCurPelsOfs / lScrollUnitPels),
                    0);
 
         if (msg == WM_VSCROLL)
@@ -2380,7 +2178,7 @@ BOOL winhScrollWindow(HWND hwnd2Scroll,
 }
 
 /*
- *@@ winhProcessScrollChars:
+ *@@ winhProcessScrollChars2:
  *      helper for processing WM_CHAR messages for
  *      client windows with scroll bars.
  *
@@ -2399,38 +2197,31 @@ BOOL winhScrollWindow(HWND hwnd2Scroll,
  *
  *      The following keystrokes are processed here:
  *
- *      -- "cursor up, down, right, left": scroll one
- *         line in the proper direction.
- *      -- "page up, down": scroll one page up or down.
- *      -- "Home": scroll leftmost.
- *      -- "Ctrl+ Home": scroll topmost.
- *      -- "End": scroll rightmost.
- *      -- "Ctrl+ End": scroll bottommost.
- *      -- "Ctrl + page up, down": scroll one screen left or right.
+ *      --  "cursor up, down, right, left": scroll one
+ *          line in the proper direction.
+ *      --  "page up, down": scroll one page up or down.
+ *      --  "Home": scroll leftmost.
+ *      --  "Ctrl+ Home": scroll topmost.
+ *      --  "End": scroll rightmost.
+ *      --  "Ctrl+ End": scroll bottommost.
+ *      --  "Ctrl + page up, down": scroll one screen left or right.
  *
- *      This is CUA behavior.
+ *      This is CUA behavior, if anyone still cares about that.
  *
- *      Returns TRUE if the message has been
- *      processed.
+ *      Returns TRUE if the message has been processed.
  *
  *@@added V0.9.3 (2000-04-29) [umoeller]
  *@@changed V0.9.9 (2001-02-01) [lafaix]: Ctrl+PgUp/Dn now do one screen left/right
  */
 
-BOOL winhProcessScrollChars(HWND hwndClient,    // in: client window
-                            HWND hwndVScroll,   // in: vertical scroll bar
-                            HWND hwndHScroll,   // in: horizontal scroll bar
-                            MPARAM mp1,         // in: WM_CHAR mp1
-                            MPARAM mp2,         // in: WM_CHAR mp2
-                            ULONG ulVertMax,    // in: maximum workarea cy
-                            ULONG ulHorzMax)    // in: maximum workarea cx
+BOOL winhProcessScrollChars2(HWND hwndClient,    // in: client window
+                             const SCROLLABLEWINDOW *pscrw,   // in: scroller data
+                             MPARAM mp1,         // in: WM_CHAR mp1
+                             MPARAM mp2)         // in: WM_CHAR mp2
 {
     BOOL    fProcessed = FALSE;
     USHORT usFlags    = SHORT1FROMMP(mp1);
-    // USHORT usch       = SHORT1FROMMP(mp2);
     USHORT usvk       = SHORT2FROMMP(mp2);
-
-    // _Pmpf(("Entering winhProcessScrollChars"));
 
     if (usFlags & KC_VIRTUALKEY)
     {
@@ -2493,12 +2284,12 @@ BOOL winhProcessScrollChars(HWND hwndClient,    // in: client window
                 {
                     // vertical:
                     ulMsg = WM_VSCROLL;
-                    sPos = ulVertMax;
+                    sPos = pscrw->szlWorkarea.cy;
                 }
                 else
                 {
                     ulMsg = WM_HSCROLL;
-                    sPos = ulHorzMax;
+                    sPos = pscrw->szlWorkarea.cx;
                 }
 
                 usCmd = SB_SLIDERPOSITION;
@@ -2514,8 +2305,8 @@ BOOL winhProcessScrollChars(HWND hwndClient,    // in: client window
            )
         {
             HWND   hwndScrollBar = ((ulMsg == WM_VSCROLL)
-                                        ? hwndVScroll
-                                        : hwndHScroll);
+                                        ? pscrw->hwndVScroll
+                                        : pscrw->hwndHScroll);
             if (WinIsWindowEnabled(hwndScrollBar))
             {
                 USHORT usID = WinQueryWindowUShort(hwndScrollBar,
@@ -2529,9 +2320,181 @@ BOOL winhProcessScrollChars(HWND hwndClient,    // in: client window
         }
     }
 
-    // _Pmpf(("End of  winhProcessScrollChars"));
-
     return fProcessed;
+}
+
+/*
+ *@@ winhProcessScrollChars:
+ *      wrapper around winhProcessScrollChars2 for prototype
+ *      compatibility.
+ *
+ *@@added V1.0.1 (2003-01-25) [umoeller]
+ */
+
+BOOL winhProcessScrollChars(HWND hwndClient,    // in: client window
+                            HWND hwndVScroll,   // in: vertical scroll bar
+                            HWND hwndHScroll,   // in: horizontal scroll bar
+                            MPARAM mp1,         // in: WM_CHAR mp1
+                            MPARAM mp2,         // in: WM_CHAR mp2
+                            ULONG ulVertMax,    // in: maximum workarea cy
+                            ULONG ulHorzMax)    // in: maximum workarea cx
+{
+    SCROLLABLEWINDOW scrw;
+
+    scrw.hwndVScroll = hwndVScroll;
+    scrw.hwndHScroll = hwndHScroll;
+    scrw.szlWorkarea.cx = ulHorzMax;
+    scrw.szlWorkarea.cy = ulVertMax;
+
+    return winhProcessScrollChars2(hwndClient,
+                                   &scrw,
+                                   mp1,
+                                   mp2);
+}
+
+/*
+ *@@ winhCreateScrollBars:
+ *      creates two scroll bars with an arbitrary
+ *      position for later use with winhUpdateScrollBar.
+ *
+ *@@added V1.0.1 (2003-01-25) [umoeller]
+ */
+
+BOOL XWPENTRY winhCreateScroller(HWND hwndParent,           // in: parent and owner of scroll bars
+                                 PSCROLLABLEWINDOW pscrw,   // out: scroller data
+                                 ULONG idVScroll,           // in: window ID of vertical scroll bar
+                                 ULONG idHScroll)           // in: window ID of horizontal scroll bar
+{
+    SBCDATA     sbcd;
+    sbcd.cb = sizeof(SBCDATA);
+    sbcd.sHilite = 0;
+    sbcd.posFirst = 0;
+    sbcd.posLast = 100;
+    sbcd.posThumb = 30;
+    sbcd.cVisible = 50;
+    sbcd.cTotal = 50;
+
+    pscrw->cxScrollBar = WinQuerySysValue(HWND_DESKTOP, SV_CXVSCROLL);
+    pscrw->cyScrollBar = WinQuerySysValue(HWND_DESKTOP, SV_CYHSCROLL);
+
+    pscrw->idVScroll = idVScroll;
+    pscrw->idHScroll = idHScroll;
+
+    pscrw->szlWorkarea.cx
+    = pscrw->szlWorkarea.cy
+    = pscrw->ptlScrollOfs.x
+    = pscrw->ptlScrollOfs.y
+    = 0;
+
+    return (    (pscrw->hwndVScroll = WinCreateWindow(hwndParent,
+                                                      WC_SCROLLBAR,
+                                                      "",
+                                                      SBS_VERT | SBS_THUMBSIZE | WS_VISIBLE,
+                                                      10, 10,
+                                                      20, 100,
+                                                      hwndParent,     // owner
+                                                      HWND_TOP,
+                                                      idVScroll,
+                                                      &sbcd,
+                                                      0))
+             && (pscrw->hwndHScroll = WinCreateWindow(hwndParent,
+                                                      WC_SCROLLBAR,
+                                                      "",
+                                                      SBS_THUMBSIZE | WS_VISIBLE,
+                                                      10, 10,
+                                                      20, 100,
+                                                      hwndParent,     // owner
+                                                      HWND_TOP,
+                                                      idHScroll,
+                                                      &sbcd,
+                                                      0))
+           );
+}
+
+/*
+ *@@ winhHandleScrollerMsgs:
+ *      unified function that you can simply call for all of
+ *      the WM_HSCROLL, WM_VSCROLL, and WM_CHAR messages to
+ *      get full automatic scrolling support for window
+ *      messages.
+ *
+ *      This calls winhHandleScrollMsg, winhScrollWindow,
+ *      and winhProcessScrollChars in turn as appropriate.
+ *
+ *      However, you still need to call winhUpdateScrollBar
+ *      for each scroll bar whenever either the workarea or
+ *      window size changes.
+ *
+ *      See winhUpdateScrollBar for the terminology.
+ *
+ *      The size of the workarea must be passed in with
+ *      pscrw, as well as the window and scrollbar handles.
+ *      By contrast, the current window size must be passed
+ *      in via the pszlWin parameter. This allows for cooperation
+ *      with the ctlDefWindowProc funcs, which have their own
+ *      fields for this in DEFWINDOWDATA so we won't duplicate.
+ *
+ *      Preconditions:
+ *
+ *      --  hwnd2Scroll (the "client") and the scroll bar windows
+ *          must be siblings presently. In other words, scrolling
+ *          won't work correctly if the scroll bars are children
+ *          of the client because we do not presently handle
+ *          passing a clipping rectangle to WinScrollWindow here.
+ *
+ *@@added V1.0.1 (2003-01-25) [umoeller]
+ */
+
+MRESULT winhHandleScrollerMsgs(HWND hwnd2Scroll,        // in: "client" window
+                               PSCROLLABLEWINDOW pscrw, // in: scroller data
+                               PSIZEL pszlWin,
+                               ULONG msg,
+                               MPARAM mp1,
+                               MPARAM mp2)
+{
+    MRESULT mrc = 0;
+    POINTL  ptlScroll = {0, 0};
+
+    switch (msg)
+    {
+        case WM_VSCROLL:
+            if (ptlScroll.y = winhHandleScrollMsg(pscrw->hwndVScroll,
+                                                  &pscrw->ptlScrollOfs.y,
+                                                  pszlWin->cy,
+                                                  pscrw->szlWorkarea.cy,
+                                                  10,
+                                                  msg,
+                                                  mp2))
+                winhScrollWindow(hwnd2Scroll,
+                                 NULL,
+                                 &ptlScroll);
+        break;
+
+        case WM_HSCROLL:
+            if (ptlScroll.x = winhHandleScrollMsg(pscrw->hwndHScroll,
+                                                  &pscrw->ptlScrollOfs.x,
+                                                  pszlWin->cx,
+                                                  pscrw->szlWorkarea.cx,
+                                                  10,
+                                                  msg,
+                                                  mp2))
+                winhScrollWindow(hwnd2Scroll,
+                                 NULL,
+                                 &ptlScroll);
+        break;
+
+        case WM_CHAR:
+            mrc = (MRESULT)winhProcessScrollChars(hwnd2Scroll,
+                                                  pscrw->hwndVScroll,
+                                                  pscrw->hwndHScroll,
+                                                  mp1,
+                                                  mp2,
+                                                  pscrw->szlWorkarea.cy,
+                                                  pscrw->szlWorkarea.cx);
+        break;
+    }
+
+    return mrc;
 }
 
 /*
@@ -3762,6 +3725,31 @@ HSWITCH winhAddToTasklist(HWND hwnd,       // in: window to add
                    NULL);
 
     return hswitch;
+}
+
+/*
+ *@@ winhUpdateTasklist:
+ *      refreshes the task list entry for the given
+ *      window with a new title text.
+ *
+ *@@added V1.0.1 (2003-01-25) [umoeller]
+ */
+
+BOOL winhUpdateTasklist(HWND hwnd,
+                        PCSZ pcszNewTitle)
+{
+    HSWITCH hsw;
+    if (hsw = WinQuerySwitchHandle(hwnd, 0))
+    {
+        SWCNTRL swc;
+        WinQuerySwitchEntry(hsw, &swc);
+        strhncpy0(swc.szSwtitle,
+                  pcszNewTitle,
+                  sizeof(swc.szSwtitle));
+        return !WinChangeSwitchEntry(hsw, &swc);
+    }
+
+    return FALSE;
 }
 
 /*
