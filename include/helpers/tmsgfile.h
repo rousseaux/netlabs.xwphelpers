@@ -53,7 +53,7 @@ extern "C" {
     APIRET tmfGetMessage(PTMFMSGFILE pMsgFile,
                          PCSZ pcszMessageName,
                          PXSTRING pstr,
-                         PSZ *pTable,
+                         PCSZ *pTable,
                          ULONG cTableEntries);
 
     /* APIRET tmfGetMessage(PCHAR *pTable,

@@ -138,8 +138,9 @@ Here we go:
             +-- xdoc tag ("@@changed" or "@@added")
 
         xdoc can create a full change log if these things are set
-        properly. Try "createdoc.cmd" in the WarpIN and XWorkplace
-        main source directories, respectively.
+        properly. Try "createdoc.cmd" or "createchangelog.cmd" in
+        the WarpIN and XWorkplace main source directories,
+        respectively.
 
         Also, this way I can do a simple search over all files
         to update the readme with changes and bugfixes for the new

@@ -3,6 +3,9 @@
  *@@sourcefile cp1252.h:
  *      encoding translation for CP1252 to Unicode.
  *
+ *      Note: From my checking, 1252 is exactly the
+ *      same as 1004, except for codepoint 0xAF.
+ *
  *@@added V0.9.9 (2001-02-10) [umoeller]
  */
 

@@ -144,7 +144,7 @@ extern "C" {
 
     ULONG XWPENTRY strhGetBlock(const char *pszSearchIn,
                                 PULONG pulSearchOffset,
-                                PSZ pszTag,
+                                const char *pszTag,
                                 PSZ *ppszBlock,
                                 PSZ *ppszAttribs,
                                 PULONG pulOfsBeginTag,

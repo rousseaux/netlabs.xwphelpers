@@ -1412,7 +1412,7 @@ PSZ strhFindEndOfTag(const char *pszBeginOfTag)
 
 ULONG strhGetBlock(const char *pszSearchIn, // in: buffer to search
                    PULONG pulSearchOffset, // in/out: offset where to start search (0 for beginning)
-                   PSZ pszTag,
+                   const char *pszTag,
                    PSZ *ppszBlock,      // out: block enclosed by the tags
                    PSZ *ppszAttribs,    // out: attributes of the opening tag
                    PULONG pulOfsBeginTag, // out: offset from pszSearchIn where opening tag was found
@@ -1428,7 +1428,7 @@ ULONG strhGetBlock(const char *pszSearchIn, // in: buffer to search
     // begin tag we're looking for
     while ((pszBeginTag = strchr(pszBeginTag, '<')))
     {
-        if (memicmp(pszBeginTag+1, pszTag, strlen(pszTag)) == 0)
+        if (memicmp(pszBeginTag+1, (void*)pszTag, strlen(pszTag)) == 0)
             // yes: stop
             break;
         else
@@ -1479,13 +1479,13 @@ ULONG strhGetBlock(const char *pszSearchIn, // in: buffer to search
                 // if we have another opening tag before our closing
                 // tag, we need to have several closing tags before
                 // we're done
-                if (memicmp(pszClosingTag+1, pszTag, cbTag) == 0)
+                if (memicmp(pszClosingTag+1, (void*)pszTag, cbTag) == 0)
                     ulNestingLevel++;
                 else
                 {
                     // is this ours?
                     if (    (*(pszClosingTag+1) == '/')
-                         && (memicmp(pszClosingTag+2, pszTag, cbTag) == 0)
+                         && (memicmp(pszClosingTag+2, (void*)pszTag, cbTag) == 0)
                        )
                     {
                         // we've found a matching closing tag; is

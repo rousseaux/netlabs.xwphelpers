@@ -84,34 +84,29 @@
 
 #define UTF8_INVALID4(p) ((*p) == 0xF4 && ((p)[1] & 0x30) != 0)
 
-static
-int EXPATENTRY isNever(const ENCODING * enc, const char *p)
+static int EXPATENTRY isNever(const ENCODING * enc, const char *p)
 {
     return 0;
 }
 
-static
-int EXPATENTRY utf8_isName2(const ENCODING * enc, const char *p)
+static int EXPATENTRY utf8_isName2(const ENCODING * enc, const char *p)
 {
     return UTF8_GET_NAMING2(namePages, (const unsigned char *)p);
 }
 
-static
-int EXPATENTRY utf8_isName3(const ENCODING * enc, const char *p)
+static int EXPATENTRY utf8_isName3(const ENCODING * enc, const char *p)
 {
     return UTF8_GET_NAMING3(namePages, (const unsigned char *)p);
 }
 
 #define utf8_isName4 isNever
 
-static
-int EXPATENTRY utf8_isNmstrt2(const ENCODING * enc, const char *p)
+static int EXPATENTRY utf8_isNmstrt2(const ENCODING * enc, const char *p)
 {
     return UTF8_GET_NAMING2(nmstrtPages, (const unsigned char *)p);
 }
 
-static
-int EXPATENTRY utf8_isNmstrt3(const ENCODING * enc, const char *p)
+static int EXPATENTRY utf8_isNmstrt3(const ENCODING * enc, const char *p)
 {
     return UTF8_GET_NAMING3(nmstrtPages, (const unsigned char *)p);
 }
@@ -120,14 +115,12 @@ int EXPATENTRY utf8_isNmstrt3(const ENCODING * enc, const char *p)
 
 #define utf8_isInvalid2 isNever
 
-static
-int EXPATENTRY utf8_isInvalid3(const ENCODING * enc, const char *p)
+static int EXPATENTRY utf8_isInvalid3(const ENCODING * enc, const char *p)
 {
     return UTF8_INVALID3((const unsigned char *)p);
 }
 
-static
-int EXPATENTRY utf8_isInvalid4(const ENCODING * enc, const char *p)
+static int EXPATENTRY utf8_isInvalid4(const ENCODING * enc, const char *p)
 {
     return UTF8_INVALID4((const unsigned char *)p);
 }
@@ -275,10 +268,10 @@ enum
 };
 
 static void EXPATENTRY utf8_toUtf8(const ENCODING * enc,
-                        const char **fromP,
-                        const char *fromLim,
-                        char **toP,
-                        const char *toLim)
+                                   const char **fromP,
+                                   const char *fromLim,
+                                   char **toP,
+                                   const char *toLim)
 {
     char *to;
     const char *from;
@@ -301,10 +294,10 @@ static void EXPATENTRY utf8_toUtf8(const ENCODING * enc,
 }
 
 static void EXPATENTRY utf8_toUtf16(const ENCODING * enc,
-                         const char **fromP,
-                         const char *fromLim,
-                         unsigned short **toP,
-                         const unsigned short *toLim)
+                                    const char **fromP,
+                                    const char *fromLim,
+                                    unsigned short **toP,
+                                    const unsigned short *toLim)
 {
     unsigned short *to = *toP;
     const char *from = *fromP;
@@ -396,10 +389,10 @@ static const struct normal_encoding internal_utf8_encoding =
 };
 
 static void  EXPATENTRY latin1_toUtf8(const ENCODING * enc,
-                          const char **fromP,
-                          const char *fromLim,
-                          char **toP,
-                          const char *toLim)
+                                      const char **fromP,
+                                      const char *fromLim,
+                                      char **toP,
+                                      const char *toLim)
 {
     for (;;)
     {
@@ -426,10 +419,10 @@ static void  EXPATENTRY latin1_toUtf8(const ENCODING * enc,
 }
 
 static void  EXPATENTRY latin1_toUtf16(const ENCODING * enc,
-                           const char **fromP,
-                           const char *fromLim,
-                           unsigned short **toP,
-                           const unsigned short *toLim)
+                                       const char **fromP,
+                                       const char *fromLim,
+                                       unsigned short **toP,
+                                       const unsigned short *toLim)
 {
     while (*fromP != fromLim && *toP != toLim)
         *(*toP)++ = (unsigned char)*(*fromP)++;
@@ -462,10 +455,10 @@ static const struct normal_encoding latin1_encoding =
 };
 
 static void EXPATENTRY ascii_toUtf8(const ENCODING * enc,
-                         const char **fromP,
-                         const char *fromLim,
-                         char **toP,
-                         const char *toLim)
+                                    const char **fromP,
+                                    const char *fromLim,
+                                    char **toP,
+                                    const char *toLim)
 {
     while (*fromP != fromLim && *toP != toLim)
         *(*toP)++ = *(*fromP)++;
@@ -917,13 +910,17 @@ static int streqci(const char *s1, const char *s2)
     return 1;
 }
 
-static void  EXPATENTRY initUpdatePosition(const ENCODING * enc, const char *ptr,
-                        const char *end, POSITION * pos)
+static void  EXPATENTRY initUpdatePosition(const ENCODING * enc,
+                                           const char *ptr,
+                                           const char *end,
+                                           POSITION * pos)
 {
     normal_updatePosition(&utf8_encoding.enc, ptr, end, pos);
 }
 
-static int  EXPATENTRY toAscii(const ENCODING * enc, const char *ptr, const char *end)
+static int  EXPATENTRY toAscii(const ENCODING * enc,
+                               const char *ptr,
+                               const char *end)
 {
     char buf[1];
     char *p = buf;
@@ -951,12 +948,12 @@ static int  EXPATENTRY isSpace(int c)
 /* Return 1 if there's just optional white space
  * or there's an S followed by name=val. */
 static int  EXPATENTRY parsePseudoAttribute(const ENCODING * enc,
-                                const char *ptr,
-                                const char *end,
-                                const char **namePtr,
-                                const char **nameEndPtr,
-                                const char **valPtr,
-                                const char **nextTokPtr)
+                                            const char *ptr,
+                                            const char *end,
+                                            const char **namePtr,
+                                            const char **nameEndPtr,
+                                            const char **valPtr,
+                                            const char **nextTokPtr)
 {
     int c;
     char open;
@@ -1311,10 +1308,10 @@ static int  EXPATENTRY unknown_isInvalid(const ENCODING * enc, const char *p)
 }
 
 static void  EXPATENTRY unknown_toUtf8(const ENCODING * enc,
-                           const char **fromP,
-                           const char *fromLim,
-                           char **toP,
-                           const char *toLim)
+                                       const char **fromP,
+                                       const char *fromLim,
+                                       char **toP,
+                                       const char *toLim)
 {
     char buf[XML_UTF8_ENCODE_MAX];
 
@@ -1354,10 +1351,10 @@ static void  EXPATENTRY unknown_toUtf8(const ENCODING * enc,
 }
 
 static void  EXPATENTRY unknown_toUtf16(const ENCODING * enc,
-                            const char **fromP,
-                            const char *fromLim,
-                            unsigned short **toP,
-                            const unsigned short *toLim)
+                                        const char **fromP,
+                                        const char *fromLim,
+                                        unsigned short **toP,
+                                        const unsigned short *toLim)
 {
     while (*fromP != fromLim && *toP != toLim)
     {
@@ -1558,11 +1555,11 @@ static int getEncodingIndex(const char *name)
 
 
 static int EXPATENTRY initScan(const ENCODING ** encodingTable,
-                    const INIT_ENCODING * enc,
-                    int state,
-                    const char *ptr,
-                    const char *end,
-                    const char **nextTokPtr)
+                               const INIT_ENCODING * enc,
+                               int state,
+                               const char *ptr,
+                               const char *end,
+                               const char **nextTokPtr)
 {
     const ENCODING **encPtr;
 

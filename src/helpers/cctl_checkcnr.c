@@ -565,9 +565,8 @@ static MRESULT EXPENTRY fnwpSubclCheckboxCnr(HWND hwndCnr, ULONG msg, MPARAM mp1
                     lstRemoveItem(G_pllCnrOwners, pcbco);
 
                     if (lstCountItems(G_pllCnrOwners) == 0)
-                    {
                         lstFree(&G_pllCnrOwners);
-                    }
+
                     DosReleaseMutexSem(G_hmtxCnrOwnersList);
                 }
 
@@ -626,12 +625,9 @@ static MRESULT EXPENTRY fnwpSubclCheckboxCnrOwner(HWND hwndOwner, ULONG msg, MPA
 
             case WM_CONTROL:
             {
-                USHORT  usItemID = SHORT1FROMMP(mp1),
-                        usNotifyCode = SHORT2FROMMP(mp1);
-
-                if (usItemID == pcbco->usCnrID)
+                if (SHORT1FROMMP(mp1) == pcbco->usCnrID)
                 {
-                    switch (usNotifyCode)
+                    switch (SHORT2FROMMP(mp1))
                     {
                         case CN_ENTER:
                         {
@@ -644,10 +640,13 @@ static MRESULT EXPENTRY fnwpSubclCheckboxCnrOwner(HWND hwndOwner, ULONG msg, MPA
                                                    TRUE);
                         }
                         break;
+
+                        default:
+                            mrc = pfnwpOrig(hwndOwner, msg, mp1, mp2);
                     }
                 }
-
-                mrc = pfnwpOrig(hwndOwner, msg, mp1, mp2);
+                else
+                    mrc = pfnwpOrig(hwndOwner, msg, mp1, mp2);
             }
             break;
 

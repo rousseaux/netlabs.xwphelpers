@@ -1063,14 +1063,13 @@ PSZ xstrFindWord(const XSTRING *pxstr,        // in: buffer to search ("haystack
 
             do  // while p
             {
-                p = (PSZ)strhmemfind(p,         // in: haystack
-                                     pxstr->ulLength - (p - pxstr->psz),
-                                                // remaining length of haystack
-                                     pstrFind->psz,
-                                     ulFoundLen,
-                                     pShiftTable,
-                                     pfRepeatFind);
-                if (p)
+                if (p = (PSZ)strhmemfind(p,         // in: haystack
+                                         pxstr->ulLength - (p - pxstr->psz),
+                                                    // remaining length of haystack
+                                         pstrFind->psz,
+                                         ulFoundLen,
+                                         pShiftTable,
+                                         pfRepeatFind))
                 {
                     // string found:
                     // check if that's a word
@@ -1186,14 +1185,13 @@ ULONG xstrFindReplace(PXSTRING pxstr,               // in/out: string
         {
             // yes:
             ULONG   ulOfs = *pulOfs;
-            PCSZ pFound
-                = (PCSZ)strhmemfind(pxstr->psz + ulOfs, // in: haystack
-                                            pxstr->ulLength - ulOfs,
-                                            pstrSearch->psz,
-                                            cSearchLen,
-                                            pShiftTable,
-                                            pfRepeatFind);
-            if (pFound)
+            PCSZ pFound;
+            if (pFound = (PCSZ)strhmemfind(pxstr->psz + ulOfs, // in: haystack
+                                           pxstr->ulLength - ulOfs,
+                                           pstrSearch->psz,
+                                           cSearchLen,
+                                           pShiftTable,
+                                           pfRepeatFind))
             {
                 ULONG ulFirstReplOfs = pFound - pxstr->psz;
                 // found in buffer from ofs:

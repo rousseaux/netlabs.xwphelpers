@@ -2130,21 +2130,18 @@ static void EXPATENTRY AttlistDeclHandler(void *pUserData,      // in: our PXMLD
                 // but don't want malloc, so we use xstrInitSet
                 XSTRING strElementName;
                 xstrInitSet(&strElementName, (PSZ)pcszElementName);
-                pThis = (PCMATTRIBUTEDECLBASE)treeFind(
+                if (!(pThis = (PCMATTRIBUTEDECLBASE)treeFind(
                                     pDocType->AttribDeclBasesTree,
                                     (ULONG)&strElementName,
-                                    CompareXStrings);
-
-                if (!pThis)
+                                    CompareXStrings)))
                 {
                     // still not found:
                     // we need a new node then
-                    pDom->arcDOM = xmlCreateNodeBase(ATTRIBUTE_DECLARATION_BASE,
+                    if (!(pDom->arcDOM = xmlCreateNodeBase(ATTRIBUTE_DECLARATION_BASE,
                                                      sizeof(CMATTRIBUTEDECLBASE),
                                                      strElementName.psz,
                                                      strElementName.ulLength,
-                                                     (PNODEBASE*)&pThis);
-                    if (!pDom->arcDOM)
+                                                     (PNODEBASE*)&pThis)))
                     {
                         // initialize the subtree
                         treeInit(&pThis->AttribDeclsTree, NULL);

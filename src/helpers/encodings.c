@@ -3,6 +3,8 @@
  *@@sourcefile encodings.c:
  *      character encoding translations.
  *
+ *      See encCreateCodec for an introduction.
+ *
  *@@header "encodings\base.h"
  *@@added V0.9.9 (2001-02-14) [umoeller]
  */
@@ -30,100 +32,348 @@
 
 #include "setup.h"                      // code generation and debugging options
 
-#include "encodings\base.h"             // includes all other encodings
+#include "helpers\standards.h"
+
+#include "encodings\base.h"
+#include "encodings\alltables.h"
+// #include "encodings\collate.h"
 
 #pragma hdrstop
 
-typedef struct _ENCODINGTABLE
-{
-    XWPENCODINGID   EncodingID;
-
-    unsigned short  cEntries;
-    unsigned short  ausEntries[1];        // variable size
-} ENCODINGTABLE, *PENCODINGTABLE;
-
+#define ENCODINGENTRY(id)   enc_ ## id, G_ ## id, ARRAYITEMCOUNT(G_ ## id)
 
 /*
- *@@ encRegisterEncoding:
- *      registers a new proprietary encoding with the engine.
+ *@@ G_aEncodings:
+ *      list of all encodings supported by this engine
+ *      (i.e. we have a corresponding codepage in
+ *      include\encodings\*.h) together with some
+ *      additional information for each encoding,
+ *      such as the corresponding OS/2 codepage
+ *      number and a descriptive string.
  *
- *      Before you can translate encodings with this engine,
- *      you have to register them. This makes sure that the
- *      big encoding tables will only be linked to the executable
- *      code if they are explicitly referenced. As a result, you
- *      have to #include "encodings\base.h" and pass a pointer to
- *      one of the global tables in the header files to this
- *      function.
- *
- *      This returns an encoding handle that can then be used
- *      with the other encoding functions.
- *
- *      Example:
- *
- +          #include "encodings\base.h"
- +          #include "encodings\alltables.h"     // or a specific table only
- +
- +          int rc = encRegisterEncoding(&G_iso8859_1,
- +                                       sizeof(G_iso8859_1) / sizeof(G_iso8859_1[0]),
- +                                       enc_iso8859_1);    // ID to register with
+ *@@added V [umoeller]
  */
 
-long encRegisterEncoding(PXWPENCODINGMAP pEncodingMap,
-                         unsigned long cArrayEntries,    // count of array items
-                         XWPENCODINGID EncodingID)       // enum from encodings\base.h
+struct
 {
-    long lrc = 0;
+    ENCID               id;                 // engine ID (enum)
+    PXWPENCODINGMAP     pMap;               // ptr to map from include\encodings\*.h
+    unsigned long       cEntries;           // entries in map (array item count)
+    unsigned short      usCodepageOS2;      // corresponding OS/2 codepage or 0 if none
+    ENCBYTECOUNT        bc;
+    const char          *pcszDescription;   // description
+} G_aEncodings[] =
+    {
+        ENCODINGENTRY(cp437), 437, SINGLE, "DOS Latin US",
+        ENCODINGENTRY(cp737), 737, SINGLE, "DOS Greek",
+        ENCODINGENTRY(cp775), 775, SINGLE, "DOS BaltRim",
+        ENCODINGENTRY(cp850), 850, SINGLE, "DOS Latin 1",
+        ENCODINGENTRY(cp852), 852, SINGLE, "DOS Latin 2",               // default in Hungary,
+                                                                // Romania, Poland
+        ENCODINGENTRY(cp855), 855, SINGLE, "DOS Cyrillic",
+        ENCODINGENTRY(cp857), 857, SINGLE, "DOS Latin 5 (Turkish)",
+        ENCODINGENTRY(cp860), 860, SINGLE, "DOS Portuguese",
+        ENCODINGENTRY(cp861), 861, SINGLE, "DOS Icelandic",
+        ENCODINGENTRY(cp862), 862, SINGLE, "DOS Hebrew",
+        ENCODINGENTRY(cp863), 863, SINGLE, "DOS Canadian French",
+        ENCODINGENTRY(cp864), 864, SINGLE, "DOS Arabic",                // default in Egypt
+        ENCODINGENTRY(cp865), 865, SINGLE, "DOS Nordic",
+        ENCODINGENTRY(cp866), 866, SINGLE, "DOS Cyrillic Russian",      // default in Russia
+        ENCODINGENTRY(cp869), 869, SINGLE, "DOS Greek2",
+        ENCODINGENTRY(cp874), 874, SINGLE, "DOS Thai (TIS-620)",        // default in Thailand
+        // ENCODINGENTRY(cp932), 932 or 943?, DOUBLE, "Japanese Windows",
+        // ENCODINGENTRY(cp936), 936 or 946?, DOUBLE, "Chinese",
+        // ENCODINGENTRY(cp949), 951 or 949?, DOUBLE, "Korean",
+        // ENCODINGENTRY(cp950), 947 or 950?, DOUBLE, "Taiwan Big-5",           // default in China?
+        ENCODINGENTRY(cp1004), 1004, SINGLE, "Windows Extended",
+        ENCODINGENTRY(cp1250), 1250, SINGLE, "Windows Latin 2",
+        ENCODINGENTRY(cp1251), 1251, SINGLE, "Windows Cyrillic",
+        ENCODINGENTRY(cp1252), 1252, SINGLE, "Windows Latin 1",
+        ENCODINGENTRY(cp1253), 1253, SINGLE, "Windows Greek",
+        ENCODINGENTRY(cp1254), 1254, SINGLE, "Windows Turkish",
+        ENCODINGENTRY(cp1255), 1255, SINGLE, "Windows Hebrew",
+        ENCODINGENTRY(cp1256), 1256, SINGLE, "Windows Arabic",
+        ENCODINGENTRY(cp1257), 1257, SINGLE, "Windows Latin-4",
+        ENCODINGENTRY(cp1258), 1258, UNKNOWN, "unknown",
+        ENCODINGENTRY(iso8859_1), 819, SINGLE, "ISO/IEC 8859-1:1998 (Latin-1)",
+        ENCODINGENTRY(iso8859_2), 912, SINGLE, "ISO 8859-2:1999 (Latin-2)",
+        ENCODINGENTRY(iso8859_3), 913, SINGLE, "ISO/IEC 8859-3:1999 (Latin-3)",
+        ENCODINGENTRY(iso8859_4), 914, SINGLE, "ISO/IEC 8859-4:1998 (Latin-4)",
+        ENCODINGENTRY(iso8859_5), 915, SINGLE, "ISO 8859-5:1999 (Cyrillic)",
+        ENCODINGENTRY(iso8859_6), 1089, SINGLE, "ISO 8859-6:1999 (Arabic)",
+        ENCODINGENTRY(iso8859_7), 813, SINGLE, "ISO 8859-7:1987 (Greek)",   // default in Greece
+        ENCODINGENTRY(iso8859_8), 916, SINGLE, "ISO/IEC 8859-8:1999 (Hebrew)",
+        ENCODINGENTRY(iso8859_9), 920, SINGLE, "ISO/IEC 8859-9:1999 (Latin-5)",
+        ENCODINGENTRY(iso8859_10), 0, SINGLE, "ISO/IEC 8859-10:1998",
+        ENCODINGENTRY(iso8859_13), 0, SINGLE, "ISO/IEC 8859-13:1998",
+        ENCODINGENTRY(iso8859_14), 0, SINGLE, "ISO/IEC 8859-14:1998",
+        ENCODINGENTRY(iso8859_15), 923, SINGLE, "ISO/IEC 8859-15:1999",
 
-    unsigned short usHighest = 0;
+        UNSUPPORTED, NULL, 0, 1200, MULTI_UNICODE, "Unicode UCS-2",
+        UNSUPPORTED, NULL, 0, 1208, MULTI_UNICODE, "Unicode UTF-8"
+    };
+
+/*
+ *@@ FindEntry:
+ *
+ *@@added V0.9.18 (2002-03-08) [umoeller]
+ */
+
+static int FindEntry(ENCID id,
+                     PXWPENCODINGMAP *ppMap,
+                     unsigned long *pcEntries)
+{
     unsigned long ul;
-
-    // step 1:
-    // run through the table and calculate the highest
-    // character entry used
     for (ul = 0;
-         ul < cArrayEntries;
+         ul < ARRAYITEMCOUNT(G_aEncodings);
          ul++)
     {
-        unsigned short usFrom = pEncodingMap[ul].usFrom;
-        if (usFrom > usHighest)
-            usHighest = usFrom;
-    }
-
-    // step 2: allocate encoding table
-    if (usHighest)
-    {
-        // allocate memory as needed
-        unsigned long cb =   sizeof(ENCODINGTABLE)
-                           + (   (usHighest - 1)
-                               * sizeof(unsigned short)
-                             );
-
-        PENCODINGTABLE pTableNew = (PENCODINGTABLE)malloc(cb);
-        if (pTableNew)
+        if (G_aEncodings[ul].id == id)
         {
-            memset(pTableNew, -1, cb);
-            pTableNew->cEntries = usHighest;        // array size
-
-            // step 3: fill encoding table
-            // this only has the Unicode target USHORTs;
-            // the source is simply the offset. So to
-            // get Unicode for character 123 in the specific encoding,
-            // do pTableNew->ausEntries[123].
-            // If you get 0xFFFF, the encoding is undefined.
-
-            for (ul = 0;
-                 ul < cArrayEntries;
-                 ul++)
-            {
-                PXWPENCODINGMAP pEntry = &pEncodingMap[ul];
-                pTableNew->ausEntries[pEntry->usFrom] = pEntry->usUni;
-            }
-
-            lrc = (long)pTableNew;
+            *ppMap = G_aEncodings[ul].pMap;
+            *pcEntries = G_aEncodings[ul].cEntries;
+            return (1);
         }
     }
 
-    return (lrc);
+    return (0);
+}
+
+/*
+ *@@ encFindIdForCodepage:
+ *      returns the ENCID for the given OS/2
+ *      codepage, or UNSUPPORTED if there's none.
+ *
+ *@@added V0.9.18 (2002-03-08) [umoeller]
+ */
+
+ENCID encFindIdForCodepage(unsigned short usCodepage,
+                           const char **ppcszDescription,   // out: codepage description; ptr can be NULL
+                           ENCBYTECOUNT *pByteCount)
+{
+    unsigned long ul;
+    for (ul = 0;
+         ul < ARRAYITEMCOUNT(G_aEncodings);
+         ul++)
+    {
+        if (G_aEncodings[ul].usCodepageOS2 == usCodepage)
+
+        {
+            if (ppcszDescription)
+                *ppcszDescription = G_aEncodings[ul].pcszDescription;
+            if (pByteCount)
+                *pByteCount = G_aEncodings[ul].bc;
+            return G_aEncodings[ul].id;
+        }
+    }
+
+    return (UNSUPPORTED);
+}
+
+/*
+ *@@ encCreateCodec:
+ *      creates a codec that can be used for conversion between
+ *      Unicode and codepaged characters (and vice versa).
+ *
+ *      A codec essentially consists of two tables which can
+ *      be used for quick index-based lookups in both directions.
+ *      This function goes thru the tables provided in
+ *      include\encodings\*.h and builds the codec tables
+ *      from them.
+ *
+ *      This function takes an encoding ID as input. Each
+ *      codepage table in include\encodings\*.h has one
+ *      of those IDs assigned. Use encFindIdForCodepage
+ *      to find the ID for a given OS/2 codepage.
+ *
+ *      Use codecs carefully and only when they are really
+ *      needed for a specific conversion. Building a codec
+ *      is expensive, so you should create a codec once
+ *      and reuse it for future conversions. In addition,
+ *      create codecs only for the codepages that are
+ *      actually used. Each codec will take up
+ *      n * sizeof(USHORT) bytes, where n is the highest
+ *      Unicode character used in the codepage.
+ *
+ *      Remarks:
+ *
+ *      --  All codepages share the first 128 characters
+ *          (0-0x7F) with ASCII.
+ *
+ *      --  Since the first 128 characters (0-0x7F) in
+ *          Unicode are equivalent to ASCII also, codecs
+ *          are not needed if you process ASCII strings
+ *          only.
+ *
+ *      --  Since the next 128 characters (0x80-0xFF) in
+ *          Unicode are equivalent to ISO/IEC 8859-1
+ *          (Latin-1), codecs aren't needed for those
+ *          strings either.
+ *
+ *          Note that codepoints 0x80-0x9F are undefined
+ *          in Latin-1 but used as control sequences in
+ *          Unicode.
+ *
+ *      --  As far as I know, codepage 1252, which is
+ *          used per default under Windows, is equivalent
+ *          to Latin 1 except that it also defines
+ *          codepoints 0x80-0x9F to certain DTP characters.
+ *
+ *      --  From my testing, codepage 1004 (which is
+ *          described as "Windows-compatible" in most OS/2
+ *          docs) is the same as codepage 1252, except for
+ *          character 0xAF.
+ *
+ *      Unfortunately, OS/2 uses codepage 850 on most
+ *      systems (and Windows uses OS/2 codepage 1252),
+ *      so for conversion between those, codecs are needed.
+ */
+
+PCONVERSION encCreateCodec(ENCID id)
+{
+    PXWPENCODINGMAP pEncodingMap;
+    unsigned long cArrayEntries;
+
+    if (FindEntry(id,
+                  &pEncodingMap,
+                  &cArrayEntries))
+    {
+        unsigned short usHighestCP = 0,
+                       usHighestUni = 0;
+        unsigned long ul;
+
+        // step 1:
+        // run through the table and calculate the highest
+        // character entry used
+        for (ul = 0;
+             ul < cArrayEntries;
+             ul++)
+        {
+            if (pEncodingMap[ul].usCP > usHighestCP)
+                usHighestCP = pEncodingMap[ul].usCP;
+            if (pEncodingMap[ul].usUni > usHighestUni)
+                usHighestUni = pEncodingMap[ul].usUni;
+        }
+
+        // step 2: allocate encoding table
+        if (usHighestCP && usHighestUni)
+        {
+            PCONVERSION pTableNew;
+            if (pTableNew = NEW(CONVERSION))
+            {
+                unsigned long cbEntriesUniFromCP
+                    = (usHighestCP + 1) * sizeof(unsigned short);
+                unsigned long cbEntriesCPFromUni
+                    = (usHighestUni + 1) * sizeof(unsigned short);
+
+                ZERO(pTableNew);
+
+                pTableNew->usHighestCP = usHighestCP;
+                pTableNew->usHighestUni = usHighestUni;
+
+                if (    (pTableNew->ausEntriesUniFromCP
+                            = (unsigned short*)malloc(cbEntriesUniFromCP))
+                     && (pTableNew->ausEntriesCPFromUni
+                            = (unsigned short*)malloc(cbEntriesCPFromUni))
+                   )
+                {
+                    // step 3: fill encoding tables
+
+                    memset(pTableNew->ausEntriesUniFromCP,
+                           0xFF,
+                           cbEntriesUniFromCP);
+                    memset(pTableNew->ausEntriesCPFromUni,
+                           0xFF,
+                           cbEntriesCPFromUni);
+
+                    for (ul = 0;
+                         ul < cArrayEntries;
+                         ul++)
+                    {
+                        PXWPENCODINGMAP pEntry = &pEncodingMap[ul];
+
+                        pTableNew->ausEntriesUniFromCP[pEntry->usCP] = pEntry->usUni;
+
+                        pTableNew->ausEntriesCPFromUni[pEntry->usUni] = pEntry->usCP;
+                    }
+
+                    return (pTableNew);
+                }
+
+                free(pTableNew);
+            }
+        }
+    }
+
+    return (NULL);
+}
+
+/*
+ *@@ encFreeCodec:
+ *      frees a codec created with encFreeConversion
+ *      and sets the given pointer to NULL.
+ *
+ *@@added V0.9.18 (2002-03-08) [umoeller]
+ */
+
+void encFreeCodec(PCONVERSION *ppTable)         // in: ptr to codec ptr returned by encCreateCodec
+{
+    PCONVERSION pTable;
+    if (pTable = *ppTable)
+    {
+        if (pTable->ausEntriesUniFromCP)
+            free(pTable->ausEntriesUniFromCP);
+        if (pTable->ausEntriesCPFromUni)
+            free(pTable->ausEntriesCPFromUni);
+        free(pTable);
+        *ppTable = NULL;
+    }
+}
+
+/*
+ *@@ encChar2Uni:
+ *      converts a codepage-specific character
+ *      to Unicode, using the given conversion
+ *      table from encCreateCodec().
+ *
+ *      Returns 0xFFFF on errors, which is unlikely
+ *      with Unicode though.
+ *
+ *@@added V0.9.18 (2002-03-08) [umoeller]
+ */
+
+unsigned long encChar2Uni(PCONVERSION pTable,
+                          unsigned short c)
+{
+    if (    (pTable)
+         && (c <= pTable->usHighestCP)
+       )
+        return (pTable->ausEntriesUniFromCP[c]);
+
+    return (0xFFFF);
+}
+
+/*
+ *@@ encUni2Char:
+ *      converts a Unicode character to the
+ *      codepage specified by the given
+ *      conversion table from encCreateCodec().
+ *
+ *      Returns 0xFFFF if the Unicode character
+ *      has no codepage equivalent.
+ *
+ *@@added V0.9.18 (2002-03-08) [umoeller]
+ */
+
+unsigned short encUni2Char(PCONVERSION pTable,
+                           unsigned long ulUni)
+{
+    if (    (pTable)
+         && (ulUni <= pTable->usHighestUni)
+       )
+        return (pTable->ausEntriesCPFromUni[ulUni]);
+
+    return (0xFFFF);
 }
 
 /*
@@ -244,4 +494,41 @@ unsigned long encDecodeUTF8(const char **ppch)
 
     return (ulChar);
 }
+
+#if 0
+
+/*
+ *@@ encCodepageToUTF8:
+ *
+ *@@added V0.9.18 (2002-03-08) [umoeller]
+ */
+
+void encCodepageToUTF8(const char **ppch)
+{
+
+}
+
+putwchar(c)
+{
+  if (c < 0x80) {
+    putchar (c);
+  }
+  else if (c < 0x800) {
+    putchar (0xC0 | c>>6);
+    putchar (0x80 | c & 0x3F);
+  }
+  else if (c < 0x10000) {
+    putchar (0xE0 | c>>12);
+    putchar (0x80 | c>>6 & 0x3F);
+    putchar (0x80 | c & 0x3F);
+  }
+  else if (c < 0x200000) {
+    putchar (0xF0 | c>>18);
+    putchar (0x80 | c>>12 & 0x3F);
+    putchar (0x80 | c>>6 & 0x3F);
+    putchar (0x80 | c & 0x3F);
+  }
+}
+
+#endif
 

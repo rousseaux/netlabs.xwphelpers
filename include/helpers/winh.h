@@ -651,7 +651,7 @@ extern "C" {
     } XADJUSTCTRLS, *PXADJUSTCTRLS;
 
     BOOL XWPENTRY winhAdjustControls(HWND hwndDlg,
-                                     MPARAM *pmpFlags,
+                                     const MPARAM *pmpFlags,
                                      ULONG ulCount,
                                      PSWP pswpNew,
                                      PXADJUSTCTRLS pxac);

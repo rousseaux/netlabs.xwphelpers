@@ -405,7 +405,7 @@ APIRET tmfCloseMessageFile(PTMFMSGFILE *ppMsgFile)
 APIRET tmfGetMessage(PTMFMSGFILE pMsgFile,      // in: msg file opened by tmfOpenMessageFile
                      PCSZ pcszMessageName,      // in: msg name to look for (case-sensitive!)
                      PXSTRING pstr,             // out: message string, if found (XSTRING must be initialized)
-                     PSZ *pTable,               // in: replacement table or NULL
+                     PCSZ *pTable,              // in: replacement table or NULL
                      ULONG cTableEntries)       // in: count of items in pTable or null
 {
     APIRET arc = NO_ERROR;

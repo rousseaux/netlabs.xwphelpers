@@ -828,7 +828,8 @@ XML_Parser XML_ParserCreate(const XML_Char * encodingName)
  *      application user data.
  */
 
-XML_Parser XML_ParserCreateNS(const XML_Char * encodingName, XML_Char nsSep)
+XML_Parser XML_ParserCreateNS(const XML_Char * encodingName,
+                              XML_Char nsSep)
 {
     XML_Char tmp[2];
 
@@ -1005,7 +1006,8 @@ XML_Parser XML_ParserCreate_MM(const XML_Char * encodingName,
  *      been called on the given parser.
  */
 
-int XML_SetEncoding(XML_Parser parser, const XML_Char * encodingName)
+int XML_SetEncoding(XML_Parser parser,
+                    const XML_Char * encodingName)
 {
     if (!encodingName)
         protocolEncodingName = 0;
@@ -1139,7 +1141,8 @@ XML_Parser XML_ExternalEntityParserCreate(XML_Parser oldParser,
     return parser;
 }
 
-static void destroyBindings(BINDING * bindings, XML_Parser parser)
+static void destroyBindings(BINDING * bindings,
+                            XML_Parser parser)
 {
     for (;;)
     {
@@ -1237,7 +1240,8 @@ void XML_UseParserAsHandlerArg(XML_Parser parser)
  *      the namespace separator.
  */
 
-void XML_SetReturnNSTriplet(XML_Parser parser, int do_nst)
+void XML_SetReturnNSTriplet(XML_Parser parser,
+                            int do_nst)
 {
     ns_triplets = do_nst;
 }
@@ -1256,7 +1260,8 @@ void XML_SetReturnNSTriplet(XML_Parser parser, int do_nst)
  *      Also see XML_UseParserAsHandlerArg.
  */
 
-void XML_SetUserData(XML_Parser parser, void *p)
+void XML_SetUserData(XML_Parser parser,
+                     void *p)
 {
     if (handlerArg == userData)
         handlerArg = userData = p;
@@ -1271,7 +1276,8 @@ void XML_SetUserData(XML_Parser parser, void *p)
  *      memory to store base, otherwise it's non-zero.
  */
 
-int XML_SetBase(XML_Parser parser, const XML_Char * p)
+int XML_SetBase(XML_Parser parser,
+                const XML_Char * p)
 {
     if (p)
     {
@@ -2076,7 +2082,10 @@ int XML_SetParamEntityParsing(XML_Parser parser,
  *      returns a non-zero value.
  */
 
-int XML_Parse(XML_Parser parser, const char *s, int len, int isFinal)
+int XML_Parse(XML_Parser parser,
+              const char *s,
+              int len,
+              int isFinal)
 {
     if (len == 0)
     {
@@ -2154,7 +2163,9 @@ int XML_Parse(XML_Parser parser, const char *s, int len, int isFinal)
  *      avoid double copying of the input.
  */
 
-int XML_ParseBuffer(XML_Parser parser, int len, int isFinal)
+int XML_ParseBuffer(XML_Parser parser,
+                    int len,
+                    int isFinal)
 {
     const char *start = bufferPtr;
 
@@ -2206,7 +2217,8 @@ int XML_ParseBuffer(XML_Parser parser, int len, int isFinal)
  *
  */
 
-void *XML_GetBuffer(XML_Parser parser, int len)
+void *XML_GetBuffer(XML_Parser parser,
+                    int len)
 {
     if (len > bufferLim - bufferEnd)
     {
@@ -2356,7 +2368,9 @@ int XML_GetCurrentByteCount(XML_Parser parser)
  *      the actual parse position may be before the beginning of the buffer.
  */
 
-const char *XML_GetInputContext(XML_Parser parser, int *offset, int *size)
+const char *XML_GetInputContext(XML_Parser parser,
+                                int *offset,
+                                int *size)
 {
 #ifdef XML_CONTEXT_BYTES
     if (eventPtr && buffer)
@@ -3094,8 +3108,10 @@ static XMLERROR doContent(XML_Parser parser,
 /* If tagNamePtr is non-null, build a real list of attributes,
  * otherwise just check the attributes for well-formedness. */
 
-static XMLERROR storeAtts(XML_Parser parser, const ENCODING * enc,
-                          const char *attStr, TAG_NAME * tagNamePtr,
+static XMLERROR storeAtts(XML_Parser parser,
+                          const ENCODING * enc,
+                          const char *attStr,
+                          TAG_NAME * tagNamePtr,
                           BINDING ** bindingsPtr)
 {
     ELEMENT_TYPE *elementType = 0;
@@ -5423,7 +5439,8 @@ static const XML_Char *getContext(XML_Parser parser)
     return tempPool.start;
 }
 
-static int setContext(XML_Parser parser, const XML_Char * context)
+static int setContext(XML_Parser parser,
+                      const XML_Char * context)
 {
     const XML_Char *s = context;
 
@@ -5511,7 +5528,8 @@ static void normalizePublicId(XML_Char * publicId)
     *p = XML_T('\0');
 }
 
-static int dtdInit(DTD * p, XML_Parser parser)
+static int dtdInit(DTD * p,
+                   XML_Parser parser)
 {
     XML_Memory_Handling_Suite *ms = &((Parser *) parser)->m_mem;
 
@@ -5795,7 +5813,9 @@ static unsigned long hash(KEY s)
     return h;
 }
 
-static NAMED *lookup(HASH_TABLE * table, KEY name, size_t createSize)
+static NAMED *lookup(HASH_TABLE * table,
+                     KEY name,
+                     size_t createSize)
 {
     size_t i;
 

@@ -155,8 +155,10 @@ static int EXPATENTRY PREFIX(scanComment)(const ENCODING *enc,
 
 /* ptr points to character following "<!" */
 
-static int EXPATENTRY PREFIX(scanDecl)(const ENCODING *enc, const char *ptr, const char *end,
-             const char **nextTokPtr)
+static int EXPATENTRY PREFIX(scanDecl)(const ENCODING *enc,
+                                       const char *ptr,
+                                       const char *end,
+                                       const char **nextTokPtr)
 {
   if (ptr == end)
     return XML_TOK_PARTIAL;
@@ -201,7 +203,10 @@ static int EXPATENTRY PREFIX(scanDecl)(const ENCODING *enc, const char *ptr, con
   return XML_TOK_PARTIAL;
 }
 
-static int EXPATENTRY PREFIX(checkPiTarget)(const ENCODING *enc, const char *ptr, const char *end, int *tokPtr)
+static int EXPATENTRY PREFIX(checkPiTarget)(const ENCODING *enc,
+                                            const char *ptr,
+                                            const char *end,
+                                            int *tokPtr)
 {
   int upper = 0;
   *tokPtr = XML_TOK_PI;
@@ -244,8 +249,10 @@ static int EXPATENTRY PREFIX(checkPiTarget)(const ENCODING *enc, const char *ptr
 
 /* ptr points to character following "<?" */
 
-static int EXPATENTRY PREFIX(scanPi)(const ENCODING *enc, const char *ptr, const char *end,
-           const char **nextTokPtr)
+static int EXPATENTRY PREFIX(scanPi)(const ENCODING *enc,
+                                     const char *ptr,
+                                     const char *end,
+                                     const char **nextTokPtr)
 {
   int tok;
   const char *target = ptr;
@@ -306,8 +313,10 @@ static int EXPATENTRY PREFIX(scanPi)(const ENCODING *enc, const char *ptr, const
 }
 
 
-static int EXPATENTRY PREFIX(scanCdataSection)(const ENCODING *enc, const char *ptr, const char *end,
-                 const char **nextTokPtr)
+static int EXPATENTRY PREFIX(scanCdataSection)(const ENCODING *enc,
+                                               const char *ptr,
+                                               const char *end,
+                                               const char **nextTokPtr)
 {
   static const char CDATA_LSQB[] = { ASCII_C, ASCII_D, ASCII_A, ASCII_T, ASCII_A, ASCII_LSQB };
   int i;
@@ -324,8 +333,10 @@ static int EXPATENTRY PREFIX(scanCdataSection)(const ENCODING *enc, const char *
   return XML_TOK_CDATA_SECT_OPEN;
 }
 
-static int EXPATENTRY PREFIX(cdataSectionTok)(const ENCODING *enc, const char *ptr, const char *end,
-                const char **nextTokPtr)
+static int EXPATENTRY PREFIX(cdataSectionTok)(const ENCODING *enc,
+                                              const char *ptr,
+                                              const char *end,
+                                              const char **nextTokPtr)
 {
   if (ptr == end)
     return XML_TOK_NONE;
@@ -401,8 +412,10 @@ static int EXPATENTRY PREFIX(cdataSectionTok)(const ENCODING *enc, const char *p
 
 /* ptr points to character following "</" */
 
-static int EXPATENTRY PREFIX(scanEndTag)(const ENCODING *enc, const char *ptr, const char *end,
-               const char **nextTokPtr)
+static int EXPATENTRY PREFIX(scanEndTag)(const ENCODING *enc,
+                                         const char *ptr,
+                                         const char *end,
+                                         const char **nextTokPtr)
 {
   if (ptr == end)
     return XML_TOK_PARTIAL;
@@ -448,8 +461,10 @@ static int EXPATENTRY PREFIX(scanEndTag)(const ENCODING *enc, const char *ptr, c
 
 /* ptr points to character following "&#X" */
 
-static int EXPATENTRY PREFIX(scanHexCharRef)(const ENCODING *enc, const char *ptr, const char *end,
-               const char **nextTokPtr)
+static int EXPATENTRY PREFIX(scanHexCharRef)(const ENCODING *enc,
+                                             const char *ptr,
+                                             const char *end,
+                                             const char **nextTokPtr)
 {
   if (ptr != end) {
     switch (BYTE_TYPE(enc, ptr)) {
@@ -479,8 +494,10 @@ static int EXPATENTRY PREFIX(scanHexCharRef)(const ENCODING *enc, const char *pt
 
 /* ptr points to character following "&#" */
 
-static int EXPATENTRY PREFIX(scanCharRef)(const ENCODING *enc, const char *ptr, const char *end,
-            const char **nextTokPtr)
+static int EXPATENTRY PREFIX(scanCharRef)(const ENCODING *enc,
+                                          const char *ptr,
+                                          const char *end,
+                                          const char **nextTokPtr)
 {
   if (ptr != end) {
     if (CHAR_MATCHES(enc, ptr, ASCII_x))
@@ -510,8 +527,10 @@ static int EXPATENTRY PREFIX(scanCharRef)(const ENCODING *enc, const char *ptr, 
 
 /* ptr points to character following "&" */
 
-static int EXPATENTRY PREFIX(scanRef)(const ENCODING *enc, const char *ptr, const char *end,
-            const char **nextTokPtr)
+static int EXPATENTRY PREFIX(scanRef)(const ENCODING *enc,
+                                     const char *ptr,
+                                     const char *end,
+                                     const char **nextTokPtr)
 {
   if (ptr == end)
     return XML_TOK_PARTIAL;
@@ -539,8 +558,10 @@ static int EXPATENTRY PREFIX(scanRef)(const ENCODING *enc, const char *ptr, cons
 
 /* ptr points to character following first character of attribute name */
 
-static int EXPATENTRY PREFIX(scanAtts)(const ENCODING *enc, const char *ptr, const char *end,
-             const char **nextTokPtr)
+static int EXPATENTRY PREFIX(scanAtts)(const ENCODING *enc,
+                                       const char *ptr,
+                                       const char *end,
+                                       const char **nextTokPtr)
 {
 #ifdef XML_NS
   int hadColon = 0;
@@ -698,8 +719,10 @@ static int EXPATENTRY PREFIX(scanAtts)(const ENCODING *enc, const char *ptr, con
 
 /* ptr points to character following "<" */
 
-static int EXPATENTRY PREFIX(scanLt)(const ENCODING *enc, const char *ptr, const char *end,
-           const char **nextTokPtr)
+static int EXPATENTRY PREFIX(scanLt)(const ENCODING *enc,
+                                     const char *ptr,
+                                     const char *end,
+                                     const char **nextTokPtr)
 {
 #ifdef XML_NS
   int hadColon;
@@ -796,8 +819,10 @@ static int EXPATENTRY PREFIX(scanLt)(const ENCODING *enc, const char *ptr, const
   return XML_TOK_PARTIAL;
 }
 
-static int EXPATENTRY PREFIX(contentTok)(const ENCODING *enc, const char *ptr, const char *end,
-               const char **nextTokPtr)
+static int EXPATENTRY PREFIX(contentTok)(const ENCODING *enc,
+                                         const char *ptr,
+                                         const char *end,
+                                         const char **nextTokPtr)
 {
   if (ptr == end)
     return XML_TOK_NONE;
@@ -894,8 +919,10 @@ static int EXPATENTRY PREFIX(contentTok)(const ENCODING *enc, const char *ptr, c
 
 /* ptr points to character following "%" */
 
-static int EXPATENTRY PREFIX(scanPercent)(const ENCODING *enc, const char *ptr, const char *end,
-            const char **nextTokPtr)
+static int EXPATENTRY PREFIX(scanPercent)(const ENCODING *enc,
+                                          const char *ptr,
+                                          const char *end,
+                                          const char **nextTokPtr)
 {
   if (ptr == end)
     return XML_TOK_PARTIAL;
@@ -922,8 +949,10 @@ static int EXPATENTRY PREFIX(scanPercent)(const ENCODING *enc, const char *ptr, 
   return XML_TOK_PARTIAL;
 }
 
-static int EXPATENTRY PREFIX(scanPoundName)(const ENCODING *enc, const char *ptr, const char *end,
-              const char **nextTokPtr)
+static int EXPATENTRY PREFIX(scanPoundName)(const ENCODING *enc,
+                                            const char *ptr,
+                                            const char *end,
+                                            const char **nextTokPtr)
 {
   if (ptr == end)
     return XML_TOK_PARTIAL;
@@ -948,9 +977,11 @@ static int EXPATENTRY PREFIX(scanPoundName)(const ENCODING *enc, const char *ptr
   return -XML_TOK_POUND_NAME;
 }
 
-static int EXPATENTRY PREFIX(scanLit)(int open, const ENCODING *enc,
-            const char *ptr, const char *end,
-            const char **nextTokPtr)
+static int EXPATENTRY PREFIX(scanLit)(int open,
+                                      const ENCODING *enc,
+                                      const char *ptr,
+                                      const char *end,
+                                      const char **nextTokPtr)
 {
   while (ptr != end) {
     int t = BYTE_TYPE(enc, ptr);
@@ -979,8 +1010,10 @@ static int EXPATENTRY PREFIX(scanLit)(int open, const ENCODING *enc,
   return XML_TOK_PARTIAL;
 }
 
-static int EXPATENTRY PREFIX(prologTok)(const ENCODING *enc, const char *ptr, const char *end,
-              const char **nextTokPtr)
+static int EXPATENTRY PREFIX(prologTok)(const ENCODING *enc,
+                                        const char *ptr,
+                                        const char *end,
+                                        const char **nextTokPtr)
 {
   int tok;
   if (ptr == end)
@@ -1206,8 +1239,10 @@ static int EXPATENTRY PREFIX(prologTok)(const ENCODING *enc, const char *ptr, co
   return -tok;
 }
 
-static int EXPATENTRY PREFIX(attributeValueTok)(const ENCODING *enc, const char *ptr, const char *end,
-                  const char **nextTokPtr)
+static int EXPATENTRY PREFIX(attributeValueTok)(const ENCODING *enc,
+                                                const char *ptr,
+                                                const char *end,
+                                                const char **nextTokPtr)
 {
   const char *start;
   if (ptr == end)
@@ -1263,8 +1298,10 @@ static int EXPATENTRY PREFIX(attributeValueTok)(const ENCODING *enc, const char 
   return XML_TOK_DATA_CHARS;
 }
 
-static int EXPATENTRY PREFIX(entityValueTok)(const ENCODING *enc, const char *ptr, const char *end,
-               const char **nextTokPtr)
+static int EXPATENTRY PREFIX(entityValueTok)(const ENCODING *enc,
+                                             const char *ptr,
+                                             const char *end,
+                                             const char **nextTokPtr)
 {
   const char *start;
   if (ptr == end)
@@ -1319,8 +1356,10 @@ static int EXPATENTRY PREFIX(entityValueTok)(const ENCODING *enc, const char *pt
 
 #ifdef XML_DTD
 
-static int EXPATENTRY PREFIX(ignoreSectionTok)(const ENCODING *enc, const char *ptr, const char *end,
-                 const char **nextTokPtr)
+static int EXPATENTRY PREFIX(ignoreSectionTok)(const ENCODING *enc,
+                                               const char *ptr,
+                                               const char *end,
+                                               const char **nextTokPtr)
 {
   int level = 0;
   if (MINBPC(enc) > 1) {
@@ -1371,8 +1410,10 @@ static int EXPATENTRY PREFIX(ignoreSectionTok)(const ENCODING *enc, const char *
 
 #endif /* XML_DTD */
 
-static int EXPATENTRY PREFIX(isPublicId)(const ENCODING *enc, const char *ptr, const char *end,
-               const char **badPtr)
+static int EXPATENTRY PREFIX(isPublicId)(const ENCODING *enc,
+                                         const char *ptr,
+                                         const char *end,
+                                         const char **badPtr)
 {
   ptr += MINBPC(enc);
   end -= MINBPC(enc);
@@ -1429,8 +1470,10 @@ static int EXPATENTRY PREFIX(isPublicId)(const ENCODING *enc, const char *ptr, c
 Returns the number of attributes.  Pointers to the first attsMax attributes
 are stored in atts. */
 
-static int EXPATENTRY PREFIX(getAtts)(const ENCODING *enc, const char *ptr,
-            int attsMax, ATTRIBUTE *atts)
+static int EXPATENTRY PREFIX(getAtts)(const ENCODING *enc,
+                                      const char *ptr,
+                                      int attsMax,
+                                      ATTRIBUTE *atts)
 {
   enum { other, inName, inValue } state = inName;
   int nAtts = 0;
@@ -1521,7 +1564,8 @@ static int EXPATENTRY PREFIX(getAtts)(const ENCODING *enc, const char *ptr,
   /* not reached */
 }
 
-static int EXPATENTRY PREFIX(charRefNumber)(const ENCODING *enc, const char *ptr)
+static int EXPATENTRY PREFIX(charRefNumber)(const ENCODING *enc,
+                                            const char *ptr)
 {
   int result = 0;
   /* skip &# */
@@ -1560,7 +1604,9 @@ static int EXPATENTRY PREFIX(charRefNumber)(const ENCODING *enc, const char *ptr
   return checkCharRefNumber(result);
 }
 
-static int EXPATENTRY PREFIX(predefinedEntityName)(const ENCODING *enc, const char *ptr, const char *end)
+static int EXPATENTRY PREFIX(predefinedEntityName)(const ENCODING *enc,
+                                                   const char *ptr,
+                                                   const char *end)
 {
   switch ((end - ptr)/MINBPC(enc)) {
   case 2:
@@ -1612,7 +1658,9 @@ static int EXPATENTRY PREFIX(predefinedEntityName)(const ENCODING *enc, const ch
   return 0;
 }
 
-static int EXPATENTRY PREFIX(sameName)(const ENCODING *enc, const char *ptr1, const char *ptr2)
+static int EXPATENTRY PREFIX(sameName)(const ENCODING *enc,
+                                       const char *ptr1,
+                                       const char *ptr2)
 {
   for (;;) {
     switch (BYTE_TYPE(enc, ptr1)) {
@@ -1675,8 +1723,10 @@ static int EXPATENTRY PREFIX(sameName)(const ENCODING *enc, const char *ptr1, co
   /* not reached */
 }
 
-static int EXPATENTRY PREFIX(nameMatchesAscii)(const ENCODING *enc, const char *ptr1,
-                 const char *end1, const char *ptr2)
+static int EXPATENTRY PREFIX(nameMatchesAscii)(const ENCODING *enc,
+                                               const char *ptr1,
+                                               const char *end1,
+                                               const char *ptr2)
 {
   for (; *ptr2; ptr1 += MINBPC(enc), ptr2++) {
     if (ptr1 == end1)
@@ -1687,7 +1737,8 @@ static int EXPATENTRY PREFIX(nameMatchesAscii)(const ENCODING *enc, const char *
   return ptr1 == end1;
 }
 
-static int EXPATENTRY PREFIX(nameLength)(const ENCODING *enc, const char *ptr)
+static int EXPATENTRY PREFIX(nameLength)(const ENCODING *enc,
+                                         const char *ptr)
 {
   const char *start = ptr;
   for (;;) {
@@ -1713,7 +1764,8 @@ static int EXPATENTRY PREFIX(nameLength)(const ENCODING *enc, const char *ptr)
   }
 }
 
-static const char* EXPATENTRY PREFIX(skipS)(const ENCODING *enc, const char *ptr)
+static const char* EXPATENTRY PREFIX(skipS)(const ENCODING *enc,
+                                            const char *ptr)
 {
   for (;;) {
     switch (BYTE_TYPE(enc, ptr)) {
@@ -1729,9 +1781,9 @@ static const char* EXPATENTRY PREFIX(skipS)(const ENCODING *enc, const char *ptr
 }
 
 static void EXPATENTRY PREFIX(updatePosition)(const ENCODING *enc,
-                const char *ptr,
-                const char *end,
-                POSITION *pos)
+                                              const char *ptr,
+                                              const char *end,
+                                              POSITION *pos)
 {
   while (ptr != end) {
     switch (BYTE_TYPE(enc, ptr)) {

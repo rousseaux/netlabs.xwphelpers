@@ -85,7 +85,7 @@ extern "C" {
     typedef struct _XFIELDINFO
     {
         ULONG   ulFieldOffset;
-        PSZ     pszColumnTitle;
+        PCSZ    pszColumnTitle;
         ULONG   ulDataType;
         ULONG   ulOrientation;
     } XFIELDINFO, *PXFIELDINFO;
@@ -448,6 +448,10 @@ extern "C" {
      *      this macro sets the sort function for a container.
      *
      *      This can only be used after BEGIN_CNRINFO().
+     *
+     *      Container sort funcs must have this prototype:
+     +
+     +      SHORT EXPENTRY fnCompare(PRECORDCORE p1, PRECORDCORE p2, PVOID pStorage)
      *
      *@@added V0.9.0
      */

@@ -65,7 +65,7 @@ extern "C" {
                     // -- CFGRPL_REMOVELINE mode (4)
                     // -- CFGRPL_REMOVEPART mode (5)
 
-        PSZ         pszUniqueSearchString2;
+        PCSZ        pszUniqueSearchString2;
                     // for UNIQUE(statement2):
                     // the "statement2" to search for
                     // V0.9.1 (2000-01-06) [umoeller]
@@ -75,10 +75,10 @@ extern "C" {
                     // 1: add to top
                     // 2: add before pszSearchString
                     // 3: add after pszSearchString
-        PSZ         pszVerticalSearchString;
+        PCSZ        pszVerticalSearchString;
                     // for iVertical == 2 or 3
 
-        PSZ         pszNewLine;
+        PCSZ        pszNewLine;
                     // this is a copy of stuff before the "|" char
                     // in pszConfigSys given to the constructor
     } CONFIGMANIP, *PCONFIGMANIP;

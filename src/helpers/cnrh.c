@@ -333,7 +333,7 @@ PFIELDINFO cnrhSetFieldInfos(HWND hwndCnr,            // in: container hwnd
             // this will modify pFieldInfo to point to the next
             cnrhSetFieldInfo(&pFieldInfo2,
                              pxfi->ulFieldOffset,
-                             pxfi->pszColumnTitle,
+                             (PSZ)pxfi->pszColumnTitle,
                              pxfi->ulDataType,
                              pxfi->ulOrientation,
                              fDrawLines);

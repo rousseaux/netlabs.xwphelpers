@@ -94,7 +94,7 @@ extern "C" {
 
     #define LINKLISTMAGIC 0xf124        // could be anything
 
-    typedef signed short _System FNSORTLIST(void*, void*, void*);
+    typedef signed short XWPENTRY FNSORTLIST(void*, void*, void*);
                             // changed V0.9.0 (99-10-22) [umoeller]
     typedef FNSORTLIST *PFNSORTLIST;
 

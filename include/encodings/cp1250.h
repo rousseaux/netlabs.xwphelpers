@@ -3,6 +3,9 @@
  *@@sourcefile cp1250.h:
  *      encoding translation for CP1250 to Unicode.
  *
+ *      Note: From my checking, 1250 is exactly the
+ *      same as 1004, except for character point 0xAF.
+ *
  *@@added V0.9.9 (2001-02-10) [umoeller]
  */
 

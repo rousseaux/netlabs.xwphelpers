@@ -98,6 +98,27 @@ extern "C" {
 
     APIRET XWPENTRY nlsUpper(PSZ psz, ULONG ulLength);
 
+    /*
+     *@@ STRINGENTITY:
+     *
+     *@@added V0.9.16 (2001-09-29) [umoeller]
+     */
+
+    typedef struct _STRINGENTITY
+    {
+        PCSZ    pcszEntity;
+        PCSZ    *ppcszString;
+    } STRINGENTITY, *PSTRINGENTITY;
+
+    typedef const struct _STRINGENTITY *PCSTRINGENTITY;
+
+    VOID nlsInitStrings(HAB hab,
+                        HMODULE hmod,
+                        PCSTRINGENTITY paEntities,
+                        ULONG cEntities);
+
+    PCSZ nlsGetString(ULONG ulStringID);
+
 #endif
 
 #if __cplusplus

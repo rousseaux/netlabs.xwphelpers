@@ -15,24 +15,25 @@ extern "C" {
 
     /*
      *@@ XWPENCODINGMAP:
-     *      entry in an 8-bit to Unicode conversion table.
+     *      entry in a codepage-to-Unicode conversion table.
      */
 
     typedef struct _XWPENCODINGMAP
     {
-        unsigned short      usFrom;
+        unsigned short      usCP;
         unsigned short      usUni;
     } XWPENCODINGMAP, *PXWPENCODINGMAP;
 
     /*
-     *@@ XWPENCODINGID:
+     *@@ ENCID:
      *      enum identifying each encoding set which is
      *      generally supported. Each ID corresponds to
      *      one header file in include\encodings\.
      */
 
-    typedef enum _XWPENCODINGID
+    typedef enum _ENCID
     {
+        UNSUPPORTED,
         enc_cp437,
         enc_cp737,
         enc_cp775,
@@ -53,6 +54,7 @@ extern "C" {
         enc_cp936,
         enc_cp949,
         enc_cp950,
+        enc_cp1004,     // added V0.9.18 (2002-03-08) [umoeller]
         enc_cp1250,
         enc_cp1251,
         enc_cp1252,
@@ -75,7 +77,54 @@ extern "C" {
         enc_iso8859_13,
         enc_iso8859_14,
         enc_iso8859_15
-    } XWPENCODINGID;
+    } ENCID;
+
+    /*
+     *@@ CONVERSION:
+     *
+     *@@added V0.9.18 (2002-03-08) [umoeller]
+     */
+
+    typedef struct _CONVERSION
+    {
+        ENCID   EncodingID;
+
+        // to get Unicode for character 123 in the specific
+        // encoding, do pTable->ausEntriesUniFromCP[123].
+        // If you get 0xFFFF, the encoding is undefined.
+        unsigned short  usHighestCP;
+        unsigned short  *ausEntriesUniFromCP;  // usHighestCP + 1 entries
+
+        // to get codepage for unicode character 123,
+        // do pTable->ausEntriesCPFromUni[123].
+        // If you get 0xFFFF, the encoding is undefined.
+        unsigned short  usHighestUni;
+        unsigned short  *ausEntriesCPFromUni;   // usHighestUni + 1 entries
+
+    } CONVERSION, *PCONVERSION;
+
+    typedef enum _ENCBYTECOUNT
+    {
+        SINGLE,
+        DOUBLE,
+        EBCDIC,
+        MULTI_UNICODE,
+        UNKNOWN
+    } ENCBYTECOUNT;
+
+    ENCID encFindIdForCodepage(unsigned short usCodepage,
+                                       const char **ppcszDescription,
+                                       ENCBYTECOUNT *pByteCount);
+
+    PCONVERSION encCreateCodec(ENCID id);
+
+    void encFreeCodec(PCONVERSION *ppTable);
+
+    unsigned long encChar2Uni(PCONVERSION pTable,
+                              unsigned short c);
+
+    unsigned short encUni2Char(PCONVERSION pTable,
+                               unsigned long ulUni);
 
     unsigned long encDecodeUTF8(const char **ppch);
 

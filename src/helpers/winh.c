@@ -2354,7 +2354,7 @@ BOOL winhRestoreWindowPos(HWND hwnd,   // in: window to restore
  */
 
 BOOL winhAdjustControls(HWND hwndDlg,           // in: dialog (req.)
-                        MPARAM *pmpFlags,       // in: init flags or NULL for cleanup
+                        const MPARAM *pmpFlags, // in: init flags or NULL for cleanup
                         ULONG ulCount,          // in: item count (req.)
                         PSWP pswpNew,           // in: pswpNew from WM_WINDOWPOSCHANGED or NULL for cleanup
                         PXADJUSTCTRLS pxac)     // in: adjust-controls storage area (req.)
@@ -2368,7 +2368,7 @@ BOOL winhAdjustControls(HWND hwndDlg,           // in: dialog (req.)
     if ((pmpFlags) && (pxac))
     {
         PSWP    pswpThis;
-        MPARAM  *pmpThis;
+        const MPARAM  *pmpThis;
         LONG    ldcx, ldcy;
         ULONG   cWindows = 0;
 
