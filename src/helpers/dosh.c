@@ -2586,6 +2586,7 @@ BOOL doshQueryLongname(PFEA2LIST pFEA2List2,
  *
  *@@added V0.9.16 (2001-10-19) [umoeller]
  *@@changed V0.9.16 (2001-12-18) [umoeller]: fixed error codes
+ *@@changed V1.0.1 (2003-01-10) [umoeller]: now allowing read for all modes
  */
 
 APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
@@ -2630,7 +2631,7 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
         case XOPEN_READWRITE_APPEND:
             fsOpenFlags =   OPEN_ACTION_CREATE_IF_NEW
                           | OPEN_ACTION_OPEN_IF_EXISTS;
-            fsOpenMode |=   OPEN_SHARE_DENYREADWRITE
+            fsOpenMode |=   OPEN_SHARE_DENYWRITE // OPEN_SHARE_DENYREADWRITE V1.0.1 (2003-01-10) [umoeller]
                           | OPEN_ACCESS_READWRITE;
             // _Pmpf((__FUNCTION__ ": opening XOPEN_READWRITE_APPEND"));
         break;
@@ -2638,7 +2639,7 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
         case XOPEN_READWRITE_NEW:
             fsOpenFlags =   OPEN_ACTION_CREATE_IF_NEW
                           | OPEN_ACTION_REPLACE_IF_EXISTS;
-            fsOpenMode |=   OPEN_SHARE_DENYREADWRITE
+            fsOpenMode |=   OPEN_SHARE_DENYWRITE // OPEN_SHARE_DENYREADWRITE V1.0.1 (2003-01-10) [umoeller]
                           | OPEN_ACCESS_READWRITE;
             // _Pmpf((__FUNCTION__ ": opening XOPEN_READWRITE_NEW"));
         break;
@@ -2939,6 +2940,7 @@ APIRET doshReadAt(PXFILE pFile,
  *@@added V0.9.16 (2001-10-19) [umoeller]
  *@@changed V0.9.16 (2001-12-02) [umoeller]: added XOPEN_BINARY \r\n support
  *@@changed V0.9.16 (2001-12-06) [umoeller]: added check for pFile != NULL
+ *@@changed V1.0.1 (2003-01-10) [umoeller]: now forcing DosSetFileSize
  */
 
 APIRET doshWrite(PXFILE pFile,
@@ -3015,6 +3017,9 @@ APIRET doshWrite(PXFILE pFile,
                     pFile->cbCurrent += cbWritten;
                     // invalidate the cache
                     FREE(pFile->pbCache);
+
+                    // force a writeout V1.0.1 (2003-01-10) [umoeller]
+                    DosSetFileSize(pFile->hf, pFile->cbCurrent);
                 }
             }
 

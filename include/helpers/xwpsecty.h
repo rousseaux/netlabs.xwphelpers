@@ -458,17 +458,27 @@ extern "C" {
                     // or permissions.
 
     /*
-     *@@ RING0STATUS:
+     *@@ XWPSECSTATUS:
      *
      *@@added V1.0.1 (2003-01-10) [umoeller]
      */
 
-    typedef struct _RING0STATUS
+    typedef struct _XWPSECSTATUS
     {
         BOOL        fLocalSecurity;     // TRUE if XWPSEC32.SYS is active
-        ULONG       cGranted,           // if so, no. of syscalls where access was granted
+
+        // the following fields are only set if fLocalSecurity is TRUE
+
+        ULONG       cbAllocated;        // fixed memory currently allocated in ring 0
+        ULONG       cAllocations,       // no. of allocations made since startup
+                    cFrees;             // no. of frees made since startup
+        USHORT      cLogBufs,           // current 64K log buffers in use
+                    cMaxLogBufs;        // max 64K log buffers that were ever in use
+        ULONG       cLogged;            // no. of syscalls that were logged
+        ULONG       cGranted,           // no. of syscalls where access was granted
                     cDenied;            // ... and denied
-    } RING0STATUS, *PRING0STATUS;
+    } XWPSECSTATUS, *PXWPSECSTATUS;
+
 
     /* ******************************************************************
      *
@@ -687,7 +697,7 @@ extern "C" {
     {
         #define QUECMD_QUERYSTATUS                  1
 
-        RING0STATUS     Status;
+        XWPSECSTATUS    Status;
 
         #define QUECMD_QUERYLOCALUSER               2
             // return data for user that is
@@ -756,12 +766,7 @@ extern "C" {
 
         #define QUECMD_SETUSERDATA                  7
 
-        struct
-        {
-            XWPSECID    uid;
-            CHAR        szUserName[XWPSEC_NAMELEN];         // user name
-            CHAR        szFullName[XWPSEC_FULLNAMELEN];     // user's clear name
-        } SetUserData;
+        XWPUSERINFO     SetUserData;
 
         #define QUECMD_DELETEUSER                   8
 
