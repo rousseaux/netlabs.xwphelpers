@@ -2201,7 +2201,7 @@ BSExecute::BSExecute(const ustring &ustrExecute,
         p = strchr(pSearch, ' ');
     if (p)
     {
-        const char *pSep = p;
+        const char *pSep = p++; // V1.0.5 (2005-01-20) [pr]: @@fixes 624
         // we have a space --> parameters:
         while (    (*p)
                 && (*p == ' ')
