@@ -752,12 +752,18 @@ unsigned long memdReleaseFreed(void)
                              ULONG ulIndent) // in: how many spaces to put
                                              //     before each output line
     {
-        PSZ psz;
-        if (psz = strhCreateDump(pb, ulSize, ulIndent))
+        TRY_QUIET(excpt1)
         {
-            _Pmpf(("\n%s", psz));
-            free(psz);
-        }
+            PSZ psz;
+            if (psz = strhCreateDump(pb, ulSize, ulIndent))
+            {
+                _Pmpf(("\n%s", psz));
+                free(psz);
+            }
+        CATCH(excpt1)
+        {
+            _Pmpf(("Crash in " __FUNCTION__ ));
+        } END_CATCH();
     }
 #endif
 
