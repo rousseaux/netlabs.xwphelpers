@@ -290,14 +290,18 @@ extern "C" {
                                           PCSZ pcszControlsFont);
     typedef DLGHCREATEDLG *PDLGHCREATEDLG;
 
+    #define DFFL_CREATECONTROLS     0x0002
+
     APIRET dlghFormatDlg(HWND hwndDlg,
                          PCDLGHITEM paDlgItems,
                          ULONG cDlgItems,
                          PCSZ pcszControlsFont,
-                         ULONG flFlags);
+                         ULONG flFlags,
+                         PSIZEL pszlClient,
+                         PVOID *ppllControls);
 
-    #define DFFL_RESIZEFRAME        0x0001
-    #define DFFL_CREATECONTROLS     0x0002
+    VOID dlghResizeFrame(HWND hwndDlg,
+                         PSIZEL pszlClient);
 
     /* ******************************************************************
      *

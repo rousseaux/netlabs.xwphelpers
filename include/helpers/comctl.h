@@ -954,6 +954,32 @@ extern "C" {
                         // other than checkboxes.
         } CHECKBOXRECORDCORE, *PCHECKBOXRECORDCORE;
 
+        /*
+         *@@ CHECKBOXCNROWNER:
+         *
+         *
+         *@@added V0.9.0 (99-11-28) [umoeller]
+         */
+
+        typedef struct _CHECKBOXCNROWNER
+        {
+            HWND        hwndCnr;            // container window handle
+            USHORT      usCnrID;            // container item ID
+            HWND        hwndOwner;          // owner of that container
+            PFNWP       pfnwpCnrOrig;       // original window proc of hwndCnr
+            PFNWP       pfnwpOwnerOrig;     // original window proc of hwndOwner
+
+            HAB         habCnr;
+
+            PCHECKBOXRECORDCORE preccClicked;   // != NULL if mb1 is currently down on recc
+            PCHECKBOXRECORDCORE preccSpace;     // != NULL if space key is down with recc
+            RECTL       rclReccClicked;     // rectangle of that record
+        } CHECKBOXCNROWNER, *PCHECKBOXCNROWNER;
+
+        MRESULT ctlDrawCheckBoxRecord(MPARAM mp2);
+
+        VOID ctlInitCheckboxContainer(HWND hwndCnr);
+
         BOOL ctlMakeCheckboxContainer(HWND hwndCnrOwner,
                                       USHORT usCnrID);
 
