@@ -156,9 +156,14 @@ typedef struct _COLUMNDEF
 
 typedef struct _ROWDEF
 {
-    PTABLEDEF   pOwningTable;   // table whose linked list this row belongs to
+    PTABLEDEF   pOwningTable;       // table whose linked list this row belongs to
 
-    LINKLIST    llColumns;      // contains COLUMNDEF structs, no auto-free
+    LINKLIST    llColumns;          // contains COLUMNDEF structs, no auto-free
+
+    ULONG       flRowFormat;        // one of:
+                                    // -- ROW_VALIGN_BOTTOM           0x0000
+                                    // -- ROW_VALIGN_CENTER           0x0001
+                                    // -- ROW_VALIGN_TOP              0x0002
 
     CONTROLPOS  cpRow;
 
@@ -187,8 +192,8 @@ typedef struct _TABLEDEF
 typedef enum _PROCESSMODE
 {
     PROCESS_CALC_SIZES,             // step 1
-    PROCESS_CALC_POSITIONS,         // step 2
-    PROCESS_CREATE_CONTROLS         // step 3
+    PROCESS_CALC_POSITIONS,         // step 3
+    PROCESS_CREATE_CONTROLS         // step 4
 } PROCESSMODE;
 
 /* ******************************************************************
@@ -211,6 +216,7 @@ VOID ProcessTable(PTABLEDEF pTableDef,
  */
 
 VOID CalcAutoSizeText(PCONTROLDEF pControlDef,
+                      BOOL fMultiLine,          // in: if TRUE, multiple lines
                       PSIZEL pszlAuto,          // out: computed size
                       PDLGPRIVATE pDlgData)
 {
@@ -264,13 +270,27 @@ VOID CalcAutoSizeText(PCONTROLDEF pControlDef,
     // get the control string and see how much space it needs
     if (pControlDef->pcszText)
     {
-        POINTL aptl[TXTBOX_COUNT];
-        GpiQueryTextBox(pDlgData->hps,
-                        strlen(pControlDef->pcszText),
-                        (PCH)pControlDef->pcszText,
-                        TXTBOX_COUNT,
-                        aptl);
-        pszlAuto->cx = aptl[TXTBOX_TOPRIGHT].x - aptl[TXTBOX_BOTTOMLEFT].x;
+        // do we have multiple lines?
+        if (fMultiLine)
+        {
+            RECTL rcl = {0, 0, 1000, 1000};
+            winhDrawFormattedText(pDlgData->hps,
+                                  &rcl,
+                                  pControlDef->pcszText,
+                                  DT_LEFT | DT_TOP | DT_WORDBREAK | DT_QUERYEXTENT);
+            pszlAuto->cx = rcl.xRight - rcl.xLeft;
+            pszlAuto->cy = rcl.yTop - rcl.yBottom;
+        }
+        else
+        {
+            POINTL aptl[TXTBOX_COUNT];
+            GpiQueryTextBox(pDlgData->hps,
+                            strlen(pControlDef->pcszText),
+                            (PCH)pControlDef->pcszText,
+                            TXTBOX_COUNT,
+                            aptl);
+            pszlAuto->cx = aptl[TXTBOX_TOPRIGHT].x - aptl[TXTBOX_BOTTOMLEFT].x;
+        }
     }
 }
 
@@ -291,6 +311,7 @@ VOID CalcAutoSize(PCONTROLDEF pControlDef,
     {
         case 0xffff0003L: // WC_BUTTON:
             CalcAutoSizeText(pControlDef,
+                             FALSE,         // no multiline
                              pszlAuto,
                              pDlgData);
             if (pControlDef->flStyle & (  BS_AUTOCHECKBOX
@@ -315,6 +336,7 @@ VOID CalcAutoSize(PCONTROLDEF pControlDef,
         case 0xffff0005L: // WC_STATIC:
             if (pControlDef->flStyle & SS_TEXT)
                 CalcAutoSizeText(pControlDef,
+                                 ((pControlDef->flStyle & DT_WORDBREAK) != 0),
                                  pszlAuto,
                                  pDlgData);
             else if (pControlDef->flStyle & SS_BITMAP)
@@ -383,14 +405,13 @@ VOID ProcessColumn(PCOLUMNDEF pColumnDef,
 {
     pColumnDef->pOwningRow = pOwningRow;
 
-    // for PROCESS_CALC_SIZES: have control return its size
-    //      plus spacings into szlControl
-    // for PROCESS_CALC_POSITIONS: have control compute its
-    //      position from the column position (there may be
-    //      spacings)
-    // for PROCESS_CREATE_CONTROLS: well, create the control
     switch (ProcessMode)
     {
+        /*
+         * PROCESS_CALC_SIZES:
+         *      step 1.
+         */
+
         case PROCESS_CALC_SIZES:
         {
             ULONG       ulXSpacing = 0,
@@ -453,14 +474,39 @@ VOID ProcessColumn(PCOLUMNDEF pColumnDef,
                                        + ulYSpacing;
         break; }
 
+        /*
+         * PROCESS_CALC_POSITIONS:
+         *      step 2.
+         */
+
         case PROCESS_CALC_POSITIONS:
         {
             // calculate column position: this includes spacing
             ULONG ulSpacing = 0;
 
-            // column position = *plX
+            // column position = *plX on ProcessRow stack
             pColumnDef->cpColumn.x = *plX;
             pColumnDef->cpColumn.y = pOwningRow->cpRow.y;
+
+            // check vertical alignment of row;
+            // we might need to increase column y
+            switch (pOwningRow->flRowFormat & ROW_VALIGN_MASK)
+            {
+                // case ROW_VALIGN_BOTTOM:      // do nothing
+
+                case ROW_VALIGN_CENTER:
+                    if (pColumnDef->cpColumn.cy < pOwningRow->cpRow.cy)
+                        pColumnDef->cpColumn.y
+                            += (   (pOwningRow->cpRow.cy - pColumnDef->cpColumn.cy)
+                                 / 2);
+                break;
+
+                case ROW_VALIGN_TOP:
+                    if (pColumnDef->cpColumn.cy < pOwningRow->cpRow.cy)
+                        pColumnDef->cpColumn.y
+                            += (pOwningRow->cpRow.cy - pColumnDef->cpColumn.cy);
+                break;
+            }
 
             if (pColumnDef->fIsNestedTable)
             {
@@ -480,7 +526,7 @@ VOID ProcessColumn(PCOLUMNDEF pColumnDef,
             // increase plX by column width
             *plX += pColumnDef->cpColumn.cx;
 
-            // calculate control pos by applying spacing
+            // calculate CONTROL pos from COLUMN pos by applying spacing
             pColumnDef->cpControl.x =   pColumnDef->cpColumn.x
                                       + ulSpacing;
             pColumnDef->cpControl.y =   pColumnDef->cpColumn.y
@@ -498,6 +544,11 @@ VOID ProcessColumn(PCOLUMNDEF pColumnDef,
                              pDlgData);
             }
         break; }
+
+        /*
+         * PROCESS_CREATE_CONTROLS:
+         *      step 3.
+         */
 
         case PROCESS_CREATE_CONTROLS:
         {
@@ -1174,6 +1225,8 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
 
                         pCurrentRow->pOwningTable = pCurrentTable;
                         lstInit(&pCurrentRow->llColumns, FALSE);
+
+                        pCurrentRow->flRowFormat = pItemThis->ulData;
 
                         lstAppendItem(&pCurrentTable->llRows, pCurrentRow);
                     }

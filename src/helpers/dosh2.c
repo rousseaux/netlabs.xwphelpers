@@ -1788,8 +1788,8 @@ APIRET ScanNEEntryTable(PEXECUTABLE pExec,
  *@@added V0.9.9 (2001-04-01) [lafaix]
  */
 
-int Compare(const void *key,
-            const void *element)
+int _Optlink Compare(const void *key,
+                     const void *element)
 {
     USHORT        usOrdinal = *((PUSHORT) key);
     PFSYSFUNCTION pFunction = (PFSYSFUNCTION)element;
@@ -1864,11 +1864,11 @@ APIRET ScanNameTable(PEXECUTABLE pExec,
                                     sizeof(USHORT),
                                     &ulDummy)))
                 {
-                    if ((pFunction = bsearch(&usOrdinal,
-                                             paFunctions,
-                                             cFunctions,
-                                             sizeof(FSYSFUNCTION),
-                                             Compare)))
+                    if ((pFunction = (PFSYSFUNCTION)bsearch(&usOrdinal,
+                                                            paFunctions,
+                                                            cFunctions,
+                                                            sizeof(FSYSFUNCTION),
+                                                            Compare)))
                     {
                         memcpy(pFunction->achFunctionName,
                                achName,

@@ -15,25 +15,27 @@
  *      handlers is a must to avoid system hangs. This
  *      especially applies to multi-thread programs using
  *      mutex semaphores (more on that below). The functions
- *      and macros in here are designed to make that more simple.
+ *      and macros in here are designed to make that more
+ *      simple.
  *
- *      The macros in except.h automatically insert code for properly
- *      registering and deregistering the handlers in except.c. You
- *      should ALWAYS use these macros instead of directly registering
- *      the handlers to avoid accidentally forgetting to deregister
- *      them. If you forget to deregister an exception handler, this
- *      can lead to really strange errors (crashes, hangs) which are
- *      nearly impossible to debug because the thread's stack space
- *      might get completely messed up.
+ *      The macros in except.h automatically insert code for
+ *      properly registering and deregistering the handlers
+ *      in except.c. You should ALWAYS use these macros
+ *      instead  of directly registering the handlers to avoid
+ *      accidentally  forgetting to deregister them. If you
+ *      forget to deregister an exception handler, this can
+ *      lead to really strange errors (crashes, hangs) which
+ *      are nearly impossible to debug because the thread's
+ *      stack probably got completely messed up.
  *
- *      The general idea of these macros is to define TRY / CATCH
- *      blocks similar to C++. If an exception occurs in the TRY block,
- *      execution is transferred to the CATCH block. (This works in both
- *      C and C++, by the way.)
+ *      The general idea of these macros is to define
+ *      TRY / CATCH blocks similar to C++. If an exception
+ *      occurs in the TRY block, execution is transferred to
+ *      the CATCH block. (This works in both C and C++, by the
+ *      way.)
  *
- *      The "OnKill" function that was added with V0.9.0 has been
- *      removed again with V0.9.7. Use DosEnterMustComplete instead.
- *      Details follow.
+ *      The "OnKill" function that was added with V0.9.0 has
+ *      been removed again with V0.9.7.
  *
  *      The general usage is like this:
  *
@@ -41,9 +43,12 @@
  +          {
  +              TRY_LOUD(excptid)         // or: TRY_QUIET(excptid)
  +              {
+ +                  char *p = NULL;
+ +
  +                  ....        // the stuff in here is protected by
  +                              // the excHandlerLoud or excHandlerQuiet
  +                              // exception handler
+ +                  *p = "A";
  +              }
  +              CATCH(excptid)
  +              {
@@ -57,7 +62,8 @@
  *      is where the exception handler jumps to if an
  *      exception occurs.
  *      The CATCH block is _required_ even if you do nothing
- *      in there.
+ *      in there, because the CATCH() macro will deregister
+ *      the handler.
  *
  *      "excptid" can be any C identifier which is not used in
  *      your current variable scope, e.g. "excpt1". This
@@ -77,13 +83,17 @@
  *      protected by the handler, including all functions that
  *      get called. So if you enclose your main() code in a
  *      TRY_* block, your entire application is protected.
+ *      If any subfunction fails, execution is transferred to
+ *      the closest CATCH() that was installed (as with C++
+ *      try and catch).
  *
  *      <B>Asynchronous exceptions</B>
  *
  *      The exception handlers in this file (which are installed
  *      with the TRY/CATCH mechanism) only intercept synchronous
- *      exceptions (see excHandlerLoud for a list). They do not
- *      protect your code against asynchronous exceptions.
+ *      exceptions, most importantly, XCPT_ACCESS_VIOLATION (see
+ *      excHandlerLoud for a list). They do not protect your code
+ *      against asynchronous exceptions.
  *
  *      OS/2 defines asynchronous exceptions to be those that
  *      can be delayed. With OS/2, there are only three of these:
@@ -99,33 +109,18 @@
  *      <B>Mutex semaphores</B>
  *
  *      The problem with OS/2 mutex semaphores is that they are
- *      not automatically released when a thread terminates.
- *      If the thread owning the mutex died without releasing
- *      the mutex, other threads which are blocked on that mutex
- *      will wait forever and become zombie threads. Even worse,
- *      if this happens to a PM thread, this will hang the system.
+ *      sometimes not automatically released when a thread terminates.
+ *      If there are several mutexes involved and they are released
+ *      in improper order, you can get zombie threads on exit.
+ *      Even worse, if this happens to a PM thread, this will hang
+ *      the system.
  *
- *      Here's the typical scenario with two threads:
- *
- *      1)  Thread 2 requests a mutex and does lots of processing.
- *
- *      2)  Thread 1 requests the mutex. Since it's still owned
- *          by thread 2, thread 1 blocks.
- *
- *      3)  Thread 2 crashes in its processing. Without an
- *          exception handler, OS/2 will terminate the process.
- *          It will first kill thread 2 and then attempt to
- *          kill thread 1. This fails because it is still
- *          blocking on the semaphore that thread 2 never
- *          released. Boom.
- *
- *      The same scenario happens when a process gets killed.
- *      Since OS/2 will kill secondary threads before thread 1,
- *      the same situation can arise.
- *
- *      As a result, you must protect any section of code which
- *      requests a semaphore _both_ against crashes _and_
- *      termination.
+ *      As a result, you should protect any section of code which
+ *      requests a semaphore with the exception handlers. To protect
+ *      yourself against thread termination, use must-complete
+ *      sections as well (but be careful with those if your code
+ *      takes a long time to execute... but then you shouldn't
+ *      request a mutex in the first place).
  *
  *      So _whenever_ you request a mutex semaphore, enclose
  *      the block with TRY/CATCH in case the code crashes.
@@ -140,16 +135,18 @@
  +              ULONG   ulNesting = 0;
  +
  +              DosEnterMustComplete(&ulNesting);
- +              TRY_QUIET(excpt1, OnKillYourFunc) // or TRY_LOUD
+ +              TRY_QUIET(excpt1)           // or TRY_LOUD
  +              {
- +                  fSemOwned = (WinRequestMutexSem(hmtx, ...) == NO_ERROR);
+ +                  fSemOwned = !WinRequestMutexSem(hmtx, ...);
  +                  if (fSemOwned)
  +                  {       ... // work on your protected data
  +                  }
+ +                  // mutex gets released below
  +              }
  +              CATCH(excpt1) { } END_CATCH();    // always needed!
  +
- +              if (fSemOwned) {
+ +              if (fSemOwned)
+ +              {
  +                  // this gets executed always, even if an exception occured
  +                  DosReleaseMutexSem(hmtx);
  +                  fSemOwned = FALSE;

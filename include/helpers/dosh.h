@@ -42,7 +42,7 @@ extern "C" {
 
     BOOL doshQueryShiftState(VOID);
 
-    BOOL doshIsWarp4(VOID);
+    ULONG doshIsWarp4(VOID);
 
     PSZ doshQuerySysErrorMsg(APIRET arc);
 
@@ -296,6 +296,11 @@ extern "C" {
                             PSZ* ppszContent);
 
     PSZ doshCreateBackupFileName(const char* pszExisting);
+
+    APIRET doshCreateTempFileName(PSZ pszTempFileName,
+                                  const char *pcszDir,
+                                  const char *pcszPrefix,
+                                  const char *pcszExt);
 
     APIRET doshWriteTextFile(const char* pszFile,
                              const char* pszContent,

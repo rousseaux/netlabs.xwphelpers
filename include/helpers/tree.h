@@ -177,6 +177,9 @@ extern "C" {
     void *treeFirst    (TREE *tree);
     void *treeLast     (TREE *tree);
 
+    TREE** treeBuildArray(TREE* pRoot,
+                          unsigned long *pulCount);
+
     //  Return codes
     #define TREE_OK                 0
     #define TREE_DUPLICATE          1

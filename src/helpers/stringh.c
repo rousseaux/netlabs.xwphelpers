@@ -1189,6 +1189,7 @@ PSZ strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib)
  *      stores 123 in the "l" variable.
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.9 (2001-04-04) [umoeller]: this failed on "123" strings in quotes, fixed
  */
 
 PSZ strhGetNumAttribValue(const char *pszSearchIn,       // in: where to search
@@ -1197,7 +1198,14 @@ PSZ strhGetNumAttribValue(const char *pszSearchIn,       // in: where to search
 {
     PSZ pParam;
     if ((pParam = strhFindAttribValue(pszSearchIn, pszTag)))
+    {
+        if (    (*pParam == '\"')
+             || (*pParam == '\'')
+           )
+            pParam++;           // V0.9.9 (2001-04-04) [umoeller]
+
         sscanf(pParam, "%ld", pl);
+    }
 
     return (pParam);
 }

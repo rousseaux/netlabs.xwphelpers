@@ -1096,4 +1096,92 @@ void* treePrev(TREE *tree)
     }
 }
 
+/*
+ *@@ treeBuildArray:
+ *      builds an array of TREE* pointers containing
+ *      all tree items in sorted order.
+ *
+ *      This returns a TREE** pointer to the array.
+ *      Each item in the array is a TREE* pointer to
+ *      the respective tree item.
+ *
+ *      The array has been allocated using malloc()
+ *      and must be free()'d by the caller.
+ *
+ *      NOTE: This will only work if you maintain a
+ *      tree node count yourself, which you must pass
+ *      in *pulCount on input.
+ *
+ *      This is most useful if you want to delete an
+ *      entire tree without having to traverse it
+ *      and rebalance the tree on every delete.
+ *
+ *      Example usage for deletion:
+ *
+ +          TREE    *G_TreeRoot;
+ +          treeInit(&G_TreeRoot);
+ +
+ +          // add stuff to the tree
+ +          TREE    *pNewNode = malloc(...);
+ +          treeInsertID(&G_TreeRoot, pNewNode, FALSE)
+ +
+ +          // now delete all nodes
+ +          ULONG   cItems = ... // insert item count here
+ +          TREE**  papNodes = treeBuildArray(G_TreeRoot,
+ +                                            &cItems);
+ +          if (papNodes)
+ +          {
+ +              ULONG ul;
+ +              for (ul = 0; ul < cItems; ul++)
+ +              {
+ +                  TREE *pNodeThis = papNodes[ul];
+ +                  free(pNodeThis);
+ +              }
+ +
+ +              free(papNodes);
+ +          }
+ +
+ *
+ *@@added V0.9.9 (2001-04-05) [umoeller]
+ */
+
+TREE** treeBuildArray(TREE* pRoot,
+                      unsigned long *pulCount)  // in: item count, out: array item count
+{
+    TREE            **papNodes = NULL,
+                    **papThis = NULL;
+    unsigned long   cb = (sizeof(TREE*) * (*pulCount)),
+                    cNodes = 0;
+
+    if (cb)
+    {
+        papNodes = (TREE**)malloc(cb);
+        papThis = papNodes;
+
+        if (papNodes)
+        {
+            TREE    *pNode = (TREE*)treeFirst(pRoot);
+
+            memset(papNodes, 0, cb);
+
+            // copy nodes to array
+            while (    pNode
+                    && cNodes < (*pulCount)     // just to make sure
+                  )
+            {
+                *papThis = pNode;
+                cNodes++;
+                papThis++;
+
+                pNode = (TREE*)treeNext(pNode);
+            }
+
+            // output count
+            *pulCount = cNodes;
+        }
+    }
+
+    return (papNodes);
+}
+
 

@@ -143,19 +143,29 @@ BOOL doshQueryShiftState(VOID)
     return brc;
 }
 
-
 /*
  *@@ doshIsWarp4:
- *      returns TRUE only if at least OS/2 Warp 4 is running.
+ *      checks the OS/2 system version number.
+ *
+ *      Returns:
+ *
+ *      -- 0 (FALSE): OS/2 2.x or Warp 3 is running.
+ *
+ *      -- 1: Warp 4.0 is running.
+ *
+ *      -- 2: Warp 4.5 is running (WSeB or Warp 4 FP 13+ or eCS
+ *            or ACP/MCP), or even something newer.
  *
  *@@changed V0.9.2 (2000-03-05) [umoeller]: reported TRUE on Warp 3 also; fixed
  *@@changed V0.9.6 (2000-10-16) [umoeller]: patched for speed
+ *@@changed V0.9.9 (2001-04-04) [umoeller]: now returning 2 for Warp 4.5 and above
  */
 
-BOOL doshIsWarp4(VOID)
+ULONG doshIsWarp4(VOID)
 {
-    static BOOL s_brc = FALSE;
-    static BOOL s_fQueried = FALSE;
+    static BOOL     s_fQueried = FALSE;
+    static ULONG    s_ulrc = 0;
+
     if (!s_fQueried)
     {
         // first call:
@@ -169,16 +179,22 @@ BOOL doshIsWarp4(VOID)
         // Aurora is reported as 20.45
 
         if     (    (aulBuf[0] > 20)        // major > 20; not the case with Warp 3, 4, 5
-                 || (   (aulBuf[0] == 20)   // major == 20 and minor >= 40
-                     && (aulBuf[1] >= 40)
+                 || (   (aulBuf[0] == 20)   // major == 20 and minor >= 45
+                     && (aulBuf[1] >= 45)
                     )
                )
-            s_brc = TRUE;
+            // Warp 4.5 or newer:
+            s_ulrc = 2;
+        else if (   (aulBuf[0] == 20)   // major == 20 and minor == 40
+                 && (aulBuf[1] == 40)
+                )
+            // Warp 4:
+            s_ulrc = 1;
 
         s_fQueried = TRUE;
     }
 
-    return (s_brc);
+    return (s_ulrc);
 }
 
 /*
@@ -1141,6 +1157,169 @@ PSZ doshCreateBackupFileName(const char* pszExisting)
     } while (doshQueryPathSize(szFilename) != 0);
 
     return (strdup(szFilename));
+}
+
+/*
+ *@@ doshCreateTempFileName:
+ *      produces a file name in the the specified directory
+ *      or $(TEMP) which presently doesn't exist. This
+ *      checks the directory for existing files, but does
+ *      not open the temp file.
+ *
+ *      If (pcszDir != NULL), we look into that directory.
+ *      Otherwise we look into the directory specified
+ *      by the $(TEMP) environment variable.
+ *      If $(TEMP) is not set, $(TMP) is tried next.
+ *
+ *      If the directory thus specified does not exist, the
+ *      root directory of the boot drive is used instead.
+ *      As a result, this function should be fairly bomb-proof.
+ *
+ *      If (pcszExt != NULL), the temp file receives
+ *      that extension, or no extension otherwise.
+ *      Do not specify the dot in pcszExt.
+ *
+ *      pszTempFileName receives the fully qualified
+ *      file name of the temp file in that directory
+ *      and must point to a buffer CCHMAXPATH in size.
+ *      The file name is 8+3 compliant if pcszExt does
+ *      not exceed three characters.
+ *
+ *      If (pcszPrefix != NULL), the temp file name
+ *      is prefixed with pcszPrefix. Since the temp
+ *      file name must not exceed 8+3 letters, we
+ *      can only use ( 8 - strlen(pcszPrefix ) digits
+ *      for a random number to make the temp file name
+ *      unique. You must therefore use a maximum of
+ *      four characters for the prefix. Otherwise
+ *      ERROR_INVALID_PARAMETER is returned.
+ *
+ *      Example: Assuming TEMP is set to C:\TEMP,
+ +
+ +          dosCreateTempFileName(szBuffer,
+ +                                NULL,             // use $(TEMP)
+ +                                "pre",            // prefix
+ +                                "tmp")            // extension
+ +
+ *      would produce something like "C:\TEMP\pre07FG2.tmp".
+ *
+ *@@added V0.9.9 (2001-04-04) [umoeller]
+ */
+
+APIRET doshCreateTempFileName(PSZ pszTempFileName,        // out: fully q'fied temp file name
+                              const char *pcszDir,        // in: dir or NULL for %TEMP%
+                              const char *pcszPrefix,     // in: prefix for temp file or NULL
+                              const char *pcszExt)        // in: extension (without dot) or NULL
+{
+    APIRET      arc = NO_ERROR;
+
+    ULONG       ulPrefixLen = (pcszPrefix)
+                                    ? strlen(pcszPrefix)
+                                    : 0;
+
+    if (    (!pszTempFileName)
+         || (ulPrefixLen > 4)
+       )
+        arc = ERROR_INVALID_PARAMETER;
+    else
+    {
+        CHAR        szDir[CCHMAXPATH] = "";
+        FILESTATUS3 fs3;
+
+        const char  *pcszTemp = pcszDir;
+
+        if (!pcszTemp)
+        {
+            pcszTemp = getenv("TEMP");
+            if (!pcszTemp)
+                pcszTemp = getenv("TMP");
+        }
+
+        if (pcszTemp)       // either pcszDir or $(TEMP) or $(TMP) now
+            if (DosQueryPathInfo((PSZ)pcszTemp,
+                                 FIL_STANDARD,
+                                 &fs3,
+                                 sizeof(fs3)))
+                // TEMP doesn't exist:
+                pcszTemp = NULL;
+
+        if (!pcszTemp)
+            // not set, or doesn't exist:
+            // use root directory on boot drive
+            sprintf(szDir,
+                    "%c:\\",
+                    doshQueryBootDrive());
+        else
+        {
+            strcpy(szDir, pcszTemp);
+            if (szDir[strlen(szDir) - 1] != '\\')
+                strcat(szDir, "\\");
+        }
+
+        if (!szDir[0])
+            arc = ERROR_PATH_NOT_FOUND;     // shouldn't happen
+        else
+        {
+            ULONG       ulRandom = 0;
+            ULONG       cAttempts = 0;
+
+            // produce random number
+            DosQuerySysInfo(QSV_MS_COUNT,
+                            QSV_MS_COUNT,
+                            &ulRandom,
+                            sizeof(ulRandom));
+
+            do
+            {
+                CHAR szFile[20] = "",
+                     szFullTryThis[CCHMAXPATH];
+
+                // use the lower eight hex digits of the
+                // system uptime as the temp dir name
+                sprintf(szFile,
+                        "%08lX",
+                        ulRandom & 0xFFFFFFFF);
+
+                // if prefix is specified, overwrite the
+                // first characters in the random number
+                if (pcszPrefix)
+                    memcpy(szFile, pcszPrefix, ulPrefixLen);
+
+                if (pcszExt)
+                {
+                    szFile[8] = '.';
+                    strcpy(szFile + 9, pcszExt);
+                }
+
+                // now compose full temp file name
+                strcpy(szFullTryThis, szDir);
+                strcat(szFullTryThis, szFile);
+                // now we have: "C:\temp\wpiXXXXX"
+                if (DosQueryPathInfo(szFullTryThis,
+                                     FIL_STANDARD,
+                                     &fs3,
+                                     sizeof(fs3))
+                        == ERROR_FILE_NOT_FOUND)
+                {
+                    // file or dir doesn't exist:
+                    // cool, we're done
+                    strcpy(pszTempFileName, szFullTryThis);
+                    return (NO_ERROR);
+                }
+
+                // if this didn't work, raise ulRandom and try again
+                ulRandom += 123;
+
+                // try only 100 times, just to be sure
+                cAttempts++;
+            } while (cAttempts < 100);
+
+            // 100 loops elapsed:
+            arc = ERROR_BAD_FORMAT;
+        }
+    }
+
+    return (arc);
 }
 
 /*
