@@ -268,6 +268,7 @@ VOID txvInitFormat(PXFORMATDATA pxfd)
             TRUE);      // auto-free items
     lstInit(&pxfd->llWords,
             TRUE);      // auto-free items
+    xstrInit(&pxfd->strViewText, 0);
 }
 
 /*
@@ -1087,9 +1088,9 @@ VOID txvFormatText(HPS hps,             // in: HPS whose font is used for
     pxfd->ulViewportCX = 0;
     pxfd->ulViewportCY = 0;
 
-    if (pxfd->pszViewText)
+    if (pxfd->strViewText.cbAllocated)
     {
-        ULONG   ulTextLen = strlen(pxfd->pszViewText);
+        ULONG   ulTextLen = pxfd->strViewText.ulLength;
 
         FORMATLINEBUF   flbuf;
         LONG            lcidLast = -99,
@@ -1101,7 +1102,7 @@ VOID txvFormatText(HPS hps,             // in: HPS whose font is used for
         // set font
         flbuf.pfmtc = &pxfd->fmtcStandard;
         flbuf.lPointSize = pxfd->fmtcStandard.lPointSize;
-        flbuf.pLastChar = pxfd->pszViewText + ulTextLen;
+        flbuf.pLastChar = pxfd->strViewText.psz + ulTextLen;
 
         if (ulTextLen)
         {
@@ -1114,7 +1115,7 @@ VOID txvFormatText(HPS hps,             // in: HPS whose font is used for
                  *
                  */
 
-                PSZ     pCurrent = pxfd->pszViewText;
+                PSZ     pCurrent = pxfd->strViewText.psz;
 
                 // loop until null terminator
                 while (*pCurrent)
@@ -2393,7 +2394,7 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
             {
                 if (pwndParams->fsStatus & WPM_TEXT)
                 {
-                    xstrcpy(&ptxvd->xfd.pszViewText, pwndParams->pszText);
+                    xstrcpy(&ptxvd->xfd.strViewText, pwndParams->pszText);
                     ptxvd->lViewXOfs = 0;
                     ptxvd->lViewYOfs = 0;
                     /* ptxvd->fVScrollVisible = FALSE;
@@ -3060,8 +3061,7 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
          */
 
         case WM_DESTROY:
-            if (ptxvd->xfd.pszViewText)
-                free(ptxvd->xfd.pszViewText);
+            xstrClear(&ptxvd->xfd.strViewText);
             lstClear(&ptxvd->xfd.llRectangles);
             lstClear(&ptxvd->xfd.llWords);
             free(ptxvd);
@@ -3471,7 +3471,7 @@ BOOL txvPrint(HAB hab,
                      pszFaceName); */
 
     // use text from window
-    xfd.pszViewText = pszViewText;
+    xstrcpy(&xfd.strViewText, pszViewText);
 
     // setup page
     GpiQueryPageViewport(hps,
@@ -3620,7 +3620,7 @@ int txvPrintWindow(HWND hwndTextView,
                     txvPrint(ptxvd->hab,
                              hdc,
                              hps,
-                             ptxvd->xfd.pszViewText,
+                             ptxvd->xfd.strViewText.psz,
                              ulSize,
                              pszFaceName,
                              phciSelected,

@@ -39,7 +39,7 @@
  *
  *      2)  This doesn't use 16-bit characters, but 8-bit characters.
  *
- *@@header "xml.h"
+ *@@header "helpers\xml.h"
  *@@added V0.9.6 (2000-10-29) [umoeller]
  */
 
@@ -76,8 +76,14 @@
 #pragma hdrstop
 
 /*
- *@@category: Helpers\C helpers\XML parsing
+ *@@category: Helpers\C helpers\XML\Node management
  */
+
+/* ******************************************************************
+ *
+ *   Node Management
+ *
+ ********************************************************************/
 
 /*
  *@@ xmlCreateNode:
@@ -182,6 +188,64 @@ ULONG xmlDeleteNode(PDOMNODE pNode)
 
     return (ulrc);
 }
+
+/*
+ *@@category: Helpers\C helpers\XML\Parsing
+ */
+
+/* ******************************************************************
+ *
+ *   Tokenizing (Compiling)
+ *
+ ********************************************************************/
+
+/*
+ *@@ xmlTokenize:
+ *      this takes any block of XML text and "tokenizes"
+ *      it.
+ *
+ *      Tokenizing (or compiling, or "scanning" in bison/flex
+ *      terms) means preparing the XML code for parsing later.
+ *      This finds all tags and tag attributes and creates
+ *      special codes for them in the output buffer.
+ *
+ *      For example:
+ +
+ +      <TAG ATTR="text"> block </TAG>
+ +
+ *      becomes
+ *
+ +      0xFF            escape code
+ +      0x01            tag start code
+ +      "TAG"           tag name
+ +      0xFF            end of tag name code
+ +
+ +      0xFF            escape code
+ +      0x03            attribute name code
+ +      "ATTR"          attribute name
+ +      0xFF
+ +      "text"          attribute value (without quotes)
+ +      0xFF            end of attribute code
+ +
+ +      " block "       regular text
+ +
+ +      0xFF            escape code
+ +      0x01            tag start code
+ +      "/TAG"          tag name
+ +      0xFF            end of tag name code
+ *
+ *@@added V0.9.6 (2000-11-01) [umoeller]
+ */
+
+PSZ xmlTokenize(const char *pcszXML)
+{
+}
+
+/* ******************************************************************
+ *
+ *   Parsing
+ *
+ ********************************************************************/
 
 /*
  * TAGFOUND:
@@ -307,6 +371,7 @@ PLINKLIST BuildTagsList(const char *pcszBuffer)
                                     && (*pFirstAfterTagName != ' ')
                                     && (*pFirstAfterTagName != '\n')
                                     && (*pFirstAfterTagName != '\r')
+                                    && (*pFirstAfterTagName != '\t')        // tab
                                     && (*pFirstAfterTagName != '>')
                                   )
                                 pFirstAfterTagName++;
@@ -404,6 +469,7 @@ PDOMNODE CreateElementNode(PDOMNODE pParentNode,
                 break;
 
                 case ' ':
+                case '\t':  // tab
                 case '\n':
                 case '\r':
                     p++;
@@ -474,6 +540,7 @@ PDOMNODE CreateElementNode(PDOMNODE pParentNode,
                             break;
 
                             case ' ':
+                            case '\t':  // tab
                             case '\n':
                             case '\r':
                                 // spaces can appear in quotes

@@ -18,9 +18,10 @@
  *      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *      GNU General Public License for more details.
  *
- *@@include #define INCL_SPL    // for printing functions
+ *@@include #define INCL_SPL        // for printing functions
  *@@include #include <os2.h>
- *@@include #include "linklist.h" // for device-independent functions
+ *@@include #include "linklist.h"   // for device-independent functions
+ *@@include #include "xstring.h"    // for device-independent functions
  *@@include #include "textview.h"
  */
 
@@ -328,6 +329,7 @@ extern "C" {
     } XFMTPARAGRAPH, *PXFMTPARAGRAPH;
 
     #ifdef LINKLIST_HEADER_INCLUDED
+    #ifdef XSTRING_HEADER_INCLUDED
 
         /*
          *@@ XFORMATDATA:
@@ -339,7 +341,7 @@ extern "C" {
         typedef struct _XFORMATDATA
         {
             // input to txvFormatText
-            PSZ         pszViewText;    // original view text
+            XSTRING     strViewText;    // original view text
                                         // from WinSetWindowText
 
             XFMTPARAGRAPH
@@ -370,7 +372,7 @@ extern "C" {
                            PXFORMATDATA pxfd,
                            PRECTL prclView,
                            BOOL fFullRecalc);
-
+    #endif
     #endif
 
     VOID txvStripLinefeeds(char **ppszText,

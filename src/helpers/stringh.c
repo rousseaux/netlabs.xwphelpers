@@ -366,6 +366,94 @@ ULONG strhStrip(PSZ psz)         // in/out: string
 }
 
 /*
+ *@@ strhins:
+ *      this inserts one string into another.
+ *
+ *      pszInsert is inserted into pszBuffer at offset
+ *      ulInsertOfs (which counts from 0).
+ *
+ *      A newly allocated string is returned. pszBuffer is
+ *      not changed. The new string should be free()'d after
+ *      use.
+ *
+ *      Upon errors, NULL is returned.
+ *
+ *@@changed V0.9.0 [umoeller]: completely rewritten.
+ */
+
+PSZ strhins(const char *pcszBuffer,
+            ULONG ulInsertOfs,
+            const char *pcszInsert)
+{
+    PSZ     pszNew = NULL;
+
+    if ((pcszBuffer) && (pcszInsert))
+    {
+        do {
+            ULONG   cbBuffer = strlen(pcszBuffer);
+            ULONG   cbInsert = strlen(pcszInsert);
+
+            // check string length
+            if (ulInsertOfs > cbBuffer + 1)
+                break;  // do
+
+            // OK, let's go.
+            pszNew = (PSZ)malloc(cbBuffer + cbInsert + 1);  // additional null terminator
+
+            // copy stuff before pInsertPos
+            memcpy(pszNew,
+                   pcszBuffer,
+                   ulInsertOfs);
+            // copy string to be inserted
+            memcpy(pszNew + ulInsertOfs,
+                   pcszInsert,
+                   cbInsert);
+            // copy stuff after pInsertPos
+            strcpy(pszNew + ulInsertOfs + cbInsert,
+                   pcszBuffer + ulInsertOfs);
+        } while (FALSE);
+    }
+
+    return (pszNew);
+}
+
+/*
+ *@@ strhrpl:
+ *      wrapper around xstrrpl to work with C strings.
+ *      Note that *ppszBuf can get reallocated and must
+ *      be free()'able.
+ *
+ *      Use of this wrapper is not recommended because
+ *      it is considerably slower than xstrrpl.
+ *
+ *@@added V0.9.6 (2000-11-01) [umoeller]
+ */
+
+ULONG strhrpl(PSZ *ppszBuf,                // in/out: string
+              ULONG ulOfs,                  // in: where to begin search (0 = start)
+              const char *pcszSearch,    // in: search string; cannot be NULL
+              const char *pcszReplace,   // in: replacement string; cannot be NULL
+              PULONG pulAfterOfs)           // out: offset where found (ptr can be NULL)
+{
+    ULONG   ulrc = 0;
+    XSTRING xstrBuf,
+            xstrFind,
+            xstrReplace;
+    xstrInit(&xstrBuf, 0);
+    xstrset(&xstrBuf, *ppszBuf);
+    xstrInit(&xstrFind, 0);
+    xstrset(&xstrFind, (PSZ)pcszSearch);
+    xstrInit(&xstrReplace, 0);
+    xstrset(&xstrReplace, (PSZ)pcszReplace);
+
+    if (ulrc = xstrrpl(&xstrBuf, ulOfs, &xstrFind, &xstrReplace, pulAfterOfs))
+        // replaced:
+        *ppszBuf = xstrBuf.psz;
+
+    return (ulrc);
+}
+
+/*
  * strhWords:
  *      returns the no. of words in "psz".
  *      A string is considered a "word" if
@@ -934,6 +1022,7 @@ PSZ strhFindNextLine(PSZ pszSearchIn, PULONG pulOffset)
  *      but this one makes sure the key is at the beginning
  *      of a line. Spaces before the key are tolerated.
  *      Returns NULL if the key was not found.
+ *
  *      Used by strhGetParameter/strhSetParameter; useful
  *      for analyzing CONFIG.SYS settings.
  *
@@ -941,31 +1030,31 @@ PSZ strhFindNextLine(PSZ pszSearchIn, PULONG pulOffset)
  *@@changed V0.9.0 [umoeller]: fixed bug which could cause character before pszSearchIn to be examined
  */
 
-PSZ strhFindKey(PSZ pszSearchIn,     // in: text buffer to search
-                PSZ pszKey,          // in: key to search for
+PSZ strhFindKey(const char *pcszSearchIn,   // in: text buffer to search
+                const char *pcszKey,        // in: key to search for
                 PBOOL pfIsAllUpperCase) // out: TRUE if key is completely in upper case;
                                      // can be NULL if not needed
 {
-    PSZ     p = NULL,
-            pReturn = NULL;
+    const char  *p = NULL;
+    PSZ         pReturn = NULL;
     // BOOL    fFound = FALSE;
 
-    p = pszSearchIn;
+    p = pcszSearchIn;
     do {
-        p = strhistr(p, pszKey);
+        p = strhistr(p, pcszKey);
 
-        if ((p) && (p >= pszSearchIn))
+        if ((p) && (p >= pcszSearchIn))
         {
             // make sure the key is at the beginning of a line
             // by going backwards until we find a char != " "
-            PSZ p2 = p;
+            const char *p2 = p;
             while (     (*p2 == ' ')
-                     && (p2 > pszSearchIn)
+                     && (p2 > pcszSearchIn)
                   )
                 p2--;
 
             // if previous char is an EOL sign, go on
-            if (    (p2 == pszSearchIn)     // order fixed V0.9.0, RÅdiger Ihle
+            if (    (p2 == pcszSearchIn)     // order fixed V0.9.0, RÅdiger Ihle
                  || (*(p2-1) == '\r')
                  || (*(p2-1) == '\n')
                )
@@ -982,12 +1071,12 @@ PSZ strhFindKey(PSZ pszSearchIn,     // in: text buffer to search
                 if (*(p3+cbKey) == '=') */
                 {
                     // found:
-                    pReturn = p; // go on, p contains found key
+                    pReturn = (PSZ)p; // go on, p contains found key
 
                     // test for all upper case?
                     if (pfIsAllUpperCase)
                     {
-                        ULONG cbKey2 = strlen(pszKey),
+                        ULONG cbKey2 = strlen(pcszKey),
                               ul = 0;
                         *pfIsAllUpperCase = TRUE;
                         for (ul = 0; ul < cbKey2; ul++)
@@ -1004,7 +1093,7 @@ PSZ strhFindKey(PSZ pszSearchIn,     // in: text buffer to search
 
             p++; // search on after this key
         }
-    } while ((!pReturn) && (p != NULL) && (p != pszSearchIn));
+    } while ((!pReturn) && (p != NULL) && (p != pcszSearchIn));
 
     return (pReturn);
 }
@@ -1023,16 +1112,16 @@ PSZ strhFindKey(PSZ pszSearchIn,     // in: text buffer to search
  *      for "PAUSEONERROR=", and "PAUSEONERROR=YES" existed in pszSearchIn.
  */
 
-PSZ strhGetParameter(PSZ pszSearchIn,   // in: text buffer to search
-                     PSZ pszKey,        // in: key to search for
-                     PSZ pszCopyTo,     // out: key value
-                     ULONG cbCopyTo)    // out: sizeof(*pszCopyTo)
+PSZ strhGetParameter(const char *pcszSearchIn,  // in: text buffer to search
+                     const char *pcszKey,       // in: key to search for
+                     PSZ pszCopyTo,             // out: key value
+                     ULONG cbCopyTo)            // out: sizeof(*pszCopyTo)
 {
-    PSZ p = strhFindKey(pszSearchIn, pszKey, NULL),
+    PSZ p = strhFindKey(pcszSearchIn, pcszKey, NULL),
         prc = NULL;
     if (p)
     {
-        prc = p + strlen(pszKey);
+        prc = p + strlen(pcszKey);
         if (pszCopyTo)
         // copy to pszCopyTo
         {
@@ -1052,12 +1141,12 @@ PSZ strhGetParameter(PSZ pszSearchIn,   // in: text buffer to search
 
 /*
  *@@ strhSetParameter:
- *      searches *ppszSearchIn for the key pszKey; if found, it
+ *      searches *ppszBuf for the key pszKey; if found, it
  *      replaces the characters following this key up to the
  *      end of the line with pszParam. If pszKey is not found in
- *      pszSearchIn, it is appended to the file in a new line.
+ *      *ppszBuf, it is appended to the file in a new line.
  *
- *      If any changes are made, *ppszSearchIn is re-allocated.
+ *      If any changes are made, *ppszBuf is re-allocated.
  *
  *      This function searches w/out case sensitivity.
  *
@@ -1066,23 +1155,24 @@ PSZ strhGetParameter(PSZ pszSearchIn,   // in: text buffer to search
  *@@changed V0.9.0 [umoeller]: changed function prototype to PSZ* ppszSearchIn
  */
 
-PSZ strhSetParameter(PSZ* ppszSearchIn,    // in: text buffer to search
-                     PSZ pszKey,         // in: key to search for
-                     PSZ pszNewParam,    // in: new parameter to set for key
+PSZ strhSetParameter(PSZ* ppszBuf,    // in: text buffer to search
+                     const char *pcszKey,   // in: key to search for
+                     PSZ pszNewParam, // in: new parameter to set for key
                      BOOL fRespectCase)  // in: if TRUE, pszNewParam will
                              // be converted to upper case if the found key is
                              // in upper case also. pszNewParam should be in
                              // lower case if you use this.
 {
     BOOL fIsAllUpperCase = FALSE;
-    PSZ pKey = strhFindKey(*ppszSearchIn, pszKey, &fIsAllUpperCase),
+    PSZ pKey = strhFindKey(*ppszBuf, pcszKey, &fIsAllUpperCase),
         prc = NULL;
 
     if (pKey)
     {
         // key found in file:
         // replace existing parameter
-        PSZ pOldParam = pKey + strlen(pszKey);
+        PSZ pOldParam = pKey + strlen(pcszKey);
+
         prc = pOldParam;
         // pOldParam now has the old parameter, which we
         // will overwrite now
@@ -1095,32 +1185,45 @@ PSZ strhSetParameter(PSZ* ppszSearchIn,    // in: text buffer to search
 
             if (pEOL)
             {
+                XSTRING strBuf,
+                        strFind,
+                        strReplace;
+
                 PSZ pszOldCopy = (PSZ)malloc(cbOldParam+1);
                 strncpy(pszOldCopy, pOldParam, cbOldParam);
                 pszOldCopy[cbOldParam] = '\0';
+
+                xstrInit(&strBuf, 0);
+                xstrset(&strBuf, *ppszBuf);         // this must not be freed!
+                xstrInit(&strFind, 0);
+                xstrset(&strFind, pszOldCopy);      // this must not be freed!
+                xstrInit(&strReplace, 0);
+                xstrset(&strReplace, pszNewParam);  // this must not be freed!
 
                 // check for upper case desired?
                 if (fRespectCase)
                     if (fIsAllUpperCase)
                         strupr(pszNewParam);
 
-                xstrrpl(ppszSearchIn, 0, pszOldCopy, pszNewParam, NULL);
+                xstrrpl(&strBuf, 0, &strFind, &strReplace, NULL);
 
                 free(pszOldCopy);
+
+                *ppszBuf = strBuf.psz;
             }
         }
     }
     else
     {
-        PSZ pszNew = (PSZ)malloc(strlen(*ppszSearchIn)
-                              + strlen(pszKey)
+        PSZ pszNew = (PSZ)malloc(strlen(*ppszBuf)
+                              + strlen(pcszKey)
                               + strlen(pszNewParam)
                               + 5);     // 2 * \r\n + null byte
         // key not found: append to end of file
         sprintf(pszNew, "%s\r\n%s%s\r\n",
-                *ppszSearchIn, pszKey, pszNewParam);
-        free(*ppszSearchIn);
-        *ppszSearchIn = pszNew;
+                *ppszBuf, pcszKey, pszNewParam);
+        free(*ppszBuf);
+        *ppszBuf = pszNew;
     }
 
     return (prc);
@@ -1672,7 +1775,8 @@ PSZ strhCreateDump(PBYTE pb,            // in: start address of buffer
                    ULONG ulSize,        // in: size of buffer
                    ULONG ulIndent)      // in: indentation of every line
 {
-    PSZ     pszReturn = NULL;
+    PSZ     pszReturn = 0;
+    XSTRING strReturn;
     CHAR    szTemp[1000];
 
     PBYTE   pbCurrent = pb;                 // current byte
@@ -1682,6 +1786,8 @@ PSZ strhCreateDump(PBYTE pb,            // in: start address of buffer
             szAscii[30] = "         ";      // ASCII representation; filled for every line
     PSZ     pszLine = szLine,
             pszAscii = szAscii;
+
+    xstrInit(&strReturn, (ulSize * 30) + ulIndent);
 
     for (pbCurrent = pb;
          ulCount < ulSize;
@@ -1718,7 +1824,7 @@ PSZ strhCreateDump(PBYTE pb,            // in: start address of buffer
                             (ulCount & 0xFFFFFFF8),  // offset in hex
                             szLine,         // bytes string
                             szAscii);       // ASCII string
-            xstrcat(&pszReturn, szTemp);
+            xstrcat(&strReturn, szTemp);
 
             // restart line buffer
             pszLine = szLine;
@@ -1731,6 +1837,9 @@ PSZ strhCreateDump(PBYTE pb,            // in: start address of buffer
             ulCharsInLine = 0;
         }
     }
+
+    if (strReturn.cbAllocated)
+        pszReturn = strReturn.psz;
 
     return (pszReturn);
 }

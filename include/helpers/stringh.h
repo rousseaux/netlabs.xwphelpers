@@ -58,6 +58,16 @@ extern "C" {
 
     ULONG strhStrip(PSZ psz);
 
+    PSZ strhins(const char *pcszBuffer,
+                ULONG ulInsertOfs,
+                const char *pcszInsert);
+
+    ULONG strhrpl(PSZ *ppszBuf,
+                  ULONG ulOfs,
+                  const char *pcszSearch,
+                  const char *pcszReplace,
+                  PULONG pulAfterOfs);
+
     ULONG strhWords(PSZ psz);
 
     PSZ strhThousandsULong(PSZ pszTarget, ULONG ul, CHAR cThousands);
@@ -100,14 +110,17 @@ extern "C" {
 
     PSZ strhFindNextLine(PSZ pszSearchIn, PULONG pulOffset);
 
-    PSZ strhFindKey(PSZ pszSearchIn,
-                    PSZ pszKey,
-                    BOOL *pfIsAllUpperCase);
+    PSZ strhFindKey(const char *pcszSearchIn,
+                    const char *pcszKey,
+                    PBOOL pfIsAllUpperCase);
 
-    PSZ strhGetParameter(PSZ pszSearchIn, PSZ pszKey, PSZ pszCopyTo, ULONG cbCopyTo);
+    PSZ strhGetParameter(const char *pcszSearchIn,
+                         const char *pcszKey,
+                         PSZ pszCopyTo,
+                         ULONG cbCopyTo);
 
-    PSZ strhSetParameter(PSZ* ppszSearchIn,
-                         PSZ pszKey,
+    PSZ strhSetParameter(PSZ* ppszBuf,
+                         const char *pcszKey,
                          PSZ pszNewParam,
                          BOOL fRespectCase);
 

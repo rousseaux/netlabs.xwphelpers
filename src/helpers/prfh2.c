@@ -621,13 +621,10 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
         DosMove(szUserBackup, Profiles.pszUserName);
     }
 
-    if (    (Profiles.pszSysName)
-         && (Profiles.pszUserName)
-       )
-    {
+    if (Profiles.pszSysName)
         free(Profiles.pszSysName);
+    if (Profiles.pszUserName)
         free(Profiles.pszUserName);
-    }
 
     if (fLog)
         fprintf(fLog, "  Done with prfhSaveINIs\n");

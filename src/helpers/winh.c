@@ -2367,16 +2367,18 @@ VOID CallBatchCorrectly(PPROGDETAILS pProgDetails,
 {
     // XXX.CMD file as executable:
     // fix args to /C XXX.CMD
-    PSZ pszNewParams = strdup("/C ");
-    xstrcat(&pszNewParams, pProgDetails->pszExecutable);
+    XSTRING strNewParams;
+    xstrInit(&strNewParams, 200);
+    xstrcpy(&strNewParams, "/C ");
+    xstrcat(&strNewParams, pProgDetails->pszExecutable);
     if (*ppszParams)
     {
         // append old params
-        xstrcat(&pszNewParams, " ");
-        xstrcat(&pszNewParams, *ppszParams);
+        xstrcat(&strNewParams, " ");
+        xstrcat(&strNewParams, *ppszParams);
         free(*ppszParams);
     }
-    *ppszParams = pszNewParams;
+    *ppszParams = strNewParams.psz;
             // freed by caller
 
     // set executable to $(OS2_SHELL)
@@ -2492,15 +2494,17 @@ HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as wit
         if (fIsWindowsEnhApp)
         {
             // enhanced Win-OS/2 session:
-            PSZ psz2 = strdup("/3 ");
+            XSTRING str2;
+            xstrInit(&str2, 200);
+            xstrcpy(&str2, "/3 ");
             if (pszParamsPatched)
             {
                 // append existing params
-                xstrcat(&psz2, pszParamsPatched);
+                xstrcat(&str2, pszParamsPatched);
                 free(pszParamsPatched);
             }
 
-            pszParamsPatched = psz2;
+            pszParamsPatched = str2.psz;
         }
 
         if (fIsWindowsApp)
@@ -2974,7 +2978,7 @@ BOOL winhReplaceWindowText(HWND hwnd,           // in: window whose text is to b
     PSZ     pszText = winhQueryWindowText(hwnd);
     if (pszText)
     {
-        if (xstrrpl(&pszText, 0, pszSearch, pszReplaceWith, 0) > 0)
+        if (strhrpl(&pszText, 0, pszSearch, pszReplaceWith, 0) > 0)
         {
             WinSetWindowText(hwnd, pszText);
             brc = TRUE;

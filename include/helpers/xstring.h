@@ -32,12 +32,42 @@ extern "C" {
     #define XSTRING_HEADER_INCLUDED
 
     /*
-     *@@ XSTR:
-     *      string type for the strhx* functions.
-     *      That's a simple pointer to a PSZ.
+     *@@ XSTRING:
+     *
+     *@@added V0.9.6 (2000-11-01) [umoeller]
      */
 
-    typedef PSZ* XSTR;
+    typedef struct _XSTRING
+    {
+        PSZ             psz;            // ptr to string or NULL
+        ULONG           ulLength;       // length of *psz
+        ULONG           cbAllocated;    // memory allocated in *psz
+                                        // (>= ulLength + 1)
+    } XSTRING, *PXSTRING;
+
+    void xstrInit(PXSTRING pxstr,
+                  ULONG ulPreAllocate);
+
+    void xstrInitSet(PXSTRING pxstr,
+                     PSZ pszNew);
+
+    void xstrInitCopy(PXSTRING pxstr,
+                      const char *pcszSource);
+
+    void xstrClear(PXSTRING pxstr);
+
+    PXSTRING xstrCreate(ULONG ulPreAllocate);
+
+    VOID xstrFree(PXSTRING pxstr);
+
+    ULONG xstrset(PXSTRING pxstr,
+                  PSZ pszNew);
+
+    ULONG xstrcpy(PXSTRING pxstr,
+                  const char *pcszSource);
+
+    ULONG xstrcat(PXSTRING pxstr,
+                  const char *pcszSource);
 
     /*
      *@@ xstrIsString:
@@ -48,43 +78,17 @@ extern "C" {
 
     #define xstrIsString(psz) ( (psz != 0) && (*(psz) != 0) )
 
-    ULONG xstrcpy(XSTR ppszBuf,
-                  const char *pszString);
+    ULONG xstrrpl(PXSTRING pxstr,
+                  ULONG ulOfs,
+                  const XSTRING *pstrSearch,
+                  const XSTRING *pstrReplace,
+                  PULONG pulAfterOfs);
 
-    #ifdef __XWPMEMDEBUG__ // setup.h, helpers\memdebug.c
-        ULONG xstrcatDebug(XSTR ppszBuf,
-                           const char *pszString,
-                           const char *file,
-                           unsigned long line,
-                           const char *function);
-        #define xstrcat(a, b) xstrcatDebug((a), (b), __FILE__, __LINE__, __FUNCTION__)
-    #else
-        ULONG xstrcat(XSTR ppszBuf,
-                       const char *pszString);
-    #endif
-
-    #ifdef __XWPMEMDEBUG__ // setup.h, helpers\memdebug.c
-        ULONG xstrrplDebug(PSZ *ppszBuf,
-                           ULONG ulOfs,
-                           const char *pszSearch,
-                           const char *pszReplace,
-                           PULONG pulAfterOfs,
-                           const char *file,
-                           unsigned long line,
-                           const char *function);
-        #define xstrrpl(a, b, c, d, e) xstrrplDebug((a), (b), (c), (d), (e), __FILE__, __LINE__, __FUNCTION__)
-    #else
-        ULONG xstrrpl(PSZ *ppszBuf,
-                      ULONG ulOfs,
-                      const char *pszSearch,
-                      const char *pszReplace,
-                      PULONG pulAfterOfs);
-    #endif
-
-    PSZ xstrins(PSZ pszBuffer,
-                 ULONG ulInsertOfs,
-                 const char *pszInsert);
-
+    ULONG xstrcrpl(PXSTRING pxstr,
+                   ULONG ulOfs,
+                   const char *pcszSearch,
+                   const char *pcszReplace,
+                   PULONG pulAfterOfs);
 #endif
 
 #if __cplusplus

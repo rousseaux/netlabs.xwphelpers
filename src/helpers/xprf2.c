@@ -219,78 +219,75 @@ APIRET xprfCopyProfile(HINI hOld,           // in: source profile (can be HINI_U
 
     if (!pszNew)
         arc = ERROR_INVALID_PARAMETER;
-
-    if (arc == NO_ERROR)
+    else
     {
-
         DosDelete(pszNew);
 
         // open new profile
-
         arc = xprfOpenProfile(pszNew,
                               &pxiniNew);
-    }
 
-    // get size of applications list
-    if (arc == NO_ERROR)
-    {
-        if (!PrfQueryProfileSize(hOld, NULL, NULL, &ulSizeOfAppsList))
-            arc = PRFERR_APPSLIST;
-        else
-            if (ulSizeOfAppsList == 0)
-                arc = PRFERR_APPSLIST;
-    }
-
-    if (arc == NO_ERROR)
-    {
-        // get applications list
-        PSZ pApps = (PSZ)malloc(ulSizeOfAppsList);
-        PSZ pApp2 = pApps;
-        if (!PrfQueryProfileData(hOld,
-                                 NULL,
-                                 NULL,
-                                 pApps,
-                                 &ulSizeOfAppsList))
-            arc = PRFERR_APPSLIST;
-
-        // applications loop
-
-        while (   (*pApp2 != 0)
-               && (arc == NO_ERROR)
-              )
+        // get size of applications list
+        if (arc == NO_ERROR)
         {
-            CHAR szErrorKey[1000];
-            // copy application (this will call prfhCopyKey in turn)
-            arc = xprfCopyApp(hOld,
-                              pApp2,
-                              pxiniNew,
-                              pApp2,
-                              szErrorKey);
+            if (!PrfQueryProfileSize(hOld, NULL, NULL, &ulSizeOfAppsList))
+                arc = PRFERR_APPSLIST;
+            else
+                if (ulSizeOfAppsList == 0)
+                    arc = PRFERR_APPSLIST;
 
-            if (pfnProgressCallback)
+            if (arc == NO_ERROR)
             {
-                ULONG ulNow2, ulMax2;
-                ulNow2 = ((1000*(pApp2-pApps)) / ulSizeOfAppsList) + (ulCount*1000);
-                ulMax2 = (ulMax+1)*1000;
-                if (!pfnProgressCallback(ulUser, ulNow2, ulMax2))
-                    // aborted:
-                    arc = PRFERR_ABORTED;
+                // get applications list
+                PSZ pApps = (PSZ)malloc(ulSizeOfAppsList);
+                PSZ pApp2 = pApps;
+                if (!PrfQueryProfileData(hOld,
+                                         NULL,
+                                         NULL,
+                                         pApps,
+                                         &ulSizeOfAppsList))
+                    arc = PRFERR_APPSLIST;
+
+                // applications loop
+
+                while (   (*pApp2 != 0)
+                       && (arc == NO_ERROR)
+                      )
+                {
+                    CHAR szErrorKey[1000];
+                    // copy application (this will call prfhCopyKey in turn)
+                    arc = xprfCopyApp(hOld,
+                                      pApp2,
+                                      pxiniNew,
+                                      pApp2,
+                                      szErrorKey);
+
+                    if (pfnProgressCallback)
+                    {
+                        ULONG ulNow2, ulMax2;
+                        ulNow2 = ((1000*(pApp2-pApps)) / ulSizeOfAppsList) + (ulCount*1000);
+                        ulMax2 = (ulMax+1)*1000;
+                        if (!pfnProgressCallback(ulUser, ulNow2, ulMax2))
+                            // aborted:
+                            arc = PRFERR_ABORTED;
+                    }
+
+                    // go for next app
+                    pApp2 += strlen(pApp2)+1;
+
+                } // end while (*pApp2 != 0) && MBID_NOERROR
+
+                if (pApps)
+                    free(pApps);
             }
 
-            // go for next app
-            pApp2 += strlen(pApp2)+1;
+            xprfCloseProfile(pxiniNew);
 
-        } // end while (*pApp2 != 0) && MBID_NOERROR
-
-        if (pApps)
-            free(pApps);
+            // progress
+            if (pfnProgressCallback)
+                pfnProgressCallback(ulUser, (ulCount+1) * 1000, (ulMax+1) * 1000);
+        }
     }
-
-    xprfCloseProfile(pxiniNew);
-
-    // progress
-    if (pfnProgressCallback)
-        pfnProgressCallback(ulUser, (ulCount+1) * 1000, (ulMax+1) * 1000);
 
     return (arc);
 }
@@ -460,13 +457,10 @@ APIRET xprfSaveINIs(HAB hab,               // in:  anchor block
             arc = DosMove(szUserNew, Profiles.pszUserName);
     }
 
-    if (    (Profiles.pszSysName)
-         && (Profiles.pszUserName)
-       )
-    {
+    if (Profiles.pszSysName)
         free(Profiles.pszSysName);
+    if (Profiles.pszUserName)
         free(Profiles.pszUserName);
-    }
 
     return (arc);
 }
