@@ -101,6 +101,15 @@ extern "C" {
         #define APP_RUN_STANDARD        0x0004
         #define APP_RUN_SEPARATE        0x0008
 
+        #ifdef XSTRING_HEADER_INCLUDED
+        APIRET appFixProgDetails(PPROGDETAILS pDetails,
+                                 const PROGDETAILS *pcProgDetails,
+                                 ULONG ulFlags,
+                                 PXSTRING pstrExecutablePatched,
+                                 PXSTRING pstrParamsPatched,
+                                 PSZ *ppszWinOS2Env);
+        #endif
+
         APIRET XWPENTRY appStartApp(HWND hwndNotify,
                                     const PROGDETAILS *pcProgDetails,
                                     ULONG ulFlags,

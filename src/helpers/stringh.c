@@ -378,15 +378,16 @@ ULONG strhncpy0(PSZ pszTarget,
  *      is the memory required to allocate a copy,
  *      including the null terminator.
  *
- *      Returns 0 if pcsz is NULL or points to a
- *      null character.
+ *      Returns 0 only if pcsz is NULL. If pcsz
+ *      points to a null character, this returns 1.
  *
  *@@added V0.9.18 (2002-02-13) [umoeller]
+ *@@changed V0.9.18 (2002-03-27) [umoeller]: now returning 1 for ptr to null byte
  */
 
 ULONG strhSize(PCSZ pcsz)
 {
-    if (pcsz && *pcsz)
+    if (pcsz) //  && *pcsz) // V0.9.18 (2002-03-27) [umoeller]
         return (strlen(pcsz) + 1);
 
     return (0);
