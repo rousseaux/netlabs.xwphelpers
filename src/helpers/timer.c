@@ -70,6 +70,7 @@
 #define INCL_DOSEXCEPTIONS
 #define INCL_DOSPROCESS
 #define INCL_DOSSEMAPHORES
+#define INCL_DOSMISC
 #define INCL_DOSERRORS
 #include <os2.h>
 
@@ -189,6 +190,8 @@ VOID APIENTRY tmrOnKill(PEXCEPTIONREGISTRATIONRECORD2 pRegRec2)
  *      it terminates itself) when the last timer
  *      is stopped thru tmrStopTimer, which then
  *      sets the thread's fExit flag to TRUE.
+ *
+ *@@changed V0.9.7 (2000-12-08) [umoeller]: got rid of dtGetULongTime
  */
 
 void _Optlink fntTimersThread(PTHREADINFO ptiMyself)
@@ -243,7 +246,9 @@ void _Optlink fntTimersThread(PTHREADINFO ptiMyself)
                     while (pTimerNode)
                     {
                         PXTIMER pTimer = (PXTIMER)pTimerNode->pItemData;
-                        ULONG ulTimeNow = dtGetULongTime();
+                        ULONG ulTimeNow;
+                        DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
+                                        &ulTimeNow, sizeof(ulTimeNow));
 
                         if (pTimer->ulNextFire < ulTimeNow)
                         {
@@ -356,8 +361,6 @@ PXTIMER FindTimer(HWND hwnd,
  *      Preconditions:
  *
  *      -- The caller must call LockTimers() first.
- *
- *@@added V0.9.7 (2000-12-04) [umoeller]
  */
 
 VOID RemoveTimer(PXTIMER pTimer)
@@ -384,9 +387,9 @@ VOID RemoveTimer(PXTIMER pTimer)
  *      hwnd). Use tmrStopTimer to stop the timer.
  *
  *      The timer is _not_ stopped automatically
- *      when the widget is destroyed.
+ *      when the window is destroyed.
  *
- *@@added V0.9.7 (2000-12-04) [umoeller]
+ *@@changed V0.9.7 (2000-12-08) [umoeller]: got rid of dtGetULongTime
  */
 
 USHORT APIENTRY tmrStartTimer(HWND hwnd,
@@ -431,7 +434,10 @@ USHORT APIENTRY tmrStartTimer(HWND hwnd,
                 if (pTimer)
                 {
                     // exists already: reset only
-                    pTimer->ulNextFire = dtGetULongTime() + ulTimeout;
+                    ULONG ulTimeNow;
+                    DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
+                                    &ulTimeNow, sizeof(ulTimeNow));
+                    pTimer->ulNextFire = ulTimeNow + ulTimeout;
                     usrc = pTimer->usTimerID;
                 }
                 else
@@ -440,10 +446,13 @@ USHORT APIENTRY tmrStartTimer(HWND hwnd,
                     pTimer = (PXTIMER)malloc(sizeof(XTIMER));
                     if (pTimer)
                     {
+                        ULONG ulTimeNow;
+                        DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
+                                        &ulTimeNow, sizeof(ulTimeNow));
                         pTimer->usTimerID = usTimerID;
                         pTimer->hwndTarget = hwnd;
                         pTimer->ulTimeout = ulTimeout;
-                        pTimer->ulNextFire = dtGetULongTime() + ulTimeout;
+                        pTimer->ulNextFire = ulTimeNow + ulTimeout;
 
                         lstAppendItem(&G_llTimers,
                                       pTimer);
@@ -475,8 +484,6 @@ USHORT APIENTRY tmrStartTimer(HWND hwnd,
  *      using tmrStartTimer).
  *
  *      Returns TRUE if the timer was stopped.
- *
- *@@added V0.9.7 (2000-12-04) [umoeller]
  */
 
 BOOL APIENTRY tmrStopTimer(HWND hwnd,
@@ -522,8 +529,6 @@ BOOL APIENTRY tmrStopTimer(HWND hwnd,
  *      specified window. This is a useful helper
  *      that you should call during WM_DESTROY of
  *      a window that has started timers.
- *
- *@@added V0.9.7 (2000-12-04) [umoeller]
  */
 
 VOID tmrStopAllTimers(HWND hwnd)

@@ -44,7 +44,7 @@
 
 $(OUTPUTDIR)\animate.obj:   $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h \
-               $(HLPINC)\datetime.h $(HLPINC)\winh.h $(HLPINC)\gpih.h \
+               $(HLPINC)\winh.h $(HLPINC)\gpih.h \
 
 $(OUTPUTDIR)\cnrh.obj:     $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h \

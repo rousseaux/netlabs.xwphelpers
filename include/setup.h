@@ -8,6 +8,14 @@
 #ifndef SETUP_HEADER_INCLUDED
     #define SETUP_HEADER_INCLUDED
 
+    // XWPEXPORT defines the standard linkage for the
+    // XWorkplace helpers.
+    #ifdef __EMX__
+        #define XWPENTRY
+    #elif defined (__IBMCPP__) || defined (__IBMC__)
+        #define XWPENTRY _Optlink
+    #endif
+
     /*************************************************************
      *                                                           *
      *   Additional stuff for EMX                                *

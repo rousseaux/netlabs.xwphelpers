@@ -40,6 +40,7 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
+#define INCL_DOSMISC
 #include <os2.h>
 
 #include <stdio.h>
@@ -72,31 +73,23 @@ ULONG G_ulDateScalarFirstCalled = 0;
  *      and subtract the two values, which will give you the execution
  *      time in milliseconds.
  *
- *      Even though this does handle date information (i.e.
- *      will still return an increasing number when the
- *      clock switches from 23:59:59:9999 to 0:00:00:0000),
- *      this will not work forver after the first call.
- *      Here's the calculation:
- *
- +          1000 ms per second
- +            * 60 secs per minute
- +                * 60 minutes per hour
- +                    * 24 hours per day
- +                      = 86'400'000       after 23:59:59:9999
- *
  *      A ULONG can hold a max value of 4'294'967'295.
  *      So this overflows after 49.71... days.
  *
- *@@changed V0.9.7 (2000-12-05) [umoeller]: now handling date also
+ *@@V0.9.7 (2000-12-08) [umoeller]: replaced, now using DosQuerySysInfo(QSV_MS_COUNT)
  */
 
 ULONG dtGetULongTime(VOID)
 {
-    DATETIME    dt;
-    ULONG       ulTime,
-                ulDateScalarPassed = 1;
-    DosGetDateTime(&dt);
-    ulTime = (10*(dt.hundredths + 100*(dt.seconds + 60*(dt.minutes + 60*(dt.hours)))));
+    ULONG ulTimeNow;
+    DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
+                    &ulTimeNow,
+                    sizeof(ulTimeNow));
+    return (ulTimeNow);
+
+    /* DATETIME    dt;
+    ULONG       ulHours,
+                ulDaysPassed = 0;
 
     if (G_ulDateScalarFirstCalled == 0)
     {
@@ -111,12 +104,17 @@ ULONG dtGetULongTime(VOID)
         ULONG ulDateScalarNow = dtDate2Scalar(dt.year,
                                               dt.month,
                                               dt.day);
-        // calculate days passed since first call;
-        // this should be 1 if the date hasn't changed
-        ulDateScalarPassed = (G_ulDateScalarFirstCalled - ulDateScalarNow) + 1;
+        ulDaysPassed = (ulDateScalarNow - G_ulDateScalarFirstCalled);
+        _Pmpf((__FUNCTION__ ": days passed = %d", ulDaysPassed));
     }
 
-    return (ulTime * ulDateScalarPassed);
+    DosGetDateTime(&dt);
+    ulHours = dt.hours;     // this is UCHAR in DATETIME
+    // get the hours; for every day passed, add 24 hours...
+    ulHours += (24 * ulDaysPassed);
+            // 0 if we're still on the first date
+
+    return (10*(dt.hundredths + 100*(dt.seconds + 60*(dt.minutes + 60*(ulHours))))); */
 }
 
 /*

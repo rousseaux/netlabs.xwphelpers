@@ -72,6 +72,15 @@ extern "C" {
     #define WPSORTKEY_TYPE          0xFFFFFFFF
 
     /*
+     *  WPS object styles
+     *      V0.9.7 (2000-12-10) [umoeller]
+     */
+
+    #ifndef OBJSTYLE_LOCKEDINPLACE
+        #define OBJSTYLE_LOCKEDINPLACE  0x00020000
+    #endif
+
+    /*
      * Some more OS/2 default menu items:
      *
      */

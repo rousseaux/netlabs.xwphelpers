@@ -40,6 +40,7 @@
 #define INCL_DOSPROCESS
 #define INCL_DOSDEVICES
 #define INCL_DOSDEVIOCTL
+#define INCL_DOSMISC
 #define INCL_DOSERRORS
 
 #define INCL_WINPOINTERS
@@ -57,7 +58,6 @@
 
 #include "helpers\animate.h"
 
-#include "helpers\datetime.h"
 #include "helpers\winh.h"
 #include "helpers\gpih.h"
 
@@ -84,6 +84,8 @@
  *
  *      Returns the count of animation steps that were drawn.
  *      This is dependent on the speed of the system.
+ *
+ *@@changed V0.9.7 (2000-12-08) [umoeller]: got rid of dtGetULongTime
  */
 
 BOOL anmBlowUpBitmap(HPS hps,               // in: from WinGetScreenPS(HWND_DESKTOP)
@@ -121,7 +123,9 @@ BOOL anmBlowUpBitmap(HPS hps,               // in: from WinGetScreenPS(HWND_DESK
         //    will always last ulAnimationTime milliseconds
         // 2) since large bitmaps take more time to calculate,
         //    the animation won't appear to slow down then
-        ulInitialTime = dtGetULongTime();
+        DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
+                        &ulInitialTime,
+                        sizeof(ulInitialTime));
         ul = 1;
         ulSteps = 1000;
         do {
@@ -136,7 +140,9 @@ BOOL anmBlowUpBitmap(HPS hps,               // in: from WinGetScreenPS(HWND_DESK
                     0, 0,       // we don't need colors
                     DBM_STRETCH);
 
-            ulNowTime = dtGetULongTime();
+            DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
+                            &ulNowTime,
+                            sizeof(ulNowTime));
 
             // recalculate ul: rule of three based on the
             // time we've spent on animation so far
@@ -174,6 +180,8 @@ BOOL anmBlowUpBitmap(HPS hps,               // in: from WinGetScreenPS(HWND_DESK
  *      monitor being turned off; hps must have
  *      been acquired using WinGetScreenPS,
  *      ulSteps should be around 40-50.
+ *
+ *@@changed V0.9.7 (2000-12-08) [umoeller]: got rid of dtGetULongTime
  */
 
 VOID anmPowerOff(HPS hps, ULONG ulSteps)
@@ -194,8 +202,12 @@ VOID anmPowerOff(HPS hps, ULONG ulSteps)
     ul = 0;
     ulPhase = 1;
 
-    do {
-        ULONG ulFromTime = dtGetULongTime();
+    do
+    {
+        ULONG ulFromTime, ulTime2;
+        DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
+                        &ulFromTime,
+                        sizeof(ulFromTime));
 
         if (ulPhase == 1)
         {
@@ -224,7 +236,8 @@ VOID anmPowerOff(HPS hps, ULONG ulSteps)
             rclNow.yBottom = ((rclScreen.yTop / 2) * ul / ulSteps );
             rclNow.yTop = (rclScreen.yTop) - rclNow.yBottom;
 
-            if (rclNow.yBottom > (rclNow.yTop - LAST_WIDTH) ) {
+            if (rclNow.yBottom > (rclNow.yTop - LAST_WIDTH) )
+            {
                 rclNow.yBottom = (rclScreen.yTop / 2) - LAST_WIDTH;
                 rclNow.yTop = (rclScreen.yTop / 2) + LAST_WIDTH;
             }
@@ -261,11 +274,11 @@ VOID anmPowerOff(HPS hps, ULONG ulSteps)
             memcpy(&rclLast, &rclNow, sizeof(RECTL));
 
             // done with "shrinking"?
-            if ( rclNow.xRight < ((rclScreen.xRight / 2) + LAST_WIDTH) ) {
+            if ( rclNow.xRight < ((rclScreen.xRight / 2) + LAST_WIDTH) )
                 ulPhase = 2; // exit
-            }
-
-        } else if (ulPhase == 2) {
+        }
+        else if (ulPhase == 2)
+        {
             // Phase 2: draw a horizontal white line about
             // where the last rclNow was. This is only
             // executed once.
@@ -289,7 +302,9 @@ VOID anmPowerOff(HPS hps, ULONG ulSteps)
             ulPhase = 3;
             ul = 0;
 
-        } else if (ulPhase == 3) {
+        }
+        else if (ulPhase == 3)
+        {
             // Phase 3: make the white line shorter with
             // every iteration by drawing black rectangles
             // above it. These are drawn closer to the
@@ -323,16 +338,21 @@ VOID anmPowerOff(HPS hps, ULONG ulSteps)
             WinFillRect(hps, &rclDraw, CLR_BLACK);
 
             ul++;
-            if (ul > LAST_STEPS) {
+            if (ul > LAST_STEPS)
                 ulPhase = 99;
-            }
         }
 
         ul++;
 
-        while (dtGetULongTime() < ulFromTime + WAIT_TIME) {
-            // PSZ p = NULL; // keep compiler happy
-        }
+        DosSleep(WAIT_TIME);
+
+        /* do
+        {
+            DosSleep(0);
+            DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
+                            &ulTime2,
+                            sizeof(ulTime2));
+        }  while (ulTime2 < ulFromTime + WAIT_TIME); */
     } while (ulPhase != 99);
 
     // sleep a while

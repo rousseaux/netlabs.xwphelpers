@@ -185,7 +185,8 @@ void xstrInitSet(PXSTRING pxstr,
  *@@ xstrInitCopy:
  *      this can be used instead of xstrInit if you
  *      want to initialize an XSTRING with a copy
- *      of an existing string.
+ *      of an existing string. This is a shortcut
+ *      for xstrInit() and then xstrcpy().
  *
  *      As opposed to xstrInitSet, this does create
  *      a copy of pcszSource.
@@ -381,7 +382,11 @@ ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
  *      If pxstr is empty, this behaves just like xstrcpy.
  *
  *      Returns the length of the new string (excluding the null
- *      terminator), or null upon errors.
+ *      terminator) if the string was changed, or 0 if nothing
+ *      happened.
+ *
+ *      Note: To append a single character, xstrcatc is faster
+ *      than xstrcat.
  *
  *      Example:
  *
@@ -390,7 +395,7 @@ ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
  +          xstrcpy(&str, "blah");
  +          xstrcat(&str, "blup");
  *
- *      After this, psz points to a new string containing
+ *      After this, str.psz points to a new string containing
  *      "blahblup".
  *
  *@@changed V0.9.1 (99-12-20) [umoeller]: fixed memory leak
@@ -398,6 +403,7 @@ ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
  *@@changed V0.9.2 (2000-04-01) [umoeller]: renamed from strhxcat
  *@@changed V0.9.3 (2000-05-11) [umoeller]: returned 0 if pszString was initially empty; fixed
  *@@changed V0.9.6 (2000-11-01) [umoeller]: rewritten
+ *@@changed V0.9.7 (2000-12-10) [umoeller]: return value was wrong
  */
 
 ULONG xstrcat(PXSTRING pxstr,               // in/out: string
@@ -451,12 +457,91 @@ ULONG xstrcat(PXSTRING pxstr,               // in/out: string
 
             // in all cases, set new length
             pxstr->ulLength += ulSourceLength;
-            ulrc = ulSourceLength;
+            ulrc = pxstr->ulLength;     // V0.9.7 (2000-12-10) [umoeller]
 
         } // end if (ulSourceLength)
         // else no source specified or source is empty:
         // do nothing
     }
+
+    return (ulrc);
+}
+
+/*
+ *@@ xstrcatc:
+ *      this is similar to xstrcat, except that this is
+ *      for a single character. This is a bit faster than
+ *      xstrcat.
+ *
+ *      If "c" is \0, nothing happens.
+ *
+ *      If pxstr is empty, this behaves just like xstrcpy.
+ *
+ *      Returns the length of the new string (excluding the null
+ *      terminator) if the string was changed, or 0 if nothing
+ *      happened.
+ *
+ *      Example:
+ *
+ +          XSTRING str;
+ +          xstrInit(&str, 0);
+ +          xstrcpy(&str, "blu");
+ +          xstrcatc(&str, 'p');
+ *
+ *      After this, str.psz points to a new string containing
+ *      "blup".
+ *
+ *@@added V0.9.7 (2000-12-10) [umoeller]
+ */
+
+ULONG xstrcatc(PXSTRING pxstr,     // in/out: string
+               CHAR c)             // in: character to append, can be \0
+{
+    ULONG   ulrc = 0;
+
+    if ((pxstr) && (c))
+    {
+        // ULONG   ulSourceLength = 1;
+        // 1) memory management
+        ULONG   cbNeeded = pxstr->ulLength  // existing length, without null terminator
+                           + 1      // new character
+                           + 1;     // null terminator
+        if (cbNeeded > pxstr->cbAllocated)
+        {
+            // we need more memory than we have previously
+            // allocated:
+            if (pxstr->cbAllocated)
+                // appendee already had memory:
+                // reallocate
+                pxstr->psz = (PSZ)realloc(pxstr->psz,
+                                          cbNeeded);
+            else
+                // appendee has no memory:
+                pxstr->psz = (PSZ)malloc(cbNeeded);
+
+            pxstr->cbAllocated = cbNeeded;
+                    // ulLength is unchanged yet
+        }
+        // else: we have enough memory, both if appendee
+        //       is empty or not empty
+
+        // now we have:
+        // -- if appendee (pxstr) had enough memory, no problem
+        // -- if appendee (pxstr) needed more memory
+        //      -- and was not empty: pxstr->psz now points to a
+        //         reallocated copy of the old string
+        //      -- and was empty: pxstr->psz now points to a
+        //         new (unitialized) buffer
+
+        // 2) append character:
+        pxstr->psz[pxstr->ulLength] = c;
+        pxstr->psz[pxstr->ulLength + 1] = '\0';
+
+        // in all cases, set new length
+        pxstr->ulLength++;
+        ulrc = pxstr->ulLength;
+
+    } // end if ((pxstr) && (c))
 
     return (ulrc);
 }

@@ -46,9 +46,6 @@ extern "C" {
 
     BOOL doshIsWarp4(VOID);
 
-    APIRET doshQueryAvailPhysMem(PULONG pulMem,
-                                 ULONG ulLogicalSwapDrive);
-
     PSZ doshQuerySysErrorMsg(APIRET arc);
 
     /* ******************************************************************

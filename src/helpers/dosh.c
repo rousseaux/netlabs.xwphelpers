@@ -180,42 +180,6 @@ BOOL doshIsWarp4(VOID)
 }
 
 /*
- *@@ doshQueryAvailPhysMem:
- *      returns the amount of physical memory which
- *      is presently available (before the swapper
- *      would have to be expanded).
- *
- *      This number is calculated by getting the
- *      total available memory (QSV_TOTRESMEM)
- *      and subtracting the free space on the
- *      drive with the swap file from it.
- *
- *      As a result, you also need to specify
- *      the logical drive on which the swapper
- *      resides (3 = C, 4 = D, and so on).
- *
- *@@added V0.9.7 (2000-12-01) [umoeller]
- */
-
-APIRET doshQueryAvailPhysMem(PULONG pulMem,
-                             ULONG ulLogicalSwapDrive)
-{
-    APIRET arc = DosQuerySysInfo(QSV_TOTAVAILMEM,
-                                 QSV_TOTAVAILMEM,
-                                 pulMem,
-                                 sizeof(*pulMem));
-    if (arc == NO_ERROR)
-    {
-        double dFree = 0;
-        arc = doshQueryDiskFree(ulLogicalSwapDrive,
-                                &dFree);
-        *pulMem -= (ULONG)dFree;
-    }
-
-    return (arc);
-}
-
-/*
  *@@ doshQuerySysErrorMsg:
  *      this retrieves the error message for a system error
  *      (APIRET) from the system error message file (OSO001.MSG).
@@ -894,31 +858,43 @@ APIRET doshSetDiskLabel(ULONG ulLogicalDrive,        // in:  1 for A:, 2 for B:,
  *      has no dot in it).
  *
  *@@added V0.9.6 (2000-10-16) [umoeller]
+ *@@changed V0.9.7 (2000-12-10) [umoeller]: fixed "F:filename.ext" case
  */
 
 PSZ doshGetExtension(const char *pcszFilename)
 {
-    PSZ pszExtension = 0;
+    PSZ pReturn = NULL;
 
     if (pcszFilename)
     {
         // find filename
-        PSZ p2 = strrchr(pcszFilename + 2, '\\'),
-                    // works on "C:\blah" or "\\unc\blah"
-            p3 = NULL;
+        const char *p2 = strrchr(pcszFilename + 2, '\\'),
+                            // works on "C:\blah" or "\\unc\blah"
+                   *pStartOfName = NULL,
+                   *pExtension = NULL;
 
-        if (!p2)
-            // no backslash found: then this is not qualified...
-            // use start of filename
-            p2 = (PSZ)pcszFilename;
+        if (p2)
+            pStartOfName = p2 + 1;
+        else
+        {
+            // no backslash found:
+            // maybe only a drive letter was specified:
+            if (*(pcszFilename + 1) == ':')
+                // yes:
+                pStartOfName = pcszFilename + 2;
+            else
+                // then this is not qualified at all...
+                // use start of filename
+                pStartOfName = (PSZ)pcszFilename;
+        }
 
         // find last dot in filename
-        p3 = strrchr(p2 + 1, '.');
-        if (p3)
-            pszExtension = p3 + 1;
+        pExtension = strrchr(pStartOfName, '.');
+        if (pExtension)
+            pReturn = (PSZ)pExtension + 1;
     }
 
-    return (pszExtension);
+    return (pReturn);
 }
 
 /*

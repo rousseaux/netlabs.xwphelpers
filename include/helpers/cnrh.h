@@ -346,11 +346,13 @@ extern "C" {
      *      --  CV_DETAIL | CA_DETAILSVIEWTITLES: details view _with_ column headers
      *
      *      <B>Target emphasis:</B>
+     *
      *      For Name, Text, and Details view, per default target emphasis
      *      during d'n'd is only displayed _around_ the record core.
+     *      This allows users to drop records onto each other.
      *      If you add CA_ORDEREDTARGETEMPH, target emphasis is only
-     *      displayed _below_ the record core. If you add CA_MIXEDTARGETEMPH,
-     *      both emphasis types are possible.
+     *      displayed _between_ records (to reorder records).
+     *      If you add CA_MIXEDTARGETEMPH, both emphasis types are possible.
      *
      *      Additional flags for _all_ views:
      *      --  CA_DRAWICON: RECORDCORE.hptrIcon and hptrMiniIcon

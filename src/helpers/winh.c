@@ -2479,10 +2479,20 @@ VOID CallBatchCorrectly(PPROGDETAILS pProgDetails,
  *          as specified in the "Win-OS/2" WPS settings
  *          object.
  *
+ *      Even though this isn't clearly said in PMREF,
+ *      PROGDETAILS.swpInitial is important:
+ *
+ *      -- To start a session minimized, set SWP_MINIMIZE.
+ *
+ *      -- To start a VIO session without auto-close, set
+ *         the half-documented SWP_NOAUTOCLOSE flag (0x8000)
+ *         This flag is now in the newer toolkit headers.
+ *
  *      Since this calls WinStartApp in turn, this
  *      requires a message queue on the calling thread.
  *
  *@@added V0.9.6 (2000-10-16) [umoeller]
+ *@@changed V0.9.7 (2000-12-10) [umoeller]: PROGDETAILS.swpInitial no longer zeroed... this broke VIOs
  */
 
 HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as with WinStartApp)
@@ -2499,8 +2509,11 @@ HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as wit
             // pointers still point into old prog details buffer
     ProgDetails.Length = sizeof(PROGDETAILS);
     ProgDetails.progt.fbVisible = SHE_VISIBLE;
-    ProgDetails.pszEnvironment = 0; // "WORKPLACE\0\0";
-    memset(&ProgDetails.swpInitial, 0, sizeof(SWP));
+    ProgDetails.pszEnvironment = 0;
+
+    // memset(&ProgDetails.swpInitial, 0, sizeof(SWP));
+            // this wasn't a good idea... WPProgram stores stuff
+            // in here, such as the "minimize on startup" -> SWP_MINIMIZE
 
     // duplicate parameters...
     // we need this for string manipulations below...
@@ -2512,7 +2525,7 @@ HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as wit
     // _Pmpf(("  pszIcon: %s", (ProgDetails.pszIcon) ? ProgDetails.pszIcon : NULL));
 
     // program type fixups
-    switch (ProgDetails.progt.progc)
+    switch (ProgDetails.progt.progc)        // that's a ULONG
     {
         case ((ULONG)-1):       // we get that sometimes...
         case PROG_DEFAULT:
@@ -2523,25 +2536,29 @@ HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as wit
     // now try again...
     switch (ProgDetails.progt.progc)
     {
-        case PROG_31_ENH:
-        case PROG_31_ENHSEAMLESSCOMMON:
-        case PROG_31_ENHSEAMLESSVDM:
+        case PROG_31_ENHSEAMLESSVDM:        // 17
+        case PROG_31_ENHSEAMLESSCOMMON:     // 18
+        case PROG_31_ENH:                   // 19
             fIsWindowsApp = TRUE;
             fIsWindowsEnhApp = TRUE;
         break;
 
-        case PROG_WINDOW_AUTO:
-#ifdef PROG_30_STD
-        case PROG_30_STD:
+#ifndef PROG_30_STD
+    #define PROG_30_STD (PROGCATEGORY)11
 #endif
-        case PROG_31_STD:
-        case PROG_WINDOW_REAL:
-#ifdef PROG_30_STDSEAMLESSVDM
-        case PROG_30_STDSEAMLESSVDM:
+
+#ifndef PROG_30_STDSEAMLESSVDM
+    #define PROG_30_STDSEAMLESSVDM (PROGCATEGORY)13
 #endif
-        case PROG_31_STDSEAMLESSVDM:
-        case PROG_30_STDSEAMLESSCOMMON:
-        case PROG_31_STDSEAMLESSCOMMON:
+
+        case PROG_WINDOW_REAL:              // 10
+        case PROG_30_STD:                   // 11
+        case PROG_WINDOW_AUTO:              // 12
+        case PROG_30_STDSEAMLESSVDM:        // 13
+        case PROG_30_STDSEAMLESSCOMMON:     // 14
+        case PROG_31_STDSEAMLESSVDM:        // 15
+        case PROG_31_STDSEAMLESSCOMMON:     // 16
+        case PROG_31_STD:                   // 20
             fIsWindowsApp = TRUE;
         break;
     }
@@ -2704,6 +2721,7 @@ HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as wit
 
                             // do not use SAF_STARTCHILDAPP, or the
                             // app will be terminated automatically
+                            // when the WPS terminates!
 
     // _Pmpf((__FUNCTION__ ": got happ 0x%lX", happ));
 

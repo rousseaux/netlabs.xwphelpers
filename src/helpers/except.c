@@ -515,7 +515,6 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
     switch (pReportRec->ExceptionNum)
     {
         case XCPT_ACCESS_VIOLATION:
-        {
             fprintf(file, "\nXCPT_ACCESS_VIOLATION: ");
             if (pReportRec->ExceptionInfo[0] & XCPT_READ_ACCESS)
                 fprintf(file, "Invalid read access from 0x%04lX:%08lX.\n",
@@ -537,36 +536,29 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
                     "             for this are that an invalid pointer was used, there was\n"
                     "             confusion with administering memory or error conditions \n"
                     "             were not properly checked for.\n");
-            break;
-        }
+        break;
 
         case XCPT_INTEGER_DIVIDE_BY_ZERO:
-        {
             fprintf(file, "\nXCPT_INTEGER_DIVIDE_BY_ZERO.\n");
             fprintf(file,
                     "Explanation: An attempt was made to divide an integer value by zero,\n"
                     "             which is not defined.\n");
-            break;
-        }
+        break;
 
         case XCPT_ILLEGAL_INSTRUCTION:
-        {
             fprintf(file, "\nXCPT_ILLEGAL_INSTRUCTION.\n");
             fprintf(file,
                     "Explanation: An attempt was made to execute an instruction that\n"
                     "             is not defined on this machine's architecture.\n");
-            break;
-        }
+        break;
 
         case XCPT_PRIVILEGED_INSTRUCTION:
-        {
             fprintf(file, "\nXCPT_PRIVILEGED_INSTRUCTION.\n");
             fprintf(file,
                     "Explanation: An attempt was made to execute an instruction that\n"
                     "             is not permitted in the current machine mode or that\n"
                     "             XFolder had no permission to execute.\n");
-            break;
-        }
+        break;
 
         case XCPT_INTEGER_OVERFLOW:
             fprintf(file, "\nXCPT_INTEGER_OVERFLOW.\n");
@@ -574,10 +566,12 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
                     "Explanation: An integer operation generated a carry-out of the most\n"
                     "             significant bit. This is a sign of an attempt to store\n"
                     "             a value which does not fit into an integer variable.\n");
+        break;
 
         default:
             fprintf(file, "\nUnknown OS/2 exception number %d.\n", pReportRec->ExceptionNum);
             fprintf(file, "Look this up in the OS/2 header files.\n");
+        break;
     }
 
     if (DosGetInfoBlocks(&ptib, &ppib) == NO_ERROR)

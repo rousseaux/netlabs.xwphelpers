@@ -1643,7 +1643,9 @@ HWND cnrhQueryCnrFromFrame(HWND hwndFrame)
  *      This should get called in three situations:
  *
  *      --  the container sends CN_INITDRAG ("real" d'n'd desired by user);
+ *
  *      --  the container sends us CN_PICKUP (Alt+MB2 pressed);
+ *
  *      --  the user has selected "Pickup" from a record core's
  *          context menu (ID_XSMI_FILETYPES_PICKUP command).
  *          In that case, you can also call this function with
@@ -1673,9 +1675,15 @@ HWND cnrhQueryCnrFromFrame(HWND hwndFrame)
  *
  *      --  ulItemID will be set to the preccDrag so that the target
  *          window can access the dragged record.
+ *
  *      --  hstrSourceName == hstrTargetName gets the RECORDCORE.pszIcon.
  *
  *      The drag icon will be a default system file icon.
+ *
+ *      Preconditions:
+ *
+ *      --  pszIcon must be set in the RECORDCORE. This is used for
+ *          the item source name. This must not be NULL.
  */
 
 PDRAGINFO cnrhInitDrag(HWND hwndCnr,
