@@ -454,7 +454,7 @@ VOID xmlDeleteNode(PNODEBASE pNode)
 
             case ATTRIBUTE_DECLARATION:
             {
-                PCMATTRIBUTEDECL pDecl = (PCMATTRIBUTEDECL)pNode;
+                // PCMATTRIBUTEDECL pDecl = (PCMATTRIBUTEDECL)pNode;
             break; }
 
             case ATTRIBUTE_DECLARATION_BASE:
@@ -1523,7 +1523,7 @@ void EXPATENTRY CharacterDataHandler(void *pUserData,      // in: our PXMLDOM re
     // continue parsing only if we had no errors so far
     if (!pDom->arcDOM)
     {
-        ULONG       i;
+        // ULONG       i;
 
         if (len)
         {
@@ -1532,8 +1532,8 @@ void EXPATENTRY CharacterDataHandler(void *pUserData,      // in: our PXMLDOM re
                                                 NULL);     // no free
             if (!pDom->arcDOM)
             {
-                PDOMNODE    pParent = pSI->pDomNode,
-                            pNew = NULL;
+                PDOMNODE    pParent = pSI->pDomNode;
+                            // pNew = NULL;
 
                 // shall we validate?
                 if (pDom->pDocTypeNode)
@@ -2587,7 +2587,7 @@ PDOMNODE xmlGetFirstText(PDOMNODE pElement)
 PLINKLIST xmlGetElementsByTagName(PDOMNODE pParent,
                                   const char *pcszName)
 {
-    APIRET arc = NO_ERROR;
+    // APIRET arc = NO_ERROR;
 
     PLINKLIST pll = lstCreate(FALSE);       // no free
     if (pll)

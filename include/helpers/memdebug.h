@@ -4,6 +4,17 @@
  *      header file for memdebug.c.
  *      See remarks there.
  *
+ *      The following macros are used:
+ *
+ *      --  __XWPMEMDEBUG__: if defined, memory debugging is generally
+ *                           enabled. This must be set in setup.h.
+ *
+ *      --  __DEBUG_MALLOC_ENABLED__: malloc etc. have been replaced
+ *                           with memdMalloc etc. This is automatically
+ *                           defined by this header if __XWPMEMDEBUG__
+ *                           is defined, unless DONT_REPLACE_MALLOC
+ *                           is also defined.
+ *
  *      Note: Version numbering in this file relates to XWorkplace version
  *            numbering.
  *

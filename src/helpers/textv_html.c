@@ -1340,13 +1340,13 @@ VOID HandleTag(PCOPYTARGET pct)
         {
             // end of tag found:
             ULONG cbTag;
-            PSZ pStartOfAttrs = 0;
+            // PSZ pStartOfAttrs = 0;
 
             if ((pNextSpace) && (pNextSpace < pNextClose))
             {
                 // we have attributes:
                 cbTag = pNextSpace - (pStartOfTag + 1);
-                pStartOfAttrs = pNextSpace;
+                // pStartOfAttrs = pNextSpace;
             }
             else
                 cbTag = pNextClose - (pStartOfTag + 1);

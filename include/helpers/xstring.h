@@ -49,11 +49,42 @@ extern "C" {
                                         // (>= ulLength + 1)
         ULONG           ulDelta;        // allocation delta (0 = none)
                                         // V0.9.9 (2001-03-07) [umoeller]
+
+        // if memory debugging is enabled, enable the following
+        // extra fields globally... even if the caller doesn't
+        // want the replacement calls, the xstr* implementations
+        // are compiled with these fields, so they must always be
+        // present V0.9.14 (2001-08-01) [umoeller]
+        #if defined(__XWPMEMDEBUG__) // setup.h only
+            const char      *file;
+            unsigned long   line;
+            const char      *function;
+        #endif
+
     } XSTRING, *PXSTRING;
 
-    void XWPENTRY xstrInit(PXSTRING pxstr, ULONG ulPreAllocate);
+    #if defined(__DEBUG_MALLOC_ENABLED__) && !defined(DONT_REPLACE_XSTR_MALLOC) // setup.h, helpers\memdebug.c
+        #define xstrInit(a, b) xstrInitDebug((a), (b), __FILE__, __LINE__, __FUNCTION__)
+        void XWPENTRY xstrInitDebug(PXSTRING pxstr,
+                                    ULONG ulPreAllocate,
+                                    const char *file,
+                                    unsigned long line,
+                                    const char *function);
+        typedef void XWPENTRY XSTRINITDEBUG(PXSTRING pxstr,
+                                            ULONG ulPreAllocate,
+                                            const char *file,
+                                            unsigned long line,
+                                            const char *function);
+        typedef XSTRINITDEBUG *PXSTRINITDEBUG;
+    #else
+        void XWPENTRY xstrInit(PXSTRING pxstr, ULONG ulPreAllocate);
+        typedef void XWPENTRY XSTRINIT(PXSTRING pxstr, ULONG ulPreAllocate);
+        typedef XSTRINIT *PXSTRINIT;
+    #endif
+
+    /* void XWPENTRY xstrInit(PXSTRING pxstr, ULONG ulPreAllocate);
     typedef void XWPENTRY XSTRINIT(PXSTRING pxstr, ULONG ulPreAllocate);
-    typedef XSTRINIT *PXSTRINIT;
+    typedef XSTRINIT *PXSTRINIT; */
 
     void XWPENTRY xstrInitSet(PXSTRING pxstr, PSZ pszNew);
     typedef void XWPENTRY XSTRINITSET(PXSTRING pxstr, PSZ pszNew);

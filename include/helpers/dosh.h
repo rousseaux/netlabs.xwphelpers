@@ -157,7 +157,14 @@ extern "C" {
 
         APIRET doshQueryDiskParams(ULONG ulLogicalDrive,
                                    PBIOSPARAMETERBLOCK pdp);
+
+        BOOL XWPENTRY doshIsCDROM(PBIOSPARAMETERBLOCK pdp);
+
     #endif
+
+    APIRET XWPENTRY doshHasAudioCD(ULONG ulLogicalDrive,
+                                   BOOL fMixedModeCD,
+                                   PBOOL pfAudio);
 
     VOID XWPENTRY doshEnumDrives(PSZ pszBuffer,
                                  const char *pcszFileSystem,

@@ -624,8 +624,8 @@ PTXVWORD txvCreateWord(HPS hps,
         PSZ         pWordStart = *ppStartOfWord,
                     pWordEnd = NULL;
         PSZ         pCheck = *ppStartOfWord;
-        ULONG       cChars = 0,
-                    cCheck = 0;
+        ULONG       cChars = 0;
+                    // cCheck = 0;
 
         pWord = (PTXVWORD)malloc(sizeof(TXVWORD));
         memset(pWord, 0, sizeof(TXVWORD));
@@ -655,7 +655,7 @@ PTXVWORD txvCreateWord(HPS hps,
             POINTL      aptlText[TXTBOX_COUNT];
             // cChars is != 0 if strhGetWord succeeded AND the
             // line is not empty, so go on
-            cCheck = cChars;
+            // cCheck = cChars;
 
             // advance input pointer
             *ppStartOfWord = pWordEnd;
@@ -3047,7 +3047,7 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                         // vertical scroll bar enabled at all?
                         if (ptxvd->cdata.flStyle & XTXF_VSCROLL)
                         {
-                            BOOL fEnabled = winhUpdateScrollBar(ptxvd->hwndVScroll,
+                            /* BOOL fEnabled = */ winhUpdateScrollBar(ptxvd->hwndVScroll,
                                                                 ulWinCY,
                                                                 ptxvd->xfd.ulViewportCY,
                                                                 ptxvd->ulViewYOfs,
@@ -3218,7 +3218,7 @@ PRQINFO3* prthEnumQueues(PULONG pulReturned)    // out: no. of queues found
                       &cbNeeded,
                       NULL);    // reserved
 
-    if (cbNeeded)
+    if (!rc && cbNeeded)
     {
         pprq3 = (PRQINFO3*)malloc(cbNeeded);
         if (pprq3)

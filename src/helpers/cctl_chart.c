@@ -422,8 +422,8 @@ VOID PaintBarChart(HPS hpsMem,
          ul++)
     {
         HRGN        hrgnThis;
-        SHORT       sSweepAngle,
-                    sStartAngle;
+        /* SHORT       sSweepAngle,
+                    sStartAngle; */
 
         GpiSetCurrentPosition(hpsMem, &ptlLowerLeft);
 
@@ -1456,7 +1456,7 @@ LONG FindItemFromPoint(PCHARTCDATA pChtCData,
                        LONG lx,
                        LONG ly)
 {
-    LONG lRegionFound = -1; // none
+    // LONG lRegionFound = -1; // none
 
     POINTL ptlMouse = {lx, ly};
 

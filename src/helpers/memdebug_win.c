@@ -104,6 +104,9 @@ typedef struct _MEMRECORD
 
     ULONG       ulLine;
 
+    ULONG       ulAddress;      // has pAfterMagic, invisible, only
+                                // for sorting V0.9.14 (2001-08-01) [umoeller]
+
     PSZ         pszAddress;     // points to szAddress
     CHAR        szAddress[20];
 
@@ -234,8 +237,12 @@ PSZ         pszMemCnrTitle = NULL; */
                     case _HEAPOK: pMemRecordThis->pszStatus = "OK"; break;
                 }
 
-                sprintf(pMemRecordThis->szAddress, "0x%lX", pMemRecordThis->pObject);
-                strcpy(pMemRecordThis->szSource,
+                pMemRecordThis->ulAddress = (ULONG)pMemRecordThis->pObject;
+
+                sprintf(pMemRecordThis->szAddress,
+                        "0x%lX",
+                        pMemRecordThis->pObject);
+                strhcpy(pMemRecordThis->szSource,
                         (pMemRecordThis->filename)
                             ? pMemRecordThis->filename
                             : "?");
@@ -331,15 +338,19 @@ VOID memdCreateRecords(HWND hwndCnr,
 
                 pMemRecordThis->ulTID = pHeapItem->ulTID;
 
-                strcpy(pMemRecordThis->szSource, pHeapItem->pcszSourceFile);
+                strhcpy(pMemRecordThis->szSource, pHeapItem->pcszSourceFile);
                 pMemRecordThis->pszSource = pMemRecordThis->szSource;
 
                 pMemRecordThis->ulLine = pHeapItem->ulLine;
 
-                strcpy(pMemRecordThis->szFunction, pHeapItem->pcszFunction);
+                strhcpy(pMemRecordThis->szFunction, pHeapItem->pcszFunction);
                 pMemRecordThis->pszFunction = pMemRecordThis->szFunction;
 
-                sprintf(pMemRecordThis->szAddress, "0x%lX", pHeapItem->pAfterMagic);
+                pMemRecordThis->ulAddress = (ULONG)pHeapItem->pAfterMagic;
+
+                sprintf(pMemRecordThis->szAddress,
+                        "0x%lX",
+                        pHeapItem->pAfterMagic);
                 pMemRecordThis->pszAddress = pMemRecordThis->szAddress;
 
                 pMemRecordThis->ulSize = pHeapItem->ulSize;
@@ -360,7 +371,7 @@ VOID memdCreateRecords(HWND hwndCnr,
                 }
 
                 sprintf(pMemRecordThis->szAddress, "0x%lX", pMemRecordThis->pObject);
-                strcpy(pMemRecordThis->szSource,
+                strhcpy(pMemRecordThis->szSource,
                         (pMemRecordThis->filename)
                             ? pMemRecordThis->filename
                             : "?"); */
@@ -390,7 +401,6 @@ VOID memdCreateRecords(HWND hwndCnr,
 
 SHORT EXPENTRY mnu_fnCompareIndex(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
 {
-    // HAB habDesktop = WinQueryAnchorBlock(HWND_DESKTOP);
     pStorage = pStorage; // to keep the compiler happy
     if ((pmrc1) && (pmrc2))
         if (pmrc1->ulIndex < pmrc2->ulIndex)
@@ -433,18 +443,37 @@ SHORT EXPENTRY mnu_fnCompareSourceFile(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOI
 /*
  *@@ mnu_fnCompareSourceFile:
  *
- *V0.9.6 (2000-11-12) [umoeller]
+ *@@added V0.9.6 (2000-11-12) [umoeller]
  */
 
 SHORT EXPENTRY mnu_fnCompareSize(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
 {
-    HAB habDesktop = WinQueryAnchorBlock(HWND_DESKTOP);
     pStorage = pStorage; // to keep the compiler happy
     if ((pmrc1) && (pmrc2))
     {
         if (pmrc1->ulSize > pmrc2->ulSize)
             return (1);
         else if (pmrc1->ulSize < pmrc2->ulSize)
+            return (-1);
+    }
+
+    return (0);
+}
+
+/*
+ *@@ mnu_fnCompareAddress:
+ *
+ *@@added V0.9.14 (2001-08-01) [umoeller]
+ */
+
+SHORT EXPENTRY mnu_fnCompareAddress(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
+{
+    pStorage = pStorage; // to keep the compiler happy
+    if ((pmrc1) && (pmrc2))
+    {
+        if (pmrc1->ulAddress > pmrc2->ulAddress)
+            return (1);
+        else if (pmrc1->ulAddress < pmrc2->ulAddress)
             return (-1);
     }
 
@@ -468,6 +497,7 @@ SHORT EXPENTRY mnu_fnCompareSize(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pSto
  *      with the size of the client area in turn.
  *
  *@@added V0.9.1 (99-12-04) [umoeller]
+ *@@changed V0.9.14 (2001-08-01) [umoeller]: added sort by address
  */
 
 MRESULT EXPENTRY memd_fnwpMemDebug(HWND hwndClient, ULONG msg, MPARAM mp1, MPARAM mp2)
@@ -647,6 +677,11 @@ MRESULT EXPENTRY memd_fnwpMemDebug(HWND hwndClient, ULONG msg, MPARAM mp1, MPARA
                                        1003,
                                        "Sort by object size",
                                        MIS_TEXT, 0);
+                    winhInsertMenuItem(G_hwndMemDebugMenu,
+                                       MIT_END,
+                                       1004,
+                                       "Sort by address",
+                                       MIS_TEXT, 0);
 
                     WinSetFocus(HWND_DESKTOP, hwndCnr);
                 }
@@ -714,6 +749,13 @@ MRESULT EXPENTRY memd_fnwpMemDebug(HWND hwndClient, ULONG msg, MPARAM mp1, MPARA
                     WinSendMsg(WinWindowFromID(hwndClient, ID_MEMCNR),
                                CM_SORTRECORD,
                                (MPARAM)mnu_fnCompareSize,
+                               0);
+                break;
+
+                case 1004: // sort by address V0.9.14 (2001-08-01) [umoeller]
+                    WinSendMsg(WinWindowFromID(hwndClient, ID_MEMCNR),
+                               CM_SORTRECORD,
+                               (MPARAM)mnu_fnCompareAddress,
                                0);
                 break;
             }
@@ -787,6 +829,7 @@ VOID memdCreateMemDebugWindow(VOID)
 void memdDummy2(void)
 {
     int i = 0;
+    i++;
 }
 #endif
 

@@ -752,7 +752,7 @@ APIRET doshExecClose(PEXECUTABLE pExec)
 
 VOID ParseBldLevel(PEXECUTABLE pExec)
 {
-    const char  *pStartOfAuthor = 0,
+    const char  // *pStartOfAuthor = 0,
                 *pStartOfVendor = 0;
 
     // @#VENDOR:VERSION#@ DESCRIPTION
@@ -1600,7 +1600,7 @@ APIRET ScanNameTable(PEXECUTABLE pExec,
     {
         BYTE   bLen;
         CHAR   achName[256];
-        int    i;
+        // int    i;
 
         ENSURE(DosRead(pExec->hfExe, &bLen, 1, &ulDummy));
 
@@ -1746,8 +1746,8 @@ APIRET doshExecQueryExportedFunctions(PEXECUTABLE pExec,
 
             if (cFunctions)
             {
-                USHORT usOrdinal = 1,
-                       usCurrent = 0;
+                // USHORT usOrdinal = 1;
+                       // usCurrent = 0;
 
                 paFunctions = (PFSYSFUNCTION)malloc(sizeof(FSYSFUNCTION) * cFunctions);
                 if (!paFunctions)
@@ -3706,13 +3706,13 @@ APIRET doshReadLVMPartitions(PLVMINFO pInfo,         // in: LVM info
                     = &DCA.Drive_Control_Data[ulDisk];
                 ADDRESS hDrive = pDriveControlRecord->Drive_Handle;
 
-                Drive_Information_Record pDriveInfoRecord
+                /* Drive_Information_Record pDriveInfoRecord
                     = pLVMInfo->Get_Drive_Status(hDrive,
                                                  &Error);
 
                 _Pmpf(("  drive %d Get_Drive_Status Error: %d", ulDisk, Error));
 
-                if (!Error)
+                if (!Error) */
                 {
                     Partition_Information_Array PIA
                         = pLVMInfo->Get_Partitions(hDrive,
@@ -3769,9 +3769,9 @@ APIRET doshReadLVMPartitions(PLVMINFO pInfo,         // in: LVM info
                         pLVMInfo->Free_Engine_Memory(PIA.Partition_Array);
                     }
                 }
-                else
+                /* else
                     // error:
-                    break;
+                    break; */
             }
 
             // clean up drive data

@@ -31,7 +31,17 @@ extern "C" {
 #ifndef STRINGH_HEADER_INCLUDED
     #define STRINGH_HEADER_INCLUDED
 
-    PSZ strhdup(const char *pszSource);
+    PSZ strhcpy(PSZ string1, const char *string2);
+
+    #if defined(__DEBUG_MALLOC_ENABLED__) && !defined(DONT_REPLACE_STRINGH_MALLOC) // setup.h, helpers\memdebug.c
+        PSZ strhdupDebug(const char *pszSource,
+                         const char *pcszSourceFile,
+                         unsigned long ulLine,
+                         const char *pcszFunction);
+        #define strhdup(a) strhdupDebug((a), __FILE__, __LINE__, __FUNCTION__)
+    #else
+        PSZ strhdup(const char *pszSource);
+    #endif
 
     int strhcmp(const char *p1, const char *p2);
 
@@ -47,7 +57,16 @@ extern "C" {
 
     BOOL strhIsDecimal(PSZ psz);
 
-    PSZ strhSubstr(const char *pBegin, const char *pEnd);
+    #if defined(__DEBUG_MALLOC_ENABLED__) && !defined(DONT_REPLACE_STRINGH_MALLOC) // setup.h, helpers\memdebug.c
+        PSZ strhSubstrDebug(const char *pBegin,      // in: first char
+                            const char *pEnd,        // in: last char (not included)
+                            const char *pcszSourceFile,
+                            unsigned long ulLine,
+                            const char *pcszFunction);
+        #define strhSubstr(a, b) strhSubstrDebug((a), (b), __FILE__, __LINE__, __FUNCTION__)
+    #else
+        PSZ strhSubstr(const char *pBegin, const char *pEnd);
+    #endif
 
     PSZ strhExtract(PSZ pszBuf,
                     CHAR cOpen,

@@ -209,7 +209,7 @@ PSZ* appFindEnvironmentVar(PDOSENVIRONMENT pEnv,
         if ((pEnv->papszVars) && (pszVarName))
         {
             PSZ     *ppszThis = pEnv->papszVars;
-            PSZ     pszThis;
+            // PSZ     pszThis;
             ULONG   ul = 0;
             ULONG   ulVarNameLen = 0;
 
@@ -232,8 +232,6 @@ PSZ* appFindEnvironmentVar(PDOSENVIRONMENT pEnv,
                  ul < pEnv->cVars;
                  ul++)
             {
-                pszThis = *ppszThis;
-
                 if (strnicmp(*ppszThis, pszSearch, ulVarNameLen) == 0)
                 {
                     ppszRet = ppszThis;

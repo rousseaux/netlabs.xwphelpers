@@ -377,7 +377,7 @@ PSZ csysSetParameter(PSZ* ppszBuf,          // in: text buffer to search
     if (pKey)
     {
         // key found in file:
-        ULONG   ulOfs;
+        // ULONG   ulOfs;
 
         // replace existing parameter
         PSZ pOldParam = pKey + strlen(pcszKey);

@@ -1223,7 +1223,7 @@ VOID TtmShowTooltip(HWND hwndTooltip,
          */
 
         POINTL      ptlPointer;
-        HPS         hps;
+        // HPS         hps;
 
         // free old text
         if (pttd->pszPaintText)

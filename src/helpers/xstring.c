@@ -111,12 +111,49 @@
 #include "setup.h"                      // code generation and debugging options
 
 #include "helpers\stringh.h"
+#define DONT_REPLACE_XSTR_MALLOC
 #include "helpers\xstring.h"            // extended string helpers
 
 /*
  *@@category: Helpers\C helpers\String management\XStrings (with memory management)
  *      See xstring.c.
  */
+
+#ifdef __DEBUG_MALLOC_ENABLED__
+
+/*
+ *@@ xstrInitDebug:
+ *
+ *@@added V0.9.14 (2001-08-01) [umoeller]
+ */
+
+void XWPENTRY xstrInitDebug(PXSTRING pxstr,
+                            ULONG ulPreAllocate,
+                            const char *file,
+                            unsigned long line,
+                            const char *function)
+{
+    memset(pxstr, 0, sizeof(XSTRING));
+    if (ulPreAllocate)
+    {
+        pxstr->psz = (PSZ)memdMalloc(ulPreAllocate,
+                                     file,
+                                     line,
+                                     function);
+        pxstr->cbAllocated = ulPreAllocate;
+                // ulLength is still zero
+        *(pxstr->psz) = 0;
+
+        pxstr->ulDelta = ulPreAllocate * 10 / 100;
+    }
+
+    // else: pxstr->ulDelta is still 0
+    pxstr->file = file;
+    pxstr->line = line;
+    pxstr->function = function;
+}
+
+#endif // __DEBUG_MALLOC_ENABLED__
 
 /*
  *@@ xstrInit:
@@ -318,7 +355,16 @@ ULONG xstrReserve(PXSTRING pxstr,
         // V0.9.9 (2001-03-05) [umoeller]: use realloc;
         // this gives the C runtime a chance to expand the
         // existing block
-        if (pxstr->psz = (PSZ)realloc(pxstr->psz, cbAllocate))
+#ifdef __DEBUG_MALLOC_ENABLED__
+        if (pxstr->psz = (PSZ)memdRealloc(pxstr->psz,
+                                          cbAllocate,
+                                          pxstr->file,
+                                          pxstr->line,
+                                          pxstr->function))
+#else
+        if (pxstr->psz = (PSZ)realloc(pxstr->psz,
+                                      cbAllocate))
+#endif
                     // if pxstr->psz is NULL, realloc behaves like malloc
             pxstr->cbAllocated = cbAllocate;
                 // ulLength is unchanged

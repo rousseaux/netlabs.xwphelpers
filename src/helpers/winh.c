@@ -600,7 +600,7 @@ BOOL winhCopyMenuItem(HWND hmenuTarget,
                              i < cMenuItems;
                              i++)
                         {
-                            CHAR szItemText[100];
+                            // CHAR szItemText[100];
                             SHORT id = SHORT1FROMMR(WinSendMsg(mi.hwndSubMenu,
                                                          MM_ITEMIDFROMPOSITION,
                                                          MPFROMSHORT(i),
@@ -688,7 +688,7 @@ HWND winhMergeIntoSubMenu(HWND hmenuTarget,         // in: menu where to create 
     {
         MENUITEM mi = {0};
         SHORT src = 0;
-        SHORT s = 0;
+        // SHORT s = 0;
         mi.iPosition = MIT_END;
         mi.afStyle = MIS_TEXT | MIS_SUBMENU;
         mi.id = 2000;
@@ -743,6 +743,11 @@ HWND winhMergeIntoSubMenu(HWND hmenuTarget,         // in: menu where to create 
  *      Returns NULL on error. Use free()
  *      to free the return value.
  *
+ *      This uses MM_QUERYITEMTEXT internally.
+ *      PMREF doesn't say anything about this,
+ *      but from my testing this always recurses
+ *      into submenus.
+ *
  *      Use the WinSetMenuItemText macro to
  *      set the menu item text.
  */
@@ -752,9 +757,10 @@ PSZ winhQueryMenuItemText(HWND hwndMenu,
 {
     PSZ     prc = NULL;
 
-    SHORT sLength = SHORT1FROMMR(WinSendMsg(hwndMenu, MM_QUERYITEMTEXTLENGTH,
-                                           (MPARAM)(ULONG)usItemID,
-                                           (MPARAM)NULL));
+    SHORT sLength = SHORT1FROMMR(WinSendMsg(hwndMenu,
+                                            MM_QUERYITEMTEXTLENGTH,
+                                            (MPARAM)(ULONG)usItemID,
+                                            (MPARAM)NULL));
     if (sLength)
     {
         prc = (PSZ)malloc(sLength + 1);
@@ -4062,7 +4068,7 @@ PSWBLOCK winhQuerySwitchList(HAB hab)
 HWND winhQueryTasklistWindow(VOID)
 {
     SWBLOCK  swblock;
-    HWND     hwndTasklist = winhQueryTasklistWindow();
+    // HWND     hwndTasklist = winhQueryTasklistWindow();
     // the tasklist has entry #0 in the SWBLOCK
     WinQuerySwitchList(NULLHANDLE, &swblock, sizeof(SWBLOCK));
     return (swblock.aswentry[0].swctl.hwnd);

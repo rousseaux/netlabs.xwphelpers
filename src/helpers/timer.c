@@ -109,6 +109,7 @@
 #include "helpers\except.h"
 #include "helpers\linklist.h"
 #include "helpers\math.h"
+#include "helpers\standards.h"
 #include "helpers\threads.h"
 #include "helpers\timer.h"
 
@@ -247,8 +248,8 @@ VOID RemoveTimer(PXTIMERSET pSet,       // in: timer set (from tmrCreateSet)
 VOID AdjustPMTimer(PXTIMERSET pSet)
 {
     PLINKLIST pllXTimers = (PLINKLIST)pSet->pvllXTimers;
-    PLISTNODE pNode = lstQueryFirstNode(pllXTimers);
-    if (!pNode)
+    ULONG   cTimers = lstCountItems(pllXTimers);
+    if (!cTimers)
     {
         // no XTimers running:
         if (pSet->idPMTimerRunning)
@@ -267,56 +268,55 @@ VOID AdjustPMTimer(PXTIMERSET pSet)
     {
         // we have timers:
 
-        ULONG ulOldPMTimeout = pSet->ulPMTimeout;
+        ULONG       ulOldPMTimeout = pSet->ulPMTimeout;
 
-        if (!pNode->pNext)
+        PLISTNODE   pNode = lstQueryFirstNode(pllXTimers);
+        PXTIMER     pTimer1 = (PXTIMER)pNode->pItemData;
+
+        if (cTimers == 1)
         {
             // only one timer:
             // that's easy
-            PXTIMER pTimer = (PXTIMER)pNode->pItemData;
-            pSet->ulPMTimeout = pTimer->ulTimeout;
+            pSet->ulPMTimeout = pTimer1->ulTimeout;
         }
-        else if (!pNode->pNext->pNext)
+        else if (cTimers == 2)
         {
             // exactly two timers:
             // find the greatest common denominator
-            PXTIMER pTimer1 = (PXTIMER)pNode->pItemData,
-                    pTimer2 = (PXTIMER)pNode->pNext->pItemData;
+            PXTIMER pTimer2 = (PXTIMER)pNode->pNext->pItemData;
 
             pSet->ulPMTimeout = mathGCD(pTimer1->ulTimeout,
                                         pTimer2->ulTimeout);
         }
         else
         {
-            // several timers:
+            // more than two timers:
             // run through all timers and find the greatest
             // common denominator of all frequencies...
-
-            ULONG   cTimers = lstCountItems(pllXTimers);
             int     *paInts = (int*)_alloca(sizeof(int) * cTimers),
                     i = 0;
 
-            _Pmpf(("Recalculating, got %d timers %d", cTimers));
+            // _Pmpf(("Recalculating, got %d timers", cTimers));
 
             // fill an array of integers with the
             // timer frequencies
             while (pNode)
             {
-                PXTIMER pTimer = (PXTIMER)pNode->pItemData;
+                pTimer1 = (PXTIMER)pNode->pItemData;
 
-                _Pmpf(("  timeout %d is %d", i, pTimer->ulTimeout));
+                // _Pmpf(("  timeout %d is %d", i, pTimer1->ulTimeout));
 
-                paInts[i++] = pTimer->ulTimeout;
+                paInts[i++] = pTimer1->ulTimeout;
 
                 pNode = pNode->pNext;
             }
 
             pSet->ulPMTimeout = mathGCDMulti(paInts,
                                              cTimers);
-            _Pmpf(("--> GCD is %d", pSet->ulPMTimeout));
+            // _Pmpf(("--> GCD is %d", pSet->ulPMTimeout));
         }
 
-        if (    (pSet->idPMTimerRunning == 0)       // timer not running?
+        if (    (!pSet->idPMTimerRunning)       // timer not running?
              || (pSet->ulPMTimeout != ulOldPMTimeout) // timeout changed?
            )
             // start or restart PM timer
@@ -354,9 +354,7 @@ VOID AdjustPMTimer(PXTIMERSET pSet)
 PXTIMERSET tmrCreateSet(HWND hwndOwner,         // in: owner window
                         USHORT usPMTimerID)
 {
-    PXTIMERSET pSet = NULL;
-
-    pSet = (PXTIMERSET)malloc(sizeof(*pSet));
+    PXTIMERSET pSet = NEW(XTIMERSET);
     if (pSet)
     {
         pSet->hab = WinQueryAnchorBlock(hwndOwner);
@@ -433,7 +431,8 @@ VOID tmrDestroySet(PXTIMERSET pSet)     // in: timer set (from tmrCreateSet)
  *
  *@@added V0.9.9 (2001-02-28) [umoeller]
  *@@changed V0.9.12 (2001-05-12) [umoeller]: added mutex protection
- *@@changed V0.9.12 (2001-05-24) [umoeller]: fixed crash if timer was deleted during winproc's WM_TIMER processing
+ *@@changed V0.9.12 (2001-05-24) [umoeller]: fixed crash if this got called during tmrTimerTick
+ *@@changed V0.9.14 (2001-08-01) [umoeller]: fixed mem overwrite which might have caused crashes if this got called during tmrTimerTick
  */
 
 VOID tmrTimerTick(PXTIMERSET pSet)      // in: timer set (from tmrCreateSet)
@@ -497,6 +496,10 @@ VOID tmrTimerTick(PXTIMERSET pSet)      // in: timer set (from tmrCreateSet)
                                 // get the window's window proc
                                 PFNWP pfnwp = (PFNWP)WinQueryWindowPtr(pTimer->hwndTarget,
                                                                        QWP_PFNWP);
+
+                                // moved this up V0.9.14 (2001-08-01) [umoeller]
+                                pTimer->ulNextFire = ulTimeNow + pTimer->ulTimeout;
+
                                 // call the window proc DIRECTLY
                                 pfnwp(pTimer->hwndTarget,
                                       WM_TIMER,
@@ -510,7 +513,12 @@ VOID tmrTimerTick(PXTIMERSET pSet)      // in: timer set (from tmrCreateSet)
                                     // -- if a timer is added, it is added to
                                     //    the list, so we'll see it in this loop
 
-                                pTimer->ulNextFire = ulTimeNow + pTimer->ulTimeout;
+                                // V0.9.14 (2001-08-01) [umoeller]
+
+                                // DO NOT REFERENCE pTimer AFTER THIS CODE;
+                                // tmrTimerTick might have removed the timer,
+                                // and since the list is auto-free, pTimer
+                                // might have been freed!!
                             }
                             else
                             {
@@ -597,7 +605,7 @@ USHORT XWPENTRY tmrStartXTimer(PXTIMERSET pSet, // in: timer set (from tmrCreate
                 PXTIMER pTimer;
 
                 // fix the timeout... we allow only multiples of
-                // 20, and it must be at least 20 (otherwise our
+                // 25, and it must be at least 25 (otherwise our
                 // internal master timer calculations will fail)
                 // V0.9.14 (2001-07-07) [umoeller]
                 if (ulTimeout < 25)
@@ -606,23 +614,21 @@ USHORT XWPENTRY tmrStartXTimer(PXTIMERSET pSet, // in: timer set (from tmrCreate
                     ulTimeout = (ulTimeout + 10) / 25 * 25;
 
                 // check if this timer exists already
-                pTimer = FindTimer(pSet,
-                                   hwnd,
-                                   usTimerID);
-                if (pTimer)
+                if (pTimer = FindTimer(pSet,
+                                       hwnd,
+                                       usTimerID))
                 {
                     // exists already: reset only
                     ULONG ulTimeNow;
                     DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
                                     &ulTimeNow, sizeof(ulTimeNow));
                     pTimer->ulNextFire = ulTimeNow + ulTimeout;
-                    usrc = pTimer->usTimerID;
+                    usrc = usTimerID;
                 }
                 else
                 {
                     // new timer needed:
-                    pTimer = (PXTIMER)malloc(sizeof(XTIMER));
-                    if (pTimer)
+                    if (pTimer = NEW(XTIMER))
                     {
                         ULONG ulTimeNow;
                         DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
@@ -634,7 +640,7 @@ USHORT XWPENTRY tmrStartXTimer(PXTIMERSET pSet, // in: timer set (from tmrCreate
 
                         lstAppendItem(pllXTimers,
                                       pTimer);
-                        usrc = pTimer->usTimerID;
+                        usrc = usTimerID;
                     }
                 }
 
@@ -672,8 +678,7 @@ BOOL XWPENTRY tmrStopXTimer(PXTIMERSET pSet,    // in: timer set (from tmrCreate
     {
         if (pSet && pSet->pvllXTimers)
         {
-            PLINKLIST pllXTimers = (PLINKLIST)pSet->pvllXTimers;
-            BOOL fLocked = FALSE;
+            // PLINKLIST pllXTimers = (PLINKLIST)pSet->pvllXTimers;
 
             PXTIMER pTimer = FindTimer(pSet,
                                        hwnd,

@@ -381,6 +381,7 @@ void memdFree(void *p,
         while (pHeapItem)
         {
             if (pHeapItem->pAfterMagic == p)
+            {
                 // the same address may be allocated and freed
                 // several times, so if this address has been
                 // freed, search on
@@ -428,6 +429,7 @@ void memdFree(void *p,
                     fFound = TRUE;
                     break;
                 } // if (!pHeapItem->fFreed)
+            }
 
             pHeapItem = pHeapItem->pNext;
         }
@@ -701,6 +703,7 @@ unsigned long memdReleaseFreed(void)
 void memdDummy(void)
 {
     int i = 0;
+    i++;
 }
 #endif
 

@@ -200,6 +200,13 @@ extern "C" {
                                       const char *pcszItemTitle,
                                       SHORT afStyle,
                                       SHORT afAttr);
+    typedef SHORT XWPENTRY WINHINSERTMENUITEM(HWND hwndMenu,
+                                              SHORT iPosition,
+                                              SHORT sItemId,
+                                              const char *pcszItemTitle,
+                                              SHORT afStyle,
+                                              SHORT afAttr);
+    typedef WINHINSERTMENUITEM *PWINHINSERTMENUITEM;
 
     HWND XWPENTRY winhInsertSubmenu(HWND hwndMenu,
                                     ULONG iPosition,
@@ -210,6 +217,16 @@ extern "C" {
                                     const char *pcszItemTitle,
                                     USHORT afItemStyle,
                                     USHORT afAttribute);
+    typedef HWND XWPENTRY WINHINSERTSUBMENU(HWND hwndMenu,
+                                            ULONG iPosition,
+                                            SHORT sMenuId,
+                                            const char *pcszSubmenuTitle,
+                                            USHORT afMenuStyle,
+                                            SHORT sItemId,
+                                            const char *pcszItemTitle,
+                                            USHORT afItemStyle,
+                                            USHORT afAttribute);
+    typedef WINHINSERTSUBMENU *PWINHINSERTSUBMENU;
 
     BOOL XWPENTRY winhSetMenuCondCascade(HWND hwndMenu,
                                          LONG lDefaultItem);

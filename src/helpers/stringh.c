@@ -51,6 +51,7 @@
 
 #include "setup.h"                      // code generation and debugging options
 
+#define DONT_REPLACE_STRINGH_MALLOC
 #include "helpers\stringh.h"
 #include "helpers\xstring.h"            // extended string helpers
 
@@ -67,9 +68,54 @@
  */
 
 /*
+ *@@ strcpy:
+ *      like strdup, but this one doesn't crash if string2 is NULL,
+ *      but sets the first byte in string1 to \0 instead.
+ *
+ *@@added V0.9.14 (2001-08-01) [umoeller]
+ */
+
+PSZ strhcpy(PSZ string1, const char *string2)
+{
+    if (string2)
+        return (strcpy(string1, string2));
+
+    *string1 = '\0';
+    return (string1);
+}
+
+#ifdef __DEBUG_MALLOC_ENABLED__
+
+/*
  *@@ strhdup:
- *      like strdup, but this one
- *      doesn't crash if pszSource is NULL,
+ *      memory debug version of strhdup.
+ *
+ *@@added V0.9.0 [umoeller]
+ */
+
+PSZ strhdupDebug(const char *pszSource,
+                 const char *pcszSourceFile,
+                 unsigned long ulLine,
+                 const char *pcszFunction)
+{
+    if (pszSource)
+    {
+        PSZ p = (PSZ)memdMalloc(strlen(pszSource) + 1,
+                                pcszSourceFile,
+                                ulLine,
+                                pcszFunction);
+        strcpy(p,  pszSource);
+        return (p);
+    }
+    else
+        return (0);
+}
+
+#endif // __DEBUG_MALLOC_ENABLED__
+
+/*
+ *@@ strhdup:
+ *      like strdup, but this one doesn't crash if pszSource is NULL,
  *      but returns NULL also.
  *
  *@@added V0.9.0 [umoeller]
@@ -247,6 +293,42 @@ BOOL strhIsDecimal(PSZ psz)
     return (TRUE);
 }
 
+#ifdef __DEBUG_MALLOC_ENABLED__
+
+/*
+ *@@ strhSubstrDebug:
+ *      memory debug version of strhSubstr.
+ *
+ *@@added V0.9.14 (2001-08-01) [umoeller]
+ */
+
+PSZ strhSubstrDebug(const char *pBegin,      // in: first char
+                    const char *pEnd,        // in: last char (not included)
+                    const char *pcszSourceFile,
+                    unsigned long ulLine,
+                    const char *pcszFunction)
+{
+    PSZ pszSubstr = NULL;
+
+    if (pEnd > pBegin)      // V0.9.9 (2001-04-04) [umoeller]
+    {
+        ULONG cbSubstr = (pEnd - pBegin);
+        if (pszSubstr = (PSZ)memdMalloc(cbSubstr + 1,
+                                        pcszSourceFile,
+                                        ulLine,
+                                        pcszFunction))
+        {
+            // strhncpy0(pszSubstr, pBegin, cbSubstr);
+            memcpy(pszSubstr, pBegin, cbSubstr);        // V0.9.9 (2001-04-04) [umoeller]
+            *(pszSubstr + cbSubstr) = '\0';
+        }
+    }
+
+    return (pszSubstr);
+}
+
+#endif // __DEBUG_MALLOC_ENABLED__
+
 /*
  *@@ strhSubstr:
  *      this creates a new PSZ containing the string
@@ -273,10 +355,8 @@ PSZ strhSubstr(const char *pBegin,      // in: first char
     if (pEnd > pBegin)      // V0.9.9 (2001-04-04) [umoeller]
     {
         ULONG cbSubstr = (pEnd - pBegin);
-        pszSubstr = (PSZ)malloc(cbSubstr + 1);
-        if (pszSubstr)
+        if (pszSubstr = (PSZ)malloc(cbSubstr + 1))
         {
-            // strhncpy0(pszSubstr, pBegin, cbSubstr);
             memcpy(pszSubstr, pBegin, cbSubstr);        // V0.9.9 (2001-04-04) [umoeller]
             *(pszSubstr + cbSubstr) = '\0';
         }

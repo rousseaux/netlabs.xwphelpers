@@ -602,7 +602,8 @@ BOOL gpihSplitPresFont(PSZ pszFontNameSize,  // in: e.g. "12.Courier"
  *      across all your code, you should be safe.
  *
  *      gpihFindFont uses this mutex. If you call GpiCreateLogFont
- *      yourself somewhere, do this after you called this function.
+ *      yourself somewhere, you should do this under the protection
+ *      of this function.
  *
  *      Call gpihUnlockLCIDs to unlock.
  *
@@ -611,19 +612,15 @@ BOOL gpihSplitPresFont(PSZ pszFontNameSize,  // in: e.g. "12.Courier"
 
 BOOL gpihLockLCIDs(VOID)
 {
-    BOOL brc = FALSE;
-
-    if (G_hmtxLCIDs == NULLHANDLE)
+    if (!G_hmtxLCIDs)
         // first call: create
-        brc = !DosCreateMutexSem(NULL,
-                                 &G_hmtxLCIDs,
-                                 0,
-                                 TRUE);     // request!
-    else
-        // subsequent calls: request
-        brc = !WinRequestMutexSem(G_hmtxLCIDs, SEM_INDEFINITE_WAIT);
+        return (!DosCreateMutexSem(NULL,
+                                   &G_hmtxLCIDs,
+                                   0,
+                                   TRUE));     // request!
 
-    return (brc);
+    // subsequent calls: request
+    return (!WinRequestMutexSem(G_hmtxLCIDs, SEM_INDEFINITE_WAIT));
 }
 
 /*
@@ -740,95 +737,6 @@ LONG gpihQueryNextFontID(HPS hps)
             free(aNames);
         if (allcids)
             free(allcids);
-
-/*
-        PLONG   pBase;
-        APIRET  arc;
-
-        // _Pmpf(("gpihQueryNextFontID: calling DosAllocMem"));
-
-        arc = DosAllocMem((PPVOID)(&pBase),
-                          GQNCL_BLOCK_SIZE,
-                                   // space is needed for an array of lCount longs.
-                          PAG_READ |
-                          PAG_WRITE);
-        if (arc == NO_ERROR)
-        {
-            arc = DosSubSetMem(pBase,
-                               DOSSUB_INIT | DOSSUB_SPARSE_OBJ,
-                               GQNCL_BLOCK_SIZE);
-            if (arc == NO_ERROR)
-            {
-                PLONG  alTypes;  // object types
-                PSTR8  aNames;   // font names
-                PLONG  allcids;  // local identifiers
-
-                arc = DosSubAllocMem((PVOID)pBase,
-                                     (PPVOID)(&aNames),
-                                     (ULONG)(lCount*(ULONG)sizeof(STR8)));
-                                             // space is needed for an array of
-                                             // lCount longs
-                if (arc == NO_ERROR)
-                {
-                    arc = DosSubAllocMem((PVOID)pBase,
-                                             (PPVOID)(&allcids),
-                                             (ULONG)lCount*sizeof(LONG));
-                                                // space is needed for an array of
-                                                // lCount longs.
-                    if (arc == NO_ERROR)
-                    {
-                        arc = DosSubAllocMem((PVOID)pBase,
-                                                 (PPVOID)(&alTypes),
-                                                 (ULONG)lCount*sizeof(LONG));
-                                                    // space is needed for an array of
-                                                    // lCount longs.
-                        if (arc == NO_ERROR)
-                        {
-                            if (GpiQuerySetIds(hps,
-                                               lCount,
-                                               alTypes,
-                                               aNames,
-                                               allcids))
-                            {
-                                // FINALLY we have all the lcids in use.
-                                BOOL    fContinue = TRUE;
-                                lcidNext = 1;
-
-                                // now, check if this lcid is in use already:
-                                while (fContinue)
-                                {
-                                    BOOL fFound = FALSE;
-                                    ULONG ul;
-                                    fContinue = FALSE;
-                                    for (ul = 0;
-                                         ul < lCount;
-                                         ul++)
-                                    {
-                                        if (allcids[ul] == lcidNext)
-                                        {
-                                            fFound = TRUE;
-                                            break;
-                                        }
-                                    }
-
-                                    if (fFound)
-                                    {
-                                        // lcid found:
-                                        // try next higher one
-                                        lcidNext++;
-                                        fContinue = TRUE;
-                                    }
-                                    // else: return that one
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            arc = DosFreeMem(pBase);
-        }
-        */
     }
 
     // _Pmpf((__FUNCTION__ ": Returning lcid %d", lcidNext));
@@ -1005,13 +913,14 @@ LONG gpihQueryNextFontID(HPS hps)
  *@@changed V0.9.3 (2000-05-06) [umoeller]: usFormat didn't work; fixed
  *@@changed V0.9.4 (2000-08-08) [umoeller]: added fFamily
  *@@changed V0.9.9 (2001-04-01) [umoeller]: made this thread-safe, finally
+ *@@changed V0.9.14 (2001-08-01) [umoeller]: some optimizations
  */
 
 LONG gpihFindFont(HPS hps,               // in: HPS for font selection
                   LONG lSize,            // in: font point size
                   BOOL fFamily,          // in: if TRUE, pszName specifies font family;
                                          //     if FALSE, pszName specifies font face
-                  PSZ pszName,           // in: font family or face name (without point size)
+                  const char *pcszName,  // in: font family or face name (without point size)
                   USHORT usFormat,       // in: none, one or several of:
                                          // -- FATTR_SEL_ITALIC
                                          // -- FATTR_SEL_UNDERSCORE (underline)
@@ -1033,9 +942,12 @@ LONG gpihFindFont(HPS hps,               // in: HPS for font selection
                                    &lTemp,
                                    sizeof(FONTMETRICS),
                                    NULL);
-    PFONTMETRICS pfm = (PFONTMETRICS)malloc(cFonts * sizeof(FONTMETRICS)),
-                 pfm2 = pfm,
-                 pfmFound = NULL;
+    PFONTMETRICS    pfm = (PFONTMETRICS)malloc(cFonts * sizeof(FONTMETRICS)),
+                    pfm2 = pfm,
+                    pfmFound = NULL;
+
+    BOOL            fQueriedDevice = FALSE;     // V0.9.14 (2001-08-01) [umoeller]
+    LONG            alDevRes[2];            // device resolution
 
     // _Pmpf(("gpihFindFont: enumerating for %s, %d points", pszFaceName, lSize));
 
@@ -1046,6 +958,7 @@ LONG gpihFindFont(HPS hps,               // in: HPS for font selection
                   sizeof(FONTMETRICS),      // length of each metrics structure
                                             // -- _not_ total buffer size!
                   pfm);
+
     // now we have an array of FONTMETRICS
     // for EVERY font that is installed on the system...
     // these things are completely unsorted, so there's
@@ -1065,7 +978,7 @@ LONG gpihFindFont(HPS hps,               // in: HPS for font selection
     FontAttrs.usRecordLength = sizeof(FATTRS);
     FontAttrs.fsSelection = usFormat; // changed later if better font is found
     FontAttrs.lMatch = 0L;             // closest match
-    strcpy(FontAttrs.szFacename, pszName);
+    strcpy(FontAttrs.szFacename, pcszName);
     FontAttrs.idRegistry = 0;          // default registry
     FontAttrs.usCodePage = 0;          // default codepage
     // the following two must be zero, or outline fonts
@@ -1094,11 +1007,11 @@ LONG gpihFindFont(HPS hps,               // in: HPS for font selection
                pfm2->lMaxBaselineExt,
                pfm2->lAveCharWidth)); */
 
-        PSZ pszCompare = (fFamily)
-                              ? pfm2->szFamilyname
-                              : pfm2->szFacename;
+        const char *pcszCompare = (fFamily)
+                                     ? pfm2->szFamilyname
+                                     : pfm2->szFacename;
 
-        if (strcmp(pszCompare, pszName) == 0)
+        if (!strcmp(pcszCompare, pcszName))
         {
             /* _Pmpf(("  Found font %s; slope %d, usWeightClass %d",
                     pfm2->szFacename,
@@ -1116,11 +1029,15 @@ LONG gpihFindFont(HPS hps,               // in: HPS for font selection
                     // fonts for different resolutions
                     // for bitmap fonts, there are always two versions:
                     // one for low resolutions, one for high resolutions
-                    LONG    alDevRes[2];
-                    DevQueryCaps(GpiQueryDevice(hps),
-                                 CAPS_HORIZONTAL_FONT_RES,
-                                 2L,
-                                 alDevRes);
+                    if (!fQueriedDevice)
+                    {
+                        DevQueryCaps(GpiQueryDevice(hps),
+                                     CAPS_HORIZONTAL_FONT_RES,
+                                     2L,
+                                     alDevRes);
+                        fQueriedDevice = TRUE;
+                    }
+
                     if (    (pfm2->sXDeviceRes == alDevRes[0])
                          && (pfm2->sYDeviceRes == alDevRes[1])
                        )
@@ -1150,14 +1067,14 @@ LONG gpihFindFont(HPS hps,               // in: HPS for font selection
                     if (  (     (   (usFormat & FATTR_SEL_BOLD)
                                  && (pfm2->usWeightClass == 7) // bold
                                 )
-                            ||  (   ((usFormat & FATTR_SEL_BOLD) == 0)
+                            ||  (   (!(usFormat & FATTR_SEL_BOLD))
                                  && (pfm2->usWeightClass == 5) // regular
                                 )
                            )
                         && (    (   (usFormat & FATTR_SEL_ITALIC)
                                  && (pfm2->sCharSlope != 0) // italics
                                 )
-                            ||  (   ((usFormat & FATTR_SEL_ITALIC) == 0)
+                            ||  (   (!(usFormat & FATTR_SEL_ITALIC))
                                  && (pfm2->sCharSlope == 0) // regular
                                 )
                            )
@@ -2074,7 +1991,7 @@ BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap sel
  *      and selects the bitmap into the memory PS.
  *      You can then use any GPI function on the memory
  *      PS to draw into the bitmap. Use the fields from
- *      _XBITMAP for that.
+ *      XBITMAP for that.
  *
  *      The bitmap is created in RGB mode.
  *
@@ -2143,7 +2060,7 @@ PXBITMAP gpihCreateXBitmap(HAB hab,         // in: anchor block
  *      destroys an XBitmap created with gpihCreateXBitmap.
  *
  *      To be on the safe side, this sets the
- *      bitmap pointer to NULL as well.
+ *      given XBITMAP pointer to NULL as well.
  *
  *@@added V0.9.12 (2001-05-20) [umoeller]
  */

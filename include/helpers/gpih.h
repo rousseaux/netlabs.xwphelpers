@@ -159,13 +159,13 @@ extern "C" {
     LONG XWPENTRY gpihFindFont(HPS hps,
                                LONG lSize,
                                BOOL fFamily,
-                               PSZ pszName,
+                               const char *pcszName,
                                USHORT usFormat,
                                PFONTMETRICS pFontMetrics);
     typedef LONG XWPENTRY GPIHFINDFONT(HPS hps,
                                        LONG lSize,
                                        BOOL fFamily,
-                                       PSZ pszName,
+                                       const char *pcszName,
                                        USHORT usFormat,
                                        PFONTMETRICS pFontMetrics);
     typedef GPIHFINDFONT *PGPIHFINDFONT;

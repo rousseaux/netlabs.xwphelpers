@@ -309,6 +309,7 @@ VOID ctlDisplayButtonMenu(HWND hwndButton,
  *
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.2 (2000-02-28) [umoeller]: menu was displayed even if button was disabled; fixed
+ *@@changed V0.9.14 (2001-07-31) [umoeller]: fixed WM_MENUEND submenu quirk
  */
 
 MRESULT EXPENTRY ctl_fnwpSubclassedMenuButton(HWND hwndButton, ULONG msg, MPARAM mp1, MPARAM mp2)
@@ -485,40 +486,43 @@ MRESULT EXPENTRY ctl_fnwpSubclassedMenuButton(HWND hwndButton, ULONG msg, MPARAM
 
         case WM_MENUEND:
         {
-            BOOL fUnHilite = TRUE;
-            // _Pmpf(("WM_MENUEND"));
-            // At this point, the menu has been
-            // destroyed already.
-            // Since WM_BUTTON1UP handles the
-            // default case that the user presses
-            // the menu button a second time while
-            // the menu is open, we only need
-            // to handle the case that the user
-            // c)   presses some key on the menu (ESC, menu selection) or
-            // a)   selects a menu item (which
-            //      dismisses the menu) or
-            // b)   clicks anywhere else.
-
-            // Case a) if mouse button 1 is not currently down
-            if ((WinGetKeyState(HWND_DESKTOP, VK_BUTTON1) & 0x8000) == 0)
-                // button 1 _not_ down:
-                // must be keyboard
-                fUnHilite = TRUE;
-            else
-                // button 1 _is_ down:
-                // query window under mouse pointer
-                ;
-
-            if (fUnHilite)
+            if ((HWND)mp2 == pmbd->hwndMenu) // V0.9.14 (2001-07-31) [umoeller]
             {
-                // _Pmpf(("  Unsinking menu WM_MENUEND"));
-                pmbd->fButtonSunk = FALSE;
-                WinSendMsg(hwndButton,
-                           BM_SETHILITE,
-                           (MPARAM)FALSE,
-                           (MPARAM)0);
-            }
-            pmbd->hwndMenu = NULLHANDLE;
+                BOOL fUnHilite = TRUE;
+                // _Pmpf(("WM_MENUEND"));
+                // At this point, the menu has been
+                // destroyed already.
+                // Since WM_BUTTON1UP handles the
+                // default case that the user presses
+                // the menu button a second time while
+                // the menu is open, we only need
+                // to handle the case that the user
+                // c)   presses some key on the menu (ESC, menu selection) or
+                // a)   selects a menu item (which
+                //      dismisses the menu) or
+                // b)   clicks anywhere else.
+
+                // Case a) if mouse button 1 is not currently down
+                if ((WinGetKeyState(HWND_DESKTOP, VK_BUTTON1) & 0x8000) == 0)
+                    // button 1 _not_ down:
+                    // must be keyboard
+                    fUnHilite = TRUE;
+                else
+                    // button 1 _is_ down:
+                    // query window under mouse pointer
+                    ;
+
+                if (fUnHilite)
+                {
+                    // _Pmpf(("  Unsinking menu WM_MENUEND"));
+                    pmbd->fButtonSunk = FALSE;
+                    WinSendMsg(hwndButton,
+                               BM_SETHILITE,
+                               (MPARAM)FALSE,
+                               (MPARAM)0);
+                }
+                pmbd->hwndMenu = NULLHANDLE;
+            } // end if ((HWND)mp1 == pmbd->pmbd->hwndMenu) // V0.9.14 (2001-07-31) [umoeller]
         break; }
 
         /*

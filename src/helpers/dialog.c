@@ -109,9 +109,12 @@ typedef struct _DLGPRIVATE
 
     const char  *pcszControlsFont;  // from dlghCreateDlg
 
+    // V0.9.14 (2001-08-01) [umoeller]
     HPS         hps;
-    /* const char  *pcszFontLast;
-    LONG        lcidLast; */
+    const char  *pcszFontLast;
+    LONG        lcidLast;
+    FONTMETRICS fmLast;
+
 } DLGPRIVATE, *PDLGPRIVATE;
 
 typedef struct _COLUMNDEF *PCOLUMNDEF;
@@ -147,7 +150,7 @@ typedef struct _COLUMNDEF
 
     BOOL        fIsNestedTable;     // if TRUE, pvDefinition points to a nested TABLEDEF;
                                     // if FALSE, pvDefinition points to a CONTROLDEF as
-                                    // specified by the user
+                                    // specified by the caller
 
     PVOID       pvDefinition;       // either a PTABLEDEF or a PCONTROLDEF
 
@@ -224,6 +227,7 @@ VOID ProcessTable(PTABLEDEF pTableDef,
  *
  *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed various things with statics
  *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed broken fonts
+ *@@changed V0.9.14 (2001-08-01) [umoeller]: now caching fonts, which is significantly faster
  */
 
 VOID CalcAutoSizeText(PCONTROLDEF pControlDef,
@@ -231,10 +235,6 @@ VOID CalcAutoSizeText(PCONTROLDEF pControlDef,
                       PSIZEL pszlAuto,          // out: computed size
                       PDLGPRIVATE pDlgData)
 {
-    BOOL        fFind = FALSE;
-    RECTL       rclText;
-    LONG        lcid = 0;
-
     const char *pcszFontThis = pControlDef->pcszFont;
                     // can be NULL,
                     // or CTL_COMMON_FONT
@@ -247,21 +247,39 @@ VOID CalcAutoSizeText(PCONTROLDEF pControlDef,
 
     if (pcszFontThis)
     {
-        FONTMETRICS fm;
         LONG lPointSize = 0;
 
-        // create new font
-        lcid = gpihFindPresFont(NULLHANDLE,        // no window yet
-                                FALSE,
-                                pDlgData->hps,
-                                pcszFontThis,
-                                &fm,
-                                &lPointSize);
-        GpiSetCharSet(pDlgData->hps, lcid);
-        if (fm.fsDefn & FM_DEFN_OUTLINE)
-            gpihSetPointSize(pDlgData->hps, lPointSize);
+        // check if we can reuse font data from last time
+        // V0.9.14 (2001-08-01) [umoeller]
+        if (strhcmp(pcszFontThis,
+                    pDlgData->pcszFontLast))
+        {
+            // different font than last time:
 
-        pszlAuto->cy = fm.lMaxBaselineExt + fm.lExternalLeading;
+            // delete old font?
+            if (pDlgData->lcidLast)
+            {
+                GpiSetCharSet(pDlgData->hps, LCID_DEFAULT);
+                GpiDeleteSetId(pDlgData->hps, pDlgData->lcidLast);
+            }
+
+            // create new font
+            pDlgData->lcidLast = gpihFindPresFont(NULLHANDLE,        // no window yet
+                                                  FALSE,
+                                                  pDlgData->hps,
+                                                  pcszFontThis,
+                                                  &pDlgData->fmLast,
+                                                  &lPointSize);
+
+            GpiSetCharSet(pDlgData->hps, pDlgData->lcidLast);
+            if (pDlgData->fmLast.fsDefn & FM_DEFN_OUTLINE)
+                gpihSetPointSize(pDlgData->hps, lPointSize);
+
+            pDlgData->pcszFontLast = pcszFontThis;
+        }
+
+        pszlAuto->cy =   pDlgData->fmLast.lMaxBaselineExt
+                       + pDlgData->fmLast.lExternalLeading;
     }
 
     // ok, we FINALLY have a font now...
@@ -299,13 +317,6 @@ VOID CalcAutoSizeText(PCONTROLDEF pControlDef,
             pszlAuto->cx = aptl[TXTBOX_TOPRIGHT].x - aptl[TXTBOX_BOTTOMLEFT].x;
         }
     }
-
-    /* if (lcid)
-    {
-        GpiSetCharSet(pDlgData->hps, LCID_DEFAULT);
-        GpiDeleteSetId(pDlgData->hps, lcid);
-    } */
-
 }
 
 /*
@@ -335,7 +346,12 @@ VOID CalcAutoSize(PCONTROLDEF pControlDef,
                                         | BS_3STATE
                                         | BS_CHECKBOX
                                         | BS_RADIOBUTTON))
+            {
+                // give a little extra width for the box bitmap
                 pszlAuto->cx += 20;     // @@todo
+                // and height
+                pszlAuto->cy += 2;
+            }
             else if (pControlDef->flStyle & BS_BITMAP)
                 ;
             else if (pControlDef->flStyle & (BS_ICON | BS_MINIICON))
@@ -721,7 +737,7 @@ VOID ProcessRow(PROWDEF pRowDef,
                 PLONG plY,                  // in/out: current y position (decremented)
                 PDLGPRIVATE pDlgData)
 {
-    ULONG   ul;
+    // ULONG   ul;
     LONG    lX;
     PLISTNODE pNode;
 
@@ -790,7 +806,7 @@ VOID ProcessTable(PTABLEDEF pTableDef,
                   PROCESSMODE ProcessMode,          // in: processing mode (see ProcessAll)
                   PDLGPRIVATE pDlgData)
 {
-    ULONG   ul;
+    // ULONG   ul;
     LONG    lY;
     PLISTNODE pNode;
 
@@ -863,7 +879,7 @@ VOID ProcessAll(PDLGPRIVATE pDlgData,
                 PSIZEL pszlClient,
                 PROCESSMODE ProcessMode)
 {
-    ULONG ul;
+    // ULONG ul;
     PLISTNODE pNode;
     CONTROLPOS cpTable;
     ZERO(&cpTable);
@@ -942,6 +958,49 @@ APIRET CreateColumn(PROWDEF pCurrentRow,
     }
 
     return (arc);
+}
+
+/*
+ *@@ FreeTable:
+ *      frees the specified table and recurses
+ *      into nested tables, if necessary.
+ *
+ *      This was added with V0.9.14 to fix the
+ *      bad memory leaks with nested tables.
+ *
+ *@@added V0.9.14 (2001-08-01) [umoeller]
+ */
+
+VOID FreeTable(PTABLEDEF pTable)
+{
+    // for each table, clean up the rows
+    PLISTNODE pRowNode;
+    FOR_ALL_NODES(&pTable->llRows, pRowNode)
+    {
+        PROWDEF pRow = (PROWDEF)pRowNode->pItemData;
+
+        // for each row, clean up the columns
+        PLISTNODE pColumnNode;
+        FOR_ALL_NODES(&pRow->llColumns, pColumnNode)
+        {
+            PCOLUMNDEF pColumn = (PCOLUMNDEF)pColumnNode->pItemData;
+
+            if (pColumn->fIsNestedTable)
+            {
+                // nested table: recurse!
+                PTABLEDEF pNestedTable = (PTABLEDEF)pColumn->pvDefinition;
+                FreeTable(pNestedTable);
+            }
+
+            free(pColumn);
+        }
+        lstClear(&pRow->llColumns);
+
+        free(pRow);
+    }
+    lstClear(&pTable->llRows);
+
+    free(pTable);
 }
 
 /* ******************************************************************
@@ -1180,6 +1239,7 @@ typedef struct _STACKITEM
  +          }
  *
  *@@changed V0.9.14 (2001-07-07) [umoeller]: fixed disabled mouse with hwndOwner == HWND_DESKTOP
+ *@@changed V0.9.14 (2001-08-01) [umoeller]: fixed major memory leaks with nested tables
  */
 
 APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
@@ -1269,12 +1329,12 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                         // nested table:
                         // create "table" column for this
                         PCOLUMNDEF pColumnDef;
-                        arc = CreateColumn(pCurrentRow,
-                                           TRUE,        // nested table
-                                           pCurrentTable,
-                                           &pColumnDef);
-                        if (!arc)
-                            lstAppendItem(&pCurrentRow->llColumns, pColumnDef);
+                        if (!(arc = CreateColumn(pCurrentRow,
+                                                 TRUE,        // nested table
+                                                 pCurrentTable,
+                                                 &pColumnDef)))
+                            lstAppendItem(&pCurrentRow->llColumns,
+                                          pColumnDef);
                     }
                 }
 
@@ -1318,12 +1378,12 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
             case TYPE_CONTROL_DEF:
             {
                 PCOLUMNDEF pColumnDef;
-                arc = CreateColumn(pCurrentRow,
-                                   FALSE,        // no nested table
-                                   (PVOID)pItemThis->ulData,
-                                   &pColumnDef);
-                if (!arc)
-                    lstAppendItem(&pCurrentRow->llColumns, pColumnDef);
+                if (!(arc = CreateColumn(pCurrentRow,
+                                         FALSE,        // no nested table
+                                         (PVOID)pItemThis->ulData,
+                                         &pColumnDef)))
+                    lstAppendItem(&pCurrentRow->llColumns,
+                                  pColumnDef);
             break; }
 
             /*
@@ -1415,6 +1475,11 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                        &szlClient,
                        PROCESS_CALC_SIZES);
 
+            if (pDlgData->lcidLast)
+            {
+                GpiSetCharSet(pDlgData->hps, LCID_DEFAULT);
+                GpiDeleteSetId(pDlgData->hps, pDlgData->lcidLast);
+            }
             if (pDlgData->hps)
                 WinReleasePS(pDlgData->hps);
 
@@ -1505,32 +1570,23 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
         {
             PTABLEDEF pTable = (PTABLEDEF)pTableNode->pItemData;
 
-            // for each table, clean up the rows
-            PLISTNODE pRowNode;
-            FOR_ALL_NODES(&pTable->llRows, pRowNode)
-            {
-                PROWDEF pRow = (PROWDEF)pRowNode->pItemData;
-
-                // for each row, clean up the columns
-                PLISTNODE pColumnNode;
-                FOR_ALL_NODES(&pRow->llColumns, pColumnNode)
-                {
-                    PCOLUMNDEF pColumn = (PCOLUMNDEF)pColumnNode->pItemData;
-                    free(pColumn);
-                }
-                lstClear(&pRow->llColumns);
-
-                free(pRow);
-            }
-            lstClear(&pTable->llRows);
-
-            free(pTable);
+            FreeTable(pTable);
+                    // this may recurse for nested tables
         }
 
         lstClear(&pDlgData->llTables);
         lstClear(&pDlgData->llControls);
 
         free(pDlgData);
+    }
+
+    if (arc)
+    {
+        CHAR szErr[300];
+        sprintf(szErr, "Error %d occured in dlghCreateDlg.", arc);
+        winhDebugBox(hwndOwner,
+                     "Error in Dialog Manager",
+                     szErr);
     }
 
     return (arc);

@@ -374,8 +374,8 @@ PVOID doshRequestSharedMem(const char *pcszName)
  *      removeable disks.
  */
 
-APIRET doshIsFixedDisk(ULONG  ulLogicalDrive,   // in: 1 for A:, 2 for B:, 3 for C:, ...
-                       PBOOL  pfFixed)          // out: TRUE for fixed disks
+APIRET doshIsFixedDisk(ULONG ulLogicalDrive,   // in: 1 for A:, 2 for B:, 3 for C:, ...
+                       PBOOL pfFixed)          // out: TRUE for fixed disks
 {
     APIRET arc = ERROR_INVALID_DRIVE;
 
@@ -504,6 +504,152 @@ BOOL doshIsCDROM(PBIOSPARAMETERBLOCK pdp)
              && (pdp->usBytesPerSector == 2048)
              && (pdp->usSectorsPerTrack == (USHORT)-1)
            );
+}
+
+/*
+ *@@ doshHasAudioCD:
+ *      sets *pfAudio to whether ulLogicalDrive
+ *      currently has an audio CD inserted.
+ *
+ *      Better call this only if you're sure that
+ *      ulLogicalDrive is a CD-ROM drive. Use
+ *      doshIsCDROM to check.
+ *
+ *@@added V0.9.14 (2001-08-01) [umoeller]
+ */
+
+APIRET doshHasAudioCD(ULONG ulLogicalDrive,
+                      BOOL fMixedModeCD,
+                      PBOOL pfAudio)
+{
+    APIRET  arc = NO_ERROR;
+
+    HFILE   hfDrive = 0;
+    ULONG   ulTemp = 0;
+
+    CHAR    szDrive[3] = "C:";
+    szDrive[0] = 'A' + ulLogicalDrive - 1;
+
+    *pfAudio = FALSE;
+
+    arc = DosOpen(szDrive,   // "C:", "D:", ...
+                  &hfDrive,
+                  &ulTemp,
+                  0,
+                  FILE_NORMAL,
+                  OPEN_ACTION_FAIL_IF_NEW
+                         | OPEN_ACTION_OPEN_IF_EXISTS,
+                  OPEN_FLAGS_DASD
+                         | OPEN_FLAGS_FAIL_ON_ERROR
+                         | OPEN_FLAGS_NOINHERIT     // V0.9.6 (2000-11-25) [pr]
+              //            | OPEN_ACCESS_READONLY  // V0.9.13 (2001-06-14) [umoeller]
+                         | OPEN_SHARE_DENYNONE,
+                  NULL);
+
+    // _Pmpf(("   DosOpen(OPEN_FLAGS_DASD) returned %d", arc));
+
+    // this still returns NO_ERROR for audio CDs in a
+    // CD-ROM drive...
+    // however, the WPS then attempts to read in the
+    // root directory for audio CDs, which produces
+    // a "sector not found" error box...
+
+    if (!arc && hfDrive)     // determined above
+    {
+        ULONG ulAudioTracks = 0,
+              ulDataTracks = 0;
+
+        CHAR cds1[4] = { 'C', 'D', '0', '1' };
+        CHAR cds2[4];
+        // check for proper driver signature
+        if (!(arc = doshDevIOCtl(hfDrive,
+                                 IOCTL_CDROMDISK,
+                                 CDROMDISK_GETDRIVER,
+                                 &cds1, sizeof(cds1),
+                                 &cds2, sizeof(cds2))))
+        {
+            if (memcmp(&cds1, &cds2, 4))
+                // this is not a CD-ROM then:
+                arc = NO_ERROR;
+            else
+            {
+                struct {
+                    UCHAR   ucFirstTrack,
+                            ucLastTrack;
+                    ULONG   ulLeadOut;
+                } cdat;
+
+                // get track count
+                if (!(arc = doshDevIOCtl(hfDrive,
+                                         IOCTL_CDROMAUDIO,
+                                         CDROMAUDIO_GETAUDIODISK,
+                                         &cds1, sizeof(cds1),
+                                         &cdat, sizeof(cdat))))
+                {
+                    // still no error: build the audio TOC
+                    ULONG i;
+                    for (i = cdat.ucFirstTrack;
+                         i <= cdat.ucLastTrack;
+                         i++)
+                    {
+                        BYTE cdtp[5] =
+                          { 'C', 'D', '0', '1', (UCHAR)i };
+
+                        struct {
+                            ULONG   ulTrackAddress;
+                            BYTE    bFlags;
+                        } trackdata;
+
+                        if (!(arc = doshDevIOCtl(hfDrive,
+                                                 IOCTL_CDROMAUDIO,
+                                                 CDROMAUDIO_GETAUDIOTRACK,
+                                                 &cdtp, sizeof(cdtp),
+                                                 &trackdata, sizeof(trackdata))))
+                        {
+                            if (trackdata.bFlags & 64)
+                                ulDataTracks++;
+                            else
+                            {
+                                ulAudioTracks++;
+
+                                if (!fMixedModeCD)
+                                {
+                                    // caller doesn't want mixed mode:
+                                    // stop here
+                                    ulDataTracks = 0;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // _Pmpf(("   got %d audio, %d data tracks",
+                    //             ulAudioTracks, ulDataTracks));
+
+                    if (!ulDataTracks)
+                        *pfAudio = TRUE;
+                }
+                else
+                {
+                    // not audio disk:
+                    // go on then
+                    // _Pmpf(("   CDROMAUDIO_GETAUDIODISK returned %d", arc));
+                    arc = NO_ERROR;
+                }
+            }
+        }
+        else
+        {
+            // not CD-ROM: go on then
+            // _Pmpf(("   CDROMDISK_GETDRIVER returned %d", arc));
+            arc = NO_ERROR;
+        }
+    }
+
+    if (hfDrive)
+        DosClose(hfDrive);
+
+    return (arc);
 }
 
 /*
@@ -678,8 +824,6 @@ CHAR doshQueryBootDrive(VOID)
 APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for C:, ...
                        ULONG fl)                // in: ASSERTFL_* flags
 {
-    HFILE   hfDrive = 0;
-    ULONG   ulTemp = 0;
     APIRET  arc = NO_ERROR;
     BOOL    fFixed = FALSE,
             fCDROM = FALSE;
@@ -712,123 +856,15 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
             }
         }
 
-    if (!arc)
+    if ((!arc) && (fCDROM))
     {
-        CHAR    szDrive[3] = "C:";
-        szDrive[0] = 'A' + ulLogicalDrive - 1;
-        arc = DosOpen(szDrive,   // "C:", "D:", ...
-                      &hfDrive,
-                      &ulTemp,
-                      0,
-                      FILE_NORMAL,
-                      OPEN_ACTION_FAIL_IF_NEW
-                             | OPEN_ACTION_OPEN_IF_EXISTS,
-                      OPEN_FLAGS_DASD
-                             | OPEN_FLAGS_FAIL_ON_ERROR
-                             | OPEN_FLAGS_NOINHERIT     // V0.9.6 (2000-11-25) [pr]
-                  //            | OPEN_ACCESS_READONLY  // V0.9.13 (2001-06-14) [umoeller]
-                             | OPEN_SHARE_DENYNONE,
-                      NULL);
-
-        // _Pmpf(("   DosOpen(OPEN_FLAGS_DASD) returned %d", arc));
-
-        // this still returns NO_ERROR for audio CDs in a
-        // CD-ROM drive...
-        // however, the WPS then attempts to read in the
-        // root directory for audio CDs, which produces
-        // a "sector not found" error box...
-
-        if (!arc && hfDrive && fCDROM)     // determined above
-        {
-            ULONG ulAudioTracks = 0,
-                  ulDataTracks = 0;
-
-            CHAR cds1[4] = { 'C', 'D', '0', '1' };
-            CHAR cds2[4];
-            // check for proper driver signature
-            if (!(arc = doshDevIOCtl(hfDrive,
-                                     IOCTL_CDROMDISK,
-                                     CDROMDISK_GETDRIVER,
-                                     &cds1, sizeof(cds1),
-                                     &cds2, sizeof(cds2))))
-            {
-                if (memcmp(&cds1, &cds2, 4))
-                    // this is not a CD-ROM then:
-                    arc = NO_ERROR;
-                else
-                {
-                    struct {
-                        UCHAR   ucFirstTrack,
-                                ucLastTrack;
-                        ULONG   ulLeadOut;
-                    } cdat;
-
-                    // get track count
-                    if (!(arc = doshDevIOCtl(hfDrive,
-                                             IOCTL_CDROMAUDIO,
-                                             CDROMAUDIO_GETAUDIODISK,
-                                             &cds1, sizeof(cds1),
-                                             &cdat, sizeof(cdat))))
-                    {
-                        // still no error: build the audio TOC
-                        ULONG i;
-                        for (i = cdat.ucFirstTrack;
-                             i <= cdat.ucLastTrack;
-                             i++)
-                        {
-                            BYTE cdtp[5] =
-                              { 'C', 'D', '0', '1', (UCHAR)i };
-
-                            struct {
-                                ULONG   ulTrackAddress;
-                                BYTE    bFlags;
-                            } trackdata;
-
-                            if (!(arc = doshDevIOCtl(hfDrive,
-                                                     IOCTL_CDROMAUDIO,
-                                                     CDROMAUDIO_GETAUDIOTRACK,
-                                                     &cdtp, sizeof(cdtp),
-                                                     &trackdata, sizeof(trackdata))))
-                            {
-                                if (trackdata.bFlags & 64)
-                                    ulDataTracks++;
-                                else
-                                {
-                                    ulAudioTracks++;
-
-                                    if (!(fl & ASSERTFL_MIXEDMODECD))
-                                    {
-                                        // caller doesn't want mixed mode:
-                                        // stop here
-                                        ulDataTracks = 0;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-
-                        // _Pmpf(("   got %d audio, %d data tracks",
-                        //             ulAudioTracks, ulDataTracks));
-
-                        if (!ulDataTracks)
-                            arc = ERROR_AUDIO_CD_ROM;       // special private error code (10000)
-                    }
-                    else
-                    {
-                        // not audio disk:
-                        // go on then
-                        // _Pmpf(("   CDROMAUDIO_GETAUDIODISK returned %d", arc));
-                        arc = NO_ERROR;
-                    }
-                }
-            }
-            else
-            {
-                // not CD-ROM: go on then
-                // _Pmpf(("   CDROMDISK_GETDRIVER returned %d", arc));
-                arc = NO_ERROR;
-            }
-        }
+        BOOL fAudio;
+        if (    (!(arc = doshHasAudioCD(ulLogicalDrive,
+                                        ((fl & ASSERTFL_MIXEDMODECD) != 0),
+                                        &fAudio)))
+             && (fAudio)
+           )
+            arc = ERROR_AUDIO_CD_ROM;       // special private error code (10000)
     }
 
     switch (arc)
@@ -866,9 +902,6 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
         break;
     }
 
-    if (hfDrive)
-        DosClose(hfDrive);
-
     return (arc);
 }
 
@@ -886,9 +919,9 @@ APIRET doshSetLogicalMap(ULONG ulLogicalDrive)
 {
     CHAR    name[3] = "?:";
     ULONG   fd = 0,
-            action = 0,
-            paramsize = 0,
-            datasize = 0;
+            action = 0;
+//             paramsize = 0;
+//             datasize = 0;
     APIRET  rc = NO_ERROR;
     USHORT  data,
             param;
@@ -912,8 +945,8 @@ APIRET doshSetLogicalMap(ULONG ulLogicalDrive)
     {
         param = 0;
         data = (USHORT)ulLogicalDrive;
-        paramsize = sizeof(param);
-        datasize = sizeof(data);
+        // paramsize = sizeof(param);
+        // datasize = sizeof(data);
         rc = doshDevIOCtl(fd,
                           IOCTL_DISK, DSK_SETLOGICALMAP,
                           &param, sizeof(param),
@@ -940,7 +973,7 @@ APIRET doshQueryDiskSize(ULONG ulLogicalDrive, // in: 1 for A:, 2 for B:, 3 for 
 {
     APIRET      arc = NO_ERROR;
     FSALLOCATE  fsa;
-    double      dbl = -1;
+    // double      dbl = -1;
 
     if (!(arc = DosQueryFSInfo(ulLogicalDrive, FSIL_ALLOC, &fsa, sizeof(fsa))))
         *pdSize = ((double)fsa.cSectorUnit * fsa.cbSector * fsa.cUnit);
@@ -966,7 +999,7 @@ APIRET doshQueryDiskFree(ULONG ulLogicalDrive, // in: 1 for A:, 2 for B:, 3 for 
 {
     APIRET      arc = NO_ERROR;
     FSALLOCATE  fsa;
-    double      dbl = -1;
+    // double      dbl = -1;
 
     if (!(arc = DosQueryFSInfo(ulLogicalDrive, FSIL_ALLOC, &fsa, sizeof(fsa))))
         *pdFree = ((double)fsa.cSectorUnit * fsa.cbSector * fsa.cUnitAvail);
@@ -982,6 +1015,7 @@ APIRET doshQueryDiskFree(ULONG ulLogicalDrive, // in: 1 for A:, 2 for B:, 3 for 
  *       Returns the DOS error code.
  *
  *@@changed V0.9.1 (99-12-12) [umoeller]: added cbBuf to prototype
+ *@@changed V0.9.14 (2001-08-01) [umoeller]: fixed, this never respected cbBuf
  */
 
 APIRET doshQueryDiskFSType(ULONG ulLogicalDrive, // in:  1 for A:, 2 for B:, 3 for C:, ...
@@ -1014,8 +1048,10 @@ APIRET doshQueryDiskFSType(ULONG ulLogicalDrive, // in:  1 for A:, 2 for B:, 3 f
             // structure are stored at the offset of fsqBuffer.szName.
             // Each data field following fsqBuffer.szName begins
             // immediately after the previous item.
-            strcpy(pszBuf,
-                   (CHAR*)(&pfsqBuffer->szName) + pfsqBuffer->cbName + 1);
+            strncpy(pszBuf,
+                    (CHAR*)(&pfsqBuffer->szName) + pfsqBuffer->cbName + 1,
+                    cbBuf);         // V0.9.14 (2001-08-01) [umoeller]
+            *(pszBuf + cbBuf) = '\0';
         }
     }
 
@@ -2461,7 +2497,7 @@ APIRET doshPerfClose(PDOSHPERFSYS *ppPerfSys)
  *
  ********************************************************************/
 
-static PVOID    G_pvGlobalInfoSeg = NULL,
+static PVOID    // G_pvGlobalInfoSeg = NULL,
                 G_pvLocalInfoSeg = NULL;
 
 USHORT _Far16 _Pascal Dos16GetInfoSeg(PSEL pselGlobal,
@@ -2481,8 +2517,8 @@ VOID GetInfoSegs(VOID)
     Dos16GetInfoSeg(&GlobalInfoSegSelector,
                     &LocalInfoSegSelector);
     // thunk
-    G_pvGlobalInfoSeg = (PVOID)(   (GlobalInfoSegSelector << 0x000D)
-                                 & 0x01fff0000);
+    /* G_pvGlobalInfoSeg = (PVOID)(   (GlobalInfoSegSelector << 0x000D)
+                                 & 0x01fff0000); */
     G_pvLocalInfoSeg  = (PVOID)(   (LocalInfoSegSelector << 0x000D)
                                  & 0x01fff0000);
 }

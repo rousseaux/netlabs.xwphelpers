@@ -433,7 +433,7 @@ BOOL ReadINI(PXINI pXIni)       // in: profile opened with xprfOpenProfile
                                                 (PBYTE)(pbFileData + pKey->offKeyData),
                                                 pKey->lenKeyData);
 
-                                if (!pKey)
+                                if (!pIniKey)
                                 {
                                     brc = FALSE;
                                     break;

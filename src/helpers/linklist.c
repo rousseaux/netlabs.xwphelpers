@@ -84,6 +84,7 @@
 
 #include "setup.h"                      // code generation and debugging options
 
+#define DONT_REPLACE_LIST_MALLOC
 #include "helpers\linklist.h"
 
 #pragma hdrstop
@@ -262,7 +263,9 @@ PLINKLIST lstCreateDebug(BOOL fItemsFreeable,
     return (pNewList);
 }
 
-#else       // __DEBUG_MALLOC_ENABLED__
+#endif
+
+// #else       // __DEBUG_MALLOC_ENABLED__
 
 /*
  *@@ lstCreate:
@@ -294,7 +297,7 @@ PLINKLIST lstCreate(BOOL fItemsFreeable)    // in: invoke free() on the data
     return (pNewList);
 }
 
-#endif      // __DEBUG_MALLOC_ENABLED__
+// #endif      // __DEBUG_MALLOC_ENABLED__
 
 /*
  *@@ lstFree:
@@ -615,7 +618,9 @@ PLISTNODE lstAppendItemDebug(PLINKLIST pList,
     return (pNewNode);
 }
 
-#else  // __DEBUG_MALLOC_ENABLED__
+#endif
+
+// #else  // __DEBUG_MALLOC_ENABLED__
 
 /*
  *@@ lstAppendItem:
@@ -669,7 +674,7 @@ PLISTNODE lstAppendItem(PLINKLIST pList,
     return (pNewNode);
 }
 
-#endif // __DEBUG_MALLOC_ENABLED__
+// #endif // __DEBUG_MALLOC_ENABLED__
 
 /*
  *@@ lstInsertItemBefore:
@@ -789,7 +794,8 @@ PLISTNODE lstInsertItemBefore(PLINKLIST pList,
  *      Returns TRUE if successful, FALSE upon errors.
  */
 
-BOOL lstRemoveNode(PLINKLIST pList, PLISTNODE pRemoveNode)
+BOOL lstRemoveNode(PLINKLIST pList,
+                   PLISTNODE pRemoveNode)
 {
     BOOL fFound = FALSE;
 
