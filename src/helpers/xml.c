@@ -38,7 +38,7 @@
  *      structs can inherit from each other. Since this implementation
  *      was supposed to be a C-only interface, we cannot implement
  *      inheritance at the language level. Instead, each XML document
- *      is broken up into a tree of node structures only (see _DOMNODE),
+ *      is broken up into a tree of node structures only (see DOMNODE),
  *      each of which has a special type. The W3C DOM allows this
  *      (and calls this the "flattened" view, as opposed to the
  *      "inheritance view").
@@ -54,7 +54,7 @@
  *          only make sense if the entire DTD is in the same document
  *          (internal subset).
  *
- *      --  Not all node types are implemented. See _DOMNODE for
+ *      --  Not all node types are implemented. See DOMNODE for
  *          the supported types.
  *
  *      --  Only a subset of the standardized methods is implemented,
@@ -144,12 +144,12 @@
 #pragma hdrstop
 
 /*
- *@@category: Helpers\C helpers\XML
+ *@@category: Helpers\XML
  *      see xml.c.
  */
 
 /*
- *@@category: Helpers\C helpers\XML\Document Object Model (DOM)
+ *@@category: Helpers\XML\Document Object Model (DOM)
  *      see xml.c.
  */
 
@@ -2649,7 +2649,7 @@ APIRET xmlFreeDOM(PXMLDOM pDom)
 
 /*
  *@@ xmlFindElementDecl:
- *      returns the _CMELEMENTDECLNODE for the element
+ *      returns the CMELEMENTDECLNODE for the element
  *      with the specified name or NULL if there's none.
  *
  *@@added V0.9.9 (2001-02-16) [umoeller]
@@ -2677,7 +2677,7 @@ PCMELEMENTDECLNODE xmlFindElementDecl(PXMLDOM pDom,
 
 /*
  *@@ xmlFindAttribDeclBase:
- *      returns the _CMATTRIBUTEDECLBASE for the specified
+ *      returns the CMATTRIBUTEDECLBASE for the specified
  *      element name, or NULL if none exists.
  *
  *      To find a specific attribute declaration from both
@@ -2707,7 +2707,7 @@ PCMATTRIBUTEDECLBASE xmlFindAttribDeclBase(PXMLDOM pDom,
 
 /*
  *@@ xmlFindAttribDecl:
- *      returns the _CMATTRIBUTEDEDECL for the specified
+ *      returns the CMATTRIBUTEDEDECL for the specified
  *      element and attribute name, or NULL if none exists.
  *
  *@@added V0.9.9 (2001-02-16) [umoeller]
@@ -2765,7 +2765,7 @@ PDOMNODE xmlGetRootElement(PXMLDOM pDom)
 /*
  *@@ xmlGetFirstChild:
  *      returns the first child node of pDomNode.
- *      See _DOMNODE for what a "child" can be for the
+ *      See DOMNODE for what a "child" can be for the
  *      various node types.
  *
  *@@added V0.9.9 (2001-02-14) [umoeller]
@@ -2783,7 +2783,7 @@ PDOMNODE xmlGetFirstChild(PDOMNODE pDomNode)
 /*
  *@@ xmlGetLastChild:
  *      returns the last child node of pDomNode.
- *      See _DOMNODE for what a "child" can be for the
+ *      See DOMNODE for what a "child" can be for the
  *      various node types.
  *
  *@@added V0.9.9 (2001-02-14) [umoeller]
@@ -2826,7 +2826,7 @@ PDOMNODE xmlGetFirstText(PDOMNODE pElement)
 
 /*
  *@@ xmlGetElementsByTagName:
- *      returns a linked list of _DOMNODE nodes which
+ *      returns a linked list of DOMNODE nodes which
  *      match the specified element name. The special name
  *      "*" matches all elements.
  *
@@ -2859,9 +2859,9 @@ PLINKLIST xmlGetElementsByTagName(PDOMNODE pParent,
         {
             if (    (pDomNodeThis = (PDOMNODE)pNode->pItemData)
                  && (pDomNodeThis->NodeBase.ulNodeType == DOMNODE_ELEMENT)
-                 && (   fFindAll
-                     || (!strcmp(pcszName, pDomNodeThis->NodeBase.strNodeName.psz))
-                   )
+                 && (    (fFindAll)
+                      || (!strcmp(pcszName, pDomNodeThis->NodeBase.strNodeName.psz))
+                    )
                )
             {
                 // element matches:
@@ -2898,10 +2898,9 @@ const XSTRING* xmlGetAttribute(PDOMNODE pElement,
     xstrInitSet(&str, (PSZ)pcszAttribName);
     // note, cheap trick: no malloc here, but we need
     // an XSTRING for treeFind
-    pAttrNode = (PDOMNODE)treeFind(pElement->AttributesMap,
-                                   (ULONG)&str,
-                                   CompareXStrings);
-    if (pAttrNode)
+    if (pAttrNode = (PDOMNODE)treeFind(pElement->AttributesMap,
+                                       (ULONG)&str,
+                                       CompareXStrings))
         return (pAttrNode->pstrNodeValue);
 
     return (NULL);

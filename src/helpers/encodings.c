@@ -40,8 +40,6 @@
 
 #pragma hdrstop
 
-#define ENCODINGENTRY(id)   enc_ ## id, G_ ## id, ARRAYITEMCOUNT(G_ ## id)
-
 /*
  *@@ G_aEncodings:
  *      list of all encodings supported by this engine
@@ -64,6 +62,8 @@ struct
     const char          *pcszDescription;   // description
 } G_aEncodings[] =
     {
+        #define ENCODINGENTRY(id)   enc_ ## id, G_ ## id, ARRAYITEMCOUNT(G_ ## id)
+
         ENCODINGENTRY(cp437), 437, SINGLE, "DOS Latin US",
         ENCODINGENTRY(cp737), 737, SINGLE, "DOS Greek",
         ENCODINGENTRY(cp775), 775, SINGLE, "DOS BaltRim",
@@ -81,10 +81,12 @@ struct
         ENCODINGENTRY(cp866), 866, SINGLE, "DOS Cyrillic Russian",      // default in Russia
         ENCODINGENTRY(cp869), 869, SINGLE, "DOS Greek2",
         ENCODINGENTRY(cp874), 874, SINGLE, "DOS Thai (TIS-620)",        // default in Thailand
-        // ENCODINGENTRY(cp932), 932 or 943?, DOUBLE, "Japanese Windows",
-        // ENCODINGENTRY(cp936), 936 or 946?, DOUBLE, "Chinese",
-        // ENCODINGENTRY(cp949), 951 or 949?, DOUBLE, "Korean",
-        // ENCODINGENTRY(cp950), 947 or 950?, DOUBLE, "Taiwan Big-5",           // default in China?
+
+        ENCODINGENTRY(cp932), 932 /* or 943?*/ , DOUBLE, "Japanese Windows",
+        ENCODINGENTRY(cp936), 936 /* or 946?*/ , DOUBLE, "Chinese",
+        ENCODINGENTRY(cp949), 951 /* or 949?*/ , DOUBLE, "Korean",
+        ENCODINGENTRY(cp950), 947 /* or 950?*/ , DOUBLE, "Taiwan Big-5",           // default in China?
+
         ENCODINGENTRY(cp1004), 1004, SINGLE, "Windows Extended",
         ENCODINGENTRY(cp1250), 1250, SINGLE, "Windows Latin 2",
         ENCODINGENTRY(cp1251), 1251, SINGLE, "Windows Cyrillic",
@@ -403,14 +405,20 @@ unsigned short encUni2Char(PCONVERSION pTable,
 
 unsigned long encDecodeUTF8(const char **ppch)
 {
-    unsigned long   ulChar = **ppch;
+    unsigned long   ulChar;
 
-    if (!ulChar)
+    if (!(ulChar = **ppch))
+        // null is null
         return 0;
 
     // if (ulChar < 0x80): simple, one byte only... use that
 
-    if (ulChar >= 0x80)
+    if (ulChar < 0x80)
+    {
+        (*ppch)++;
+        return (ulChar);
+    }
+    else
     {
         unsigned long ulCount = 1;
         int fIllegal = 0;
@@ -489,46 +497,8 @@ unsigned long encDecodeUTF8(const char **ppch)
         else
             *ppch += ulCount;
     }
-    else
-        (*ppch)++;
 
     return (ulChar);
 }
 
-#if 0
-
-/*
- *@@ encCodepageToUTF8:
- *
- *@@added V0.9.18 (2002-03-08) [umoeller]
- */
-
-void encCodepageToUTF8(const char **ppch)
-{
-
-}
-
-putwchar(c)
-{
-  if (c < 0x80) {
-    putchar (c);
-  }
-  else if (c < 0x800) {
-    putchar (0xC0 | c>>6);
-    putchar (0x80 | c & 0x3F);
-  }
-  else if (c < 0x10000) {
-    putchar (0xE0 | c>>12);
-    putchar (0x80 | c>>6 & 0x3F);
-    putchar (0x80 | c & 0x3F);
-  }
-  else if (c < 0x200000) {
-    putchar (0xF0 | c>>18);
-    putchar (0x80 | c>>12 & 0x3F);
-    putchar (0x80 | c>>6 & 0x3F);
-    putchar (0x80 | c & 0x3F);
-  }
-}
-
-#endif
 

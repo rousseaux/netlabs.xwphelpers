@@ -40,16 +40,31 @@ extern "C" {
      *
      ********************************************************************/
 
-    #define PRFERR_DATASIZE     10001   // couldn't query data size for key
-    #define PRFERR_READ         10003   // couldn't read data from source (PrfQueryProfileData error)
-    #define PRFERR_WRITE        10004   // couldn't write data to target (PrfWriteProfileData error)
-    #define PRFERR_APPSLIST     10005   // couldn't query apps list
-    #define PRFERR_KEYSLIST     10006   // couldn't query keys list
-    #define PRFERR_ABORTED      10007   // aborted by user
-    #define PRFERR_QUERY        10007   // PrfQueryProfile failed
-    #define PRFERR_INVALID_FILE_NAME  10008   // profile names don't contain .INI
-    #define PRFERR_INVALID_KEY  10009
-    #define PRFERR_KEY_EXISTS   10010
+    #define ERROR_PRF_FIRST             42000
+
+    #define PRFERR_DATASIZE             (ERROR_PRF_FIRST + 1)
+                    // couldn't query data size for key
+    #define PRFERR_READ                 (ERROR_PRF_FIRST + 2)
+                    // couldn't read data from source (PrfQueryProfileData error)
+    #define PRFERR_WRITE                (ERROR_PRF_FIRST + 3)
+                    // couldn't write data to target (PrfWriteProfileData error)
+    #define PRFERR_APPSLIST             (ERROR_PRF_FIRST + 4)
+                    // couldn't query apps list
+    #define PRFERR_KEYSLIST             (ERROR_PRF_FIRST + 5)
+                    // couldn't query keys list
+    #define PRFERR_ABORTED              (ERROR_PRF_FIRST + 6)
+                    // aborted by user
+    #define PRFERR_QUERY                (ERROR_PRF_FIRST + 7)
+                    // PrfQueryProfile failed
+    #define PRFERR_INVALID_FILE_NAME    (ERROR_PRF_FIRST + 8)
+                    // profile names don't contain .INI
+    #define PRFERR_INVALID_KEY          (ERROR_PRF_FIRST + 9)
+    #define PRFERR_KEY_EXISTS           (ERROR_PRF_FIRST + 10)
+
+    #define PRFERR_RESET                (ERROR_PRF_FIRST + 11)
+                    // PrfReset failed V0.9.19 (2002-04-02) [umoeller]
+
+    #define ERROR_PRF_LAST              (ERROR_PRF_FIRST + 11)
 
     /* ******************************************************************
      *
@@ -217,8 +232,8 @@ extern "C" {
                         const char *pcszNewApp,
                         const char *pcszNewKey);
 
-    BOOL prfhSetUserProfile(HAB hab,
-                            const char *pcszUserProfile);
+    APIRET prfhSetUserProfile(HAB hab,
+                              const char *pcszUserProfile);
 
     ULONG prfhINIError(ULONG ulOptions,
                        FILE* fLog,

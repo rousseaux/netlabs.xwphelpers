@@ -1794,6 +1794,51 @@ HWND cnrhQueryCnrFromFrame(HWND hwndFrame)
 }
 
 /*
+ *@@ cnrhOpenEdit:
+ *      begins direct text editing on the first
+ *      record that is currently cursored in
+ *      the container.
+ *
+ *      This is the recommended response when
+ *      the almost documented WM_TEXTEDIT
+ *      message comes into the container owner's
+ *      window procedure. This is the case when
+ *      the user presses the key combo that was
+ *      set for direct text editing in the "Keyboard"
+ *      object.
+ *
+ *      Returns TRUE if direct editing was
+ *      successfully started. If FALSE is returned,
+ *      there is either no record with CRA_CURSORED
+ *      emphasis, or that record has the read-only
+ *      flag set.
+ *
+ *@@added V0.9.19 (2002-04-02) [umoeller]
+ */
+
+BOOL cnrhOpenEdit(HWND hwndCnr)
+{
+    BOOL brc = FALSE;
+    CNREDITDATA ced;
+    memset(&ced, 0, sizeof(ced));
+    ced.cb = sizeof(ced);
+    ced.hwndCnr = hwndCnr;
+    if (ced.pRecord = (PRECORDCORE)WinSendMsg(hwndCnr,
+                                              CM_QUERYRECORDEMPHASIS,
+                                              (MPARAM)CMA_FIRST,
+                                              (MPARAM)CRA_CURSORED))
+    {
+        ced.id = WinQueryWindowUShort(hwndCnr, QWS_ID);
+        brc = (BOOL)WinSendMsg(hwndCnr,
+                               CM_OPENEDIT,
+                               (MPARAM)&ced,
+                               0);
+    }
+
+    return (brc);
+}
+
+/*
  *@@ cnrhInitDrag:
  *      this sets up the necessary structures to begin dragging
  *      a record core from a container. This helper func should be

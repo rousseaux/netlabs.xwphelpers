@@ -325,8 +325,7 @@ PSZ strhistr(PCSZ string1, PCSZ string2)
             strupr(pszSrchIn);
             strupr(pszSrchFor);
 
-            prc = strstr(pszSrchIn, pszSrchFor);
-            if (prc)
+            if (prc = strstr(pszSrchIn, pszSrchFor))
             {
                 // prc now has the first occurence of the string,
                 // but in pszSrchIn; we need to map this
@@ -370,6 +369,22 @@ ULONG strhncpy0(PSZ pszTarget,
     *pTarget = 0;
 
     return (ul);
+}
+
+/*
+ *@@ strhlen:
+ *      like strlen, but doesn't crash on
+ *      null strings, but returns 0 also.
+ *
+ *@@added V0.9.19 (2002-04-02) [umoeller]
+ */
+
+ULONG strhlen(PCSZ pcsz)
+{
+    if (pcsz)
+        return (strlen(pcsz));
+
+    return 0;
 }
 
 /*

@@ -615,6 +615,8 @@ extern "C" {
 
     HWND cnrhQueryCnrFromFrame(HWND hwndFrame);
 
+    BOOL cnrhOpenEdit(HWND hwndCnr);
+
     PDRAGINFO cnrhInitDrag(HWND hwndCnr,
                            PRECORDCORE preccDrag,
                            USHORT usNotifyCode,

@@ -1188,11 +1188,13 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
  *
  *      --  DRVFL_CHECKLONGNAMES: drive should always be
  *          checked for longname support. If this is
- *          set, we will try a DosOpen on the drive
- *          to see if it supports long filenames
- *          (unless it's a "well-known" file-system
- *          and we know it does). In enabled, the
- *          DFL_SUPPORTS_LONGNAMES flag is reliable.
+ *          set, we will try a DosOpen("\\long.name.file")
+ *          on the drive to see if it supports long
+ *          filenames (unless it's a "well-known"
+ *          file-system and we know it does). If enabled,
+ *          the DFL_SUPPORTS_LONGNAMES flag is reliable.
+ *          Note that this does not check for what special
+ *          characters are supported in file names.
  *
  *      This should return only one of the following:
  *
@@ -1221,7 +1223,8 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
  *      1)  Call this function and check whether it
  *          returns NO_ERROR for the given drive.
  *          This will rule out invalid drive letters
- *          and drives that are presently locked.
+ *          and drives that are presently locked by
+ *          CHKDSK or something.
  *
  *      2)  If so, check whether XDISKINFO.flDevice
  *          has the DFL_MEDIA_PRESENT flag set.
@@ -2189,47 +2192,14 @@ APIRET doshSetPathAttr(const char* pcszFile,    // in: file or directory name
 }
 
 /*
- *@@ doshOpenExisting:
- *      opens an existing file for read-write access. Does
- *      not create a new file if the file doesn't exist.
- *
- *      This is just a simple wrapper around DosOpen.
- *
- *      ulOpenFlags is passed to DosOpen. Should be one
- *      of:
- *
- *      --  for read-only access:
- *
- +              OPEN_SHARE_DENYNONE | OPEN_ACCESS_READONLY
- *
- *      --  for read-write access:
- *
- +              OPEN_SHARE_DENYREADWRITE | OPEN_ACCESS_READWRITE
- *
- *      In addition, you can specify
- *
- +          OPEN_FLAGS_FAIL_ON_ERROR | OPEN_FLAGS_RANDOM
- +                          | OPEN_FLAGS_NOINHERIT
- *
- *@@added V0.9.13 (2001-06-14) [umoeller]
+ *@@category: Helpers\Control program helpers\File management\XFILEs
  */
 
-/*
-APIRET doshOpenExisting(PCSZ pcszFilename,   // in: file name
-                        ULONG ulOpenFlags,          // in: open flags
-                        HFILE *phf)                 // out: OS/2 file handle
-{
-    ULONG ulAction;
-    return (DosOpen((PSZ)pcszFilename,
-                    phf,
-                    &ulAction,
-                    0,          // cbFile
-                    0,          // attributes
-                    OPEN_ACTION_FAIL_IF_NEW | OPEN_ACTION_OPEN_IF_EXISTS,
-                    ulOpenFlags,
-                    NULL));     // EAs
-}
-*/
+/* ******************************************************************
+ *
+ *   XFILEs
+ *
+ ********************************************************************/
 
 /*
  * doshOpen:
@@ -2294,7 +2264,7 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
                                         // out: file size
                 PXFILE *ppFile)
 {
-    APIRET arc = NO_ERROR;
+    APIRET  arc = NO_ERROR;
 
     ULONG   fsOpenFlags = 0,
             fsOpenMode =    OPEN_FLAGS_FAIL_ON_ERROR
@@ -2408,45 +2378,11 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
             arc = ERROR_NOT_ENOUGH_MEMORY;
     }
     else
-        arc = ERROR_INVALID_PARAMETER;
+        if (!arc)       // V0.9.19 (2002-04-02) [umoeller]
+            arc = ERROR_INVALID_PARAMETER;
 
     return (arc);
 }
-
-/*
- *@@ doshLockFile:
- *
- *@@added V0.9.16 (2001-10-19) [umoeller]
- */
-
-/* APIRET doshLockFile(PXFILE pFile)
-{
-    if (!pFile)
-        return (ERROR_INVALID_PARAMETER);
-
-    if (!pFile->hmtx)
-        // first call:
-        return (DosCreateMutexSem(NULL,
-                                  &pFile->hmtx,
-                                  0,
-                                  TRUE));        // request!
-
-    return (DosRequestMutexSem(pFile->hmtx, SEM_INDEFINITE_WAIT));
-} */
-
-/*
- *@@ doshUnlockFile:
- *
- *@@added V0.9.16 (2001-10-19) [umoeller]
- */
-
-/* APIRET doshUnlockFile(PXFILE pFile)
-{
-    if (pFile)
-        return (DosReleaseMutexSem(pFile->hmtx));
-
-    return (ERROR_INVALID_PARAMETER);
-} */
 
 /*
  *@@ doshReadAt:
@@ -2482,174 +2418,175 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
  *
  *@@added V0.9.13 (2001-06-14) [umoeller]
  *@@changed V0.9.16 (2001-12-18) [umoeller]: now with XFILE, and always using FILE_BEGIN
+ *@@chaanged V0.9.19 (2002-04-02) [umoeller]: added params checking
  */
 
 APIRET doshReadAt(PXFILE pFile,
                   ULONG ulOffset,   // in: offset to read from (from beginning of file)
-                  PULONG pcb,       // in: bytes to read, out: bytes read
+                  PULONG pcb,       // in: bytes to read, out: bytes read (req.)
                   PBYTE pbData,     // out: read buffer (must be cb bytes)
                   ULONG fl)         // in: DRFL_* flags
 {
     APIRET arc = NO_ERROR;
-    ULONG cb = *pcb;
+    ULONG cb;
     ULONG ulDummy;
 
-    // if (!(arc = doshLockFile(pFile)))   // this checks for pFile
+    if (!pFile || !pcb)
+        // V0.9.19 (2002-04-02) [umoeller]
+        return ERROR_INVALID_PARAMETER;
+
+    cb = *pcb;
+    *pcb = 0;
+
+    // check if we have the data in the cache already;
+
+    if (    (pFile->pbCache)
+            // first byte must be in cache
+         && (ulOffset >= pFile->ulReadFrom)
+            // last byte must be in cache
+         && (    ulOffset + cb
+              <= pFile->ulReadFrom + pFile->cbCache
+            )
+       )
     {
-        *pcb = 0;
+        // alright, return data from cache simply
+        ULONG ulOfsInCache = ulOffset - pFile->ulReadFrom;
 
-        // check if we have the data in the cache already;
+        memcpy(pbData,
+               pFile->pbCache + ulOfsInCache,
+               cb);
+        *pcb = cb;
 
-        if (    (pFile->pbCache)
-                // first byte must be in cache
-             && (ulOffset >= pFile->ulReadFrom)
-                // last byte must be in cache
-             && (    ulOffset + cb
-                  <= pFile->ulReadFrom + pFile->cbCache
-                )
+        #ifdef DEBUG_DOSOPEN
+        _Pmpf((__FUNCTION__ " %s: data is fully in cache",
+                    pFile->pszFilename));
+        _Pmpf(("  caller wants %d bytes from %d",
+                    cb, ulOffset));
+        _Pmpf(("  we got %d bytes from %d",
+                    pFile->cbCache, pFile->ulReadFrom));
+        _Pmpf(("  so copied %d bytes from cache ofs %d",
+                    cb, ulOfsInCache));
+        #endif
+    }
+    else
+    {
+        // data is not in cache:
+        // check how much it is... for small amounts,
+        // we load the cache first
+        if (    (cb <= 4096 - 512)
+             && (!(fl & DRFL_NOCACHE))
            )
         {
-            // alright, return data from cache simply
-            ULONG ulOfsInCache = ulOffset - pFile->ulReadFrom;
-
-            memcpy(pbData,
-                   pFile->pbCache + ulOfsInCache,
-                   cb);
-            *pcb = cb;
-
             #ifdef DEBUG_DOSOPEN
-            _Pmpf((__FUNCTION__ " %s: data is fully in cache",
-                        pFile->pszFilename));
+            _Pmpf((__FUNCTION__ " %s: filling cache anew",
+                    pFile->pszFilename));
             _Pmpf(("  caller wants %d bytes from %d",
                         cb, ulOffset));
-            _Pmpf(("  we got %d bytes from %d",
-                        pFile->cbCache, pFile->ulReadFrom));
-            _Pmpf(("  so copied %d bytes from cache ofs %d",
-                        cb, ulOfsInCache));
             #endif
-        }
-        else
-        {
-            // data is not in cache:
-            // check how much it is... for small amounts,
-            // we load the cache first
-            if (    (cb <= 4096 - 512)
-                 && (!(fl & DRFL_NOCACHE))
-               )
-            {
-                #ifdef DEBUG_DOSOPEN
-                _Pmpf((__FUNCTION__ " %s: filling cache anew",
-                        pFile->pszFilename));
-                _Pmpf(("  caller wants %d bytes from %d",
-                            cb, ulOffset));
-                #endif
 
-                // OK, then fix the offset to read from
-                // to a multiple of 512 to get a full sector
-                pFile->ulReadFrom = ulOffset / 512L * 512L;
-                // and read 4096 bytes always plus the
-                // value we cut off above
-                pFile->cbCache = 4096;
+            // OK, then fix the offset to read from
+            // to a multiple of 512 to get a full sector
+            pFile->ulReadFrom = ulOffset / 512L * 512L;
+            // and read 4096 bytes always plus the
+            // value we cut off above
+            pFile->cbCache = 4096;
 
-                #ifdef DEBUG_DOSOPEN
-                _Pmpf(("  getting %d bytes from %d",
-                            pFile->cbCache, pFile->ulReadFrom));
-                #endif
+            #ifdef DEBUG_DOSOPEN
+            _Pmpf(("  getting %d bytes from %d",
+                        pFile->cbCache, pFile->ulReadFrom));
+            #endif
 
-                // free old cache
-                if (pFile->pbCache)
-                    free(pFile->pbCache);
+            // free old cache
+            if (pFile->pbCache)
+                free(pFile->pbCache);
 
-                // allocate new cache
-                if (!(pFile->pbCache = (PBYTE)malloc(pFile->cbCache)))
-                    arc = ERROR_NOT_ENOUGH_MEMORY;
-                else
-                {
-                    ULONG ulOfsInCache = 0;
-
-                    if (!(arc = DosSetFilePtr(pFile->hf,
-                                              (LONG)pFile->ulReadFrom,
-                                              FILE_BEGIN,
-                                              &ulDummy)))
-                    {
-                        if (!(arc = DosRead(pFile->hf,
-                                            pFile->pbCache,
-                                            pFile->cbCache,
-                                            &ulDummy)))
-                        {
-                            // got data:
-                            #ifdef DEBUG_DOSOPEN
-                            _Pmpf(("        %d bytes read", ulDummy));
-                            #endif
-
-                            pFile->cbCache = ulDummy;
-
-                            // check bounds
-                            ulOfsInCache = ulOffset - pFile->ulReadFrom;
-
-                            /*
-                            if (ulOfsInCache + cb > pFile->cbCache)
-                            {
-                                cb = pFile->cbCache - ulOfsInCache;
-                                if (fl & DRFL_FAILIFLESS)
-                                    arc = ERROR_NO_DATA;
-                            }
-                            */
-                        }
-                    }
-
-                    if (!arc)
-                    {
-                        // copy to caller
-                        memcpy(pbData,
-                               pFile->pbCache + ulOfsInCache,
-                               cb);
-                        *pcb = cb;
-
-                        #ifdef DEBUG_DOSOPEN
-                        _Pmpf(("  so copied %d bytes from cache ofs %d",
-                                    cb, ulOfsInCache));
-                        #endif
-                    }
-                    else
-                    {
-                        free(pFile->pbCache);
-                        pFile->pbCache = NULL;
-                    }
-                } // end else if (!(pFile->pbCache = (PBYTE)malloc(pFile->cbCache)))
-            }
+            // allocate new cache
+            if (!(pFile->pbCache = (PBYTE)malloc(pFile->cbCache)))
+                arc = ERROR_NOT_ENOUGH_MEMORY;
             else
             {
-                // read uncached:
-                #ifdef DEBUG_DOSOPEN
-                _Pmpf(("  " __FUNCTION__ " %s: reading uncached",
-                            pFile->pszFilename));
-                _Pmpf(("      caller wants %d bytes from %d",
-                            cb, ulOffset));
-                #endif
+                ULONG ulOfsInCache = 0;
 
                 if (!(arc = DosSetFilePtr(pFile->hf,
-                                          (LONG)ulOffset,
+                                          (LONG)pFile->ulReadFrom,
                                           FILE_BEGIN,
                                           &ulDummy)))
                 {
                     if (!(arc = DosRead(pFile->hf,
-                                        pbData,
-                                        cb,
+                                        pFile->pbCache,
+                                        pFile->cbCache,
                                         &ulDummy)))
                     {
-                        if (    (fl & DRFL_FAILIFLESS)
-                             && (ulDummy != cb)
-                           )
-                            arc = ERROR_NO_DATA;
-                        else
-                            *pcb = ulDummy;     // bytes read
+                        // got data:
+                        #ifdef DEBUG_DOSOPEN
+                        _Pmpf(("        %d bytes read", ulDummy));
+                        #endif
+
+                        pFile->cbCache = ulDummy;
+
+                        // check bounds
+                        ulOfsInCache = ulOffset - pFile->ulReadFrom;
+
+                        /*
+                        if (ulOfsInCache + cb > pFile->cbCache)
+                        {
+                            cb = pFile->cbCache - ulOfsInCache;
+                            if (fl & DRFL_FAILIFLESS)
+                                arc = ERROR_NO_DATA;
+                        }
+                        */
                     }
+                }
+
+                if (!arc)
+                {
+                    // copy to caller
+                    memcpy(pbData,
+                           pFile->pbCache + ulOfsInCache,
+                           cb);
+                    *pcb = cb;
+
+                    #ifdef DEBUG_DOSOPEN
+                    _Pmpf(("  so copied %d bytes from cache ofs %d",
+                                cb, ulOfsInCache));
+                    #endif
+                }
+                else
+                {
+                    free(pFile->pbCache);
+                    pFile->pbCache = NULL;
+                }
+            } // end else if (!(pFile->pbCache = (PBYTE)malloc(pFile->cbCache)))
+        }
+        else
+        {
+            // read uncached:
+            #ifdef DEBUG_DOSOPEN
+            _Pmpf(("  " __FUNCTION__ " %s: reading uncached",
+                        pFile->pszFilename));
+            _Pmpf(("      caller wants %d bytes from %d",
+                        cb, ulOffset));
+            #endif
+
+            if (!(arc = DosSetFilePtr(pFile->hf,
+                                      (LONG)ulOffset,
+                                      FILE_BEGIN,
+                                      &ulDummy)))
+            {
+                if (!(arc = DosRead(pFile->hf,
+                                    pbData,
+                                    cb,
+                                    &ulDummy)))
+                {
+                    if (    (fl & DRFL_FAILIFLESS)
+                         && (ulDummy != cb)
+                       )
+                        arc = ERROR_NO_DATA;
+                    else
+                        *pcb = ulDummy;     // bytes read
                 }
             }
         }
-
-        // doshUnlockFile(pFile);
     }
 
     return (arc);
@@ -2736,23 +2673,20 @@ APIRET doshWrite(PXFILE pFile,
             }
 
             if (!arc)
-                // if (!(arc = doshLockFile(pFile)))   // this checks for pFile
+            {
+                ULONG cbWritten;
+                if (!(arc = DosWrite(pFile->hf,
+                                     (pszNew)
+                                            ? pszNew
+                                            : (PSZ)pbData,
+                                     cb,
+                                     &cbWritten)))
                 {
-                    ULONG cbWritten;
-                    if (!(arc = DosWrite(pFile->hf,
-                                         (pszNew)
-                                                ? pszNew
-                                                : (PSZ)pbData,
-                                         cb,
-                                         &cbWritten)))
-                    {
-                        pFile->cbCurrent += cbWritten;
-                        // invalidate the cache
-                        FREE(pFile->pbCache);
-                    }
-
-                    // doshUnlockFile(pFile);
+                    pFile->cbCurrent += cbWritten;
+                    // invalidate the cache
+                    FREE(pFile->pbCache);
                 }
+            }
 
             if (pszNew)
                 free(pszNew);
@@ -2777,25 +2711,22 @@ APIRET doshWriteAt(PXFILE pFile,
                    PCSZ pbData)     // in: ptr to bytes to write (must be cb bytes)
 {
     APIRET arc = NO_ERROR;
-    // if (!(arc = doshLockFile(pFile)))   // this checks for pFile
+    ULONG cbWritten;
+    if (!(arc = DosSetFilePtr(pFile->hf,
+                              (LONG)ulOffset,
+                              FILE_BEGIN,
+                              &cbWritten)))
     {
-        ULONG cbWritten;
-        if (!(arc = DosSetFilePtr(pFile->hf,
-                                  (LONG)ulOffset,
-                                  FILE_BEGIN,
-                                  &cbWritten)))
+        if (!(arc = DosWrite(pFile->hf,
+                             (PSZ)pbData,
+                             cb,
+                             &cbWritten)))
         {
-            if (!(arc = DosWrite(pFile->hf,
-                                 (PSZ)pbData,
-                                 cb,
-                                 &cbWritten)))
-            {
-                if (ulOffset + cbWritten > pFile->cbCurrent)
-                    pFile->cbCurrent = ulOffset + cbWritten;
-            }
+            if (ulOffset + cbWritten > pFile->cbCurrent)
+                pFile->cbCurrent = ulOffset + cbWritten;
+            // invalidate the cache V0.9.19 (2002-04-02) [umoeller]
+            FREE(pFile->pbCache);
         }
-
-        // doshUnlockFile(pFile);
     }
 
     return (arc);
@@ -2859,6 +2790,8 @@ APIRET doshWriteLogEntry(PXFILE pFile,
 
 /*
  * doshClose:
+ *      closes an XFILE opened by doshOpen and
+ *      sets *ppFile to NULL.
  *
  *@@added V0.9.16 (2001-10-19) [umoeller]
  */
@@ -2872,29 +2805,17 @@ APIRET doshClose(PXFILE *ppFile)
          && (pFile = *ppFile)
        )
     {
-        // request the mutex so that we won't be
-        // taking the file away under someone's butt
-        // if (!(arc = doshLockFile(pFile)))
+        // set the ptr to NULL
+        *ppFile = NULL;
+
+        FREE(pFile->pbCache);
+        FREE(pFile->pszFilename);
+
+        if (pFile->hf)
         {
-            // HMTX hmtx = pFile->hmtx;
-            // pFile->hmtx = NULLHANDLE;
-
-            // now that the file is locked,
-            // set the ptr to NULL
-            *ppFile = NULL;
-
-            FREE(pFile->pbCache);
-            FREE(pFile->pszFilename);
-
-            if (pFile->hf)
-            {
-                DosSetFileSize(pFile->hf, pFile->cbCurrent);
-                DosClose(pFile->hf);
-                pFile->hf = NULLHANDLE;
-            }
-
-            // doshUnlockFile(pFile);
-            // DosCloseMutexSem(pFile->hmtx);
+            DosSetFileSize(pFile->hf, pFile->cbCurrent);
+            DosClose(pFile->hf);
+            pFile->hf = NULLHANDLE;
         }
 
         free(pFile);

@@ -460,6 +460,7 @@ VOID excDumpStackFrames(FILE *file,                   // in: logfile from fopen(
  *@@changed V0.9.6 (2000-11-06) [umoeller]: added more register dumps
  *@@changed V0.9.13 (2001-06-19) [umoeller]: added global flag for whether this is running
  *@@changed V0.9.16 (2001-11-02) [pr]: make object display signed
+ *@@changed V0.9.19 (2002-03-28) [umoeller]: added thread ordinal
  */
 
 VOID excExplainException(FILE *file,                   // in: logfile from fopen()
@@ -658,8 +659,10 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
             fprintf(file,
                     "\nTrapping thread information:"
                     "\n    Thread ID:       0x%lX (%lu)"
+                    "\n    Thread slot ID:  0x%lX (%lu)"        // added V0.9.19 (2002-03-28) [umoeller]
                     "\n    Priority:        0x%lX\n",
                     ptib->tib_ptib2->tib2_ultid, ptib->tib_ptib2->tib2_ultid,
+                    ptib->tib_ordinal, ptib->tib_ordinal,
                     ulOldPriority);
         }
         else

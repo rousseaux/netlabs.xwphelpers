@@ -239,6 +239,10 @@ extern "C" {
     typedef VOID XWPENTRY XSTRCONVERTLINEFORMAT(PXSTRING pxstr, BOOL fToCFormat);
     typedef XSTRCONVERTLINEFORMAT *PXSTRCONVERTLINEFORMAT;
 
+    VOID xstrPrintf(XSTRING *pstr,
+                    PCSZ pcszFormat,
+                    ...);
+
 #endif
 
 #if __cplusplus

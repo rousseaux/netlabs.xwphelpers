@@ -93,22 +93,16 @@ extern "C" {
      *
      ********************************************************************/
 
-
-        PSZ appQueryDefaultWin31Environment(VOID);
+        APIRET appQueryDefaultWin31Environment(PSZ *ppsz);
 
         #define APP_RUN_FULLSCREEN      0x0001
         #define APP_RUN_ENHANCED        0x0002
         #define APP_RUN_STANDARD        0x0004
         #define APP_RUN_SEPARATE        0x0008
 
-        #ifdef XSTRING_HEADER_INCLUDED
-        APIRET appFixProgDetails(PPROGDETAILS pDetails,
-                                 const PROGDETAILS *pcProgDetails,
-                                 ULONG ulFlags,
-                                 PXSTRING pstrExecutablePatched,
-                                 PXSTRING pstrParamsPatched,
-                                 PSZ *ppszWinOS2Env);
-        #endif
+        APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,
+                                   const PROGDETAILS *pcProgDetails,
+                                   ULONG ulFlags);
 
         APIRET XWPENTRY appStartApp(HWND hwndNotify,
                                     const PROGDETAILS *pcProgDetails,

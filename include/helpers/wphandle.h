@@ -42,6 +42,7 @@ extern "C" {
      ********************************************************************/
 
     #define ERROR_WPH_FIRST                         41000
+
     #define ERROR_WPH_CRASHED                       (ERROR_WPH_FIRST +   0)
     #define ERROR_WPH_NO_BASECLASS_DATA             (ERROR_WPH_FIRST +   1)
     #define ERROR_WPH_NO_ACTIVEHANDLES_DATA         (ERROR_WPH_FIRST +   2)
@@ -56,6 +57,8 @@ extern "C" {
     #define ERROR_WPH_NO_MATCHING_DRIVE_BLOCK       (ERROR_WPH_FIRST +  11)
     #define ERROR_WPH_NO_MATCHING_ROOT_DIR          (ERROR_WPH_FIRST +  12)
     #define ERROR_WPH_NOT_FILESYSTEM_HANDLE         (ERROR_WPH_FIRST +  13)
+
+    #define ERROR_WPH_LAST                          (ERROR_WPH_FIRST +  13)
 
     /* ******************************************************************
      *

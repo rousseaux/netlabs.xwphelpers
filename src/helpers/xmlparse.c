@@ -62,7 +62,7 @@
  */
 
 /*
- *@@category: Helpers\C helpers\XML\expat
+ *@@category: Helpers\XML\expat
  *      expat XML parser. See xmlparse.c.
  */
 

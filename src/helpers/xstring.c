@@ -109,6 +109,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 
 #include "setup.h"                      // code generation and debugging options
@@ -1521,6 +1522,32 @@ VOID xstrConvertLineFormat(PXSTRING pxstr,
                            &fRepeat))
             ;
 }
+
+/*
+ *@@ xstrPrintf:
+ *      like sprintf, but prints into an XSTRING
+ *      bufer (which must be initialized).
+ *
+ *      Note that the internal stack buffer is
+ *      limited to 2000 bytes, so watch out.
+ *
+ *@@added V0.9.19 (2002-03-28) [umoeller]
+ */
+
+VOID xstrPrintf(XSTRING *pstr,       // in/out: string buffer (must be init'ed)
+                PCSZ pcszFormat,     // in: format string (like with printf)
+                ...)                 // in: additional stuff (like with printf)
+{
+    va_list     args;
+    CHAR        szBuf[2000];
+
+    va_start(args, pcszFormat);
+    vsprintf(szBuf, pcszFormat, args);
+    va_end(args);
+
+    xstrcpy(pstr, szBuf, 0);
+}
+
 
 // test case
 

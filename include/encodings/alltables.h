@@ -22,10 +22,12 @@
 #include "encodings\cp866.h"
 #include "encodings\cp869.h"
 #include "encodings\cp874.h"
-// #include "encodings\cp932.h"
-// #include "encodings\cp936.h"
-// #include "encodings\cp949.h"
-// #include "encodings\cp950.h"
+
+#include "encodings\cp932.h"
+#include "encodings\cp936.h"
+#include "encodings\cp949.h"
+#include "encodings\cp950.h"
+
 #include "encodings\cp1004.h"       // added V0.9.18 (2002-03-08) [umoeller]
 #include "encodings\cp1250.h"
 #include "encodings\cp1251.h"

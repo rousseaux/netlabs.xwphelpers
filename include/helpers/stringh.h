@@ -67,6 +67,8 @@ extern "C" {
                              const char *pszSource,
                              ULONG cbSource);
 
+    ULONG XWPENTRY strhlen(PCSZ pcsz);
+
     ULONG XWPENTRY strhSize(PCSZ pcsz);
 
     ULONG XWPENTRY strhCount(const char *pszSearch, CHAR c);

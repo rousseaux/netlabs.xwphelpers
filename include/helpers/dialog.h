@@ -41,18 +41,21 @@ extern "C" {
      *
      ********************************************************************/
 
-    #define DLGERR_FIRST                        10000
-    #define DLGERR_ROW_BEFORE_TABLE             (DLGERR_FIRST)
-    #define DLGERR_CONTROL_BEFORE_ROW           (DLGERR_FIRST + 1)
-    #define DLGERR_NULL_CTL_DEF                 (DLGERR_FIRST + 2)
-    #define DLGERR_CANNOT_CREATE_FRAME          (DLGERR_FIRST + 3)
-    #define DLGERR_INVALID_CODE                 (DLGERR_FIRST + 4)
-    #define DLGERR_TABLE_NOT_CLOSED             (DLGERR_FIRST + 5)
-    #define DLGERR_TOO_MANY_TABLES_CLOSED       (DLGERR_FIRST + 6)
-    #define DLGERR_CANNOT_CREATE_CONTROL        (DLGERR_FIRST + 7)
-    #define DLGERR_ARRAY_TOO_SMALL              (DLGERR_FIRST + 8)
-    #define DLGERR_INVALID_CONTROL_TITLE        (DLGERR_FIRST + 9)
-    #define DLGERR_INVALID_STATIC_BITMAP        (DLGERR_FIRST + 10)
+    #define ERROR_DLG_FIRST                     43000
+
+    #define DLGERR_ROW_BEFORE_TABLE             (ERROR_DLG_FIRST)
+    #define DLGERR_CONTROL_BEFORE_ROW           (ERROR_DLG_FIRST + 1)
+    #define DLGERR_NULL_CTL_DEF                 (ERROR_DLG_FIRST + 2)
+    #define DLGERR_CANNOT_CREATE_FRAME          (ERROR_DLG_FIRST + 3)
+    #define DLGERR_INVALID_CODE                 (ERROR_DLG_FIRST + 4)
+    #define DLGERR_TABLE_NOT_CLOSED             (ERROR_DLG_FIRST + 5)
+    #define DLGERR_TOO_MANY_TABLES_CLOSED       (ERROR_DLG_FIRST + 6)
+    #define DLGERR_CANNOT_CREATE_CONTROL        (ERROR_DLG_FIRST + 7)
+    #define DLGERR_ARRAY_TOO_SMALL              (ERROR_DLG_FIRST + 8)
+    #define DLGERR_INVALID_CONTROL_TITLE        (ERROR_DLG_FIRST + 9)
+    #define DLGERR_INVALID_STATIC_BITMAP        (ERROR_DLG_FIRST + 10)
+
+    #define ERROR_DLG_LAST                      (ERROR_DLG_FIRST + 10)
 
     /* ******************************************************************
      *
@@ -116,7 +119,12 @@ extern "C" {
                 // If the CONTROLDEF appears with a START_NEW_TABLE
                 // type in _DLGHITEM (to specify a group table)
                 // and they are not SZL_AUTOSIZE, they specify the
-                // table size (to override the automatic formatting).
+                // size of the inner table of the group (to override
+                // the automatic formatting). Note that the dialog
+                // formatter adds COMMON_SPACING to both the left and
+                // the right of the table to center the table in the
+                // PM group control, so the actual group size will
+                // be the specified size + (2 * COMMON_SPACING).
 
         ULONG       ulSpacing;          // spacing around control
 
@@ -194,7 +202,10 @@ extern "C" {
      *
      ********************************************************************/
 
-    #define COMMON_SPACING          3
+    #define COMMON_SPACING              3
+
+    #define PM_GROUP_SPACING_X          16
+    #define PM_GROUP_SPACING_TOP        16
 
     #define CONTROLDEF_GROUP(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_GROUPBOX | DT_MNEMONIC, \

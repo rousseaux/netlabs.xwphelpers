@@ -94,6 +94,8 @@ extern "C" {
 
     #define ERROR_DOM_INVALID_EXTERNAL_HANDLER (ERROR_XML_FIRST + 48)
 
+    #define ERROR_XML_LAST                  (ERROR_XML_FIRST + 48)
+
     const char* xmlDescribeError(int code);
 
     /* ******************************************************************

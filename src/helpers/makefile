@@ -189,7 +189,10 @@ VCARD_TEST_OBJS = \
     $(TESTCASE_DIR)\linklist.obj \
     $(TESTCASE_DIR)\dosh.obj \
     $(TESTCASE_DIR)\prfh.obj \
-    $(TESTCASE_DIR)\nls.obj
+    $(TESTCASE_DIR)\nls.obj \
+    $(TESTCASE_DIR)\except.obj \
+    $(TESTCASE_DIR)\debug.obj \
+    $(TESTCASE_DIR)\tree.obj
 
 vcard.exe: $(VCARD_TEST_OBJS)
     ilink /debug /pmtype:vio $(VCARD_TEST_OBJS) /o:$@

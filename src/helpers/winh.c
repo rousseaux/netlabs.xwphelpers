@@ -59,6 +59,7 @@
 #define INCL_WINBUTTONS
 #define INCL_WINSTATICS
 #define INCL_WINMENUS
+#define INCL_WINENTRYFIELDS
 #define INCL_WINSCROLLBARS
 #define INCL_WINLISTBOXES
 #define INCL_WINSTDSPIN
@@ -2351,6 +2352,7 @@ BOOL winhRestoreWindowPos(HWND hwnd,   // in: window to restore
  *      having to write dozens of WinSetWindowPos calls oneself.
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.19 (2001-04-13) [umoeller]: added correlation for entry field repositioning, this was always off
  */
 
 BOOL winhAdjustControls(HWND hwndDlg,           // in: dialog (req.)
@@ -2372,6 +2374,10 @@ BOOL winhAdjustControls(HWND hwndDlg,           // in: dialog (req.)
         LONG    ldcx, ldcy;
         ULONG   cWindows = 0;
 
+        // V0.9.19 (2001-04-13) [umoeller]
+        LONG cxMarginEF = 3 * WinQuerySysValue(HWND_DESKTOP, SV_CXBORDER);
+        LONG cyMarginEF = 3 * WinQuerySysValue(HWND_DESKTOP, SV_CYBORDER);
+
         // setup mode:
         if (pxac->fInitialized == FALSE)
         {
@@ -2390,9 +2396,24 @@ BOOL winhAdjustControls(HWND hwndDlg,           // in: dialog (req.)
                  ul++)
             {
                 HWND hwndThis;
+                CHAR szClass[10];
                 if (hwndThis = WinWindowFromID(hwndDlg, SHORT1FROMMP(*pmpThis)))
                 {
                     WinQueryWindowPos(hwndThis, pswpThis);
+
+                    // correlate the stupid repositioning of entry fields
+                    // V0.9.19 (2001-04-13) [umoeller]
+                    if (    (WinQueryClassName(hwndThis, sizeof(szClass), szClass)
+                         && (!strcmp(szClass, "#6"))
+                         && (WinQueryWindowULong(hwndThis, QWL_STYLE) & ES_MARGIN))
+                       )
+                    {
+                        pswpThis->x += cxMarginEF;
+                        pswpThis->y += cyMarginEF;
+                        pswpThis->cx -= 2 * cxMarginEF;
+                        pswpThis->cy -= 2 * cyMarginEF;
+                    }
+
                     cWindows++;
                 }
 
@@ -2421,8 +2442,8 @@ BOOL winhAdjustControls(HWND hwndDlg,           // in: dialog (req.)
                  ul < ulCount;
                  ul++)
             {
-                HWND hwndThis = WinWindowFromID(hwndDlg, SHORT1FROMMP(*pmpThis));
-                if (hwndThis)
+                HWND hwndThis;
+                if (hwndThis = WinWindowFromID(hwndDlg, SHORT1FROMMP(*pmpThis)))
                 {
                     LONG    x = pswpThis->x,
                             y = pswpThis->y,

@@ -540,10 +540,11 @@ extern "C" {
     APIRET doshSetPathAttr(const char* pcszFile,
                            ULONG ulAttr);
 
-    /* APIRET doshOpenExisting(PCSZ pcszFilename,
-                            ULONG ulOpenFlags,
-                            HFILE *phf);
-       */
+    /* ******************************************************************
+     *
+     *   XFILEs
+     *
+     ********************************************************************/
 
     /*
      *@@ XFILE:
@@ -554,7 +555,6 @@ extern "C" {
     typedef struct _XFILE
     {
         HFILE       hf;
-        // ULONG       hmtx;       // a HMTX really
 
         PSZ         pszFilename;    // as given to doshOpen
         ULONG       flOpenMode;     // as given to doshOpen

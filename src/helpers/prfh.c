@@ -525,12 +525,14 @@ ULONG prfhRenameKey(HINI hini,
  *      INI file.
  *
  *@@added V0.9.4 (2000-07-19) [umoeller]
+ *@@changed V0.9.19 (2002-04-02) [umoeller]: now returning APIRET
  */
 
-BOOL prfhSetUserProfile(HAB hab,
-                        const char *pcszUserProfile)     // in: new user profile (.INI)
+APIRET prfhSetUserProfile(HAB hab,
+                          const char *pcszUserProfile)     // in: new user profile (.INI)
 {
-    BOOL    brc = FALSE;
+    APIRET arc = NO_ERROR;
+
     // find out current profile names
     PRFPROFILE Profiles;
     Profiles.cchUserName = Profiles.cchSysName = 0;
@@ -552,13 +554,20 @@ BOOL prfhSetUserProfile(HAB hab,
                 free(Profiles.pszUserName);
                 Profiles.pszUserName = (PSZ)pcszUserProfile;
                 Profiles.cchUserName = strlen(pcszUserProfile) + 1;
-                brc = PrfReset(hab, &Profiles);
+                if (!PrfReset(hab, &Profiles))
+                    arc = PRFERR_RESET;
                 free(Profiles.pszSysName);
             }
+            else
+                arc = PRFERR_QUERY;
         }
+        else
+            arc = PRFERR_QUERY;
     }
+    else
+        arc = PRFERR_QUERY;
 
-    return (brc);
+    return (arc);
 }
 
 

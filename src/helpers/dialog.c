@@ -226,9 +226,6 @@ typedef enum _PROCESSMODE
  *
  ********************************************************************/
 
-#define PM_GROUP_SPACING_X          16
-#define PM_GROUP_SPACING_TOP        16
-
 static APIRET ProcessTable(PTABLEDEF pTableDef,
                            const CONTROLPOS *pcpTable,
                            PROCESSMODE ProcessMode,
@@ -1566,7 +1563,8 @@ static APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
                 }
 
                 pCurrentRow = NULL;
-            break; }
+            }
+            break;
 
             /*
              * TYPE_START_NEW_ROW:
@@ -1594,7 +1592,8 @@ static APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
                         lstAppendItem(&pCurrentTable->llRows, pCurrentRow);
                     }
                 }
-            break; }
+            }
+            break;
 
             /*
              * TYPE_CONTROL_DEF:
@@ -1610,7 +1609,8 @@ static APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
                                          &pColumnDef)))
                     lstAppendItem(&pCurrentRow->llColumns,
                                   pColumnDef);
-            break; }
+            }
+            break;
 
             /*
              * TYPE_END_TABLE:
@@ -1631,7 +1631,8 @@ static APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
 
                     lstRemoveNode(&llStack, pNode);
                 }
-            break; }
+            }
+            break;
 
             default:
                 arc = DLGERR_INVALID_CODE;
