@@ -2358,7 +2358,7 @@ LONG gpihStretchBitmap(HPS hpsTarget,       // in: memory PS to copy bitmap to
 BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap selected into it
                      HPOINTER hptr,      // in: source icon
                      LONG lBkgndColor,   // in: background color for transparent areas
-                     PPOINTL pptlLowerLeft,   // in: lower left corner of where to paint (ptr can be NULL)
+                     PPOINTL pptlLowerLeft, // in: lower left corner of where to paint (ptr can be NULL)
                      ULONG ulIconSize)   // in: icon size (should be the value of WinQuerySysValue(HWND_DESKTOP, SV_CXICON))
 {
     BOOL        brc = FALSE;
