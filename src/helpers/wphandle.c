@@ -112,7 +112,7 @@ APIRET wphQueryActiveHandles(HINI hiniSystem,
                                                 NULL))
     {
         *ppszActiveHandles = pszActiveHandles;
-        return (NO_ERROR);
+        return NO_ERROR;
     }
 
     return (ERROR_WPH_NO_ACTIVEHANDLES_DATA);

@@ -541,7 +541,7 @@ PQTOPLEVEL32 prc32GetInfo(APIRET *parc)     // out: error, ptr can be NULL
                 DosFreeMem(pBuf);
         }
 
-    return (NULL);
+    return NULL;
 }
 
 /*
@@ -603,7 +603,7 @@ PQPROCESS32 prc32FindProcessFromName(PQTOPLEVEL32 pInfo,
     if (pProcThis->ulRecType == 1)
         return (pProcThis);
     else
-        return (NULL);
+        return NULL;
 }
 
 /*
@@ -634,7 +634,7 @@ PQS32SEM16 prc32FindSem16(PQTOPLEVEL32 pInfo,     // in: as returned by prc32Get
         pSemThis = pSemThis->pNext;
     }
 
-    return (NULL);
+    return NULL;
 }
 
 /*
@@ -662,7 +662,7 @@ PQS32SEM32 prc32FindSem32(PQTOPLEVEL32 pInfo,     // in: as returned by prc32Get
         pSemThis = pSemThis->pNext;
     } */
 
-    return (NULL);
+    return NULL;
 }
 
 /*
@@ -687,7 +687,7 @@ PQSHRMEM32 prc32FindShrMem(PQTOPLEVEL32 pInfo,  // in: as returned by prc32GetIn
         pShrMem = pShrMem->pNext;
     }
 
-    return (NULL);
+    return NULL;
 }
 
 /*
@@ -711,7 +711,7 @@ PQMODULE32 prc32FindModule(PQTOPLEVEL32 pInfo,  // in: as returned by prc32GetIn
         pModule = pModule->pNext;
     }
 
-    return (NULL);
+    return NULL;
 }
 
 /*
@@ -743,7 +743,7 @@ PQFILEDATA32 prc32FindFileData(PQTOPLEVEL32 pInfo,  // in: as returned by prc32G
         pFile = pFile->pNext;
     }
 
-    return (NULL);
+    return NULL;
 }
 
 

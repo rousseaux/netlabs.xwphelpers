@@ -213,7 +213,7 @@ static PXTIMER FindTimer(PXTIMERSET pSet,          // in: timer set (from tmrCre
         }
     }
 
-    return (NULL);
+    return NULL;
 }
 
 /*

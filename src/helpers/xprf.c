@@ -169,7 +169,7 @@ static PXINIAPPDATA FindApp(PXINI pXIni,           // in: profile opened with xp
         pAppNode = pAppNode->pNext;
     }
 
-    return (NULL);
+    return NULL;
 }
 
 /*
@@ -222,7 +222,7 @@ static PXINIKEYDATA FindKey(PXINIAPPDATA pAppData,
         pKeyNode = pKeyNode->pNext;
     }
 
-    return (NULL);
+    return NULL;
 }
 
 /*

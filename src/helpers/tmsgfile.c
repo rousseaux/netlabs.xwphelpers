@@ -419,7 +419,7 @@ APIRET tmfCloseMessageFile(PTMFMSGFILE *ppMsgFile)
         free(pFile);
         *ppMsgFile = NULL;
 
-        return (NO_ERROR);
+        return NO_ERROR;
     }
 
     return (ERROR_INVALID_PARAMETER);

@@ -1007,7 +1007,7 @@ static PEABINDING ReadEAByName(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENU
     {
         PDENA2 dena = ReadDenaByIndex(type, pfile, index);
         if (dena == 0)
-            return (NULL);
+            return NULL;
         if ((strcmp(name, (dena->szName))) == 0)
             return (GetEAValue(type, pfile, dena));
         free(dena);
@@ -1087,7 +1087,7 @@ static PEABINDING GetEAValue(ULONG type,  // in: ENUMEA_REFTYPE_FHANDLE or  ENUM
     if (arc == NO_ERROR)
         return (ConvertFeal2Binding(eaop.fpFEA2List));
     else
-        return (NULL);
+        return NULL;
 }
 
 /*

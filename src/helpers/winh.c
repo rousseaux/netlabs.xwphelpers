@@ -2701,7 +2701,7 @@ PSZ winhQueryWindowFont(HWND hwnd)
     if (szNewFont[0] != 0)
         return (strdup(szNewFont));
 
-    return (NULL);
+    return NULL;
 }
 
 /*

@@ -208,7 +208,7 @@ static PSUBCLASSEDTOOL FindSubclassedTool(HWND hwndTool)
         pNode = pNode->pNext;
     }
 
-    return (NULL);
+    return NULL;
 }
 
 /*

@@ -377,7 +377,7 @@ static APIRET CopyToBuffer(PSZ pszTarget,      // out: target buffer
         memcpy(pszTarget,
                pcszSource,
                ulLength + 1);
-        return (NO_ERROR);
+        return NO_ERROR;
     }
 
     return(ERROR_BUFFER_OVERFLOW);
@@ -989,7 +989,7 @@ APIRET doshGetBootManager(USHORT   *pusDisk,    // out: if != NULL, boot manager
                 if (pusDisk)
                     *pusDisk = usDisk;
                 // stop scanning
-                return (NO_ERROR);
+                return NO_ERROR;
             }
         }
     }
@@ -1173,7 +1173,7 @@ static APIRET GetLogicalDrives(PARTITIONINFO **pppiFirst,
         }
     }
 
-    return (NO_ERROR);
+    return NO_ERROR;
 }
 
 /*
@@ -1220,7 +1220,7 @@ static APIRET GetExtendedPartition(PARTITIONINFO **pppiFirst,
         }
     }
 
-    return (NO_ERROR);
+    return NO_ERROR;
 }
 
 /*
@@ -1456,7 +1456,7 @@ APIRET doshFreePartitionsList(PPARTITIONSLIST ppList)
         free(ppList);
     }
 
-    return (NO_ERROR);
+    return NO_ERROR;
 }
 
 /********************************************************************

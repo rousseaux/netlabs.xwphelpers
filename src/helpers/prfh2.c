@@ -637,7 +637,7 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
     if (ulErrorOccured != MBID_IGNORE)
         return (999);
     else
-        return (NO_ERROR);
+        return NO_ERROR;
 }
 
 

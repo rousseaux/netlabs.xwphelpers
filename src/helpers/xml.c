@@ -2702,7 +2702,7 @@ PCMATTRIBUTEDECLBASE xmlFindAttribDeclBase(PXMLDOM pDom,
                                         CompareXStrings));
     }
 
-    return (NULL);
+    return NULL;
 }
 
 /*
@@ -2736,7 +2736,7 @@ PCMATTRIBUTEDECL xmlFindAttribDecl(PXMLDOM pDom,
         }
     }
 
-    return (NULL);
+    return NULL;
 }
 
 /*
@@ -2759,7 +2759,7 @@ PDOMNODE xmlGetRootElement(PXMLDOM pDom)
         return ((PDOMNODE)pListNode->pItemData);
     }
 
-    return (NULL);
+    return NULL;
 }
 
 /*
@@ -2821,7 +2821,7 @@ PDOMNODE xmlGetFirstText(PDOMNODE pElement)
             return (pDomNodeThis);
     }
 
-    return (NULL);
+    return NULL;
 }
 
 /*
@@ -2903,7 +2903,7 @@ const XSTRING* xmlGetAttribute(PDOMNODE pElement,
                                        CompareXStrings))
         return (pAttrNode->pstrNodeValue);
 
-    return (NULL);
+    return NULL;
 }
 
 /* ******************************************************************
@@ -2970,6 +2970,7 @@ APIRET xmlCreateDocument(const char *pcszRootElementName,   // in: root element 
 /*
  *@@ WriteNodes:
  *      internal helper for writing out the nodes.
+ *      This recurses.
  *
  *@@added V0.9.12 (2001-05-21) [umoeller]
  */

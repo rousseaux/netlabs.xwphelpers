@@ -316,7 +316,7 @@ PCONVERSION encCreateCodec(ENCID id)
         }
     }
 
-    return (NULL);
+    return NULL;
 }
 
 /*

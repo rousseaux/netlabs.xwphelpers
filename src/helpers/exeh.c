@@ -999,7 +999,7 @@ APIRET exehQueryImportedModules(PEXECUTABLE pExec,
 APIRET exehFreeImportedModules(PFSYSMODULE paModules)
 {
     free(paModules);
-    return (NO_ERROR);
+    return NO_ERROR;
 }
 
 /*
@@ -1603,7 +1603,7 @@ APIRET exehFreeExportedFunctions(PFSYSFUNCTION paFunctions)
 {
     free(paFunctions);
 
-    return (NO_ERROR);
+    return NO_ERROR;
 }
 
 /*
@@ -1979,7 +1979,7 @@ APIRET exehQueryResources(PEXECUTABLE pExec,     // in: executable from exehOpen
 APIRET exehFreeResources(PFSYSRESOURCE paResources)
 {
     free(paResources);
-    return (NO_ERROR);
+    return NO_ERROR;
 }
 
 /*

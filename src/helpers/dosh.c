@@ -458,7 +458,7 @@ PVOID doshAllocSharedMem(ULONG ulSize,      // in: requested mem block size (rou
     if (arc == NO_ERROR)
         return (pvrc);
 
-    return (NULL);
+    return NULL;
 }
 
 /*
@@ -484,7 +484,7 @@ PVOID doshRequestSharedMem(PCSZ pcszName)
     if (arc == NO_ERROR)
         return (pvrc);
 
-    return (NULL);
+    return NULL;
 }
 
 /*
@@ -3118,7 +3118,7 @@ APIRET doshCreateTempFileName(PSZ pszTempFileName,        // out: fully q'fied t
                     // file or dir doesn't exist:
                     // cool, we're done
                     strcpy(pszTempFileName, szFullTryThis);
-                    return (NO_ERROR);
+                    return NO_ERROR;
                 }
 
                 // if this didn't work, raise ulRandom and try again

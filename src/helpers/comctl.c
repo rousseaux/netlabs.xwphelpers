@@ -1061,7 +1061,7 @@ PANIMATIONDATA ctlPrepareStaticIcon(HWND hwndStatic,
         return (pa);
     }
 
-    return (NULL);
+    return NULL;
 }
 
 /*

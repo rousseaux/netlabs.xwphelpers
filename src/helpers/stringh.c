@@ -112,7 +112,7 @@ APIRET (strhStoreDebug)(PSZ *ppszTarget,
     if (pulLength)
         *pulLength = ulLength;
 
-    return (NO_ERROR);
+    return NO_ERROR;
 }
 
 #endif
@@ -159,7 +159,7 @@ APIRET strhStore(PSZ *ppszTarget,
     if (pulLength)
         *pulLength = ulLength;
 
-    return (NO_ERROR);
+    return NO_ERROR;
 }
 
 /*
@@ -1800,11 +1800,11 @@ void* strhmemfind(const void *in_block,     // in: block containing data
          || (pattern == NULL)
          || (shift == NULL)
        )
-        return (NULL);
+        return NULL;
 
     //  Pattern must be smaller or equal in size to string
     if (block_size < pattern_size)
-        return (NULL);                  //  Otherwise it's not found
+        return NULL;                  //  Otherwise it's not found
 
     if (pattern_size == 0)              //  Empty patterns match at start
         return ((void *)block);
@@ -1857,7 +1857,7 @@ void* strhmemfind(const void *in_block,     // in: block containing data
 
         }
     }
-    return (NULL);                      //  Found nothing
+    return NULL;                      //  Found nothing
 }
 
 /*
@@ -1901,14 +1901,14 @@ char* strhtxtfind (const char *string,            //  String containing data
     ASSERT (string);                    //  Expect non-NULL pointers, but
     ASSERT (pattern);                   //  fail gracefully if not debugging
     if (string == NULL || pattern == NULL)
-        return (NULL);
+        return NULL;
 
     string_size  = strlen (string);
     pattern_size = strlen (pattern);
 
     //  Pattern must be smaller or equal in size to string
     if (string_size < pattern_size)
-        return (NULL);                  //  Otherwise it cannot be found
+        return NULL;                  //  Otherwise it cannot be found
 
     if (pattern_size == 0)              //  Empty string matches at start
         return (char *) string;
@@ -1952,6 +1952,6 @@ char* strhtxtfind (const char *string,            //  String containing data
                 return ((char *)(match_base));
           }
       }
-    return (NULL);                      //  Found nothing
+    return NULL;                      //  Found nothing
 }
 
