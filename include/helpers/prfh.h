@@ -51,7 +51,7 @@ extern "C" {
                                const char *pcszApp,
                                PSZ *ppszKeys);
 
-    #ifdef __XWPMEMDEBUG__ // setup.h, helpers\memdebug.c
+    #ifdef __DEBUG_MALLOC_ENABLED__ // setup.h, helpers\memdebug.c
         PSZ prfhQueryProfileDataDebug(HINI hIni,
                                       const char *pcszApp,
                                       const char *pcszKey,

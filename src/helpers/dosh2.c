@@ -498,6 +498,7 @@ APIRET doshGetEnvironment(PDOSENVIRONMENT pEnv)
  *      the array.
  *
  *@@added V0.9.4 (2000-07-19) [umoeller]
+ *@@changed V0.9.12 (2001-05-21) [umoeller]: fixed memory leak
  */
 
 PSZ* doshFindEnvironmentVar(PDOSENVIRONMENT pEnv,
@@ -543,6 +544,8 @@ PSZ* doshFindEnvironmentVar(PDOSENVIRONMENT pEnv,
                 // next environment string
                 ppszThis++;
             }
+
+            free(pszSearch);        // was missing V0.9.12 (2001-05-21) [umoeller]
         }
     }
 
@@ -570,6 +573,7 @@ PSZ* doshFindEnvironmentVar(PDOSENVIRONMENT pEnv,
  *
  *@@added V0.9.4 (2000-07-19) [umoeller]
  *@@changed V0.9.7 (2000-12-17) [umoeller]: added fAddFirst
+ *@@changed V0.9.12 (2001-05-21) [umoeller]: fixed memory leak
  */
 
 APIRET doshSetEnvironmentVar(PDOSENVIRONMENT pEnv,
@@ -624,6 +628,9 @@ APIRET doshSetEnvironmentVar(PDOSENVIRONMENT pEnv,
                     arc = ERROR_NOT_ENOUGH_MEMORY;
                 else
                 {
+                    if (pEnv->papszVars)
+                        free(pEnv->papszVars);      // was missing V0.9.12 (2001-05-21) [umoeller]
+
                     pEnv->papszVars = papszNew;
                     pEnv->cVars++;
                     *ppszNew = strdup(pszNewEnv);

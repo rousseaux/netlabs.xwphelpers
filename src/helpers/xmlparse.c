@@ -872,8 +872,9 @@ XML_Parser XML_ParserCreate_MM(const XML_Char * encodingName,
     {
         XML_Memory_Handling_Suite *mtemp;
 
-        parser = malloc(sizeof(Parser));
+        parser = (malloc)(sizeof(Parser));
         mtemp = &(((Parser*)parser)->m_mem);
+
         mtemp->malloc_fcn = malloc;
         mtemp->realloc_fcn = realloc;
         mtemp->free_fcn = free;

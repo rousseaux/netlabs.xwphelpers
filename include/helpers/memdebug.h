@@ -137,6 +137,8 @@ extern "C" {
                     // the original crashes also if psz is NULL
             #endif
 
+            #define __DEBUG_MALLOC_ENABLED__
+
         #endif
     #endif
 

@@ -455,6 +455,7 @@ void memdFree(void *p,
  *      details.
  *
  *@@added V0.9.6 (2000-11-12) [umoeller]
+ *@@changed V0.9.12 (2001-05-21) [umoeller]: this reported errors on realloc(0), which is a valid call, fixed
  */
 
 void* memdRealloc(void *p,
@@ -465,6 +466,11 @@ void* memdRealloc(void *p,
 {
     void *prc = NULL;
     BOOL fFound = FALSE;
+
+    if (!p)
+        // p == NULL: this is valid, use malloc() instead
+        // V0.9.12 (2001-05-21) [umoeller]
+        return (memdMalloc(stSize, pcszSourceFile, ulLine, pcszFunction));
 
     if (memdLock())
     {

@@ -6,8 +6,8 @@
  *      XML support in the XWorkplace Helpers is broken into two
  *      layers:
  *
- *      --  The bottom layer is implemented by @expat, which I have
- *          ported and hacked to the xwphelpers.
+ *      --  The bottom layer is implemented by the @expat parser,
+ *          which I have ported and hacked to the xwphelpers.
  *
  *          See xmlparse.c for an introduction.
  *
@@ -15,6 +15,14 @@
  *          I have added a top layer above the expat library
  *          which is vaguely modelled after the Document Object Model
  *          (DOM) standardized by the W3C. That's this file.
+ *
+ *          This top layer allows you to do two things VERY EASILY:
+ *
+ *          1)  Parse an XML document (which uses expat internally)
+ *              and build a DOM tree from that. See xmlCreateDOM.
+ *
+ *          2)  Create a DOM tree in memory and write an XML
+ *              document from that. See xmlCreateDocument.
  *
  *      <B>XML</B>
  *
@@ -42,10 +50,14 @@
  *
  *      Most notably, there are the following differences:
  *
+ *      --  External entities don't work yet. As a result, DOCTYPE's
+ *          only make sense if the entire DTD is in the same document
+ *          (internal subset).
+ *
  *      --  Not all node types are implemented. See _DOMNODE for
  *          the supported types.
  *
- *      --  Only a small subset of the standardized methods is implemented,
+ *      --  Only a subset of the standardized methods is implemented,
  *          and they are called differently to adhere to the xwphelpers
  *          conventions.
  *
@@ -348,10 +360,10 @@ APIRET xmlCreateNodeBase(NODEBASETYPE ulNodeType,     // in: node type
  *      deletes a NODEBASE and frees memory that was
  *      associated with its members.
  *
- *      NOTE: If you call this for derived types, call
- *      this LAST, after you have cleared additional
- *      members. After calling this, pNode is no longer
- *      valid.
+ *      After calling this, pNode is no longer valid.
+ *
+ *      If you invoke this on a DOCUMENT node, the
+ *      entire DOM tree will get deleted recursively.
  *
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
@@ -382,11 +394,11 @@ VOID xmlDeleteNode(PNODEBASE pNode)
                 while (pAttrib)
                 {
                     // call delete recursively
+                    PDOMNODE pNext = (PDOMNODE)treeNext((TREE*)pAttrib);
                     xmlDeleteNode((PNODEBASE)pAttrib);
                             // this will remove pAttrib from pNode's attrib
-                            // tree and rebalance the tree; treeNext will
-                            // still work #### noooooo
-                    pAttrib = (PDOMNODE)treeNext((TREE*)pAttrib);
+                            // tree and rebalance the tree
+                    pAttrib = pNext;
                 }
             break; }
 
@@ -394,7 +406,12 @@ VOID xmlDeleteNode(PNODEBASE pNode)
             case DOMNODE_TEXT:
             case DOMNODE_PROCESSING_INSTRUCTION:
             case DOMNODE_COMMENT:
+                pDomNode = (PDOMNODE)pNode;
+            break;
+
             case DOMNODE_DOCUMENT:
+                if (((PDOMDOCUMENTNODE)pNode)->pDocType)
+                    xmlDeleteNode((PNODEBASE)((PDOMDOCUMENTNODE)pNode)->pDocType);
                 pDomNode = (PDOMNODE)pNode;
             break;
 
@@ -440,7 +457,7 @@ VOID xmlDeleteNode(PNODEBASE pNode)
                         PCMELEMENTPARTICLE
                                 pParticle = (PCMELEMENTPARTICLE)pDelNode->pItemData;
                         xmlDeleteNode((PNODEBASE)pParticle);
-                        //  treeDelete(pp->         ###
+                        //  treeDelete(pp->         // @@todo
                         pDelNode = pDelNode->pNext;
                     }
                 }
@@ -961,6 +978,11 @@ APIRET SetupParticleAndSubs(PCMELEMENTPARTICLE pParticle,
  *      creates a new _CMELEMENTDECLNODE for the specified
  *      _XMLCONTENT content model (which is the @expat structure).
  *      This recurses, if necessary.
+ *
+ *      NOTE: As opposed to the other "create" functions,
+ *      this does not take a parent node as input. If this
+ *      returns NO_ERROR, it is the caller's responsibility
+ *      to add the produced node to the document's DOCTYPE node.
  *
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
@@ -2119,7 +2141,7 @@ void EXPATENTRY EntityDeclHandler(void *pUserData,      // in: our PXMLDOM reall
 
 /* ******************************************************************
  *
- *   DOM root APIs
+ *   DOM parser APIs
  *
  ********************************************************************/
 
@@ -2157,8 +2179,18 @@ void EXPATENTRY EntityDeclHandler(void *pUserData,      // in: our PXMLDOM reall
  +                         pBuf,
  +                         TRUE); // if last, this will clean up the parser
  *
- *      3) Process the data in the DOM tree. When done,
- *         call xmlFreeDOM, which will free all memory.
+ *      3) Process the data in the DOM tree.
+ *
+ *         Look at the DOMNODE definition to see how you
+ *         can traverse the data. Essentially, everything
+ *         is based on linked lists and string maps.
+ *
+ *         A few helper functions have been added for
+ *         quick lookup. See xmlGetRootElement,
+ *         xmlGetFirstChild, xmlGetLastChild, xmlGetFirstText,
+ *         xmlGetElementsByTagName, xmlGetAttribute.
+ *
+ *      4) When done, call xmlFreeDOM, which will free all memory.
  *
  *@@added V0.9.9 (2001-02-14) [umoeller]
  */
@@ -2182,10 +2214,10 @@ APIRET xmlCreateDOM(ULONG flParserFlags,
 
         // create the document node
         arc = xmlCreateDomNode(NULL, // no parent
-                            DOMNODE_DOCUMENT,
-                            NULL,
-                            0,
-                            &pDocument);
+                               DOMNODE_DOCUMENT,
+                               NULL,
+                               0,
+                               &pDocument);
 
         if (arc == NO_ERROR)
         {
@@ -2262,7 +2294,7 @@ APIRET xmlCreateDOM(ULONG flParserFlags,
 
 /*
  *@@ xmlParse:
- *      parses another piece of XML data.
+ *      parses another chunk of XML data.
  *
  *      If (fIsLast == TRUE), the internal @expat parser
  *      will be freed, but not the DOM itself.
@@ -2374,6 +2406,8 @@ APIRET xmlFreeDOM(PXMLDOM pDom)
             XML_ParserFree(pDom->pParser);
             pDom->pParser = NULL;
         }
+
+        xmlDeleteNode((PNODEBASE)pDom->pDocumentNode);
 
         free(pDom);
     }
@@ -2644,3 +2678,275 @@ const XSTRING* xmlGetAttribute(PDOMNODE pElement,
 
     return (NULL);
 }
+
+/* ******************************************************************
+ *
+ *   DOM build
+ *
+ ********************************************************************/
+
+/*
+ *@@ xmlCreateDocument:
+ *      creates a new XML document.
+ *
+ *      This is the first step in creating a DOM
+ *      tree in memory.
+ *
+ *      This function creates a DOCUMENT node
+ *      (which is returned) and a root ELEMENT node
+ *      within the document. For convenience, the
+ *      root ELEMENT node is returned as well.
+ *
+ *      This does not create a DOCTYPE node in
+ *      the document.
+ *
+ *      After this, you can add sub-elements and
+ *      attributes to the root element using
+ *      xmlCreateElementNode and xmlCreateAttributeNode.
+ *
+ *      Use xmlDeleteNode on the DOCUMENT node
+ *      to delete the entire DOM tree.
+ *
+ *@@added V0.9.12 (2001-05-21) [umoeller]
+ */
+
+APIRET xmlCreateDocument(const char *pcszRootElementName,   // in: root element name
+                         PDOMDOCUMENTNODE *ppDocument,      // out: DOCUMENT node
+                         PDOMNODE *ppRootElement)           // out: root ELEMENT node within DOCUMENT
+{
+    APIRET arc = NO_ERROR;
+    PDOMDOCUMENTNODE pDocument = NULL;
+    PDOMNODE pRootElement = NULL;
+
+    if ( (!pcszRootElementName) || (!ppDocument) || (!ppRootElement) )
+        arc = ERROR_INVALID_PARAMETER;
+    else
+        // create the document node
+        if (!(arc = xmlCreateDomNode(NULL, // no parent
+                                     DOMNODE_DOCUMENT,
+                                     NULL,
+                                     0,
+                                     (PDOMNODE*)&pDocument)))
+            if (!(arc = xmlCreateDomNode((PDOMNODE)pDocument,     // parent
+                                         DOMNODE_ELEMENT,
+                                         pcszRootElementName,
+                                         0,
+                                         &pRootElement)))
+            {
+                *ppDocument = pDocument;
+                *ppRootElement = pRootElement;
+            }
+
+    return (arc);
+}
+
+/*
+ *@@ WriteNodes:
+ *      internal helper for writing out the nodes.
+ *
+ *@@added V0.9.12 (2001-05-21) [umoeller]
+ */
+
+VOID WriteNodes(PXSTRING pxstr,
+                PDOMNODE pDomNode)       // in: node whose children are to be written (initially DOCUMENT)
+{
+    PLISTNODE pListNode;
+
+    BOOL fMixedContent = (xmlGetFirstText(pDomNode) != NULL);
+
+    for (pListNode = lstQueryFirstNode(&pDomNode->llChildren);
+         (pListNode);
+         pListNode = pListNode->pNext)
+    {
+        PDOMNODE pChildNode = (PDOMNODE)pListNode->pItemData;
+
+        switch (pChildNode->NodeBase.ulNodeType)
+        {
+            case DOMNODE_ELEMENT:
+            {
+                PDOMNODE pAttribNode;
+                // write out opening ELEMENT tag
+                // add a line break if this does NOT have mixed
+                // content
+                if (!fMixedContent)
+                    xstrcatc(pxstr, '\n');
+
+                xstrcatc(pxstr, '<');
+                xstrcats(pxstr, &pChildNode->NodeBase.strNodeName);
+
+                // go through attributes
+                for (pAttribNode = (PDOMNODE)treeFirst(pChildNode->AttributesMap);
+                     (pAttribNode);
+                     pAttribNode = (PDOMNODE)treeNext((TREE*)pAttribNode))
+                {
+                    xstrcat(pxstr, "\n    ", 0);
+                    xstrcats(pxstr, &pAttribNode->NodeBase.strNodeName);
+                    xstrcat(pxstr, "=\"", 0);
+                    xstrcats(pxstr, pAttribNode->pstrNodeValue);
+                    xstrcatc(pxstr, '\"');
+                }
+
+                // now check... do we have child nodes?
+                if (lstCountItems(&pChildNode->llChildren))
+                {
+                    // yes:
+                    xstrcatc(pxstr, '>');
+
+                    // recurse into this child element
+                    WriteNodes(pxstr, pChildNode);
+
+                    if (!fMixedContent)
+                        xstrcatc(pxstr, '\n');
+
+                    // write closing tag
+                    xstrcat(pxstr, "</", 0);
+                    xstrcats(pxstr, &pChildNode->NodeBase.strNodeName);
+                    xstrcatc(pxstr, '>');
+                }
+                else
+                {
+                    // no child nodes:
+                    // mark this tag as "empty"
+                    xstrcat(pxstr, "/>", 0);
+                }
+            }
+            break;
+
+            case DOMNODE_TEXT:
+            case DOMNODE_COMMENT:
+                // that's simple
+                xstrcats(pxstr, pChildNode->pstrNodeValue);
+            break;
+
+            case DOMNODE_DOCUMENT_TYPE:
+                // @@todo
+            break;
+
+        }
+    }
+}
+
+/*
+ *@@ xmlWriteDocument:
+ *      creates a complete XML document in the specified
+ *      string buffer from the specified DOMDOCUMENTNODE.
+ *
+ *      This creates a full XML document, starting with
+ *      the <?xml...?> header, the DTD (if present),
+ *      and the elements and attributes.
+ *
+ *      The input XSTRING must be initialized. Its
+ *      contents will be overwritten, if any exists.
+ *
+ *      Sooo... to write a full XML document to disk,
+ *      do the following:
+ *
+ *      1)  Call xmlCreateDocument to have an empty
+ *          document with a root element created.
+ *
+ *      2)  Add elements, subelements, and attributes
+ *          using xmlCreateElementNode and
+ *          xmlCreateAttributeNode.
+ *
+ *      3)  Call xmlWriteDocument to have the XML
+ *          document written into an XSTRING.
+ *
+ *      4)  Write the XSTRING to disk, e.g. using
+ *          fwrite().
+ *
+ *          Note: You can also use doshWriteTextFile,
+ *          but you should then first convert the
+ *          line format using xstrConvertLineFormat.
+ *
+ *      Example:
+ *
+ +          APIRET arc = NO_ERROR;
+ +          PDOMDOCUMENTNODE pDocument = NULL;
+ +          PDOMNODE pRootElement = NULL;
+ +
+ +          // create a DOM
+ +          if (!(arc = xmlCreateDocument("MYROOTNODE",
+ +                                        &pDocument,
+ +                                        &pRootElement)))
+ +          {
+ +              // add subelements to the root element
+ +              PDOMNODE pSubelement;
+ +              if (!(arc = xmlCreateElementNode(pRootElement,
+ +                                               "MYSUBELEMENT",
+ +                                               &pSubelement)))
+ +              {
+ +                  // add an attribute
+ +                  PDOMNODE pAttribute;
+ +                  if (!(arc = xmlCreateAttributeNode(pSubElement,
+ +                                                     "MYATTRIB",
+ +                                                     "VALUE",
+ +                                                     &pAttribute)))
+ +                  {
+ +                      // alright, turn this into a string
+ +                      XSTRING str;
+ +                      xstrInit(&str, 1000);
+ +                      if (!(arc = xmlWriteDocument(pDocument,
+ +                                                   "ISO-8859-1",
+ +                                                   NULL,      // or DOCTYPE
+ +                                                   &str)))
+ +                      {
+ +                          FILE *file = fopen("myfile.xml", "w");
+ +                          fwrite(str.psz,
+ +                                 1,
+ +                                 str.ulLength,
+ +                                 file);
+ +                          fclose(file);
+ +                      }
+ +                  }
+ +              }
+ +
+ +              // this kills the entire tree
+ +              xmlDeleteNode((PNODEBASE)pDocument);
+ +
+ +          }
+ +
+ *
+ *      A note about whitespace handling. Presently, this
+ *      adds line breaks after the opening tag of an
+ *      element if the element has element content only.
+ *      However, if the element has mixed content, this
+ *      line break is NOT automatically added because
+ *      white space may then be significant.
+ *
+ *@@added V0.9.12 (2001-05-21) [umoeller]
+ */
+
+APIRET xmlWriteDocument(PDOMDOCUMENTNODE pDocument,     // in: document node
+                        const char *pcszEncoding,       // in: encoding string (e.g. "ISO-8859-1")
+                        const char *pcszDoctype,        // in: entire DOCTYPE statement or NULL
+                        PXSTRING pxstr)                 // out: document
+{
+    APIRET arc = NO_ERROR;
+
+    if ( (!pDocument) || (!pcszEncoding) || (!pxstr) )
+        arc = ERROR_INVALID_PARAMETER;
+    else
+    {
+        // <?xml version="1.0" encoding="ISO-8859-1"?>
+        xstrcpy(pxstr, "<?xml version=\"1.0\" encoding=\"", 0);
+        xstrcat(pxstr, pcszEncoding, 0);
+        xstrcat(pxstr, "\"?>\n", 0);
+
+        // write entire DOCTYPE statement
+        if (pcszDoctype)
+        {
+            xstrcatc(pxstr, '\n');
+            xstrcat(pxstr, pcszDoctype, 0);
+            xstrcatc(pxstr, '\n');
+        }
+
+        // write out children
+        WriteNodes(pxstr, (PDOMNODE)pDocument);
+
+        xstrcatc(pxstr, '\n');
+    }
+
+    return (arc);
+}
+
+

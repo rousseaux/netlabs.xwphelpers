@@ -284,6 +284,7 @@ void xstrClear(PXSTRING pxstr)              // in/out: string
  *
  *@@added V0.9.7 (2001-01-07) [umoeller]
  *@@changed V0.9.9 (2001-03-09) [umoeller]: now using ulDelta
+ *@@changed V0.9.12 (2001-05-21) [umoeller]: now reporting error on realloc fail
  */
 
 ULONG xstrReserve(PXSTRING pxstr,
@@ -317,10 +318,13 @@ ULONG xstrReserve(PXSTRING pxstr,
         // V0.9.9 (2001-03-05) [umoeller]: use realloc;
         // this gives the C runtime a chance to expand the
         // existing block
-        pxstr->psz = (PSZ)realloc(pxstr->psz, cbAllocate);
+        if (pxstr->psz = (PSZ)realloc(pxstr->psz, cbAllocate))
                     // if pxstr->psz is NULL, realloc behaves like malloc
-        pxstr->cbAllocated = cbAllocate;
+            pxstr->cbAllocated = cbAllocate;
                 // ulLength is unchanged
+        else
+            // error: V0.9.12 (2001-05-21) [umoeller]
+            pxstr->cbAllocated = 0;
     }
     // else: we have enough memory
 
@@ -447,6 +451,7 @@ ULONG xstrset(PXSTRING pxstr,               // in/out: string
  *@@changed V0.9.9 (2001-02-14) [umoeller]: fixed NULL target crash
  *@@changed V0.9.9 (2001-02-16) [umoeller]: now supporting non-zero-terminated pcszSource
  *@@changed V0.9.9 (2001-03-09) [umoeller]: now using xstrReserve
+ *@@changed V0.9.12 (2001-05-21) [umoeller]: added xstrReserve error checking
  */
 
 ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
@@ -469,17 +474,20 @@ ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
     if (ulSourceLength)
     {
         // we do have a source string:
-        xstrReserve(pxstr,
-                    // required memory:
-                    ulSourceLength + 1);
-
-        memcpy(pxstr->psz,
-               pcszSource,
-               ulSourceLength);
-        *(pxstr->psz + ulSourceLength) = '\0';
-                // V0.9.9 (2001-02-16) [umoeller]
-                // we must do this or otherwise we require pcszSource
-                // to be zero-terminated... not a good idea
+        if (xstrReserve(pxstr,
+                        // required memory:
+                        ulSourceLength + 1))
+        {
+            memcpy(pxstr->psz,
+                   pcszSource,
+                   ulSourceLength);
+            *(pxstr->psz + ulSourceLength) = '\0';
+                    // V0.9.9 (2001-02-16) [umoeller]
+                    // we must do this or otherwise we require pcszSource
+                    // to be zero-terminated... not a good idea
+        }
+        else
+            pxstr->ulLength = 0;        // error V0.9.12 (2001-05-21) [umoeller]
     }
     else
     {

@@ -158,11 +158,33 @@ APIRET csysWriteConfigSys(const char *pcszFile,     // in: CONFIG.SYS filename o
  *      Used by csysGetParameter/csysSetParameter; useful
  *      for analyzing CONFIG.SYS settings.
  *
+ *      Remarks:
+ *
+ *      --  With pcszKey, you can either specify a CONFIG.SYS
+ *          key WITH an equals sign (e.g. search for "LIBPATH=")
+ *          or the key name only (e.g. "SET SHELL").
+ *
+ *          Only in the latter case, this function makes sure
+ *          that the search key is complete; e.g. it will not
+ *          find "SET SHELLHANDLESINC=" then.
+ *
+ *      --  If the line found starts with leading spaces,
+ *          *ppStartOfLine will still receive the start of
+ *          the line.
+ *          For example, if you're searching for "SET PATH"
+ *          and the PATH line is
+ *
+ +              "   SET PATH=C:\os2"
+ *
+ *          the first space in the line is written into
+ *          *ppStartOfLine.
+ *
  *@@changed V0.9.0 [umoeller]: fixed bug in that this would also return something if only the first chars matched
  *@@changed V0.9.0 [umoeller]: fixed bug which could cause character before pszSearchIn to be examined
  *@@changed V0.9.7 (2001-01-15) [umoeller]: moved this here from stringh.c; renamed from strhFindKey
  *@@changed V0.9.7 (2001-01-15) [umoeller]: now checking for tabs too
  *@@changed V0.9.11 (2001-04-25) [umoeller]: this never found lines which had leading spaces, fixed
+ *@@changed V0.9.12 (2001-05-22) [umoeller]: added checks for key termination (SET SHELLHANDLESINC)
  */
 
 PSZ csysFindKey(const char *pcszSearchIn,   // in: text buffer to search
@@ -176,13 +198,15 @@ PSZ csysFindKey(const char *pcszSearchIn,   // in: text buffer to search
     PSZ         pReturn = NULL;
     ULONG       ulKeyLength = strlen(pcszKey);
 
+    BOOL        fSearchKeyContainsEquals = (strchr(pcszKey, '=') != 0);
+
     do
     {
-        p = strhistr(p, pcszKey);
-
-        if (    (p)
-             && (p >= pcszSearchIn)
-           )
+        // find the key
+        // (on first loop, p is start of buffer;
+        // on subsequent loops, p is somewhere in bufer,
+        // if we've found the key somewhere else)
+        if (p = strhistr(p, pcszKey))
         {
             // make sure the key is at the beginning of a line
             // by going backwards until we find a char != " "
@@ -206,34 +230,54 @@ PSZ csysFindKey(const char *pcszSearchIn,   // in: text buffer to search
             {
                 // OK, we're at the start of a line:
 
-                // return address of key
-                pReturn = (PSZ)p;
-                // return start of line
-                if (ppStartOfLine)
-                    *ppStartOfLine = (PSZ)pStartOfLine;
-
-                // test for all upper case?
-                if (pfIsAllUpperCase)
+                // check the character AFTER the
+                // key if it's a space or '=';
+                // without this check, we'd find
+                // SET SHELL= if caller is really
+                // looking for SET SHELLHANDLESINC=,
+                // but only do this check if the caller
+                // doesn't have '=' in the search string
+                // already
+                // V0.9.12 (2001-05-22) [umoeller]
+                CHAR c = *(p + ulKeyLength);
+                if (    (fSearchKeyContainsEquals)
+                     || (c == ' ')
+                     || (c == '=')
+                     || (c == '\n')
+                     || (c == '\r')
+                     || (c == '\t')
+                   )
                 {
-                    ULONG   ul = 0;
-                    *pfIsAllUpperCase = TRUE;
+                    // return address of key
+                    pReturn = (PSZ)p;
+                    // return start of line
+                    if (ppStartOfLine)
+                        *ppStartOfLine = (PSZ)pStartOfLine;
 
-                    for (ul = 0;
-                         ul < ulKeyLength;
-                         ul++)
+                    // test for all upper case?
+                    if (pfIsAllUpperCase)
                     {
-                        if (islower(*(p + ul)))
+                        ULONG   ul = 0;
+                        *pfIsAllUpperCase = TRUE;
+
+                        for (ul = 0;
+                             ul < ulKeyLength;
+                             ul++)
                         {
-                            *pfIsAllUpperCase = FALSE;
-                            break; // for
+                            if (islower(*(p + ul)))
+                            {
+                                *pfIsAllUpperCase = FALSE;
+                                break; // for
+                            }
                         }
                     }
-                }
 
-                break; // do
+                    break; // do
+                } // else search next key
             } // else search next key
 
-            p++; // search on after this key
+            p += ulKeyLength; // search on after this key
+                    // now skipping ulKeyLength V0.9.12 (2001-05-22) [umoeller]
         }
         else
             // nothing more found:
@@ -474,7 +518,7 @@ BOOL csysDeleteLine(PSZ pszSearchIn,        // in: buffer to search
  *      CONFIGMANIP which was passed in.
  *
  *      If the manipulation succeeded, NO_ERROR is returned
- *      and *ppszChanged receives a new string describing
+ *      and pstrChanged receives a new string describing
  *      what was changed. This can be:
  *
  *      --  "DLL xxx":  deleted a line containing "xxx".
@@ -501,7 +545,8 @@ BOOL csysDeleteLine(PSZ pszSearchIn,        // in: buffer to search
  *      Preconditions:
  *
  *      -- This assumes that the line breaks are represented
- *         by \r\n items ONLY.
+ *         by \n ONLY. If *ppszContents has \r\n line breaks,
+ *         they must be converted to pure \n first.
  */
 
 APIRET csysManipulate(PSZ *ppszContents,        // in/out: CONFIG.SYS text (reallocated)
@@ -610,6 +655,7 @@ APIRET csysManipulate(PSZ *ppszContents,        // in/out: CONFIG.SYS text (real
                                     pszCommand,         // stuff to search for
                                     &pStartOfLineWithKeyFound,
                                     &fIsAllUpperCase);
+                // returns beginning of line
 
             if (!pKeyFound)
                 break;

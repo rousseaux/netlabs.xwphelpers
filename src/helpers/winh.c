@@ -1491,6 +1491,39 @@ ULONG winhLboxSelectAll(HWND hwndListBox,   // in: list box
 }
 
 /*
+ *@@ winhLboxFindItemFromHandle:
+ *      finds the list box item with the specified
+ *      handle.
+ *
+ *      Of course this only makes sense if each item
+ *      has a unique handle indeed.
+ *
+ *      Returns the index of the item found or -1.
+ *
+ *@@added V0.9.12 (2001-05-18) [umoeller]
+ */
+
+ULONG winhLboxFindItemFromHandle(HWND hwndListBox,
+                                 ULONG ulHandle)
+{
+    LONG cItems = WinQueryLboxCount(hwndListBox);
+    if (cItems)
+    {
+        ULONG ul;
+        for (ul = 0;
+             ul < cItems;
+             ul++)
+        {
+            if (ulHandle == winhQueryLboxItemHandle(hwndListBox,
+                                                    ul))
+                return (ul);
+        }
+    }
+
+    return (-1);
+}
+
+/*
  *@@category: Helpers\PM helpers\Scroll bar helpers
  */
 
@@ -3565,6 +3598,7 @@ VOID winhSleep(ULONG ulSleep)    // in: sleep time in milliseconds
  *         one, or both of them.
  *
  *@@added V0.9.3 (2000-04-29) [umoeller]
+ *@@changed V0.9.12 (2001-05-21) [umoeller]: this failed if INI data had root dir, fixed
  */
 
 BOOL winhFileDlg(HWND hwndOwner,    // in: owner for file dlg
@@ -3579,6 +3613,8 @@ BOOL winhFileDlg(HWND hwndOwner,    // in: owner for file dlg
                  const char *pcszKey)        // in: INI key to load/store last path from
 {
     FILEDLG fd;
+    FILESTATUS3 fs3;
+
     memset(&fd, 0, sizeof(FILEDLG));
     fd.cbSize = sizeof(FILEDLG);
     fd.fl = FDS_CENTER;
@@ -3588,25 +3624,31 @@ BOOL winhFileDlg(HWND hwndOwner,    // in: owner for file dlg
     else
         fd.fl |= FDS_OPEN_DIALOG;
 
-    // default: copy pszFile
-    strcpy(fd.szFullFile, pszFile);
-
-    if ( (hini) && (flFlags & WINH_FOD_INILOADDIR) )
+    if (    (hini)
+         && (flFlags & WINH_FOD_INILOADDIR)
+         && (PrfQueryProfileString(hini,
+                                   (PSZ)pcszApplication,
+                                   (PSZ)pcszKey,
+                                   "",      // default string V0.9.9 (2001-02-10) [umoeller]
+                                   fd.szFullFile,
+                                   sizeof(fd.szFullFile)-10)
+                     > 2)
+         // added these checks V0.9.12 (2001-05-21) [umoeller]
+         && (!DosQueryPathInfo(fd.szFullFile,
+                               FIL_STANDARD,
+                               &fs3,
+                               sizeof(fs3)))
+         && (fs3.attrFile & FILE_DIRECTORY)
+       )
     {
-        // overwrite with initial directory for FOD from OS2.INI
-        if (PrfQueryProfileString(hini,
-                                  (PSZ)pcszApplication,
-                                  (PSZ)pcszKey,
-                                  "",      // default string V0.9.9 (2001-02-10) [umoeller]
-                                  fd.szFullFile,
-                                  sizeof(fd.szFullFile)-10)
-                    >= 2)
-        {
-            // found: append "\*"
-            strcat(fd.szFullFile, "\\");
-            strcat(fd.szFullFile, pszFile);
-        }
+        // found: append "\*"
+        strcat(fd.szFullFile, "\\");
+        strcat(fd.szFullFile, pszFile);
     }
+    else
+        // default: copy pszFile
+        strcpy(fd.szFullFile, pszFile);
+        // fixed V0.9.12 (2001-05-21) [umoeller]
 
     if (    WinFileDlg(HWND_DESKTOP,    // parent
                        hwndOwner, // owner

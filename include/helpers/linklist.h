@@ -139,7 +139,7 @@ extern "C" {
     typedef void XWPENTRY LSTINIT(PLINKLIST pList, BOOL fItemsFreeable);
     typedef LSTINIT *PLSTINIT;
 
-    #ifdef __XWPMEMDEBUG__ // setup.h, helpers\memdebug.c
+    #ifdef __DEBUG_MALLOC_ENABLED__ // setup.h, helpers\memdebug.c
         PLINKLIST XWPENTRY lstCreateDebug(BOOL fItemsFreeable,
                                           const char *file,
                                           unsigned long line,
@@ -193,7 +193,7 @@ extern "C" {
     typedef unsigned long LSTINDEXFROMITEM(PLINKLIST pList, void *pItemData);
     typedef LSTINDEXFROMITEM *PLSTINDEXFROMITEM;
 
-    #ifdef __XWPMEMDEBUG__ // setup.h, helpers\memdebug.c
+    #ifdef __DEBUG_MALLOC_ENABLED__ // setup.h, helpers\memdebug.c
         PLISTNODE XWPENTRY lstAppendItemDebug(PLINKLIST pList,
                                               void* pNewItemData,
                                               const char *file,

@@ -121,7 +121,7 @@ APIRET prfhQueryKeysForApp(HINI hIni,      // in: INI handle (can be HINI_USER o
     return (arc);
 }
 
-#ifdef __XWPMEMDEBUG__ // setup.h, helpers\memdebug.c
+#ifdef __DEBUG_MALLOC_ENABLED__ // setup.h, helpers\memdebug.c
 
 /*
  *@@ prfhQueryProfileDataDebug:

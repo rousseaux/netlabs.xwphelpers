@@ -42,51 +42,52 @@ extern "C" {
      *
      ********************************************************************/
 
-    typedef enum _DOMERROR
-    {
-        // validity errors:
+    // ERROR_XML_FIRST is defined in expat\expat.h;
+    // the range up to ERROR_XML_FIRST + 24 is used
+    // by expat
+
 // START MATCHING ERROR MESSAGES (xmlDescribeError)
-        ERROR_DOM_UNDECLARED_ELEMENT = ERROR_EXPAT_AFTER_LAST,
+            // validity errors:
+    #define ERROR_DOM_UNDECLARED_ELEMENT    (ERROR_XML_FIRST + 24)
                 // invalidity: element is undeclared
-        ERROR_DOM_ROOT_ELEMENT_MISNAMED,
-        ERROR_DOM_INVALID_ROOT_ELEMENT,
-        ERROR_DOM_INVALID_SUBELEMENT,
+    #define ERROR_DOM_ROOT_ELEMENT_MISNAMED (ERROR_XML_FIRST + 25)
+    #define ERROR_DOM_INVALID_ROOT_ELEMENT (ERROR_XML_FIRST + 26)
+    #define ERROR_DOM_INVALID_SUBELEMENT (ERROR_XML_FIRST + 27)
                 // subelement may not appear in its parent element
-        ERROR_DOM_DUPLICATE_ELEMENT_DECL,
+    #define ERROR_DOM_DUPLICATE_ELEMENT_DECL (ERROR_XML_FIRST + 28)
                 // more than one declaration for an element type
-        ERROR_DOM_DUPLICATE_ATTRIBUTE_DECL,
+    #define ERROR_DOM_DUPLICATE_ATTRIBUTE_DECL (ERROR_XML_FIRST + 29)
                 // more than one declaration for an attribute type
-        ERROR_DOM_UNDECLARED_ATTRIBUTE,
-        ERROR_ELEMENT_CANNOT_HAVE_CONTENT,
+    #define ERROR_DOM_UNDECLARED_ATTRIBUTE (ERROR_XML_FIRST + 30)
+    #define ERROR_ELEMENT_CANNOT_HAVE_CONTENT (ERROR_XML_FIRST + 31)
                 // element was declared "empty" and contains text anyway,
                 // or was declared "children" and contains something other
                 // than whitespace
-        ERROR_DOM_INVALID_ATTRIB_VALUE,
-        ERROR_DOM_REQUIRED_ATTRIBUTE_MISSING,
-        ERROR_DOM_SUBELEMENT_IN_EMPTY_ELEMENT,
+    #define ERROR_DOM_INVALID_ATTRIB_VALUE (ERROR_XML_FIRST + 32)
+    #define ERROR_DOM_REQUIRED_ATTRIBUTE_MISSING (ERROR_XML_FIRST + 33)
+    #define ERROR_DOM_SUBELEMENT_IN_EMPTY_ELEMENT (ERROR_XML_FIRST + 34)
 // END MATCHING ERROR MESSAGES (xmlDescribeError)
 
         // error categories:
-        ERROR_DOM_PARSING,
-        ERROR_DOM_VALIDITY,
+    #define ERROR_DOM_PARSING (ERROR_XML_FIRST + 35)
+    #define ERROR_DOM_VALIDITY (ERROR_XML_FIRST + 36)
 
         // additional DOM errors
-        ERROR_DOM_NODETYPE_NOT_SUPPORTED,
+    #define ERROR_DOM_NODETYPE_NOT_SUPPORTED (ERROR_XML_FIRST + 37)
                 // invalid node type in xmlCreateDomNode
-        ERROR_DOM_NO_DOCUMENT,
+    #define ERROR_DOM_NO_DOCUMENT (ERROR_XML_FIRST + 38)
                 // cannot find document node
-        ERROR_DOM_NO_ELEMENT,
-        ERROR_DOM_DUPLICATE_DOCTYPE,
-        ERROR_DOM_DOCTYPE_ROOT_NAMES_MISMATCH,
+    #define ERROR_DOM_NO_ELEMENT (ERROR_XML_FIRST + 39)
+    #define ERROR_DOM_DUPLICATE_DOCTYPE (ERROR_XML_FIRST + 40)
+    #define ERROR_DOM_DOCTYPE_ROOT_NAMES_MISMATCH (ERROR_XML_FIRST + 41)
                 // DOCTYPE is given and root element name does not match doctype name
-        ERROR_DOM_INTEGRITY,
-        ERROR_DOM_DUPLICATE_ATTRIBUTE,
+    #define ERROR_DOM_INTEGRITY (ERROR_XML_FIRST + 42)
+    #define ERROR_DOM_DUPLICATE_ATTRIBUTE (ERROR_XML_FIRST + 43)
 
         // @@@todo these
-        ERROR_DOM_VALIDATE_INVALID_ELEMENT,
-        ERROR_DOM_ELEMENT_DECL_OUTSIDE_DOCTYPE,
-        ERROR_DOM_ATTLIST_DECL_OUTSIDE_DOCTYPE
-    } DOMERROR;
+    #define ERROR_DOM_VALIDATE_INVALID_ELEMENT (ERROR_XML_FIRST + 44)
+    #define ERROR_DOM_ELEMENT_DECL_OUTSIDE_DOCTYPE (ERROR_XML_FIRST + 45)
+    #define ERROR_DOM_ATTLIST_DECL_OUTSIDE_DOCTYPE (ERROR_XML_FIRST + 46)
 
     const char* xmlDescribeError(int code);
 
@@ -129,17 +130,32 @@ extern "C" {
 
     /*
      *@@ NODEBASE:
-     *      "content model" node. With the DOM content models,
-     *      this represents an entry in a DTD or XML schema.
+     *      root class of all nodes used in the
+     *      DOM tree.
+     *
+     *      The first item is a TREE to make this insertable
+     *      into string maps via the functions in tree.c.
+     *
+     *      A NODEBASE is also the first member of a DOMNODE
+     *      so this is effectively a simulation of inheritance
+     *      in plain C... DOMNODE inherits from NODEBASE,
+     *      and some other types inherit from DOMNODE.
+     *
+     *      This contains the node name, which is also used
+     *      by the DOMNODE's (e.g. for element names).
+     *      However, only DOMNODE defines the node value
+     *      string.
      *
      *@@added V0.9.9 (2001-02-14) [umoeller]
      */
 
     typedef struct _NODEBASE
     {
-        TREE            Tree;
+        TREE            Tree;           // tree.c
 
-        NODEBASETYPE    ulNodeType;
+        NODEBASETYPE    ulNodeType;     // class type; this is precious,
+                                        // all xml* functions make assumptions
+                                        // from this value
 
         XSTRING         strNodeName;
                     // node name;
@@ -188,7 +204,8 @@ extern "C" {
      *
      *      Overview of member fields usage:
      +
-     +      ulNodeType    | strNodeName | strNodeValue | llChildren | llAttributes
+     +      ulNodeType    | strNodeName | strNodeValue | llChildren | AttributesMap
+     +      (NODEBASE)    | (NODEBASE)  | (DOMNODE)    | (DOMNODE)  | (DOMNODE)
      +      =======================================================================
      +                    |             |              |            |
      +      DOCUMENT      | name from   | 0            | 1 root     | 0
@@ -408,9 +425,9 @@ extern "C" {
         ULONG           ulRepeater;
                     // one of:
                     // -- XML_CQUANT_NONE   --> all fields below are NULL
-                    // -- XML_CQUANT_OPT,
-                    // -- XML_CQUANT_REP,
-                    // -- XML_CQUANT_PLUS
+                    // -- XML_CQUANT_OPT,   question mark
+                    // -- XML_CQUANT_REP,   asterisk
+                    // -- XML_CQUANT_PLUS   plus sign
 
         struct _CMELEMENTPARTICLE *pParentParticle;     // or NULL if this is in the
                                                         // CMELEMENTDECLNODE
@@ -595,7 +612,7 @@ extern "C" {
 
     /* ******************************************************************
      *
-     *   DOM APIs
+     *   DOM parser APIs
      *
      ********************************************************************/
 
@@ -689,6 +706,20 @@ extern "C" {
     const XSTRING* xmlGetAttribute(PDOMNODE pElement,
                                    const char *pcszAttribName);
 
+    /* ******************************************************************
+     *
+     *   DOM build
+     *
+     ********************************************************************/
+
+    APIRET xmlCreateDocument(const char *pcszRootElementName,
+                             PDOMDOCUMENTNODE *ppDocument,
+                             PDOMNODE *ppRootElement);
+
+    APIRET xmlWriteDocument(PDOMDOCUMENTNODE pDocument,
+                            const char *pcszEncoding,
+                            const char *pcszDoctype,
+                            PXSTRING pxstr);
 #endif
 
 #if __cplusplus

@@ -478,7 +478,7 @@ MRESULT EXPENTRY memd_fnwpMemDebug(HWND hwndClient, ULONG msg, MPARAM mp1, MPARA
     {
         case WM_CREATE:
         {
-            TRY_LOUD(excpt1, NULL)
+            TRY_LOUD(excpt1)
             {
                 // PCREATESTRUCT pcs = (PCREATESTRUCT)mp2;
                 HWND hwndCnr;

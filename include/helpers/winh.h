@@ -542,6 +542,9 @@ extern "C" {
                                    SHORT sTargetIndex,
                                    BOOL fSelectTarget);
 
+    ULONG XWPENTRY winhLboxFindItemFromHandle(HWND hwndListBox,
+                                              ULONG ulHandle);
+
     /* ******************************************************************
      *
      *   Scroll bar helpers

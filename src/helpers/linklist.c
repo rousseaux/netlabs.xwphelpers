@@ -234,7 +234,7 @@ BOOL lstClear(PLINKLIST pList)
     return (brc);
 }
 
-#ifdef __XWPMEMDEBUG__
+#ifdef __DEBUG_MALLOC_ENABLED__
 
 /*
  *@@ lstCreateDebug:
@@ -262,7 +262,7 @@ PLINKLIST lstCreateDebug(BOOL fItemsFreeable,
     return (pNewList);
 }
 
-#else
+#endif      // __DEBUG_MALLOC_ENABLED__
 
 /*
  *@@ lstCreate:
@@ -285,7 +285,7 @@ PLINKLIST lstCreateDebug(BOOL fItemsFreeable,
  +          lstFree(pllWhatever);
  */
 
-PLINKLIST lstCreate(BOOL fItemsFreeable)    // in: invoke free() on the data
+PLINKLIST (lstCreate)(BOOL fItemsFreeable)    // in: invoke free() on the data
                                             // item pointers upon destruction?
 {
     PLINKLIST pNewList = (PLINKLIST)malloc(sizeof(LINKLIST));
@@ -293,8 +293,6 @@ PLINKLIST lstCreate(BOOL fItemsFreeable)    // in: invoke free() on the data
         lstInit(pNewList, fItemsFreeable);
     return (pNewList);
 }
-
-#endif      // __XWPMEMDEBUG__
 
 /*
  *@@ lstFree:
@@ -542,7 +540,7 @@ unsigned long lstIndexFromItem(PLINKLIST pList, void *pItemData)
     return (ulrc);
 }
 
-#ifdef __XWPMEMDEBUG__
+#ifdef __DEBUG_MALLOC_ENABLED__
 
 /*
  *@@ lstAppendItemDebug:
@@ -602,7 +600,7 @@ PLISTNODE lstAppendItemDebug(PLINKLIST pList,
     return (pNewNode);
 }
 
-#else
+#endif // __DEBUG_MALLOC_ENABLED__
 
 /*
  *@@ lstAppendItem:
@@ -614,7 +612,7 @@ PLISTNODE lstAppendItemDebug(PLINKLIST pList,
  *      or NULL upon errors.
  */
 
-PLISTNODE lstAppendItem(PLINKLIST pList,
+PLISTNODE (lstAppendItem)(PLINKLIST pList,
                         void* pNewItemData)     // in: data to store in list node
 {
     PLISTNODE pNewNode = 0;
@@ -655,8 +653,6 @@ PLISTNODE lstAppendItem(PLINKLIST pList,
 
     return (pNewNode);
 }
-
-#endif // __XWPMEMDEBUG__
 
 /*
  *@@ lstInsertItemBefore:
