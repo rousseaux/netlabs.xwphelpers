@@ -129,10 +129,6 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
 
     if (pti)
     {
-        if (pti->pfRunning)
-            // set "running" flag
-            *(pti->pfRunning) = TRUE;
-
         if (pti->flFlags & THRF_WAIT)
             // "Wait" flag set: thrCreate is then
             // waiting on the wait event sem posted...
@@ -173,14 +169,14 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
             UnlockThreadInfos();
         }
 
-        // for non-transient threads: set exit flags
+        // set exit flags
         // V0.9.7 (2000-12-20) [umoeller]
         pti->fExitComplete = TRUE;
         pti->tid = NULLHANDLE;
 
-        if (pti->pfRunning)
+        if (pti->ptidRunning)
             // clear "running" flag
-            *(pti->pfRunning) = FALSE;
+            *(pti->ptidRunning) = 0;
 
         // (2000-12-18) [lafaix] clean up pti if thread is transient.
         if (pti->flFlags & THRF_TRANSIENT)
@@ -212,14 +208,21 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
  *
  *      The thread's ptiMyself is then a pointer to the
  *      THREADINFO structure passed to this function.
- *      ulData may be obtained like this:
+ *      In your thread function, ulData may be obtained like this:
  *
  +          ULONG ulData = ptiMyself->ulData;
+ *
+ *      thrCreate does not start your thread func directly,
+ *      but only through the thr_fntGeneric wrapper to
+ *      provide additional functionality. As a consequence,
+ *      in your own thread function, NEVER call _endthread
+ *      explicitly, because this would skip the exit processing
+ *      (cleanup) in thr_fntGeneric. Instead, just fall out of
+ *      your thread function, or return().
  *
  *      The THREADINFO structure passed to this function must
  *      be accessible all the time while the thread is running
  *      because the thr* functions will use it for maintenance.
- *
  *      This function does NOT check whether a thread is
  *      already running in *pti. Do not use the same THREADINFO
  *      for several threads.
@@ -227,13 +230,15 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
  *      If you do not want to manage the structure yourself,
  *      you can pass the THRF_TRANSIENT flag (see below).
  *
- *      thrCreate does not call your thread func directly,
- *      but only through the thr_fntGeneric wrapper to
- *      provide additional functionality. As a consequence,
- *      in your own thread function, NEVER call _endthread
- *      explicitly, because this would skip the exit processing
- *      (cleanup) in thr_fntGeneric. Instead, just fall out of
- *      your thread function, or return().
+ *      ptidRunning is an optional parameter and can be NULL.
+ *      If non-null, it must point to a ULONG which will contain
+ *      the thread's TID while the thread is still running.
+ *      Once the thread exits, the ULONG will automatically
+ *      be set to zero; this is useful for a quick check whether
+ *      the thread is currently busy.
+ *
+ *      Note: ptidRunning is only reliable if you set the
+ *      THRF_WAIT or THRF_WAIT_EXPLICIT flags.
  *
  *      flFlags can be any combination of the following:
  *
@@ -251,7 +256,7 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
  *         menu items on thread 1 while the thread is running.
  *
  *      -- THRF_WAIT_EXPLICIT: like THRF_WAIT, but in this case,
- *         your thread function must post THREADINFO.hevRunning
+ *         your thread function _must_ post THREADINFO.hevRunning
  *         yourself (thr_fntGeneric will not automatically
  *         post it). Useful for waiting until your own thread
  *         function is fully initialized, e.g. if it creates
@@ -281,11 +286,12 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
  *@@changed V0.9.9 (2001-02-06) [umoeller]: now returning TID
  *@@changed V0.9.9 (2001-03-07) [umoeller]: added pcszThreadName
  *@@changed V0.9.9 (2001-03-14) [umoeller]: added THRF_WAIT_EXPLICIT
+ *@@changed V0.9.12 (2001-05-20) [umoeller]: changed pfRunning to ptidRunning
  */
 
 ULONG thrCreate(PTHREADINFO pti,     // out: THREADINFO data
                 PTHREADFUNC pfn,     // in: _Optlink thread function
-                PBOOL pfRunning,     // out: variable set to TRUE while thread is running;
+                PULONG ptidRunning,  // out: variable set to TID while thread is running;
                                      // ptr can be NULL
                 const char *pcszThreadName, // in: thread name (for identification)
                 ULONG flFlags,       // in: THRF_* flags
@@ -306,7 +312,7 @@ ULONG thrCreate(PTHREADINFO pti,     // out: THREADINFO data
         memset(pti, 0, sizeof(THREADINFO));
         pti->cbStruct = sizeof(THREADINFO);
         pti->pThreadFunc = (PVOID)pfn;
-        pti->pfRunning = pfRunning;
+        pti->ptidRunning = ptidRunning;
         pti->pcszThreadName = pcszThreadName; // V0.9.9 (2001-03-07) [umoeller]
         pti->flFlags = flFlags;
         pti->ulData = ulData;
@@ -335,6 +341,10 @@ ULONG thrCreate(PTHREADINFO pti,     // out: THREADINFO data
                                     3*96000, // plenty of stack
                                     pti);   // parameter passed to thread
             ulrc = pti->tid;
+
+            if (pti->ptidRunning)
+                // set "running" flag // V0.9.12 (2001-05-20) [umoeller]
+                *(pti->ptidRunning) = pti->tid;
 
             if (ulrc)
             {

@@ -46,7 +46,7 @@ extern "C" {
             // data maintained by thr* functions
             ULONG   cbStruct;
             void*   pThreadFunc;    // as passed to thrCreate, really a PTHREADFUNC
-            PBOOL   pfRunning;      // as passed to thrCreate
+            PULONG  ptidRunning;      // as passed to thrCreate V0.9.12 (2001-05-20) [umoeller]
             const char *pcszThreadName; // as passed to thrCreate
             ULONG   flFlags;        // as passed to thrCreate
             ULONG   ulData;         // as passed to thrCreate
@@ -57,7 +57,7 @@ extern "C" {
             // data maintained by thr_fntGeneric
             HAB     hab;            // for PM threads
             HMQ     hmq;            // for PM threads
-            BOOL    fExitComplete;  // TRUE if thr_fntGeneric is exiting
+            BOOL    fExitComplete;
 
             // data to be maintained by application
             BOOL    fExit;

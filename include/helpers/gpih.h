@@ -234,6 +234,42 @@ extern "C" {
     typedef BOOL XWPENTRY GPIHICON2BITMAP(HPS hpsMem, HPOINTER hptr, LONG lBkgndColor, ULONG ulIconSize);
     typedef GPIHICON2BITMAP *PGPIHICON2BITMAP;
 
+    /* ******************************************************************
+     *
+     *   XBitmap functions
+     *
+     ********************************************************************/
+
+    /*
+     *@@ XBITMAP:
+     *      representation of an XBitmap, which is created
+     *      with gpihCreateXBitmap and destroyed with
+     *      gpihDestroyXBitmap.
+     *
+     *      An XBitmap is essentially a set of a memory
+     *      device context, a memory presentation space,
+     *      and a bitmap which is selected into that
+     *      HPS.
+     *
+     *@@added V0.9.12 (2001-05-20) [umoeller]
+     */
+
+    typedef struct _XBITMAP
+    {
+        HDC     hdcMem;     // memory DC
+        HPS     hpsMem;     // memory PS
+        HBITMAP hbm;        // bitmap handle
+        SIZEL   szl;        // size of bitmap
+    } XBITMAP, *PXBITMAP;
+
+    PXBITMAP XWPENTRY gpihCreateXBitmap(HAB hab, LONG cx, LONG cy);
+    typedef PXBITMAP XWPENTRY GPIHCREATEXBITMAP(HAB hab, LONG cx, LONG cy);
+    typedef GPIHCREATEXBITMAP *PGPIHCREATEXBITMAP;
+
+    VOID XWPENTRY gpihDestroyXBitmap(PXBITMAP *ppbmp);
+    typedef VOID XWPENTRY GPIHDESTROYXBITMAP(PXBITMAP *ppbmp);
+    typedef GPIHDESTROYXBITMAP *PGPIHDESTROYXBITMAP;
+
 #endif
 
 #if __cplusplus

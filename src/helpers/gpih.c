@@ -1478,9 +1478,9 @@ HBITMAP gpihCreateBitmap(HPS hpsMem,        // in: memory DC
         bih2.usUnits = BRU_METRIC;  // measure units for cxResolution/cyResolution: pels per meter
         bih2.usReserved = 0;
         bih2.usRecording = BRA_BOTTOMUP;        // scan lines are bottom to top (default)
-        bih2.usRendering = BRH_NOTHALFTONED;    // other algorithms aren't documented anyways
-        bih2.cSize1 = 0;            // parameter for halftoning (undocumented anyways)
-        bih2.cSize2 = 0;            // parameter for halftoning (undocumented anyways)
+        bih2.usRendering = BRH_NOTHALFTONED;    // other algorithms aren't documented anyway
+        bih2.cSize1 = 0;            // parameter for halftoning (undocumented anyway)
+        bih2.cSize2 = 0;            // parameter for halftoning (undocumented anyway)
         bih2.ulColorEncoding = BCE_RGB;     // only possible value
         bih2.ulIdentifier = 0;              // application-specific data
 
@@ -1544,6 +1544,8 @@ HBITMAP gpihCreateBitmap(HPS hpsMem,        // in: memory DC
  *      This returns the handle of the new bitmap,
  *      which can then be used for WinDrawBitmap and such, or
  *      NULLHANDLE upon errors.
+ *
+ *@@changed V0.9.12 (2001-05-20) [umoeller]: fixed excessive mem PS size
  */
 
 HBITMAP gpihCreateBmpFromPS(HAB hab,        // in: anchor block
@@ -1563,12 +1565,16 @@ HBITMAP gpihCreateBmpFromPS(HAB hab,        // in: anchor block
     HBITMAP hbm = NULLHANDLE;
     POINTL aptl[3];
 
-    SIZEL szlPage = {0, 0};
-    if (gpihCreateMemPS(hab, &szlPage, &hdcMem, &hpsMem))
+    SIZEL szlPage = {prcl->xRight - prcl->xLeft,
+                     prcl->yTop - prcl->yBottom};       // fixed V0.9.12 (2001-05-20) [umoeller]
+    if (gpihCreateMemPS(hab,
+                        &szlPage,
+                        &hdcMem,
+                        &hpsMem))
     {
         if ((hbm = gpihCreateBitmap(hpsMem,
-                                    prcl->xRight - prcl->xLeft,
-                                    prcl->yTop - prcl->yBottom)))
+                                    szlPage.cx,
+                                    szlPage.cy)))
         {
             // Associate the bit map and the memory presentation space.
             if (GpiSetBitmap(hpsMem, hbm)
@@ -1594,7 +1600,9 @@ HBITMAP gpihCreateBmpFromPS(HAB hab,        // in: anchor block
                     GpiDeleteBitmap(hbm);
                     hbm = NULLHANDLE; // for return code
                 }
-            } else {
+            }
+            else
+            {
                 // error selecting bitmap for hpsMem:
                 GpiDeleteBitmap(hbm);
                 hbm = NULLHANDLE; // for return code
@@ -2017,4 +2025,134 @@ BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap sel
 
     return (brc);
 }
+
+/*
+ *@@category: Helpers\PM helpers\GPI helpers\XBitmaps
+ *      Extended bitmaps. See gpihCreateXBitmap for an introduction.
+ */
+
+/* ******************************************************************
+ *
+ *   XBitmap functions
+ *
+ ********************************************************************/
+
+/*
+ *@@ gpihCreateXBitmap:
+ *      creates an XBitmap, which is returned in an
+ *      _XBITMAP structure.
+ *
+ *      The problem with all the GPI bitmap functions
+ *      is that they are quite complex and it is easy
+ *      to forget one of the "disassociate" and "deselect"
+ *      functions, which then simply leads to enormous
+ *      resource leaks in the application.
+ *
+ *      This function may relieve this a bit. This
+ *      creates a memory DC, an memory PS, and a bitmap,
+ *      and selects the bitmap into the memory PS.
+ *      You can then use any GPI function on the memory
+ *      PS to draw into the bitmap. Use the fields from
+ *      _XBITMAP for that.
+ *
+ *      The bitmap is created in RGB mode.
+ *
+ *      Use gpihDestroyXBitmap to destroy the XBitmap
+ *      again.
+ *
+ *      Example:
+ *
+ +          PXBITMAP pbmp = gpihCreateXBitmap(hab, 100, 100);
+ +          if (pbmp)
+ +          {
+ +              GpiMove(pbmp->hpsMem, ...);
+ +              GpiBox(pbmp->hpsMem, ...);
+ +
+ +              WinDrawBitmap(hpsScreen,
+ +                            pbmp->hbm,       // bitmap handle
+ +                            ...);
+ +              gpihDestroyXBitmap(&pbmp);
+ +          }
+ *
+ *      Without the gpih* functions, the above would expand
+ *      to more than 100 lines.
+ *
+ *@@added V0.9.12 (2001-05-20) [umoeller]
+ */
+
+PXBITMAP gpihCreateXBitmap(HAB hab,         // in: anchor block
+                           LONG cx,         // in: bitmap width
+                           LONG cy)         // in: bitmap height
+{
+    BOOL fOK = FALSE;
+    PXBITMAP pbmp = (PXBITMAP)malloc(sizeof(XBITMAP));
+    if (pbmp)
+    {
+        memset(pbmp, 0, sizeof(XBITMAP));
+
+        // create memory PS for bitmap
+        pbmp->szl.cx = cx;
+        pbmp->szl.cy = cy;
+        if (gpihCreateMemPS(hab,
+                            &pbmp->szl,
+                            &pbmp->hdcMem,
+                            &pbmp->hpsMem))
+        {
+            gpihSwitchToRGB(pbmp->hpsMem);
+            if (pbmp->hbm = gpihCreateBitmap(pbmp->hpsMem,
+                                             cx,
+                                             cy))
+            {
+                if (GpiSetBitmap(pbmp->hpsMem,
+                                 pbmp->hbm)
+                        != HBM_ERROR)
+                    fOK = TRUE;
+            }
+        }
+
+        if (!fOK)
+            gpihDestroyXBitmap(&pbmp);
+    }
+
+    return (pbmp);
+}
+
+/*
+ *@@ gpihDestroyXBitmap:
+ *      destroys an XBitmap created with gpihCreateXBitmap.
+ *
+ *      To be on the safe side, this sets the
+ *      bitmap pointer to NULL as well.
+ *
+ *@@added V0.9.12 (2001-05-20) [umoeller]
+ */
+
+VOID gpihDestroyXBitmap(PXBITMAP *ppbmp)
+{
+    if (ppbmp)
+    {
+        PXBITMAP pbmp;
+        if (pbmp = *ppbmp)
+        {
+            if (pbmp->hbm)
+            {
+                if (pbmp->hpsMem)
+                    GpiSetBitmap(pbmp->hpsMem, NULLHANDLE);
+                GpiDeleteBitmap(pbmp->hbm);
+            }
+            if (pbmp->hpsMem)
+            {
+                GpiAssociate(pbmp->hpsMem, NULLHANDLE);
+                GpiDestroyPS(pbmp->hpsMem);
+            }
+            if (pbmp->hdcMem)
+                DevCloseDC(pbmp->hdcMem);
+
+            free(pbmp);
+
+            *ppbmp = NULL;
+        }
+    }
+}
+
 
