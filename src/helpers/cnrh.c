@@ -773,7 +773,7 @@ BOOL cnrhMoveTree(HWND hwndCnr,          // in: container control
  *      only go for the "root" records (and no child records).
  *
  *      Invoking this function on a container in Tree view
- *      will result in not much but display flickering anyways.
+ *      will result in not much but display flickering anyway.
  *
  *      This returns the number of records which were processed.
  */
@@ -967,6 +967,7 @@ PRECORDCORE cnrhFindRecordFromPoint(HWND hwndCnr,
  *      Improvements (C) 1998 Ulrich M”ller.
  *
  *@@changed V0.9.4 (2000-08-07) [umoeller]: now posting scroll messages to avoid sync errors
+ *@@changed V0.9.9 (2001-03-12) [umoeller]: this never worked for root records in tree view if KeepParent == TRUE, fixed
  */
 
 ULONG cnrhScrollToRecord(HWND hwndCnr,       // in: container window
@@ -1000,9 +1001,16 @@ ULONG cnrhScrollToRecord(HWND hwndCnr,       // in: container window
     qRect.fsExtent = fsExtent;
 
     // query record location and size of container
-    if (!WinSendMsg(hwndCnr, CM_QUERYRECORDRECT, &rclRecord, &qRect))
+    if (!WinSendMsg(hwndCnr,
+                    CM_QUERYRECORDRECT,
+                    &rclRecord,
+                    &qRect))
         return 1;
-    if (!WinSendMsg(hwndCnr, CM_QUERYVIEWPORTRECT, &rclCnr, MPFROM2SHORT(CMA_WINDOW, FALSE)) )
+
+    if (!WinSendMsg(hwndCnr,
+                    CM_QUERYVIEWPORTRECT,
+                    &rclCnr,
+                    MPFROM2SHORT(CMA_WINDOW, FALSE)) )
         return 2;
 
     // check if left bottom point of pRec is currently visible in container
@@ -1015,7 +1023,10 @@ ULONG cnrhScrollToRecord(HWND hwndCnr,       // in: container window
 
     if (KeepParent)
     {
-        if (!WinSendMsg(hwndCnr, CM_QUERYCNRINFO, (MPARAM)&CnrInfo, (MPARAM)sizeof(CnrInfo)))
+        if (!WinSendMsg(hwndCnr,
+                        CM_QUERYCNRINFO,
+                        (MPARAM)&CnrInfo,
+                        (MPARAM)sizeof(CnrInfo)))
             return 4;
         else
             KeepParent2 = (CnrInfo.flWindowAttr & CV_TREE);
@@ -1035,23 +1046,26 @@ ULONG cnrhScrollToRecord(HWND hwndCnr,       // in: container window
                                                  (MPARAM)pRec,
                                                  MPFROM2SHORT(CMA_PARENT,
                                                               CMA_ITEMORDER));
-        qRect2.fsExtent = fsExtent;
-
-        // now query PARENT record location and size of container
-        if (!WinSendMsg(hwndCnr, CM_QUERYRECORDRECT, &rclParentRecord, &qRect2))
-            return 5;
-
-        ptlParentRecord.x = (rclParentRecord.xLeft);
-        ptlParentRecord.y = (rclParentRecord.yTop);
-        // ptlParentRecord.x = (rclParentRecord.xLeft + rclParentRecord.xRight) / 2;
-        // ptlParentRecord.y = (rclParentRecord.yBottom + rclParentRecord.yTop) / 2;
-        rclCnr2 = rclCnr;
-        WinOffsetRect(hab, &rclCnr2, 0, -lYOfs);
-        // if ( (rclParentRecord.yBottom - rclRecord.yBottom) > (rclCnr.yTop - rclCnr.yBottom) )
-        if (!(WinPtInRect(hab, &rclCnr2, &ptlParentRecord)))
+        if (qRect2.pRecord)     // V0.9.9 (2001-03-12) [umoeller]
         {
-            lYOfs = (rclCnr.yTop - rclParentRecord.yTop) // this would suffice
-                  - (rclRecord.yTop - rclRecord.yBottom);  // but we make the previous rcl visible too
+            qRect2.fsExtent = fsExtent;
+
+            // now query PARENT record location and size of container
+            if (!WinSendMsg(hwndCnr, CM_QUERYRECORDRECT, &rclParentRecord, &qRect2))
+                return 5;
+
+            ptlParentRecord.x = (rclParentRecord.xLeft);
+            ptlParentRecord.y = (rclParentRecord.yTop);
+            // ptlParentRecord.x = (rclParentRecord.xLeft + rclParentRecord.xRight) / 2;
+            // ptlParentRecord.y = (rclParentRecord.yBottom + rclParentRecord.yTop) / 2;
+            rclCnr2 = rclCnr;
+            WinOffsetRect(hab, &rclCnr2, 0, -lYOfs);
+            // if ( (rclParentRecord.yBottom - rclRecord.yBottom) > (rclCnr.yTop - rclCnr.yBottom) )
+            if (!(WinPtInRect(hab, &rclCnr2, &ptlParentRecord)))
+            {
+                lYOfs = (rclCnr.yTop - rclParentRecord.yTop) // this would suffice
+                      - (rclRecord.yTop - rclRecord.yBottom);  // but we make the previous rcl visible too
+            }
         }
     }
 

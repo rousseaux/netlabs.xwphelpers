@@ -1379,7 +1379,8 @@ HBITMAP gpihCreateBmpFromPS(HAB hab,        // in: anchor block
                 aptl[2].x = prcl->xLeft;    // lower-left corner of source rectangle
                 aptl[2].y = prcl->yBottom;
 
-                if (GpiBitBlt(hpsMem, hpsScreen,
+                if (GpiBitBlt(hpsMem,
+                              hpsScreen,
                               sizeof(aptl) / sizeof(POINTL), // Number of points in aptl
                               aptl,
                               ROP_SRCCOPY,

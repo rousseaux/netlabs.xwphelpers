@@ -245,7 +245,7 @@ MRESULT EXPENTRY ctl_fnwpSplitWindow(HWND hwndSplit, ULONG msg, MPARAM mp1, MPAR
 
 /*
  *@@ TrackSplitBar:
- *      implementation for WM_BUTTON1DOWN in ctl_fnwpSplitBar.
+ *      implementation for WM_BUTTON1DOWN/WM_BUTTON2DOWN in ctl_fnwpSplitBar.
  *
  *@@added V0.9.1 (2000-02-05) [umoeller]
  */
@@ -486,6 +486,7 @@ VOID PaintSplitBar(HWND hwndBar,
  *
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.1 (99-12-07): fixed memory leak
+ *@@changed V0.9.9 (2001-02-01) [lafaix]: added MB2 drag
  */
 
 MRESULT EXPENTRY ctl_fnwpSplitBar(HWND hwndBar, ULONG msg, MPARAM mp1, MPARAM mp2)
@@ -518,6 +519,7 @@ MRESULT EXPENTRY ctl_fnwpSplitBar(HWND hwndBar, ULONG msg, MPARAM mp1, MPARAM mp
              */
 
             case WM_BUTTON1DOWN:
+            case WM_BUTTON2DOWN:
                 TrackSplitBar(hwndBar, pData);
             break;
 
@@ -704,17 +706,22 @@ MRESULT EXPENTRY ctl_fnwpSplitBar(HWND hwndBar, ULONG msg, MPARAM mp1, MPARAM mp
 HWND ctlCreateSplitWindow(HAB hab,
                           PSPLITBARCDATA psbcd) // in: split window control data
 {
-    HWND hwndSplit = NULLHANDLE,
-         hwndBar = NULLHANDLE;
+    HWND    hwndSplit = NULLHANDLE,
+            hwndBar = NULLHANDLE;
+    static  s_Registered = FALSE;
 
     if (psbcd)
     {
         // register "split window" class
-        WinRegisterClass(hab,
-                         WC_SPLITWINDOW,
-                         ctl_fnwpSplitWindow,
-                         CS_SIZEREDRAW | CS_SYNCPAINT,
-                         0);        // additional bytes to reserve
+        if (!s_Registered)
+        {
+            WinRegisterClass(hab,
+                             WC_SPLITWINDOW,
+                             ctl_fnwpSplitWindow,
+                             CS_SIZEREDRAW | CS_SYNCPAINT,
+                             0);        // additional bytes to reserve
+            s_Registered = TRUE;
+        }
 
         hwndSplit = WinCreateWindow(psbcd->hwndParentAndOwner,  // parent
                                     WC_SPLITWINDOW,

@@ -636,7 +636,7 @@ extern "C" {
     typedef VOID XWPENTRY WINHFREE(PVOID p);
     typedef WINHFREE *PWINHFREE;
 
-    VOID XWPENTRY winhSleep(HAB hab, ULONG ulSleep);
+    VOID XWPENTRY winhSleep(ULONG ulSleep);
 
     #define WINH_FOD_SAVEDLG        0x0001
     #define WINH_FOD_INILOADDIR     0x0010

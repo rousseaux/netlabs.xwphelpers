@@ -51,6 +51,7 @@
 #define INCL_WINPOINTERS
 #define INCL_WINRECTANGLES
 #define INCL_WINSHELLDATA
+#define INCL_WINTIMER
 #define INCL_WINSYS
 #define INCL_WINHELP
 #define INCL_WINPROGRAMLIST
@@ -331,9 +332,9 @@ BOOL winhCopyMenuItem(HWND hmenuTarget,
                     if (hwndSubMenu)
                     {
                         // now copy all the items in the submenu
-                        SHORT cMenuItems = (SHORT)WinSendMsg(mi.hwndSubMenu,
+                        SHORT cMenuItems = SHORT1FROMMR(WinSendMsg(mi.hwndSubMenu,
                                                              MM_QUERYITEMCOUNT,
-                                                             0, 0);
+                                                             0, 0));
                         // loop through all entries in the original submenu
                         ULONG i;
                         for (i = 0;
@@ -341,10 +342,10 @@ BOOL winhCopyMenuItem(HWND hmenuTarget,
                              i++)
                         {
                             CHAR szItemText[100];
-                            SHORT id = (SHORT)WinSendMsg(mi.hwndSubMenu,
+                            SHORT id = SHORT1FROMMR(WinSendMsg(mi.hwndSubMenu,
                                                          MM_ITEMIDFROMPOSITION,
                                                          MPFROMSHORT(i),
-                                                         0);
+                                                         0));
                             // recurse
                             winhCopyMenuItem(hwndSubMenu,
                                              mi.hwndSubMenu,
@@ -360,9 +361,9 @@ BOOL winhCopyMenuItem(HWND hmenuTarget,
                             // yes:
                         {
                             // get the original default item
-                            SHORT sDefID = (SHORT)WinSendMsg(mi.hwndSubMenu,
+                            SHORT sDefID = SHORT1FROMMR(WinSendMsg(mi.hwndSubMenu,
                                                              MM_QUERYDEFAULTITEMID,
-                                                             0, 0);
+                                                             0, 0));
                             // set "conditional cascade style" on target too
                             WinSetWindowBits(hwndSubMenu,
                                              QWL_STYLE,
@@ -382,10 +383,10 @@ BOOL winhCopyMenuItem(HWND hmenuTarget,
                     // just copy that item
                     SHORT s;
                     mi.iPosition = sTargetPosition;
-                    s = (SHORT)WinSendMsg(hmenuTarget,
+                    s = SHORT1FROMMR(WinSendMsg(hmenuTarget,
                                           MM_INSERTITEM,
                                           MPFROMP(&mi),
-                                          MPFROMP(pszSource));
+                                          MPFROMP(pszSource)));
                     if (s != MIT_MEMERROR && s != MIT_ERROR)
                         brc = TRUE;
                 }
@@ -446,17 +447,17 @@ HWND winhMergeIntoSubMenu(HWND hmenuTarget,         // in: menu where to create 
            )
         {
             int i;
-            SHORT cMenuItems = (SHORT)WinSendMsg(hmenuSource,
+            SHORT cMenuItems = SHORT1FROMMR(WinSendMsg(hmenuSource,
                                                  MM_QUERYITEMCOUNT,
-                                                 0, 0);
+                                                 0, 0));
 
             // loop through all entries in the original menu
             for (i = 0; i < cMenuItems; i++)
             {
-                SHORT id = (SHORT)WinSendMsg(hmenuSource,
+                SHORT id = SHORT1FROMMR(WinSendMsg(hmenuSource,
                                              MM_ITEMIDFROMPOSITION,
                                              MPFROMSHORT(i),
-                                             0);
+                                             0));
                 winhCopyMenuItem(hwndNewSubmenu,
                                  hmenuSource,
                                  id,
@@ -480,7 +481,7 @@ HWND winhMergeIntoSubMenu(HWND hmenuTarget,         // in: menu where to create 
  *      to a newly allocated buffer or NULL if
  *      not found.
  *
- *      Returns NULL on error. Use winhFree()
+ *      Returns NULL on error. Use free()
  *      to free the return value.
  *
  *      Use the WinSetMenuItemText macro to
@@ -1170,7 +1171,7 @@ LONG winhAdjustDlgItemSpinData(HWND hwndDlg,     // in: dlg window
  *      list box item in a newly allocated
  *      buffer.
  *
- *      Returns NULL on error. Use winhFree()
+ *      Returns NULL on error. Use fre()
  *      to free the return value.
  *
  *@@added V0.9.1 (99-12-14) [umoeller]
@@ -1649,14 +1650,15 @@ BOOL winhHandleScrollMsg(HWND hwnd2Scroll,          // in: client window to scro
  *      -- "Ctrl+ Home": scroll topmost.
  *      -- "End": scroll rightmost.
  *      -- "Ctrl+ End": scroll bottommost.
- *      -- "Ctrl + page up, down": scroll topmost or bottommost.
+ *      -- "Ctrl + page up, down": scroll one screen left or right.
  *
- *      This is roughly CUA behavior.
+ *      This is CUA behavior.
  *
  *      Returns TRUE if the message has been
  *      processed.
  *
  *@@added V0.9.3 (2000-04-29) [umoeller]
+ *@@changed V0.9.9 (2001-02-01) [lafaix]: Ctrl+PgUp/Dn now do one screen left/right
  */
 
 BOOL winhProcessScrollChars(HWND hwndClient,    // in: client window
@@ -1704,25 +1706,19 @@ BOOL winhProcessScrollChars(HWND hwndClient,    // in: client window
             break;
 
             case VK_PAGEUP:
-                ulMsg = WM_VSCROLL;
                 if (usFlags & KC_CTRL)
-                {
-                    sPos = 0;
-                    usCmd = SB_SLIDERPOSITION;
-                }
-                else
-                    usCmd = SB_PAGEUP;
+                    ulMsg = WM_HSCROLL;
+                 else
+                    ulMsg = WM_VSCROLL;
+                usCmd = SB_PAGEUP;
             break;
 
             case VK_PAGEDOWN:
-                ulMsg = WM_VSCROLL;
                 if (usFlags & KC_CTRL)
-                {
-                    sPos = ulVertMax;
-                    usCmd = SB_SLIDERPOSITION;
-                }
+                    ulMsg = WM_HSCROLL;
                 else
-                    usCmd = SB_PAGEDOWN;
+                    ulMsg = WM_VSCROLL;
+                usCmd = SB_PAGEDOWN;
             break;
 
             case VK_HOME:
@@ -2254,7 +2250,7 @@ HWND winhFindWindowBelow(HWND hwndFind)
  *      returns the window font presentation parameter
  *      in a newly allocated buffer.
  *
- *      Returns NULL on error. Use winhFree()
+ *      Returns NULL on error. Use free()
  *      to free the return value.
  *
  *@@added V0.9.1 (2000-02-14) [umoeller]
@@ -3252,25 +3248,49 @@ VOID winhFree(PVOID p)
  *      sleeps at least the specified amount of time,
  *      without blocking the message queue.
  *
+ *      NOTE: This function is a bit expensive because
+ *      it creates a temporary object window. If you
+ *      need to sleep several times, you should rather
+ *      use a private timer.
+ *
  *@@added V0.9.4 (2000-07-11) [umoeller]
+ *@@changed V0.9.9 (2001-03-11) [umoeller]: rewritten
  */
 
-VOID winhSleep(HAB hab,
-               ULONG ulSleep)    // in: sleep time in milliseconds
+VOID winhSleep(ULONG ulSleep)    // in: sleep time in milliseconds
 {
-    ULONG ul = 0;
-    QMSG qmsg;
-    for (ul = 0;
-         ul < (ulSleep / 50);
-         ul++)
+    HWND hwnd = winhCreateObjectWindow(WC_STATIC, NULL);
+    if (hwnd)
     {
-        DosSleep(50);
-        while (WinPeekMsg(hab,
-                          &qmsg, 0, 0, 0,
-                          PM_REMOVE))
-            WinDispatchMsg(hab, &qmsg);
+        QMSG qmsg;
+        HAB hab = WinQueryAnchorBlock(hwnd);
+        if (WinStartTimer(hab,
+                          hwnd,
+                          1,
+                          ulSleep))
+        {
+            while (WinGetMsg(hab, &qmsg, NULLHANDLE, 0, 0))
+            {
+                if (    (qmsg.hwnd == hwnd)
+                     && (qmsg.msg == WM_TIMER)
+                     && (qmsg.mp1 == (MPARAM)1)     // timer ID
+                   )
+                    break;
 
+                WinDispatchMsg(hab, &qmsg);
+            }
+            WinStopTimer(hab,
+                         hwnd,
+                         1);
+        }
+        else
+            // timer creation failed:
+            DosSleep(ulSleep);
+
+        WinDestroyWindow(hwnd);
     }
+    else
+        DosSleep(ulSleep);
 }
 
 /*
@@ -3414,7 +3434,7 @@ HPOINTER winhSetWaitPointer(VOID)
  *      this returns the window text of the specified
  *      HWND in a newly allocated buffer.
  *
- *      Returns NULL on error. Use winhFree()
+ *      Returns NULL on error. Use free()
  *      to free the return value.
  */
 
@@ -3531,6 +3551,9 @@ ULONG winhEnableControls(HWND hwndDlg,                  // in: dialog window
  *      allows you to have the standard window
  *      positioned automatically, using a given
  *      SWP structure (*pswpFrame).
+ *
+ *      The frame is created with the specified parent
+ *      (usually HWND_DESKTOP), but no owner.
  *
  *      The client window is created with the frame as
  *      its parent and owner and gets an ID of FID_CLIENT.
@@ -4051,7 +4074,7 @@ ULONG winhDrawFormattedText(HPS hps,     // in: presentation space; its settings
  *      the returned SWBLOCK.cwsentry.
  *
  *      Returns NULL on errors. Use
- *      winhFree to free the return value.
+ *      free() to free the return value.
  *
  *@@added V0.9.7 (2000-12-06) [umoeller]
  */
@@ -4284,7 +4307,7 @@ VOID winhSetNumLock(BOOL fState)
  *      INCL_WINWORKPLACE.
  *      See WinEnumObjectClasses() for details.
  *
- *      Returns NULL on error. Use winhFree()
+ *      Returns NULL on error. Use free()
  *      to free the return value.
  *
  *@@added V0.9.0 [umoeller]

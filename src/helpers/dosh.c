@@ -68,7 +68,7 @@
 
 #pragma hdrstop
 
-const CHAR  G_acDriveLetters[28] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+static const CHAR  G_acDriveLetters[28] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 /*
  *@@category: Helpers\Control program helpers\Miscellaneous

@@ -441,7 +441,7 @@ extern "C" {
      *@@ NEHEADER:
      *      linear executable (LX) header format,
      *      which comes after the DOS header in the
-     *      EXE file (at DOSEXEHEADER.usNewHeaderOfs).
+     *      EXE file (at DOSEXEHEADER.ulNewHeaderOfs).
      */
 
     typedef struct _NEHEADER
@@ -482,7 +482,7 @@ extern "C" {
      *@@ LXHEADER:
      *      linear executable (LX) header format,
      *      which comes after the DOS header in the
-     *      EXE file (at DOSEXEHEADER.usNewHeaderOfs).
+     *      EXE file (at DOSEXEHEADER.ulNewHeaderOfs).
      */
 
     typedef struct _LXHEADER
@@ -540,6 +540,56 @@ extern "C" {
     } LXHEADER, *PLXHEADER;
 
     #pragma pack()
+
+    /*
+     *@@ FSYSMODULE:
+     *
+     *@@added V0.9.9 (2001-03-11) [lafaix]
+     */
+
+    typedef struct _FSYSMODULE
+    {
+        CHAR achModuleName[128];
+    } FSYSMODULE, *PFSYSMODULE;
+
+    /*
+     *@@ FSYSFUNCTION:
+     *
+     *@@added V0.9.9 (2001-03-11) [lafaix]
+     */
+
+    typedef struct _FSYSFUNCTION
+    {
+        ULONG ulOrdinal;
+        ULONG ulType;
+        CHAR achFunctionName[128];
+    } FSYSFUNCTION, *PFSYSFUNCTION;
+
+    /*
+     *@@ FSYSRESOURCE:
+     *
+     *@@added V0.9.7 (2000-12-18) [lafaix]
+     */
+
+    typedef struct _FSYSRESOURCE
+    {
+        ULONG ulID;                     // resource ID
+        ULONG ulType;                   // resource type
+        ULONG ulSize;                   // resource size in bytes
+        ULONG ulFlag;                   // resource flags
+    } FSYSRESOURCE, *PFSYSRESOURCE;
+
+    // object/segment flags (in NE and LX)
+    #define OBJWRITE         0x0002L    // Writeable Object
+    #define OBJDISCARD       0x0010L    // Object is Discardable
+    #define OBJSHARED        0x0020L    // Object is Shared
+    #define OBJPRELOAD       0x0040L    // Object has preload pages
+
+    // resource flags
+    #define RNMOVE           0x0010     // Moveable resource
+    #define RNPURE           0x0020     // Pure (read-only) resource
+    #define RNPRELOAD        0x0040     // Preloaded resource
+    #define RNDISCARD        0xF000     // Discard priority level for resource
 
     // EXE format
     #define EXEFORMAT_OLDDOS        1
@@ -621,6 +671,21 @@ extern "C" {
     APIRET doshExecClose(PEXECUTABLE pExec);
 
     APIRET doshExecQueryBldLevel(PEXECUTABLE pExec);
+
+    PFSYSRESOURCE doshExecQueryResources(PEXECUTABLE pExec,
+                                         PULONG pcResources);
+
+    APIRET doshExecFreeResources(PFSYSRESOURCE paResources);
+
+    PFSYSMODULE doshExecQueryImportedModules(PEXECUTABLE pExec,
+                                             PULONG pcModules);
+
+    APIRET doshExecFreeImportedModules(PFSYSMODULE paModules);
+
+    PFSYSFUNCTION doshExecQueryExportedFunctions(PEXECUTABLE pExec,
+                                                 PULONG pcFunctions);
+
+    APIRET doshExecFreeExportedFunctions(PFSYSFUNCTION paFunctions);
 
     /********************************************************************
      *

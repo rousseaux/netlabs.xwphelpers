@@ -390,6 +390,13 @@ extern "C" {
      *      --  CV_DETAIL: details view without column headers
      *      --  CV_DETAIL | CA_DETAILSVIEWTITLES: details view _with_ column headers
      *
+     *      <B>Mini icons:</B>
+     *
+     *      This is especially sick. The CV_MINI style in CNRINFO is only
+     *      supported for "pure" icon view. For details and tree views,
+     *      you must instead set the (half-documented) CCS_MINICONS style
+     *      as a _window_ style on the container. Whoever came up with this.
+     *
      *      <B>Target emphasis:</B>
      *
      *      For Name, Text, and Details view, per default target emphasis
@@ -414,8 +421,6 @@ extern "C" {
      *                          CA_TITLEREADONLY, CA_TITLESEPARATOR,
      *                          and one out of (CA_TITLECENTER, CA_TITLELEFT,
      *                          CA_TITLERIGHT).
-     *
-     *      Note that CV_MINI is only supported for "pure" icon view.
      *
      *@@added V0.9.0
      */

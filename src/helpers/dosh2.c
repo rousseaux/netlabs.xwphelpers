@@ -791,6 +791,7 @@ APIRET doshFreeEnvironment(PDOSENVIRONMENT pEnv)
  *
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.1 (2000-02-13) [umoeller]: fixed 32-bits flag
+ *@@changed V0.9.7 (2000-12-20) [lafaix]: fixed ulNewHeaderOfs
  */
 
 APIRET doshExecOpen(const char* pcszExecutable,
@@ -1194,6 +1195,233 @@ APIRET doshExecQueryBldLevel(PEXECUTABLE pExec)
 
 
     return (arc);
+}
+
+/*
+ *@@ doshExecQueryImportedModules:
+ *      returns an array of FSYSMODULE structure describing all
+ *      imported modules.
+ *
+ *      *pcModules receives the # of items in the array (not the
+ *      array size!).  Use doshFreeImportedModules to clean up.
+ *
+ *@@added V0.9.9 (2001-03-11) [lafaix]
+ */
+
+PFSYSMODULE doshExecQueryImportedModules(PEXECUTABLE pExec,
+                                         PULONG pcModules)
+{
+    return (NULL);
+}
+
+/*
+ *@@ doshExecFreeImportedModules:
+ *      frees resources allocated by doshExecQueryImportedModules.
+ *
+ *@@added V0.9.9 (2001-03-11)
+ */
+
+APIRET doshExecFreeImportedModules(PFSYSMODULE paModules)
+{
+    free(paModules);
+    return (NO_ERROR);
+}
+
+/*
+ *@@ doshExecQueryExportedFunctions:
+ *      returns an array of FSYSFUNCTION structure describing all
+ *      exported functions.
+ *
+ *      *pcFunctions receives the # of items in the array (not the
+ *      array size!).  Use doshFreeExportedFunctions to clean up.
+ *
+ *      Note that the returned array only contains entry for exported
+ *      functions.  Empty export entries are _not_ included.
+ *
+ *@@added V0.9.9 (2001-03-11) [lafaix]
+ */
+
+PFSYSFUNCTION doshExecQueryExportedFunctions(PEXECUTABLE pExec,
+                                             PULONG pcFunctions)
+{
+    return (NULL);
+}
+
+/*
+ *@@ doshExecFreeExportedFunctions:
+ *      frees resources allocated by doshExecQueryExportedFunctions.
+ *
+ *@@added V0.9.9 (2001-03-11)
+ */
+
+APIRET doshExecFreeExportedFunctions(PFSYSFUNCTION paFunctions)
+{
+    free(paFunctions);
+    return (NO_ERROR);
+}
+
+/*
+ *@@ doshExecQueryResources:
+ *      returns an array of FSYSRESOURCE structures describing all
+ *      available resources in the module.
+ *
+ *      *pcResources receives the no. of items in the array
+ *      (not the array size!). Use doshExecFreeResources to clean up.
+ *
+ *@@added V0.9.7 (2000-12-18) [lafaix]
+ */
+
+PFSYSRESOURCE doshExecQueryResources(PEXECUTABLE pExec, PULONG pcResources)
+{
+    ULONG         cResources = 0;
+    PFSYSRESOURCE paResources = NULL;
+    int i;
+
+    if (pExec)
+    {
+        if (pExec->ulOS == EXEOS_OS2)
+        {
+            ULONG ulDummy;
+
+            if (pExec->ulExeFormat == EXEFORMAT_LX)
+            {
+                // It's a 32bit OS/2 executable
+                cResources = pExec->pLXHeader->ulResTblCnt;
+
+                if (cResources)
+                {
+                    struct rsrc32               /* Resource Table Entry */
+                    {
+                        unsigned short  type;   /* Resource type */
+                        unsigned short  name;   /* Resource name */
+                        unsigned long   cb;     /* Resource size */
+                        unsigned short  obj;    /* Object number */
+                        unsigned long   offset; /* Offset within object */
+                    } rs;
+
+                    struct o32_obj                    /* Flat .EXE object table entry */
+                    {
+                        unsigned long   o32_size;     /* Object virtual size */
+                        unsigned long   o32_base;     /* Object base virtual address */
+                        unsigned long   o32_flags;    /* Attribute flags */
+                        unsigned long   o32_pagemap;  /* Object page map index */
+                        unsigned long   o32_mapsize;  /* Number of entries in object page map */
+                        unsigned long   o32_reserved; /* Reserved */
+                    } ot;
+
+                    paResources = (PFSYSRESOURCE)malloc(sizeof(FSYSRESOURCE) * cResources);
+
+                    DosSetFilePtr(pExec->hfExe,
+                                  pExec->pLXHeader->ulResTblOfs
+                                    + pExec->pDosExeHeader->ulNewHeaderOfs,
+                                  FILE_BEGIN,
+                                  &ulDummy);
+
+                    for (i = 0; i < cResources; i++)
+                    {
+                        DosRead(pExec->hfExe, &rs, 14, &ulDummy);
+                        paResources[i].ulID = rs.name;
+                        paResources[i].ulType = rs.type;
+                        paResources[i].ulSize = rs.cb;
+                        paResources[i].ulFlag = rs.obj; // Temp storage for Object
+                                                        // number.  Will be filled
+                                                        // with resource flag
+                                                        // later.
+                    }
+
+                    for (i = 0; i < cResources; i++)
+                    {
+                        DosSetFilePtr(pExec->hfExe,
+                                      pExec->pLXHeader->ulObjTblOfs
+                                        + pExec->pDosExeHeader->ulNewHeaderOfs
+                                        + (   sizeof(ot)
+                                            * (paResources[i].ulFlag - 1)),
+                                      FILE_BEGIN,
+                                      &ulDummy);
+                        DosRead(pExec->hfExe, &ot, sizeof(ot), &ulDummy);
+
+                        paResources[i].ulFlag  = (ot.o32_flags & OBJWRITE) ? 0 : RNPURE;
+                        paResources[i].ulFlag |= (ot.o32_flags & OBJDISCARD) ? 4096 : 0;
+                        paResources[i].ulFlag |= (ot.o32_flags & OBJSHARED) ? RNMOVE : 0;
+                        paResources[i].ulFlag |= (ot.o32_flags & OBJPRELOAD) ? RNPRELOAD : 0;
+                    }
+                }
+            }
+            else
+            if (pExec->ulExeFormat == EXEFORMAT_NE)
+            {
+               // It's a 16bit OS/2 executable
+               cResources = pExec->pNEHeader->usResSegmCount;
+
+               if (cResources)
+               {
+                   struct {unsigned short type; unsigned short name;} rti;
+                   struct new_seg                          /* New .EXE segment table entry */
+                   {
+                       unsigned short      ns_sector;      /* File sector of start of segment */
+                       unsigned short      ns_cbseg;       /* Number of bytes in file */
+                       unsigned short      ns_flags;       /* Attribute flags */
+                       unsigned short      ns_minalloc;    /* Minimum allocation in bytes */
+                   } ns;
+
+                   paResources = (PFSYSRESOURCE)malloc(sizeof(FSYSRESOURCE) * cResources);
+
+                   // We first read the resources IDs and types
+                   DosSetFilePtr(pExec->hfExe,
+                                 pExec->pNEHeader->usResTblOfs
+                                    + pExec->pDosExeHeader->ulNewHeaderOfs,
+                                 FILE_BEGIN,
+                                 &ulDummy);
+
+                   for (i = 0; i < cResources; i++)
+                   {
+                       DosRead(pExec->hfExe, &rti, sizeof(rti), &ulDummy);
+                       paResources[i].ulID = rti.name;
+                       paResources[i].ulType = rti.type;
+                   }
+
+                   // And we then read their sizes and flags
+                   for (i = 0; i < cResources; i++)
+                   {
+                       DosSetFilePtr(pExec->hfExe,
+                                     pExec->pDosExeHeader->ulNewHeaderOfs
+                                            + pExec->pNEHeader->usSegTblOfs
+                                            + (sizeof(ns)
+                                                * (  pExec->pNEHeader->usSegTblEntries
+                                                   - pExec->pNEHeader->usResSegmCount
+                                                   + i)),
+                                     FILE_BEGIN,
+                                     &ulDummy);
+                       DosRead(pExec->hfExe, &ns, sizeof(ns), &ulDummy);
+
+                       paResources[i].ulSize = ns.ns_cbseg;
+
+                       paResources[i].ulFlag  = (ns.ns_flags & OBJPRELOAD) ? RNPRELOAD : 0;
+                       paResources[i].ulFlag |= (ns.ns_flags & OBJSHARED) ? RNPURE : 0;
+                       paResources[i].ulFlag |= (ns.ns_flags & OBJDISCARD) ? RNMOVE : 0;
+                       paResources[i].ulFlag |= (ns.ns_flags & OBJDISCARD) ? 4096 : 0;
+                   }
+               }
+            }
+
+            *pcResources = cResources;
+        }
+    }
+
+    return (paResources);
+}
+
+/*
+ *@@ doshExecFreeResources:
+ *      frees resources allocated by doshExecQueryResources.
+ *
+ *@@added V0.9.7 (2000-12-18) [lafaix]
+ */
+
+APIRET doshExecFreeResources(PFSYSRESOURCE paResources)
+{
+    free(paResources);
+    return (NO_ERROR);
 }
 
 /*
