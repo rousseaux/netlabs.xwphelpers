@@ -540,7 +540,7 @@ APIRET CompileMsgTable(PSZ pszMessageFile,     // in: file to compile
         // determine current timestamp
         GetTimeStamp(&fs3MessageFile, szFileStampCurrent, sizeof(szFileStampCurrent));
 
-        _Pmpf(("    Timestamp for %s: '%s'", pszMessageFile, szFileStampCurrent));
+        // _Pmpf(("    Timestamp for %s: '%s'", pszMessageFile, szFileStampCurrent));
 
         // determine saved timestamp
         ulStampLength = sizeof(szFileStampOld);
@@ -549,7 +549,7 @@ APIRET CompileMsgTable(PSZ pszMessageFile,     // in: file to compile
                           szFileStampOld,
                           &ulStampLength);
 
-        _Pmpf(("    Saved timestamp for %s: '%s'", pszMessageFile, szFileStampOld));
+        // _Pmpf(("    Saved timestamp for %s: '%s'", pszMessageFile, szFileStampOld));
 
         // compare timestamps
         if ((rc == NO_ERROR)
@@ -586,12 +586,12 @@ APIRET CompileMsgTable(PSZ pszMessageFile,     // in: file to compile
             // if no error occurred, we are finished
             if (rc == NO_ERROR)
             {
-                _Pmpf(("      --> using precompiled table"));
+                // _Pmpf(("      --> using precompiled table"));
                 break;
             }
         } // end if
 
-        _Pmpf(("      --> recompiling table"));
+        // _Pmpf(("      --> recompiling table"));
 
         // recompilation needed:
         // get memory for file data
@@ -734,16 +734,16 @@ APIRET CompileMsgTable(PSZ pszMessageFile,     // in: file to compile
                     ulCurrentMessagePos,
                     ulCurrentMessageLen);
 
-            _Pmpf(("Found %s at %d, length %d",
+            /* _Pmpf(("Found %s at %d, length %d",
                     pCurrentNameStart,
                     ulCurrentMessagePos,
-                    ulCurrentMessageLen));
+                    ulCurrentMessageLen)); */
 
             // need more space ?
             if ((cbTableDataUsed + strlen(szEntry) + 1) > cbTableDataAllocated)
             {
                 PBYTE           pbTmp;
-                _Pmpf(("  Re-allocating!!"));
+                // _Pmpf(("  Re-allocating!!"));
 
                 cbTableDataAllocated += ulFileDataLength / 2;
                 pbTmp = (PBYTE)realloc(pbTableData, cbTableDataAllocated);
@@ -789,7 +789,7 @@ APIRET CompileMsgTable(PSZ pszMessageFile,     // in: file to compile
                 if (rc == NO_ERROR)
                 {
                     // restore original "last write" date
-                    _Pmpf(("Resetting file date"));
+                    // _Pmpf(("Resetting file date"));
                     fs3Tmp.fdateLastWrite = fs3MessageFile.fdateLastWrite;
                     fs3Tmp.ftimeLastWrite = fs3MessageFile.ftimeLastWrite;
                     DosSetFileInfo(hfileMessageFile,

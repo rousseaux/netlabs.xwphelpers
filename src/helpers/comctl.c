@@ -583,15 +583,16 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
              *      is not necessarily running.
              */
 
-            case WM_TIMER: {
+            case WM_TIMER:
+            {
                 pa->usAniCurrent++;
                 if (pa->usAniCurrent >= pa->usAniCount)
                     pa->usAniCurrent = 0;
 
                 WinSendMsg(hwndStatic,
-                        SM_SETHANDLE,
-                        (MPARAM)pa->ahptrAniIcons[pa->usAniCurrent],
-                        (MPARAM)NULL);
+                           SM_SETHANDLE,
+                           (MPARAM)pa->ahptrAniIcons[pa->usAniCurrent],
+                           (MPARAM)NULL);
             break; }
 
             /*
@@ -605,11 +606,11 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
                 HPS hpsMem;
                 SIZEL szlPage;
 
-                LONG lBkgndColor = winhQueryPresColor(
-                                WinQueryWindow(hwndStatic, QW_PARENT),
-                                PP_BACKGROUNDCOLOR,
-                                FALSE,
-                                SYSCLR_DIALOGBACKGROUND);
+                LONG lBkgndColor
+                    = winhQueryPresColor(WinQueryWindow(hwndStatic, QW_PARENT),
+                                         PP_BACKGROUNDCOLOR,
+                                         FALSE,
+                                         SYSCLR_DIALOGBACKGROUND);
 
                 HPS hps = WinGetPS(hwndStatic);
 
@@ -631,7 +632,10 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
                 // create a memory PS
                 szlPage.cx = pa->rclIcon.xRight - pa->rclIcon.xLeft;
                 szlPage.cy = pa->rclIcon.yTop - pa->rclIcon.yBottom;
-                if (gpihCreateMemPS(pa->hab, &szlPage, &hdcMem, &hpsMem))
+                if (gpihCreateMemPS(pa->hab,
+                                    &szlPage,
+                                    &hdcMem,
+                                    &hpsMem))
                 {
                     // switch the memory PS to RGB mode too
                     gpihSwitchToRGB(hpsMem);
@@ -652,11 +656,11 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
                             ptl.x = pa->rclIcon.xRight;
                             ptl.y = pa->rclIcon.yTop;
                             GpiSetColor(hpsMem,
-                                    lBkgndColor);
+                                        lBkgndColor);
                             GpiBox(hpsMem,
-                                    DRO_FILL, // interior only
-                                    &ptl,
-                                    0, 0);    // no corner rounding
+                                   DRO_FILL, // interior only
+                                   &ptl,
+                                   0, 0);    // no corner rounding
 
                             /*
                              * ANF_ICON:
@@ -688,10 +692,10 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
                                 HBITMAP     hbmSource = (HBITMAP)mp1;
 
                                 if (hbmSource)
-                                    gpihStretchBitmap(hpsMem,
-                                                      hbmSource,
+                                    gpihStretchBitmap(hpsMem,       // target
+                                                      hbmSource,    // source
                                                       NULL,     // use size of bitmap
-                                                      &(pa->rclIcon),
+                                                      &pa->rclIcon,
                                                       ((pa->ulFlags & ANF_PROPORTIONAL)
                                                             != 0));
 
@@ -719,7 +723,8 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
              *      the bitmap we created in WM_SETHANDLE.
              */
 
-            case WM_PAINT: {
+            case WM_PAINT:
+            {
                 RECTL rcl;
                 HPS hps = WinBeginPaint(hwndStatic, NULLHANDLE, &rcl);
                 POINTL ptl = {0, 0};

@@ -1343,7 +1343,7 @@ BOOL doshQueryDirExist(const char *pcszDir)
  *      directories do not exist yet.
  */
 
-APIRET doshCreatePath(PSZ pszPath,
+APIRET doshCreatePath(const char *pcszPath,
                       BOOL fHidden) // in: if TRUE, the new directories will get FILE_HIDDEN
 {
     APIRET  arc0 = NO_ERROR;
@@ -1351,7 +1351,7 @@ APIRET doshCreatePath(PSZ pszPath,
     CHAR    *cp, c;
     ULONG   cbPath;
 
-    strcpy(path, pszPath);
+    strcpy(path, pcszPath);
     cbPath = strlen(path);
 
     if (path[cbPath] != '\\')

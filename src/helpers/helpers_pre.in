@@ -79,6 +79,7 @@ $(OUTPUTDIR)\cctl_tooltip.obj \
 $(OUTPUTDIR)\comctl.obj \
 $(OUTPUTDIR)\configsys.obj \
 $(OUTPUTDIR)\cnrh.obj \
+$(OUTPUTDIR)\dialog.obj \
 $(OUTPUTDIR)\gpih.obj \
 $(OUTPUTDIR)\memdebug.obj \
 $(OUTPUTDIR)\memdebug_win.obj \

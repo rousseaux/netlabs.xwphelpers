@@ -84,15 +84,18 @@ $(OUTPUTDIR)\configsys.obj:         $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h \
                $(HLPINC)\dosh.h $(HLPINC)\stringh.h $(HLPINC)\xstring.h
 
-$(OUTPUTDIR)\encodings.obj:         $(@B).c $(INC)\encodings\*.h \
-               $(PROJECTINC)\setup.h
-
 $(OUTPUTDIR)\datetime.obj:          $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h
 
 $(OUTPUTDIR)\debug.obj:     $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h \
                $(HLPINC)\dosh.h
+
+$(OUTPUTDIR)\dialog.obj:     $(@B).c $(HLPINC)\$(@B).h \
+               $(PROJECTINC)\setup.h \
+               $(HLPINC)\comctl.h $(HLPINC)\gpih.h $(HLPINC)\linklist.h \
+                $(HLPINC)\standards.h $(HLPINC)\stringh.h \
+               $(HLPINC)\winh.h
 
 $(OUTPUTDIR)\dosh.obj:      $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h
@@ -102,6 +105,9 @@ $(OUTPUTDIR)\dosh2.obj:      $(@B).c $(HLPINC)\dosh.h \
                $(HLPINC)\stringh.h
 
 $(OUTPUTDIR)\eah.obj:       $(@B).c $(HLPINC)\$(@B).h \
+               $(PROJECTINC)\setup.h
+
+$(OUTPUTDIR)\encodings.obj:         $(@B).c $(INC)\encodings\*.h \
                $(PROJECTINC)\setup.h
 
 $(OUTPUTDIR)\except.obj:    $(@B).c $(HLPINC)\$(@B).h \

@@ -9,7 +9,7 @@
  *@@include #include "linklist.h"
  */
 
-/*      Copyright (C) 1997-2000 Ulrich M”ller.
+/*      Copyright (C) 1997-2001 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -97,6 +97,29 @@ extern "C" {
     typedef signed short _System FNSORTLIST(void*, void*, void*);
                             // changed V0.9.0 (99-10-22) [umoeller]
     typedef FNSORTLIST *PFNSORTLIST;
+
+    /*
+     *@@ FOR_ALL_NODES:
+     *      helper macro to iterator over all nodes in
+     *      a list.
+     *
+     *      Usage:
+     +
+     +          PLINKLIST pll = ...;
+     +          PLISTNODE pNode;
+     +
+     +          FOR_ALL_NODES(pll, pNode)
+     +          {
+     +              PVOID pData = (PVOID)pNode->pItemData;
+     +          }
+     +
+     *      This really is a "for" loop, so you can "break"
+     *      out of the loop.
+     *
+     *@@added V0.9.9 (2001-04-01) [umoeller]
+     */
+
+    #define FOR_ALL_NODES(pll, pNode) for (pNode = lstQueryFirstNode(pll); (pNode); pNode = pNode->pNext)
 
     /* ******************************************************************
      *

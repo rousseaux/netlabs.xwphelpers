@@ -135,6 +135,14 @@ extern "C" {
                                             PSZ *ppszFaceName);
     typedef GPIHSPLITPRESFONT *PGPIHSPLITPRESFONT;
 
+    BOOL XWPENTRY gpihLockLCIDs(VOID);
+    typedef BOOL XWPENTRY GPIHLOCKLCIDS(VOID);
+    typedef GPIHLOCKLCIDS *PGPIHLOCKLCIDS;
+
+    VOID XWPENTRY gpihUnlockLCIDs(VOID);
+    typedef VOID XWPENTRY GPIHUNLOCKLCIDS(VOID);
+    typedef GPIHUNLOCKLCIDS *PGPIHUNLOCKLCIDS;
+
     LONG XWPENTRY gpihFindFont(HPS hps,
                                LONG lSize,
                                BOOL fFamily,
@@ -152,13 +160,13 @@ extern "C" {
     LONG XWPENTRY gpihFindPresFont(HWND hwnd,
                                    BOOL fInherit,
                                    HPS hps,
-                                   PSZ pszDefaultFont,
+                                   const char *pcszDefaultFont,
                                    PFONTMETRICS pFontMetrics,
                                    PLONG plSize);
     typedef LONG XWPENTRY GPIHFINDPRESFONT(HWND hwnd,
                                            BOOL fInherit,
                                            HPS hps,
-                                           PSZ pszDefaultFont,
+                                           const char *pcszDefaultFont,
                                            PFONTMETRICS pFontMetrics,
                                            PLONG plSize);
     typedef GPIHFINDPRESFONT *PGPIHFINDPRESFONT;

@@ -1070,25 +1070,22 @@ PLISTNODE lstPush(PLINKLIST pList,
  *      returns the last item which has been pushed onto
  *      a pseudo-stack LIFO LINKLIST using lstPush.
  *
- *      Note that to really "pop" the item, i.e. remove
- *      it from the list, you MUST call lstRemoveNode
- *      with the list node returned from this function,
- *      or otherwise you keep getting the same last item
- *      on subsequent calls.
+ *      If (fRemove == TRUE), the item is also removed
+ *      from the stack. Otherwise it remains there so the
+ *      next lstPop would return the next item.
  *
  *      Example:
  *
  +          LINKLIST ll;
  +          PLISTNODE pNode;
- +          lstInit(&ll, FALSE;
+ +          lstInit(&ll, FALSE);
  +
  +          lstPush(&ll, (PVOID)1);
  +          lstPush(&ll, (PVOID)2);
  +
- +          pNode = lstPop(&ll);     // returns the node containing "2"
+ +          pNode = lstPop(&ll);  // returns the node containing "2"
  +          lstRemoveNode(pNode);
- +          pNode = lstPop(&ll);     // returns the node containing "1"
- +          lstRemoveNode(pNode);
+ +          pNode = lstPop(&ll);  // returns the node containing "1"
  *
  *@@added V0.9.3 (2000-05-18) [umoeller]
  */
@@ -1096,14 +1093,6 @@ PLISTNODE lstPush(PLINKLIST pList,
 PLISTNODE lstPop(PLINKLIST pList)
 {
     return (pList->pLast);
-    /* unsigned long cItems = lstCountItems(pList);
-    if (cItems)
-    {
-        // list not empty:
-        // get last item on the list
-        pNodeReturn = lstNodeFromIndex(pList,
-                                       cItems - 1);
-    }
-    return (pNodeReturn); */
 }
+
 

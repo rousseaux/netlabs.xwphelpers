@@ -314,7 +314,7 @@ extern "C" {
 
     BOOL doshQueryDirExist(const char *pcszDir);
 
-    APIRET doshCreatePath(PSZ pszPath,
+    APIRET doshCreatePath(const char *pcszPath,
                           BOOL fHidden);
 
     APIRET doshQueryCurrentDir(PSZ pszBuf);

@@ -32,9 +32,11 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
+#define INCL_DOSSEMAPHORES
 #define INCL_DOSERRORS
 
 #define INCL_WINWINDOWMGR
+#define INCL_WINMESSAGEMGR
 #define INCL_WINPOINTERS
 #define INCL_WINSYS
 
@@ -91,6 +93,14 @@ BOOL            fCapsQueried = FALSE;
  *
  *      By contrast, the GpiBox expects an inclusive-inclusive rectangle.
  */
+
+/* ******************************************************************
+ *
+ *   Global variables
+ *
+ ********************************************************************/
+
+static HMTX     G_hmtxLCIDs = NULLHANDLE;
 
 /* ******************************************************************
  *
@@ -491,21 +501,71 @@ BOOL gpihSplitPresFont(PSZ pszFontNameSize,  // in: e.g. "12.Courier"
 }
 
 /*
+ *@@ gpihLockLCIDs:
+ *      requests the mutex for serializing the
+ *      lcids.
+ *
+ *      With GPI, lcids are a process-wide resource and not
+ *      guaranteed to be unique. In the worst case, while your
+ *      font routines are running, another thread modifies the
+ *      lcids and you get garbage. If your fonts suddenly
+ *      turn to "System Proportional", you know this has
+ *      happened.
+ *
+ *      As a result, whenever you work on lcids, request this
+ *      mutex during your processing. If you do this consistently
+ *      across all your code, you should be safe.
+ *
+ *      gpihFindFont uses this mutex. If you call GpiCreateLogFont
+ *      yourself somewhere, do this after you called this function.
+ *
+ *      Call gpihUnlockLCIDs to unlock.
+ *
+ *@@added V0.9.9 (2001-04-01) [umoeller]
+ */
+
+BOOL gpihLockLCIDs(VOID)
+{
+    BOOL brc = FALSE;
+
+    if (G_hmtxLCIDs == NULLHANDLE)
+        // first call: create
+        brc = !DosCreateMutexSem(NULL,
+                                 &G_hmtxLCIDs,
+                                 0,
+                                 TRUE);     // request!
+    else
+        // subsequent calls: request
+        brc = !WinRequestMutexSem(G_hmtxLCIDs, SEM_INDEFINITE_WAIT);
+
+    return (brc);
+}
+
+/*
+ *@@ UnlockLCIDs:
+ *      releases the mutex for serializing the
+ *      lcids.
+ *
+ *@@added V0.9.9 (2001-04-01) [umoeller]
+ */
+
+VOID gpihUnlockLCIDs(VOID)
+{
+    DosReleaseMutexSem(G_hmtxLCIDs);
+}
+
+/*
  *@@ gpihQueryNextLCID:
  *      returns the next available lcid for the given HPS.
  *      Actually, it's the next available lcid for the
  *      entire process, since there can be only 255 altogether.
  *      Gets called by gpihFindFont automatically.
  *
- *      This is possibly the sickest code I've ever written.
- *
- *      Warning: This function is _not_ thread-safe.
- *      We use GpiQueryNumberSetIds to find out the no. of
- *      LCID's in use by the process. In the worst case,
- *      between that call and the call to GpiCreateLogFont,
- *      another font has been created, and you'll get garbage.
+ *      WARNING: This function by itself is not thread-safe.
+ *      See gpihLockLCIDs for how to serialize this.
  *
  *@@added V0.9.3 (2000-05-06) [umoeller]
+ *@@changed V0.9.9 (2001-04-01) [umoeller]: removed all those sick sub-allocs
  */
 
 LONG gpihQueryNextFontID(HPS hps)
@@ -523,9 +583,65 @@ LONG gpihQueryNextFontID(HPS hps)
         lcidNext = 1;
     else
     {
-        #define GQNCL_BLOCK_SIZE 400*sizeof(LONG)
-        PLONG   pBase;
+        // #define GQNCL_BLOCK_SIZE 400*sizeof(LONG)
 
+        PLONG  alTypes = NULL;  // object types
+        PSTR8  aNames = NULL;   // font names
+        PLONG  allcids = NULL;  // local identifiers
+
+        if (    (alTypes = (PLONG)malloc(lCount * sizeof(LONG)))
+             && (aNames = (PSTR8)malloc(lCount * sizeof(STR8)))
+             && (allcids = (PLONG)malloc(lCount * sizeof(LONG)))
+           )
+        {
+            if (GpiQuerySetIds(hps,
+                               lCount,
+                               alTypes,
+                               aNames,
+                               allcids))
+            {
+                // FINALLY we have all the lcids in use.
+                BOOL    fContinue = TRUE;
+                lcidNext = 1;
+
+                // now, check if this lcid is in use already:
+                while (fContinue)
+                {
+                    BOOL fFound = FALSE;
+                    ULONG ul;
+                    fContinue = FALSE;
+                    for (ul = 0;
+                         ul < lCount;
+                         ul++)
+                    {
+                        if (allcids[ul] == lcidNext)
+                        {
+                            fFound = TRUE;
+                            break;
+                        }
+                    }
+
+                    if (fFound)
+                    {
+                        // lcid found:
+                        // try next higher one
+                        lcidNext++;
+                        fContinue = TRUE;
+                    }
+                    // else: return that one
+                }
+            }
+        }
+
+        if (alTypes)
+            free(alTypes);
+        if (aNames)
+            free(aNames);
+        if (allcids)
+            free(allcids);
+
+/*
+        PLONG   pBase;
         APIRET  arc;
 
         // _Pmpf(("gpihQueryNextFontID: calling DosAllocMem"));
@@ -611,6 +727,7 @@ LONG gpihQueryNextFontID(HPS hps)
 
             arc = DosFreeMem(pBase);
         }
+        */
     }
 
     return (lcidNext);
@@ -743,21 +860,13 @@ LONG gpihQueryNextFontID(HPS hps)
  *          the "Helv" font, which exists as a bitmap font for
  *          certain point sizes only.
  *
- *      4)  <B>Warning: This function is _not_ thread-safe.</B>
- *          Since logical font IDs are shared across the
- *          process, this function should _not_ be called
- *          from several threads at the same time.
+ *      4)  Since logical font IDs are shared across the
+ *          process, a mutex is requested while the lcids are
+ *          being queried and/or manipulated. In other words,
+ *          this func is now thread-safe (V0.9.9).
  *
  *          This calls gpihQueryNextFontID in turn to find the
  *          next free lcid. See remarks there.
- *          If your fonts suddenly change to "System Proportional"
- *          in your application, you probably have a serialization
- *          problem.
- *
- *          To make this thread-safe, create your own wrapper
- *          function which calls this function while a mutex
- *          semaphore is held by the wrapper. Then use only
- *          the wrapper in your code.
  *
  *      <B>Font metrics:</B>
  *
@@ -792,6 +901,7 @@ LONG gpihQueryNextFontID(HPS hps)
  *@@changed V0.9.3 (2000-05-06) [umoeller]: didn't work for more than one font; now using gpihQueryNextFontID
  *@@changed V0.9.3 (2000-05-06) [umoeller]: usFormat didn't work; fixed
  *@@changed V0.9.4 (2000-08-08) [umoeller]: added fFamily
+ *@@changed V0.9.9 (2001-04-01) [umoeller]: made this thread-safe, finally
  */
 
 LONG gpihFindFont(HPS hps,               // in: HPS for font selection
@@ -980,13 +1090,18 @@ LONG gpihFindFont(HPS hps,               // in: HPS for font selection
     // free the FONTMETRICS array
     free(pfm);
 
-    // new logical font ID: last used plus one
-    lLCIDReturn = gpihQueryNextFontID(hps);
+    if (gpihLockLCIDs())        // V0.9.9 (2001-04-01) [umoeller]
+    {
+        // new logical font ID: last used plus one
+        lLCIDReturn = gpihQueryNextFontID(hps);
 
-    GpiCreateLogFont(hps,
-                     NULL,  // don't create "logical font name" (STR8)
-                     lLCIDReturn,
-                     &FontAttrs);
+        GpiCreateLogFont(hps,
+                         NULL,  // don't create "logical font name" (STR8)
+                         lLCIDReturn,
+                         &FontAttrs);
+
+        gpihUnlockLCIDs();
+    }
 
     return (lLCIDReturn);
 }
@@ -1024,41 +1139,44 @@ LONG gpihFindFont(HPS hps,               // in: HPS for font selection
  *      conform to the "size.face" format, null is returned.
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.9 (2001-04-01) [umoeller]: now supporting NULLHANDLE hwnd
  */
 
-LONG gpihFindPresFont(HWND hwnd,          // in: window to search for presparam
+LONG gpihFindPresFont(HWND hwnd,          // in: window to search for presparam or NULLHANDLE
                       BOOL fInherit,      // in: search parent windows too?
                       HPS hps,            // in: HPS for font selection
-                      PSZ pszDefaultFont, // in: default font if not found (i.e. "8.Helv")
+                      const char *pcszDefaultFont, // in: default font if not found (i.e. "8.Helv")
                       PFONTMETRICS pFontMetrics, // out: font metrics of created font (optional)
                       PLONG plSize)       // out: presparam's point size (optional)
 {
     CHAR    szPPFont[200] = "";
-    PSZ     pszFontFound = 0;
+    const char *pcszFontFound = 0;
     CHAR    szFaceName[300] = "";
     ULONG   ulFontSize = 0;
 
-    if (WinQueryPresParam(hwnd,
-                          PP_FONTNAMESIZE,          // first PP to query
-                          0,                        // second PP to query
-                          NULL,                     // out: which one is returned
-                          (ULONG)sizeof(szPPFont),  // in: buffer size
-                          (PVOID)&szPPFont,         // out: PP value returned
-                          (fInherit)
-                               ? 0
-                               : QPF_NOINHERIT))
+    if (    (hwnd)        // V0.9.9 (2001-04-01) [umoeller]
+         && (WinQueryPresParam(hwnd,
+                               PP_FONTNAMESIZE,          // first PP to query
+                               0,                        // second PP to query
+                               NULL,                     // out: which one is returned
+                               (ULONG)sizeof(szPPFont),  // in: buffer size
+                               (PVOID)&szPPFont,         // out: PP value returned
+                               (fInherit)
+                                    ? 0
+                                    : QPF_NOINHERIT))
+       )
         // PP found:
-        pszFontFound = szPPFont;
+        pcszFontFound = szPPFont;
     else
-        pszFontFound = pszDefaultFont;
+        pcszFontFound = pcszDefaultFont;
 
-    if (pszFontFound)
+    if (pcszFontFound)
     {
-        PCHAR   pcDot = strchr(pszFontFound, '.');
+        const char *pcDot = strchr(pcszFontFound, '.');
         if (pcDot)
         {
             // _Pmpf(("Found font PP: %s", pszFontFound));
-            sscanf(pszFontFound, "%lu", &ulFontSize);
+            sscanf(pcszFontFound, "%lu", &ulFontSize);
             if (plSize)
                 *plSize = ulFontSize;
             strcpy(szFaceName, pcDot + 1);
