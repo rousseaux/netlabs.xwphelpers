@@ -31,108 +31,110 @@ extern "C" {
 #ifndef STRINGH_HEADER_INCLUDED
     #define STRINGH_HEADER_INCLUDED
 
-    PSZ strhcpy(PSZ string1, const char *string2);
+    PSZ XWPENTRY strhcpy(PSZ string1, const char *string2);
 
     #if defined(__DEBUG_MALLOC_ENABLED__) && !defined(DONT_REPLACE_STRINGH_MALLOC) // setup.h, helpers\memdebug.c
-        PSZ strhdupDebug(const char *pszSource,
-                         const char *pcszSourceFile,
-                         unsigned long ulLine,
-                         const char *pcszFunction);
-        #define strhdup(a) strhdupDebug((a), __FILE__, __LINE__, __FUNCTION__)
+        PSZ XWPENTRY strhdupDebug(const char *pcszSource,
+                                  unsigned long *pulLength,
+                                  const char *pcszSourceFile,
+                                  unsigned long ulLine,
+                                  const char *pcszFunction);
+        #define strhdup(a, pul) strhdupDebug((a), (pul), __FILE__, __LINE__, __FUNCTION__)
     #else
-        PSZ strhdup(const char *pszSource);
+        PSZ XWPENTRY strhdup(const char *pcszSource,
+                             unsigned long *pulLength);
     #endif
 
-    int strhcmp(const char *p1, const char *p2);
+    int XWPENTRY strhcmp(const char *p1, const char *p2);
 
-    int strhicmp(const char *p1, const char *p2);
+    int XWPENTRY strhicmp(const char *p1, const char *p2);
 
-    PSZ strhistr(const char *string1, const char *string2);
+    PSZ XWPENTRY strhistr(const char *string1, const char *string2);
 
-    ULONG strhncpy0(PSZ pszTarget,
-                    const char *pszSource,
-                    ULONG cbSource);
+    ULONG XWPENTRY strhncpy0(PSZ pszTarget,
+                             const char *pszSource,
+                             ULONG cbSource);
 
-    ULONG strhCount(const char *pszSearch, CHAR c);
+    ULONG XWPENTRY strhCount(const char *pszSearch, CHAR c);
 
-    BOOL strhIsDecimal(PSZ psz);
+    BOOL XWPENTRY strhIsDecimal(PSZ psz);
 
     #if defined(__DEBUG_MALLOC_ENABLED__) && !defined(DONT_REPLACE_STRINGH_MALLOC) // setup.h, helpers\memdebug.c
-        PSZ strhSubstrDebug(const char *pBegin,      // in: first char
-                            const char *pEnd,        // in: last char (not included)
-                            const char *pcszSourceFile,
-                            unsigned long ulLine,
-                            const char *pcszFunction);
+        PSZ XWPENTRY strhSubstrDebug(const char *pBegin,      // in: first char
+                                     const char *pEnd,        // in: last char (not included)
+                                     const char *pcszSourceFile,
+                                     unsigned long ulLine,
+                                     const char *pcszFunction);
         #define strhSubstr(a, b) strhSubstrDebug((a), (b), __FILE__, __LINE__, __FUNCTION__)
     #else
-        PSZ strhSubstr(const char *pBegin, const char *pEnd);
+        PSZ XWPENTRY strhSubstr(const char *pBegin, const char *pEnd);
     #endif
 
-    PSZ strhExtract(PSZ pszBuf,
-                    CHAR cOpen,
-                    CHAR cClose,
-                    PSZ *ppEnd);
+    PSZ XWPENTRY strhExtract(PSZ pszBuf,
+                             CHAR cOpen,
+                             CHAR cClose,
+                             PSZ *ppEnd);
 
-    PSZ strhQuote(PSZ pszBuf,
-                  CHAR cQuote,
-                  PSZ *ppEnd);
+    PSZ XWPENTRY strhQuote(PSZ pszBuf,
+                           CHAR cQuote,
+                           PSZ *ppEnd);
 
-    ULONG strhStrip(PSZ psz);
+    ULONG XWPENTRY strhStrip(PSZ psz);
 
-    PSZ strhins(const char *pcszBuffer,
-                ULONG ulInsertOfs,
-                const char *pcszInsert);
+    PSZ XWPENTRY strhins(const char *pcszBuffer,
+                         ULONG ulInsertOfs,
+                         const char *pcszInsert);
 
-    ULONG strhFindReplace(PSZ *ppszBuf,
-                          PULONG pulOfs,
-                          const char *pcszSearch,
-                          const char *pcszReplace);
+    ULONG XWPENTRY strhFindReplace(PSZ *ppszBuf,
+                                   PULONG pulOfs,
+                                   const char *pcszSearch,
+                                   const char *pcszReplace);
 
-    ULONG strhWords(PSZ psz);
+    ULONG XWPENTRY strhWords(PSZ psz);
 
     #define STRH_BEGIN_CHARS    "\x0d\x0a "
     #define STRH_END_CHARS      "\x0d\x0a /-"
 
-    BOOL strhGetWord(PSZ *ppszStart,
-                     const char *pLimit,
-                     const char *pcszBeginChars,
-                     const char *pcszEndChars, //  = "\x0d\x0a /-";
-                     PSZ *ppszEnd);
+    BOOL XWPENTRY strhGetWord(PSZ *ppszStart,
+                              const char *pLimit,
+                              const char *pcszBeginChars,
+                              const char *pcszEndChars, //  = "\x0d\x0a /-";
+                              PSZ *ppszEnd);
 
-    BOOL strhIsWord(const char *pcszBuf,
-                    const char *p,
-                    ULONG cbSearch,
-                    const char *pcszBeginChars,
-                    const char *pcszEndChars);
+    BOOL XWPENTRY strhIsWord(const char *pcszBuf,
+                             const char *p,
+                             ULONG cbSearch,
+                             const char *pcszBeginChars,
+                             const char *pcszEndChars);
 
-    PSZ strhFindWord(const char *pszBuf,
-                     const char *pszSearch,
-                     const char *pcszBeginChars,
-                     const char *pcszEndChars);
+    PSZ XWPENTRY strhFindWord(const char *pszBuf,
+                              const char *pszSearch,
+                              const char *pcszBeginChars,
+                              const char *pcszEndChars);
 
-    PSZ strhFindEOL(const char *pcszSearchIn, ULONG *pulOffset);
+    PSZ XWPENTRY strhFindEOL(const char *pcszSearchIn, ULONG *pulOffset);
 
-    PSZ strhFindNextLine(PSZ pszSearchIn, PULONG pulOffset);
+    PSZ XWPENTRY strhFindNextLine(PSZ pszSearchIn, PULONG pulOffset);
 
-    BOOL strhBeautifyTitle(PSZ psz);
+    BOOL XWPENTRY strhBeautifyTitle(PSZ psz);
 
-    PSZ strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib);
+    PSZ XWPENTRY strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib);
 
-    PSZ strhGetNumAttribValue(const char *pszSearchIn,
-                              const char *pszTag,
-                              PLONG pl);
+    PSZ XWPENTRY strhGetNumAttribValue(const char *pszSearchIn,
+                                       const char *pszTag,
+                                       PLONG pl);
 
-    PSZ strhGetTextAttr(const char *pszSearchIn, const char *pszTag, PULONG pulOffset);
+    PSZ XWPENTRY strhGetTextAttr(const char *pszSearchIn, const char *pszTag, PULONG pulOffset);
 
-    PSZ strhFindEndOfTag(const char *pszBeginOfTag);
+    PSZ XWPENTRY strhFindEndOfTag(const char *pszBeginOfTag);
 
-    ULONG strhGetBlock(const char *pszSearchIn,
-                       PULONG pulSearchOffset,
-                       PSZ pszTag,
-                       PSZ *ppszBlock,
-                       PSZ *ppszAttribs,
-                       PULONG pulOfsBeginTag,
-                       PULONG pulOfsBeginBlock);
+    ULONG XWPENTRY strhGetBlock(const char *pszSearchIn,
+                                PULONG pulSearchOffset,
+                                PSZ pszTag,
+                                PSZ *ppszBlock,
+                                PSZ *ppszAttribs,
+                                PULONG pulOfsBeginTag,
+                                PULONG pulOfsBeginBlock);
 
     /* ******************************************************************
      *
@@ -145,9 +147,9 @@ extern "C" {
                                   ULONG cbNew,
                                   PULONG pcbRoot);
 
-    PSZ strhCreateDump(PBYTE pb,
-                       ULONG ulSize,
-                       ULONG ulIndent);
+    PSZ XWPENTRY strhCreateDump(PBYTE pb,
+                                ULONG ulSize,
+                                ULONG ulIndent);
 
     /* ******************************************************************
      *
@@ -172,11 +174,11 @@ extern "C" {
     #define FNM_IGNORECASE      128
     #define FNM_PATHPREFIX      256
 
-    BOOL strhMatchOS2(const char *pcszMask, const char *pcszName);
+    BOOL XWPENTRY strhMatchOS2(const char *pcszMask, const char *pcszName);
 
-    BOOL strhMatchExt(const char *pcszMask,
-                      const char *pcszName,
-                      unsigned flags);
+    BOOL XWPENTRY strhMatchExt(const char *pcszMask,
+                               const char *pcszName,
+                               unsigned flags);
 
     /* ******************************************************************
      *
@@ -184,15 +186,15 @@ extern "C" {
      *
      ********************************************************************/
 
-    void* strhmemfind(const void *in_block,
-                      size_t block_size,
-                      const void *in_pattern,
-                      size_t pattern_size,
-                      size_t *shift,
-                      BOOL *repeat_find);
+    void* XWPENTRY strhmemfind(const void *in_block,
+                               size_t block_size,
+                               const void *in_pattern,
+                               size_t pattern_size,
+                               size_t *shift,
+                               BOOL *repeat_find);
 
-    char* strhtxtfind (const char *string,
-                       const char *pattern);
+    char* XWPENTRY strhtxtfind (const char *string,
+                                const char *pattern);
 
 #endif
 

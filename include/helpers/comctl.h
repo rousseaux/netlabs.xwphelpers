@@ -54,7 +54,8 @@ extern "C" {
         RECTL       rcl;                // size of button (in presentation space
                                         // coordinates); exclusive!
 
-        ULONG       cxMiniIcon;         // system mini icon size
+        ULONG       cxIconOrBitmap,     // icon size
+                    cyIconOrBitmap;
 
         LONG        lcol3DDark,         // lo-3D color
                     lcol3DLight,        // hi-3D color
@@ -64,7 +65,8 @@ extern "C" {
 
     } XBUTTONDATA, *PXBUTTONDATA;
 
-    #define XBF_FLAT                0x0001
+    #define XBF_FLAT                0x00000001
+    #define XBF_BITMAP              0x00000002
 
     #define XBF_PRESSED             0x00010000
     #define XBF_BACKGROUND          0x00020000

@@ -60,7 +60,7 @@ extern "C" {
     PVOID doshAllocSharedMem(ULONG ulSize,
                              const char* pcszName);
 
-    PVOID doshRequestSharedMem(const char *pcszName);
+    PVOID doshRequestSharedMem(PCSZ pcszName);
 
     /* ******************************************************************
      *
@@ -171,10 +171,10 @@ extern "C" {
                                    PBOOL pfAudio);
 
     VOID XWPENTRY doshEnumDrives(PSZ pszBuffer,
-                                 const char *pcszFileSystem,
+                                 PCSZ pcszFileSystem,
                                  BOOL fSkipRemoveables);
     typedef VOID XWPENTRY DOSHENUMDRIVES(PSZ pszBuffer,
-                                         const char *pcszFileSystem,
+                                         PCSZ pcszFileSystem,
                                          BOOL fSkipRemoveables);
     typedef DOSHENUMDRIVES *PDOSHENUMDRIVES;
 
@@ -303,11 +303,22 @@ extern "C" {
 
     /* ******************************************************************
      *
-     *   File helpers
+     *   File name parsing
      *
      ********************************************************************/
 
-    PSZ doshGetExtension(const char *pcszFilename);
+    APIRET doshGetDriveSpec(PCSZ pcszFullFile,
+                            PSZ pszDrive,
+                            PULONG pulDriveLen,
+                            PBOOL pfIsUNC);
+
+    PSZ doshGetExtension(PCSZ pcszFilename);
+
+    /* ******************************************************************
+     *
+     *   File helpers
+     *
+     ********************************************************************/
 
     BOOL doshIsFileOnFAT(const char* pcszFileName);
 
@@ -328,7 +339,7 @@ extern "C" {
     APIRET doshSetPathAttr(const char* pcszFile,
                            ULONG ulAttr);
 
-    APIRET doshOpenExisting(const char *pcszFilename,
+    APIRET doshOpenExisting(PCSZ pcszFilename,
                             ULONG ulOpenFlags,
                             HFILE *phf);
 
@@ -362,7 +373,7 @@ extern "C" {
     #define XOPEN_READWRITE_APPEND          2
     #define XOPEN_READWRITE_NEW             3
 
-    APIRET doshOpen(const char *pcszFilename,
+    APIRET doshOpen(PCSZ pcszFilename,
                     ULONG ulOpenMode,
                     PULONG pcbFile,
                     PXFILE *ppFile);
@@ -377,15 +388,15 @@ extern "C" {
 
     APIRET doshClose(PXFILE *ppFile);
 
-    APIRET doshLoadTextFile(const char *pcszFile,
+    APIRET doshLoadTextFile(PCSZ pcszFile,
                             PSZ* ppszContent);
 
     PSZ doshCreateBackupFileName(const char* pszExisting);
 
     APIRET doshCreateTempFileName(PSZ pszTempFileName,
-                                  const char *pcszDir,
-                                  const char *pcszPrefix,
-                                  const char *pcszExt);
+                                  PCSZ pcszDir,
+                                  PCSZ pcszPrefix,
+                                  PCSZ pcszExt);
 
     APIRET doshWriteTextFile(const char* pszFile,
                              const char* pszContent,
@@ -399,19 +410,19 @@ extern "C" {
      *
      ********************************************************************/
 
-    BOOL doshQueryDirExist(const char *pcszDir);
+    BOOL doshQueryDirExist(PCSZ pcszDir);
 
-    APIRET doshCreatePath(const char *pcszPath,
+    APIRET doshCreatePath(PCSZ pcszPath,
                           BOOL fHidden);
 
     APIRET doshQueryCurrentDir(PSZ pszBuf);
 
-    APIRET doshSetCurrentDir(const char *pcszDir);
+    APIRET doshSetCurrentDir(PCSZ pcszDir);
 
     #define DOSHDELDIR_RECURSE      0x0001
     #define DOSHDELDIR_DELETEFILES  0x0002
 
-    APIRET doshDeleteDir(const char *pcszDir,
+    APIRET doshDeleteDir(PCSZ pcszDir,
                          ULONG flFlags,
                          PULONG pulDirs,
                          PULONG pulFiles);
@@ -430,11 +441,11 @@ extern "C" {
     typedef ULONG XWPENTRY DOSHMYTID(VOID);
     typedef DOSHMYTID *PDOSHMYTID;
 
-    APIRET doshExecVIO(const char *pcszExecWithArgs,
+    APIRET doshExecVIO(PCSZ pcszExecWithArgs,
                        PLONG plExitCode);
 
-    APIRET doshQuickStartSession(const char *pcszPath,
-                                 const char *pcszParams,
+    APIRET doshQuickStartSession(PCSZ pcszPath,
+                                 PCSZ pcszParams,
                                  BOOL fForeground,
                                  USHORT usPgmCtl,
                                  BOOL fWait,
@@ -844,15 +855,15 @@ extern "C" {
 
     APIRET doshExecFreeResources(PFSYSRESOURCE paResources);
 
-    APIRET doshSearchPath(const char *pcszPath,
-                          const char *pcszFile,
+    APIRET doshSearchPath(PCSZ pcszPath,
+                          PCSZ pcszFile,
                           PSZ pszExecutable,
                           ULONG cbExecutable);
 
-    APIRET doshFindExecutable(const char *pcszCommand,
+    APIRET doshFindExecutable(PCSZ pcszCommand,
                               PSZ pszExecutable,
                               ULONG cbExecutable,
-                              const char **papcszExtensions,
+                              PCSZ *papcszExtensions,
                               ULONG cExtensions);
 
     /********************************************************************

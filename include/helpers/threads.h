@@ -47,7 +47,8 @@ extern "C" {
         // data maintained by thr* functions
         ULONG   cbStruct;
         void*   pThreadFunc;    // as passed to thrCreate, really a PTHREADFUNC
-        PULONG  ptidRunning;      // as passed to thrCreate V0.9.12 (2001-05-20) [umoeller]
+        volatile unsigned long *ptidRunning;
+                                // as passed to thrCreate V0.9.12 (2001-05-20) [umoeller]
         const char *pcszThreadName; // as passed to thrCreate
         ULONG   flFlags;        // as passed to thrCreate
         ULONG   ulData;         // as passed to thrCreate
@@ -72,7 +73,7 @@ extern "C" {
 
     ULONG XWPENTRY thrCreate(PTHREADINFO pti,
                              PTHREADFUNC pfn,
-                             PULONG pfRunning,
+                             volatile unsigned long *ptidRunning,
                              const char *pcszThreadName,
                              ULONG flFlags,
                              ULONG ulData);

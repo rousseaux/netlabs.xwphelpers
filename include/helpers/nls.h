@@ -59,35 +59,35 @@ extern "C" {
                         // thousands separator (e.g. ',')
     } COUNTRYSETTINGS, *PCOUNTRYSETTINGS;
 
-    VOID nlsQueryCountrySettings(PCOUNTRYSETTINGS pcs);
+    VOID XWPENTRY nlsQueryCountrySettings(PCOUNTRYSETTINGS pcs);
 
-    PSZ APIENTRY nlsThousandsULong(PSZ pszTarget, ULONG ul, CHAR cThousands);
-    typedef PSZ APIENTRY NLSTHOUSANDSULONG(PSZ pszTarget, ULONG ul, CHAR cThousands);
+    PSZ XWPENTRY nlsThousandsULong(PSZ pszTarget, ULONG ul, CHAR cThousands);
+    typedef PSZ XWPENTRY NLSTHOUSANDSULONG(PSZ pszTarget, ULONG ul, CHAR cThousands);
     typedef NLSTHOUSANDSULONG *PNLSTHOUSANDSULONG;
 
-    PSZ nlsThousandsDouble(PSZ pszTarget, double dbl, CHAR cThousands);
+    PSZ XWPENTRY nlsThousandsDouble(PSZ pszTarget, double dbl, CHAR cThousands);
 
-    PSZ nlsVariableDouble(PSZ pszTarget, double dbl, PSZ pszUnits,
+    PSZ XWPENTRY nlsVariableDouble(PSZ pszTarget, double dbl, PSZ pszUnits,
                            CHAR cThousands);
 
-    VOID nlsFileDate(PSZ pszBuf,
+    VOID XWPENTRY nlsFileDate(PSZ pszBuf,
                       FDATE *pfDate,
                       ULONG ulDateFormat,
                       CHAR cDateSep);
 
-    VOID nlsFileTime(PSZ pszBuf,
+    VOID XWPENTRY nlsFileTime(PSZ pszBuf,
                       FTIME *pfTime,
                       ULONG ulTimeFormat,
                       CHAR cTimeSep);
 
-    VOID APIENTRY nlsDateTime(PSZ pszDate,
+    VOID XWPENTRY nlsDateTime(PSZ pszDate,
                                PSZ pszTime,
                                DATETIME *pDateTime,
                                ULONG ulDateFormat,
                                CHAR cDateSep,
                                ULONG ulTimeFormat,
                                CHAR cTimeSep);
-    typedef VOID APIENTRY NLSDATETIME(PSZ pszDate,
+    typedef VOID XWPENTRY NLSDATETIME(PSZ pszDate,
                                PSZ pszTime,
                                DATETIME *pDateTime,
                                ULONG ulDateFormat,
@@ -95,6 +95,8 @@ extern "C" {
                                ULONG ulTimeFormat,
                                CHAR cTimeSep);
     typedef NLSDATETIME *PNLSDATETIME;
+
+    APIRET XWPENTRY nlsUpper(PSZ psz, ULONG ulLength);
 
 #endif
 
