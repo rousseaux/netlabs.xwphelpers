@@ -63,7 +63,7 @@ extern "C" {
          USHORT usHdrChecksum;          // 12: header checksum
          USHORT usIPStartup;            // 14: IP at startup
          USHORT usCodeSegOfs;           // 16: code segment offset from EXE start
-         USHORT usRelocTableOfs;        // 18: reloc table ofs.header (Win: >= 0x40)
+         USHORT usRelocTableOfs;        // 18: reloc table ofs.header (Win: >= 0x40 || 0)
          USHORT usOverlayNo;            // 1a: overlay no.
          USHORT usLinkerVersion;        // 1c: linker version (if 0x18 > 0x28)
          USHORT usUnused1;              // 1e: unused
@@ -77,7 +77,7 @@ extern "C" {
          ULONG  ulUnused5;              // 30:
          ULONG  ulUnused6;              // 34:
          ULONG  ulUnused7;              // 38:
-         ULONG  ulNewHeaderOfs;         // 3c: new header ofs (if 0x18 > 0x40)
+         ULONG  ulNewHeaderOfs;         // 3c: new header ofs (if 0x18 >= 0x40 || 0)
                     // fixed this from USHORT, thanks Martin Lafaix
                     // V0.9.7 (2000-12-20) [umoeller]
     } DOSEXEHEADER, *PDOSEXEHEADER;

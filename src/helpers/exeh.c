@@ -293,18 +293,24 @@ APIRET exehOpen(const char* pcszExecutable,
             }
             else
             {
+                // V1.0.3 (2004-10-24) [pr]: Some non-DOS EXEs have a relocation table
+                // offset which is 0 - these were previously identified as DOS EXEs.
                 // we have a DOS header:
-                if (pExec->DosExeHeader.usRelocTableOfs < 0x40)
-                {
-                    // neither LX nor PE nor NE:
-                    pExec->ulOS = EXEOS_DOS3;
-                    pExec->ulExeFormat = EXEFORMAT_OLDDOS;
-                }
-                else
+                if (   (   (pExec->DosExeHeader.usRelocTableOfs == 0)
+                        || (pExec->DosExeHeader.usRelocTableOfs >= sizeof(DOSEXEHEADER))
+                       )
+                    && (pExec->DosExeHeader.ulNewHeaderOfs != 0)
+                   )
                 {
                     // we have a new header offset:
                     fLoadNewHeader = TRUE;
                     ulNewHeaderOfs = pExec->DosExeHeader.ulNewHeaderOfs;
+                }
+                else
+                {
+                    // else DOS:
+                    pExec->ulOS = EXEOS_DOS3;
+                    pExec->ulExeFormat = EXEFORMAT_OLDDOS;
                 }
             }
         }

@@ -86,6 +86,6 @@ $(OUTPUTDIR)\libbz2.lib: $(OBJS)
     ilib /nol /nob $@ @<<$(TEMP)\ilib.lnk
 +$(OBJS: =&^
 );
-<<KEEP
+<<
 
 

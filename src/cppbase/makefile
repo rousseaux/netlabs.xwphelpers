@@ -85,5 +85,5 @@ $(OUTPUTDIR)\cppbase.lib: $(OBJS)
     ilib /nol /nob $@ @<<$(TEMP)\ilib.lnk
 +$(OBJS: =&^
 );
-<<KEEP
+<<
 

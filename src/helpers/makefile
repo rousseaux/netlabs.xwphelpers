@@ -79,7 +79,7 @@ $(OUTPUTDIR)\helpers.lib: $(OBJS)
     ilib /nol /nob $@ @<<$(TEMP)\ilib.lnk
 +$(OBJS: =&^
 );
-<<KEEP
+<<
 
 # ***************************************************************************
 # *
@@ -94,6 +94,6 @@ $(OUTPUTDIR)\helpers_cp.lib: $(CPOBJS)
     ilib /nol /nob $@ @<<$(TEMP)\ilib.lnk
 +$(CPOBJS: =&^
 );
-<<KEEP
+<<
 
 
