@@ -103,7 +103,7 @@ APIRET (strhStoreDebug)(PSZ *ppszTarget,
                                               pcszFunction))
                 memcpy(*ppszTarget, pcszSource, ulLength + 1);
             else
-                return (ERROR_NOT_ENOUGH_MEMORY);
+                return ERROR_NOT_ENOUGH_MEMORY;
         }
         else
             *ppszTarget = NULL;
@@ -148,13 +148,13 @@ APIRET strhStore(PSZ *ppszTarget,
             if (*ppszTarget = (PSZ)malloc(ulLength + 1))
                 memcpy(*ppszTarget, pcszSource, ulLength + 1);
             else
-                return (ERROR_NOT_ENOUGH_MEMORY);
+                return ERROR_NOT_ENOUGH_MEMORY;
         }
         else
             *ppszTarget = NULL;
     }
     else
-        return (ERROR_INVALID_PARAMETER);
+        return ERROR_INVALID_PARAMETER;
 
     if (pulLength)
         *pulLength = ulLength;
@@ -173,10 +173,10 @@ APIRET strhStore(PSZ *ppszTarget,
 PSZ strhcpy(PSZ string1, PCSZ string2)
 {
     if (string2)
-        return (strcpy(string1, string2));
+        return strcpy(string1, string2);
 
     *string1 = '\0';
-    return (string1);
+    return string1;
 }
 
 #ifdef __DEBUG_MALLOC_ENABLED__
@@ -211,7 +211,7 @@ PSZ strhdupDebug(PCSZ pcszSource,
     if (pulLength)
         *pulLength = ulLength;
 
-    return (pszReturn);
+    return pszReturn;
 }
 
 #endif // __DEBUG_MALLOC_ENABLED__
@@ -243,7 +243,7 @@ PSZ strhdup(PCSZ pcszSource,
     if (pulLength)
         *pulLength = ulLength;
 
-    return (pszReturn);
+    return pszReturn;
 }
 
 /*
@@ -265,18 +265,18 @@ int strhcmp(PCSZ p1, PCSZ p2)
     if (p1 && p2)
     {
         int i = strcmp(p1, p2);
-        if (i < 0) return (-1);
-        if (i > 0) return (+1);
+        if (i < 0) return -1;
+        if (i > 0) return +1;
     }
     else if (p1)
         // but p2 is NULL: p1 greater than p2 then
-        return (+1);
+        return +1;
     else if (p2)
         // but p1 is NULL: p1 less than p2 then
-        return (-1);
+        return -1;
 
     // return 0 if strcmp returned 0 above or both strings are NULL
-    return (0);
+    return 0;
 }
 
 /*
@@ -292,18 +292,18 @@ int strhicmp(PCSZ p1, PCSZ p2)
     if (p1 && p2)
     {
         int i = stricmp(p1, p2);
-        if (i < 0) return (-1);
-        if (i > 0) return (+1);
+        if (i < 0) return -1;
+        if (i > 0) return +1;
     }
     else if (p1)
         // but p2 is NULL: p1 greater than p2 then
-        return (+1);
+        return +1;
     else if (p2)
         // but p1 is NULL: p1 less than p2 then
-        return (-1);
+        return -1;
 
     // return 0 if strcmp returned 0 above or both strings are NULL
-    return (0);
+    return 0;
 }
 
 /*
@@ -341,7 +341,8 @@ PSZ strhistr(PCSZ string1, PCSZ string2)
         if (pszSrchIn)
             free(pszSrchIn);
     }
-    return (prc);
+
+    return prc;
 }
 
 /*
@@ -370,7 +371,7 @@ ULONG strhncpy0(PSZ pszTarget,
 
     *pTarget = 0;
 
-    return (ul);
+    return ul;
 }
 
 /*
@@ -384,7 +385,7 @@ ULONG strhncpy0(PSZ pszTarget,
 ULONG strhlen(PCSZ pcsz)
 {
     if (pcsz)
-        return (strlen(pcsz));
+        return strlen(pcsz);
 
     return 0;
 }
@@ -407,7 +408,7 @@ ULONG strhSize(PCSZ pcsz)
     if (pcsz) //  && *pcsz) // V0.9.18 (2002-03-27) [umoeller]
         return (strlen(pcsz) + 1);
 
-    return (0);
+    return 0;
 }
 
 /*
@@ -431,7 +432,7 @@ ULONG strhCount(PCSZ pszSearch,
         else
             break;
     }
-    return (ulCount);
+    return ulCount;
 }
 
 /*
@@ -445,11 +446,11 @@ BOOL strhIsDecimal(PSZ psz)
     while (*p != 0)
     {
         if (isdigit(*p) == 0)
-            return (FALSE);
+            return FALSE;
         p++;
     }
 
-    return (TRUE);
+    return TRUE;
 }
 
 #ifdef __DEBUG_MALLOC_ENABLED__
@@ -483,7 +484,7 @@ PSZ strhSubstrDebug(PCSZ pBegin,      // in: first char
         }
     }
 
-    return (pszSubstr);
+    return pszSubstr;
 }
 
 #endif // __DEBUG_MALLOC_ENABLED__
@@ -521,7 +522,7 @@ PSZ strhSubstr(PCSZ pBegin,      // in: first char
         }
     }
 
-    return (pszSubstr);
+    return pszSubstr;
 }
 
 /*
@@ -618,7 +619,7 @@ PSZ strhExtract(PCSZ pszBuf,    // in: search buffer
         }
     }
 
-    return (pszReturn);
+    return pszReturn;
 }
 
 /*
@@ -650,7 +651,7 @@ PSZ strhQuote(PSZ pszBuf,
         }
     }
 
-    return (pszReturn);
+    return pszReturn;
 }
 
 /*
@@ -689,7 +690,7 @@ ULONG strhStrip(PSZ psz)         // in/out: string
             ulrc++;
         }
     }
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -741,7 +742,7 @@ PSZ strhins(PCSZ pcszBuffer,
         } while (FALSE);
     }
 
-    return (pszNew);
+    return pszNew;
 }
 
 /*
@@ -784,7 +785,7 @@ ULONG strhFindReplace(PSZ *ppszBuf,                // in/out: string
         // replaced:
         *ppszBuf = xstrBuf.psz;
 
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -808,7 +809,7 @@ ULONG strhWords(PSZ psz)
             if (*p == ' ')
                 ulWords++;
     }
-    return (ulWords);
+    return ulWords;
 }
 
 /*
@@ -873,11 +874,11 @@ BOOL strhGetWord(PSZ *ppszStart,        // in: start of search,
             // whoa, got a word:
             *ppszStart = pStart;
             *ppszEnd = pEndOfWord;
-            return (TRUE);
+            return TRUE;
         }
     }
 
-    return (FALSE);
+    return FALSE;
 }
 
 /*
@@ -994,7 +995,7 @@ PSZ strhFindWord(PCSZ pszBuf,
         } while (p);
 
     }
-    return (pszReturn);
+    return pszReturn;
 }
 
 /*
@@ -1048,7 +1049,7 @@ PSZ strhFindNextLine(PSZ pszSearchIn, PULONG pulOffset)
         pNextLine++;
     if (pulOffset)
         *pulOffset = pNextLine - pszSearchIn;
-    return (pNextLine);
+    return pNextLine;
 }
 
 /*
@@ -1079,7 +1080,7 @@ BOOL strhBeautifyTitle(PSZ psz)
         else
             p++;
 
-    return (rc);
+    return rc;
 }
 
 /*
@@ -1142,7 +1143,7 @@ PSZ strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib)
         p = strtok(NULL, " \n\r\t");
    }
 
-   return (prc);
+   return prc;
 }
 
 /* PSZ strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib)
@@ -1195,7 +1196,7 @@ PSZ strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib)
 
         pszSearchIn2++;
     }
-    return (prc);
+    return prc;
 } */
 
 /*
@@ -1230,7 +1231,7 @@ PSZ strhGetNumAttribValue(const char *pszSearchIn,       // in: where to search
         sscanf(pParam, "%ld", pl);
     }
 
-    return (pParam);
+    return pParam;
 }
 
 /*
@@ -1313,7 +1314,7 @@ PSZ strhGetTextAttr(const char *pszSearchIn,
             *(prc+ulCount) = 0;
         }
     }
-    return (prc);
+    return prc;
 }
 
 /*
@@ -1361,7 +1362,7 @@ PSZ strhFindEndOfTag(const char *pszBeginOfTag)
         p++;
     }
 
-    return (prc);
+    return prc;
 }
 
 /*
@@ -1547,7 +1548,7 @@ ULONG strhGetBlock(const char *pszSearchIn, // in: buffer to search
             ulrc = 3;
     }
 
-    return (ulrc);
+    return ulrc;
 }
 
 /* ******************************************************************
@@ -1704,7 +1705,7 @@ PSZ strhCreateDump(PBYTE pb,            // in: start address of buffer
     if (strReturn.cbAllocated)
         pszReturn = strReturn.psz;
 
-    return (pszReturn);
+    return pszReturn;
 }
 
 /* ******************************************************************

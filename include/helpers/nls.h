@@ -31,93 +31,106 @@ extern "C" {
 #ifndef NLS_HEADER_INCLUDED
     #define NLS_HEADER_INCLUDED
 
-    /*
-     *@@ COUNTRYSETTINGS:
-     *      structure used for returning country settings
-     *      with nlsQueryCountrySettings.
-     */
+    #include "helpers\simples.h"
+            // V0.9.19 (2002-06-13) [umoeller]
 
-    typedef struct _COUNTRYSETTINGS
-    {
-        ULONG   ulDateFormat,
-                        // date format:
-                        // --  0   mm.dd.yyyy  (English)
-                        // --  1   dd.mm.yyyy  (e.g. German)
-                        // --  2   yyyy.mm.dd  (Japanese)
-                        // --  3   yyyy.dd.mm
-                ulTimeFormat;
-                        // time format:
-                        // --  0   12-hour clock
-                        // --  >0  24-hour clock
-        CHAR    cDateSep,
-                        // date separator (e.g. '/')
-                cTimeSep,
-                        // time separator (e.g. ':')
-                cDecimal,
-                        // decimal separator (e.g. '.')
-                cThousands;
-                        // thousands separator (e.g. ',')
-    } COUNTRYSETTINGS, *PCOUNTRYSETTINGS;
-
-    VOID XWPENTRY nlsQueryCountrySettings(PCOUNTRYSETTINGS pcs);
-
-    PSZ XWPENTRY nlsThousandsULong(PSZ pszTarget, ULONG ul, CHAR cThousands);
-    typedef PSZ XWPENTRY NLSTHOUSANDSULONG(PSZ pszTarget, ULONG ul, CHAR cThousands);
-    typedef NLSTHOUSANDSULONG *PNLSTHOUSANDSULONG;
-
-    PSZ XWPENTRY nlsThousandsDouble(PSZ pszTarget, double dbl, CHAR cThousands);
-
-    PSZ XWPENTRY nlsVariableDouble(PSZ pszTarget, double dbl, PSZ pszUnits,
-                           CHAR cThousands);
-
-    VOID XWPENTRY nlsFileDate(PSZ pszBuf,
-                      FDATE *pfDate,
-                      ULONG ulDateFormat,
-                      CHAR cDateSep);
-
-    VOID XWPENTRY nlsFileTime(PSZ pszBuf,
-                      FTIME *pfTime,
-                      ULONG ulTimeFormat,
-                      CHAR cTimeSep);
-
-    VOID XWPENTRY nlsDateTime(PSZ pszDate,
-                               PSZ pszTime,
-                               DATETIME *pDateTime,
-                               ULONG ulDateFormat,
-                               CHAR cDateSep,
-                               ULONG ulTimeFormat,
-                               CHAR cTimeSep);
-    typedef VOID XWPENTRY NLSDATETIME(PSZ pszDate,
-                               PSZ pszTime,
-                               DATETIME *pDateTime,
-                               ULONG ulDateFormat,
-                               CHAR cDateSep,
-                               ULONG ulTimeFormat,
-                               CHAR cTimeSep);
-    typedef NLSDATETIME *PNLSDATETIME;
-
-    APIRET XWPENTRY nlsUpper(PSZ psz, ULONG ulLength);
-
-    /*
-     *@@ STRINGENTITY:
+    /* ******************************************************************
      *
-     *@@added V0.9.16 (2001-09-29) [umoeller]
-     */
+     *   DBCS support
+     *
+     ********************************************************************/
 
-    typedef struct _STRINGENTITY
-    {
-        PCSZ    pcszEntity;
-        PCSZ    *ppcszString;
-    } STRINGENTITY, *PSTRINGENTITY;
+    #define TYPE_SBCS           0x0000
+    #define TYPE_DBCS_1ST       0x0001
+    #define TYPE_DBCS_2ND       0x0002
 
-    typedef const struct _STRINGENTITY *PCSTRINGENTITY;
+    BOOL XWPENTRY nlsDBCS(VOID);
 
-    VOID nlsInitStrings(HAB hab,
-                        HMODULE hmod,
-                        PCSTRINGENTITY paEntities,
-                        ULONG cEntities);
+    ULONG XWPENTRY nlsQueryDBCSChar(PCSZ pcszString,
+                                    ULONG ulOfs);
 
-    PCSZ nlsGetString(ULONG ulStringID);
+    PSZ XWPENTRY nlschr(PCSZ p, char c);
+
+    PSZ XWPENTRY nlsrchr(PCSZ p, char c);
+
+    /* ******************************************************************
+     *
+     *   Country-dependent formatting
+     *
+     ********************************************************************/
+
+    #ifdef OS2_INCLUDED
+
+        /*
+         *@@ COUNTRYSETTINGS:
+         *      structure used for returning country settings
+         *      with nlsQueryCountrySettings.
+         */
+
+        typedef struct _COUNTRYSETTINGS
+        {
+            ULONG   ulDateFormat,
+                            // date format:
+                            // --  0   mm.dd.yyyy  (English)
+                            // --  1   dd.mm.yyyy  (e.g. German)
+                            // --  2   yyyy.mm.dd  (Japanese)
+                            // --  3   yyyy.dd.mm
+                    ulTimeFormat;
+                            // time format:
+                            // --  0   12-hour clock
+                            // --  >0  24-hour clock
+            CHAR    cDateSep,
+                            // date separator (e.g. '/')
+                    cTimeSep,
+                            // time separator (e.g. ':')
+                    cDecimal,
+                            // decimal separator (e.g. '.')
+                    cThousands;
+                            // thousands separator (e.g. ',')
+        } COUNTRYSETTINGS, *PCOUNTRYSETTINGS;
+
+        VOID XWPENTRY nlsQueryCountrySettings(PCOUNTRYSETTINGS pcs);
+
+        PSZ XWPENTRY nlsThousandsULong(PSZ pszTarget, ULONG ul, CHAR cThousands);
+        typedef PSZ XWPENTRY NLSTHOUSANDSULONG(PSZ pszTarget, ULONG ul, CHAR cThousands);
+        typedef NLSTHOUSANDSULONG *PNLSTHOUSANDSULONG;
+
+        PSZ XWPENTRY nlsThousandsDouble(PSZ pszTarget, double dbl, CHAR cThousands);
+
+        PSZ XWPENTRY nlsVariableDouble(PSZ pszTarget,
+                                       double dbl,
+                                       PSZ pszUnits,
+                                       CHAR cThousands);
+
+        VOID XWPENTRY nlsFileDate(PSZ pszBuf,
+                                  FDATE *pfDate,
+                                  ULONG ulDateFormat,
+                                  CHAR cDateSep);
+
+        VOID XWPENTRY nlsFileTime(PSZ pszBuf,
+                                  FTIME *pfTime,
+                                  ULONG ulTimeFormat,
+                                  CHAR cTimeSep);
+
+        VOID XWPENTRY nlsDateTime(PSZ pszDate,
+                                  PSZ pszTime,
+                                  DATETIME *pDateTime,
+                                  ULONG ulDateFormat,
+                                  CHAR cDateSep,
+                                  ULONG ulTimeFormat,
+                                  CHAR cTimeSep);
+        typedef VOID XWPENTRY NLSDATETIME(PSZ pszDate,
+                                          PSZ pszTime,
+                                          DATETIME *pDateTime,
+                                          ULONG ulDateFormat,
+                                          CHAR cDateSep,
+                                          ULONG ulTimeFormat,
+                                          CHAR cTimeSep);
+        typedef NLSDATETIME *PNLSDATETIME;
+
+        APIRET XWPENTRY nlsUpper(PSZ psz, ULONG ulLength);
+
+    #endif
 
 #endif
 

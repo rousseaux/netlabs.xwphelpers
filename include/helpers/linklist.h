@@ -32,20 +32,8 @@ extern "C" {
         #error You must define XWPENTRY to contain the standard linkage for the XWPHelpers.
     #endif
 
-    // define some basic things to make this work even with standard C
-    #if (!defined OS2_INCLUDED) && (!defined _OS2_H) && (!defined __SIMPLES_DEFINED)   // changed V0.9.0 (99-10-22) [umoeller]
-        typedef unsigned long BOOL;
-        typedef unsigned long ULONG;
-        typedef unsigned char *PSZ;
-        #define TRUE (BOOL)1
-        #define FALSE (BOOL)0
-
-        #ifdef __IBMCPP__               // added V0.9.0 (99-10-22) [umoeller]
-            #define APIENTRY _System
-        #endif
-
-        #define __SIMPLES_DEFINED
-    #endif
+    #include "helpers\simples.h"
+            // V0.9.19 (2002-06-13) [umoeller]
 
     /* LISTITEM was used before V0.9.0 */
     /* typedef struct _LISTITEM {

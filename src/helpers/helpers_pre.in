@@ -63,6 +63,7 @@ $(OUTPUTDIR)\exeh.obj \
 $(OUTPUTDIR)\lan.obj \
 $(OUTPUTDIR)\level.obj \
 $(OUTPUTDIR)\nls.obj \
+$(OUTPUTDIR)\nlscache.obj \
 $(OUTPUTDIR)\procstat.obj \
 $(OUTPUTDIR)\prfh.obj \
 $(OUTPUTDIR)\prfh2.obj \
