@@ -90,41 +90,6 @@ extern "C" {
 
     ULONG strhWords(PSZ psz);
 
-    PSZ APIENTRY strhThousandsULong(PSZ pszTarget, ULONG ul, CHAR cThousands);
-    typedef PSZ APIENTRY STRHTHOUSANDSULONG(PSZ pszTarget, ULONG ul, CHAR cThousands);
-    typedef STRHTHOUSANDSULONG *PSTRHTHOUSANDSULONG;
-
-    PSZ strhThousandsDouble(PSZ pszTarget, double dbl, CHAR cThousands);
-
-    PSZ strhVariableDouble(PSZ pszTarget, double dbl, PSZ pszUnits,
-                           CHAR cThousands);
-
-    VOID strhFileDate(PSZ pszBuf,
-                      FDATE *pfDate,
-                      ULONG ulDateFormat,
-                      CHAR cDateSep);
-
-    VOID strhFileTime(PSZ pszBuf,
-                      FTIME *pfTime,
-                      ULONG ulTimeFormat,
-                      CHAR cTimeSep);
-
-    VOID APIENTRY strhDateTime(PSZ pszDate,
-                               PSZ pszTime,
-                               DATETIME *pDateTime,
-                               ULONG ulDateFormat,
-                               CHAR cDateSep,
-                               ULONG ulTimeFormat,
-                               CHAR cTimeSep);
-    typedef VOID APIENTRY STRHDATETIME(PSZ pszDate,
-                               PSZ pszTime,
-                               DATETIME *pDateTime,
-                               ULONG ulDateFormat,
-                               CHAR cDateSep,
-                               ULONG ulTimeFormat,
-                               CHAR cTimeSep);
-    typedef STRHDATETIME *PSTRHDATETIME;
-
     #define STRH_BEGIN_CHARS    "\x0d\x0a "
     #define STRH_END_CHARS      "\x0d\x0a /-"
 

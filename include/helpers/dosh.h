@@ -835,7 +835,7 @@ extern "C" {
 
     } LVMINFO, *PLVMINFO;
 
-    #define DOSH_PARTITIONS_LIMIT   10
+    /* #define DOSH_PARTITIONS_LIMIT   10
 
     #define PAR_UNUSED      0x00    // Unused
     #define PAR_FAT12SMALL  0x01    // DOS FAT 12-bit < 10 Mb
@@ -880,6 +880,7 @@ extern "C" {
     #define PAR_LINUXFILE   0x83    // Linux File System
     #define PAR_FREEBSD     0xA5    // FreeBSD
     #define PAR_BBT         0xFF    // BBT
+    */
 
     // one-byte alignment
     #pragma pack(1)
@@ -965,14 +966,15 @@ extern "C" {
 
     typedef struct _PARTITIONINFO
     {
-        BYTE  bDisk;                 // drive number
-        CHAR  cLetter;               // probable drive letter or ' ' if none
-        BYTE  bFSType;               // file system type
-        CHAR  szFSType[10];          // file system name (created by us)
-        BOOL  fPrimary;              // primary partition?
-        BOOL  fBootable;             // bootable by Boot Manager?
-        CHAR  szBootName[9];         // Boot Manager name, if (fBootable)
-        ULONG ulSize;                // size MBytes
+        BYTE    bDisk;                 // drive number
+        CHAR    cLetter;               // probable drive letter or ' ' if none
+        BYTE    bFSType;               // file system type
+        PCSZ    pcszFSType;            // file system name (as returned by
+                                       // doshType2FSName, can be NULL!)
+        BOOL    fPrimary;              // primary partition?
+        BOOL    fBootable;             // bootable by Boot Manager?
+        CHAR    szBootName[9];         // Boot Manager name, if (fBootable)
+        ULONG   ulSize;                // size MBytes
         PPARTITIONINFO pNext;        // next info or NULL if last
     } PARTITIONINFO;
 

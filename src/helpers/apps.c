@@ -475,6 +475,193 @@ APIRET appFreeEnvironment(PDOSENVIRONMENT pEnv)
 
 /* ******************************************************************
  *
+ *   Application information
+ *
+ ********************************************************************/
+
+/*
+ *@@ appQueryAppType:
+ *      returns the Control Program (Dos) and
+ *      Win* PROG_* application types for the
+ *      specified executable. Essentially, this
+ *      is a wrapper around DosQueryAppType.
+ *
+ *      pcszExecutable must be fully qualified.
+ *      You can use doshFindExecutable to qualify
+ *      it.
+ *
+ *      This returns the APIRET of DosQueryAppType.
+ *      If this is NO_ERROR; *pulDosAppType receives
+ *      the app type of DosQueryAppType. In addition,
+ *      *pulWinAppType is set to one of the following:
+ *
+ *      --  PROG_FULLSCREEN
+ *
+ *      --  PROG_PDD
+ *
+ *      --  PROG_VDD
+ *
+ *      --  PROG_DLL
+ *
+ *      --  PROG_WINDOWEDVDM
+ *
+ *      --  PROG_PM
+ *
+ *      --  PROG_31_ENHSEAMLESSCOMMON
+ *
+ *      --  PROG_WINDOWABLEVIO
+ *
+ *@@added V0.9.9 (2001-03-07) [umoeller]
+ *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from winh.c to apps.c
+ *@@changed V0.9.14 (2001-08-07) [pr]: use FAPPTYP_* constants
+ */
+
+APIRET appQueryAppType(const char *pcszExecutable,
+                        PULONG pulDosAppType,
+                        PULONG pulWinAppType)
+{
+    APIRET arc = DosQueryAppType((PSZ)pcszExecutable, pulDosAppType);
+    if (arc == NO_ERROR)
+    {
+        ULONG _ulDosAppType = *pulDosAppType;
+
+        if (_ulDosAppType == 0)
+            *pulWinAppType = PROG_FULLSCREEN;
+        else if (_ulDosAppType & FAPPTYP_PHYSDRV)       // 0x40
+            *pulWinAppType = PROG_PDD;
+        else if (_ulDosAppType & FAPPTYP_VIRTDRV)       // 0x80)
+            *pulWinAppType = PROG_VDD;
+        else if ((_ulDosAppType & 0xF0) == FAPPTYP_DLL) // 0x10)
+            // DLL bit set
+            *pulWinAppType = PROG_DLL;
+        else if (_ulDosAppType & FAPPTYP_DOS)           // 0x20)
+            // DOS bit set?
+            *pulWinAppType = PROG_WINDOWEDVDM;
+        else if ((_ulDosAppType & FAPPTYP_WINDOWAPI) == FAPPTYP_WINDOWAPI) // 0x0003) // "Window-API" == PM
+            *pulWinAppType = PROG_PM;
+        else if (   ((_ulDosAppType & 0xFFFF) == FAPPTYP_WINDOWSPROT31) // 0x1000) // windows program (?!?)
+                 || ((_ulDosAppType & 0xFFFF) == FAPPTYP_WINDOWSPROT) // ) // windows program (?!?)
+                )
+            *pulWinAppType = PROG_31_ENHSEAMLESSCOMMON;  // PROG_31_ENH;
+            // *pulWinAppType = PROG_31_ENHSEAMLESSVDM;
+        else if ((_ulDosAppType & FAPPTYP_WINDOWAPI /* 0x03 */ ) == FAPPTYP_WINDOWCOMPAT) // 0x02)
+            *pulWinAppType = PROG_WINDOWABLEVIO;
+        else if ((_ulDosAppType & FAPPTYP_WINDOWAPI /* 0x03 */ ) == FAPPTYP_NOTWINDOWCOMPAT) // 0x01)
+            *pulWinAppType = PROG_FULLSCREEN;
+    }
+
+    return (arc);
+}
+
+/*
+ *@@ appDescribeAppType:
+ *      returns a "PROG_*" string for the given
+ *      program type. Useful for WPProgram setup
+ *      strings and such.
+ *
+ *@@added V0.9.16 (2001-10-06)
+ */
+
+PCSZ appDescribeAppType(PROGCATEGORY progc)        // in: from PROGDETAILS.progc
+{
+    switch (progc)
+    {
+        case PROG_DEFAULT: return "PROG_DEFAULT";
+        case PROG_FULLSCREEN: return "PROG_FULLSCREEN";
+        case PROG_WINDOWABLEVIO: return "PROG_WINDOWABLEVIO";
+        case PROG_PM: return "PROG_PM";
+        case PROG_GROUP: return "PROG_GROUP";
+        case PROG_VDM: return "PROG_VDM";
+            // same as case PROG_REAL: return "PROG_REAL";
+        case PROG_WINDOWEDVDM: return "PROG_WINDOWEDVDM";
+        case PROG_DLL: return "PROG_DLL";
+        case PROG_PDD: return "PROG_PDD";
+        case PROG_VDD: return "PROG_VDD";
+        case PROG_WINDOW_REAL: return "PROG_WINDOW_REAL";
+        case PROG_30_STD: return "PROG_30_STD";
+            // same as case PROG_WINDOW_PROT: return "PROG_WINDOW_PROT";
+        case PROG_WINDOW_AUTO: return "PROG_WINDOW_AUTO";
+        case PROG_30_STDSEAMLESSVDM: return "PROG_30_STDSEAMLESSVDM";
+            // same as case PROG_SEAMLESSVDM: return "PROG_SEAMLESSVDM";
+        case PROG_30_STDSEAMLESSCOMMON: return "PROG_30_STDSEAMLESSCOMMON";
+            // same as case PROG_SEAMLESSCOMMON: return "PROG_SEAMLESSCOMMON";
+        case PROG_31_STDSEAMLESSVDM: return "PROG_31_STDSEAMLESSVDM";
+        case PROG_31_STDSEAMLESSCOMMON: return "PROG_31_STDSEAMLESSCOMMON";
+        case PROG_31_ENHSEAMLESSVDM: return "PROG_31_ENHSEAMLESSVDM";
+        case PROG_31_ENHSEAMLESSCOMMON: return "PROG_31_ENHSEAMLESSCOMMON";
+        case PROG_31_ENH: return "PROG_31_ENH";
+        case PROG_31_STD: return "PROG_31_STD";
+
+// Warp 4 toolkit defines, whatever these were designed for...
+#ifndef PROG_DOS_GAME
+    #define PROG_DOS_GAME            (PROGCATEGORY)21
+#endif
+#ifndef PROG_WIN_GAME
+    #define PROG_WIN_GAME            (PROGCATEGORY)22
+#endif
+#ifndef PROG_DOS_MODE
+    #define PROG_DOS_MODE            (PROGCATEGORY)23
+#endif
+
+        case PROG_DOS_GAME: return "PROG_DOS_GAME";
+        case PROG_WIN_GAME: return "PROG_WIN_GAME";
+        case PROG_DOS_MODE: return "PROG_DOS_MODE";
+    }
+
+    return NULL;
+}
+
+/*
+ *@@ appIsWindowsApp:
+ *      checks the specified program category
+ *      (PROGDETAILS.progt.progc) for whether
+ *      it represents a Win-OS/2 application.
+ *
+ *      Returns:
+ *
+ *      -- 0: no windows app (it's VIO, OS/2
+ *            or DOS fullscreen, or PM).
+ *
+ *      -- 1: Win-OS/2 standard app.
+ *
+ *      -- 2: Win-OS/2 enhanced-mode app.
+ *
+ *@@added V0.9.12 (2001-05-26) [umoeller]
+ */
+
+ULONG appIsWindowsApp(ULONG ulProgCategory)
+{
+    switch (ulProgCategory)
+    {
+        case PROG_31_ENHSEAMLESSVDM:        // 17
+        case PROG_31_ENHSEAMLESSCOMMON:     // 18
+        case PROG_31_ENH:                   // 19
+            return (2);
+
+#ifndef PROG_30_STD
+    #define PROG_30_STD (PROGCATEGORY)11
+#endif
+
+#ifndef PROG_30_STDSEAMLESSVDM
+    #define PROG_30_STDSEAMLESSVDM (PROGCATEGORY)13
+#endif
+
+        case PROG_WINDOW_REAL:              // 10
+        case PROG_30_STD:                   // 11
+        case PROG_WINDOW_AUTO:              // 12
+        case PROG_30_STDSEAMLESSVDM:        // 13
+        case PROG_30_STDSEAMLESSCOMMON:     // 14
+        case PROG_31_STDSEAMLESSVDM:        // 15
+        case PROG_31_STDSEAMLESSCOMMON:     // 16
+        case PROG_31_STD:                   // 20
+            return (1);
+    }
+
+    return (0);
+}
+
+/* ******************************************************************
+ *
  *   Application start
  *
  ********************************************************************/
@@ -532,130 +719,6 @@ VOID CallBatchCorrectly(PPROGDETAILS pProgDetails,
     if (!pProgDetails->pszExecutable)
         pProgDetails->pszExecutable = (PSZ)pcszDefProc;
                 // should be on PATH
-}
-
-/*
- *@@ appQueryAppType:
- *      returns the Control Program (Dos) and
- *      Win* PROG_* application types for the
- *      specified executable. Essentially, this
- *      is a wrapper around DosQueryAppType.
- *
- *      pcszExecutable must be fully qualified.
- *      You can use doshFindExecutable to qualify
- *      it.
- *
- *      This returns the APIRET of DosQueryAppType.
- *      If this is NO_ERROR; *pulDosAppType receives
- *      the app type of DosQueryAppType. In addition,
- *      *pulWinAppType is set to one of the following:
- *
- *      --  PROG_FULLSCREEN
- *
- *      --  PROG_PDD
- *
- *      --  PROG_VDD
- *
- *      --  PROG_XWP_DLL: new apptype defined in winh.h for
- *          dynamic link libraries.
- *
- *      --  PROG_WINDOWEDVDM
- *
- *      --  PROG_PM
- *
- *      --  PROG_31_ENHSEAMLESSCOMMON
- *
- *      --  PROG_WINDOWABLEVIO
- *
- *@@added V0.9.9 (2001-03-07) [umoeller]
- *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from winh.c to apps.c
- *@@changed V0.9.14 (2001-08-07) [pr]: use FAPPTYP_* constants
- */
-
-APIRET appQueryAppType(const char *pcszExecutable,
-                        PULONG pulDosAppType,
-                        PULONG pulWinAppType)
-{
-    APIRET arc = DosQueryAppType((PSZ)pcszExecutable, pulDosAppType);
-    if (arc == NO_ERROR)
-    {
-        ULONG _ulDosAppType = *pulDosAppType;
-
-        if (_ulDosAppType == 0)
-            *pulWinAppType = PROG_FULLSCREEN;
-        else if (_ulDosAppType & FAPPTYP_PHYSDRV)       // 0x40
-            *pulWinAppType = PROG_PDD;
-        else if (_ulDosAppType & FAPPTYP_VIRTDRV)       // 0x80)
-            *pulWinAppType = PROG_VDD;
-        else if ((_ulDosAppType & 0xF0) == FAPPTYP_DLL) // 0x10)
-            // DLL bit set
-            *pulWinAppType = PROG_XWP_DLL;
-        else if (_ulDosAppType & FAPPTYP_DOS)           // 0x20)
-            // DOS bit set?
-            *pulWinAppType = PROG_WINDOWEDVDM;
-        else if ((_ulDosAppType & FAPPTYP_WINDOWAPI) == FAPPTYP_WINDOWAPI) // 0x0003) // "Window-API" == PM
-            *pulWinAppType = PROG_PM;
-        else if (   ((_ulDosAppType & 0xFFFF) == FAPPTYP_WINDOWSPROT31) // 0x1000) // windows program (?!?)
-                 || ((_ulDosAppType & 0xFFFF) == FAPPTYP_WINDOWSPROT) // ) // windows program (?!?)
-                )
-            *pulWinAppType = PROG_31_ENHSEAMLESSCOMMON;  // PROG_31_ENH;
-            // *pulWinAppType = PROG_31_ENHSEAMLESSVDM;
-        else if ((_ulDosAppType & FAPPTYP_WINDOWAPI /* 0x03 */ ) == FAPPTYP_WINDOWCOMPAT) // 0x02)
-            *pulWinAppType = PROG_WINDOWABLEVIO;
-        else if ((_ulDosAppType & FAPPTYP_WINDOWAPI /* 0x03 */ ) == FAPPTYP_NOTWINDOWCOMPAT) // 0x01)
-            *pulWinAppType = PROG_FULLSCREEN;
-    }
-
-    return (arc);
-}
-
-/*
- *@@ appIsWindowsApp:
- *      checks the specified program category
- *      (PROGDETAILS.progt.progc) for whether
- *      it represents a Win-OS/2 application.
- *
- *      Returns:
- *
- *      -- 0: no windows app (it's VIO, OS/2
- *            or DOS fullscreen, or PM).
- *
- *      -- 1: Win-OS/2 standard app.
- *
- *      -- 2: Win-OS/2 enhanced-mode app.
- *
- *@@added V0.9.12 (2001-05-26) [umoeller]
- */
-
-ULONG appIsWindowsApp(ULONG ulProgCategory)
-{
-    switch (ulProgCategory)
-    {
-        case PROG_31_ENHSEAMLESSVDM:        // 17
-        case PROG_31_ENHSEAMLESSCOMMON:     // 18
-        case PROG_31_ENH:                   // 19
-            return (2);
-
-#ifndef PROG_30_STD
-    #define PROG_30_STD (PROGCATEGORY)11
-#endif
-
-#ifndef PROG_30_STDSEAMLESSVDM
-    #define PROG_30_STDSEAMLESSVDM (PROGCATEGORY)13
-#endif
-
-        case PROG_WINDOW_REAL:              // 10
-        case PROG_30_STD:                   // 11
-        case PROG_WINDOW_AUTO:              // 12
-        case PROG_30_STDSEAMLESSVDM:        // 13
-        case PROG_30_STDSEAMLESSCOMMON:     // 14
-        case PROG_31_STDSEAMLESSVDM:        // 15
-        case PROG_31_STDSEAMLESSCOMMON:     // 16
-        case PROG_31_STD:                   // 20
-            return (1);
-    }
-
-    return (0);
 }
 
 /*

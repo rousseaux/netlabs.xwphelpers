@@ -194,12 +194,12 @@
     }
 
     /*
-     *@@ winhSetWindowText:
+     *@@ winhSetWindowText2:
      *
      *@@added V0.9.13 (2001-06-21) [umoeller]
      */
 
-    BOOL winhSetWindowText(HWND hwnd, const char *pcsz)
+    BOOL winhSetWindowText2(HWND hwnd, const char *pcsz)
     {
         // put the call in brackets so the macro won't apply here
         return (WinSetWindowText)(hwnd, (PSZ)pcsz);
@@ -3415,6 +3415,32 @@ PSZ winhQueryWindowText(HWND hwnd)
                                pszText);
     }
     return (pszText);
+}
+
+/*
+ *@@ winhSetWindowText:
+ *      like WinSetWindowText, but this one accepts
+ *      printf-like arguments.
+ *
+ *      Note that the total string is limited to
+ *      1000 characters.
+ *
+ *@@added V0.9.16 (2001-10-08) [umoeller]
+ */
+
+BOOL winhSetWindowText(HWND hwnd,
+                       const char *pcszFormat,
+                       ...)
+{
+    CHAR szBuf[1000];
+    va_list     args;
+    int         i;
+    va_start(args, pcszFormat);
+    i = vsprintf(szBuf, pcszFormat, args);
+    va_end(args);
+
+    return (WinSetWindowText(hwnd,
+                             szBuf));
 }
 
 /*

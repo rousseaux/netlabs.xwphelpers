@@ -9,8 +9,8 @@
 extern "C" {
 #endif
 
-#ifndef SFLTREE_INCLUDED               //  Allow multiple inclusions
-    #define SFLTREE_INCLUDED
+#ifndef XWPTREE_INCLUDED               //  Allow multiple inclusions
+    #define XWPTREE_INCLUDED
 
     #if (!defined OS2_INCLUDED) && (!defined _OS2_H) && (!defined __SIMPLES_DEFINED)   // changed V0.9.0 (99-10-22) [umoeller]
         typedef unsigned long BOOL;

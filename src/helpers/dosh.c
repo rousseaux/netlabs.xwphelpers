@@ -68,7 +68,7 @@
 
 #pragma hdrstop
 
-static const CHAR  G_acDriveLetters[28] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+// static const CHAR  G_acDriveLetters[28] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 /*
  *@@category: Helpers\Control program helpers\Miscellaneous
@@ -702,7 +702,7 @@ VOID doshEnumDrives(PSZ pszBuffer,      // out: drive letters
             ULONG  cbBuffer   = sizeof(fsqBuffer);        // Buffer length)
             PFSQBUFFER2 pfsqBuffer = (PFSQBUFFER2)fsqBuffer;
 
-            szName[0] = G_acDriveLetters[ulLogicalDrive];
+            szName[0] = ulLogicalDrive + 'A' - 1;
             szName[1] = ':';
             szName[2] = '\0';
 
@@ -752,7 +752,7 @@ CHAR doshQueryBootDrive(VOID)
     DosQuerySysInfo(QSV_BOOT_DRIVE, QSV_BOOT_DRIVE,
                     &ulBootDrive,
                     sizeof(ulBootDrive));
-    return (G_acDriveLetters[ulBootDrive]);
+    return (ulBootDrive + 'A' - 1);
 }
 
 /*
@@ -1033,6 +1033,7 @@ APIRET doshQueryDiskFree(ULONG ulLogicalDrive, // in: 1 for A:, 2 for B:, 3 for 
  *
  *@@changed V0.9.1 (99-12-12) [umoeller]: added cbBuf to prototype
  *@@changed V0.9.14 (2001-08-01) [umoeller]: fixed, this never respected cbBuf
+ *@@changed V0.9.16 (2001-10-02) [umoeller]: added check for valid logical disk no
  */
 
 APIRET doshQueryDiskFSType(ULONG ulLogicalDrive, // in:  1 for A:, 2 for B:, 3 for C:, ...
@@ -1047,30 +1048,35 @@ APIRET doshQueryDiskFSType(ULONG ulLogicalDrive, // in:  1 for A:, 2 for B:, 3 f
     PFSQBUFFER2 pfsqBuffer = (PFSQBUFFER2)fsqBuffer;
 
     // compose "D:"-type string from logical drive letter
-    szName[0] = G_acDriveLetters[ulLogicalDrive];
-    szName[1] = ':';
-    szName[2] = '\0';
-
-    arc = DosQueryFSAttach(szName,          // logical drive of attached FS ("D:"-style)
-                           0,               // ulOrdinal, ignored for FSAIL_QUERYNAME
-                           FSAIL_QUERYNAME, // return name for a drive or device
-                           pfsqBuffer,      // buffer for returned data
-                           &cbBuffer);      // sizeof(*pfsqBuffer)
-
-    if (arc == NO_ERROR)
+    if (ulLogicalDrive > 0 && ulLogicalDrive < 27)
     {
-        if (pszBuf)
+        szName[0] = ulLogicalDrive + 'A' - 1;
+        szName[1] = ':';
+        szName[2] = '\0';
+
+        arc = DosQueryFSAttach(szName,          // logical drive of attached FS ("D:"-style)
+                               0,               // ulOrdinal, ignored for FSAIL_QUERYNAME
+                               FSAIL_QUERYNAME, // return name for a drive or device
+                               pfsqBuffer,      // buffer for returned data
+                               &cbBuffer);      // sizeof(*pfsqBuffer)
+
+        if (arc == NO_ERROR)
         {
-            // The data for the last three fields in the FSQBUFFER2
-            // structure are stored at the offset of fsqBuffer.szName.
-            // Each data field following fsqBuffer.szName begins
-            // immediately after the previous item.
-            strncpy(pszBuf,
-                    (CHAR*)(&pfsqBuffer->szName) + pfsqBuffer->cbName + 1,
-                    cbBuf);         // V0.9.14 (2001-08-01) [umoeller]
-            *(pszBuf + cbBuf) = '\0';
+            if (pszBuf)
+            {
+                // The data for the last three fields in the FSQBUFFER2
+                // structure are stored at the offset of fsqBuffer.szName.
+                // Each data field following fsqBuffer.szName begins
+                // immediately after the previous item.
+                strncpy(pszBuf,
+                        (CHAR*)(&pfsqBuffer->szName) + pfsqBuffer->cbName + 1,
+                        cbBuf);         // V0.9.14 (2001-08-01) [umoeller]
+                *(pszBuf + cbBuf) = '\0';
+            }
         }
     }
+    else
+        arc = ERROR_INVALID_PARAMETER; // V0.9.16 (2001-10-02) [umoeller]
 
     return (arc);
 }
@@ -1882,9 +1888,10 @@ APIRET doshWriteToLogFile(HFILE hfLog, const char* pcsz)
         CHAR szTemp[2000];
         ULONG   cbWritten;
         DosGetDateTime(&dt);
-        sprintf(szTemp, "Time: %02d:%02d:%02d %s",
-            dt.hours, dt.minutes, dt.seconds,
-            pcsz);
+        sprintf(szTemp,
+                "Time: %02d:%02d:%02d %s",
+                dt.hours, dt.minutes, dt.seconds,
+                pcsz);
         return (DosWrite(hfLog, (PVOID)szTemp, strlen(szTemp), &cbWritten));
     }
     else return (ERROR_INVALID_HANDLE);
@@ -1999,11 +2006,10 @@ APIRET doshQueryCurrentDir(PSZ pszBuf)
     APIRET arc = NO_ERROR;
     ULONG   ulCurDisk = 0;
     ULONG   ulMap = 0;
-    arc = DosQueryCurrentDisk(&ulCurDisk, &ulMap);
-    if (arc == NO_ERROR)
+    if (!(arc = DosQueryCurrentDisk(&ulCurDisk, &ulMap)))
     {
         ULONG   cbBuf = CCHMAXPATH - 3;
-        *pszBuf = G_acDriveLetters[ulCurDisk];
+        *pszBuf = ulCurDisk + 'A' - 1;
         *(pszBuf + 1) = ':';
         *(pszBuf + 2) = '\\';
         arc = DosQueryCurrentDir(0, pszBuf + 3, &cbBuf);
@@ -2269,76 +2275,53 @@ APIRET doshPerfOpen(PDOSHPERFSYS *ppPerfSys)  // out: new DOSHPERFSYS structure
         memset(pPerfSys, 0, sizeof(*pPerfSys));
 
         // resolve DosPerfSysCall API entry
-        arc = DosLoadModule(NULL, 0, "DOSCALLS", &pPerfSys->hmod);
-        if (arc == NO_ERROR)
+        if (!(arc = DosLoadModule(NULL, 0, "DOSCALLS", &pPerfSys->hmod)))
         {
-            arc = DosQueryProcAddr(pPerfSys->hmod,
-                                   976,
-                                   "DosPerfSysCall",
-                                   (PFN*)(&pPerfSys->pDosPerfSysCall));
-            if (arc == NO_ERROR)
+            if (!(arc = DosQueryProcAddr(pPerfSys->hmod,
+                                         976,
+                                         "DosPerfSysCall",
+                                         (PFN*)(&pPerfSys->pDosPerfSysCall))))
             {
                 // OK, we got the API: initialize!
-                arc = pPerfSys->pDosPerfSysCall(CMD_KI_ENABLE, 0, 0, 0);
-                if (arc == NO_ERROR)
+                if (!(arc = pPerfSys->pDosPerfSysCall(CMD_KI_ENABLE, 0, 0, 0)))
                 {
                     pPerfSys->fInitialized = TRUE;
                             // call CMD_KI_DISABLE later
 
-                    arc = pPerfSys->pDosPerfSysCall(CMD_PERF_INFO,
-                                                    0,
-                                                    (ULONG)(&pPerfSys->cProcessors),
-                                                    0);
-                    if (arc == NO_ERROR)
+                    if (!(arc = pPerfSys->pDosPerfSysCall(CMD_PERF_INFO,
+                                                          0,
+                                                          (ULONG)(&pPerfSys->cProcessors),
+                                                          0)))
                     {
-                        ULONG   ul = 0;
+                        ULONG   ul = 0,
+                                cProcs = pPerfSys->cProcessors,
+                                cbDouble = cProcs * sizeof(double),
+                                cbLong = cProcs * sizeof(LONG);
 
                         // allocate arrays
-                        pPerfSys->paCPUUtils = (PCPUUTIL)calloc(pPerfSys->cProcessors,
-                                                                sizeof(CPUUTIL));
-                        if (!pPerfSys->paCPUUtils)
+                        if (    (!(pPerfSys->paCPUUtils = (PCPUUTIL)calloc(cProcs,
+                                                                sizeof(CPUUTIL))))
+                             || (!(pPerfSys->padBusyPrev
+                                    = (double*)malloc(cbDouble)))
+                             || (!(pPerfSys->padTimePrev
+                                    = (double*)malloc(cbDouble)))
+                             || (!(pPerfSys->padIntrPrev
+                                    = (double*)malloc(cbDouble)))
+                             || (!(pPerfSys->palLoads
+                                    = (PLONG)malloc(cbLong)))
+                             || (!(pPerfSys->palIntrs
+                                    = (PLONG)malloc(cbLong)))
+                           )
                             arc = ERROR_NOT_ENOUGH_MEMORY;
                         else
                         {
-                            pPerfSys->padBusyPrev = (double*)malloc(pPerfSys->cProcessors * sizeof(double));
-                            if (!pPerfSys->padBusyPrev)
-                                arc = ERROR_NOT_ENOUGH_MEMORY;
-                            else
+                            for (ul = 0; ul < cProcs; ul++)
                             {
-                                pPerfSys->padTimePrev
-                                    = (double*)malloc(pPerfSys->cProcessors * sizeof(double));
-                                if (!pPerfSys->padTimePrev)
-                                    arc = ERROR_NOT_ENOUGH_MEMORY;
-                                else
-                                {
-                                    pPerfSys->padIntrPrev
-                                        = (double*)malloc(pPerfSys->cProcessors * sizeof(double));
-                                    if (!pPerfSys->padIntrPrev)
-                                        arc = ERROR_NOT_ENOUGH_MEMORY;
-                                    else
-                                    {
-                                        pPerfSys->palLoads = (PLONG)malloc(pPerfSys->cProcessors * sizeof(LONG));
-                                        if (!pPerfSys->palLoads)
-                                            arc = ERROR_NOT_ENOUGH_MEMORY;
-                                        else
-                                        {
-                                            pPerfSys->palIntrs = (PLONG)malloc(pPerfSys->cProcessors * sizeof(LONG));
-                                            if (!pPerfSys->palIntrs)
-                                                arc = ERROR_NOT_ENOUGH_MEMORY;
-                                            else
-                                            {
-                                                for (ul = 0; ul < pPerfSys->cProcessors; ul++)
-                                                {
-                                                    pPerfSys->padBusyPrev[ul] = 0.0;
-                                                    pPerfSys->padTimePrev[ul] = 0.0;
-                                                    pPerfSys->padIntrPrev[ul] = 0.0;
-                                                    pPerfSys->palLoads[ul] = 0;
-                                                    pPerfSys->palIntrs[ul] = 0;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                                pPerfSys->padBusyPrev[ul] = 0.0;
+                                pPerfSys->padTimePrev[ul] = 0.0;
+                                pPerfSys->padIntrPrev[ul] = 0.0;
+                                pPerfSys->palLoads[ul] = 0;
+                                pPerfSys->palIntrs[ul] = 0;
                             }
                         }
                     }
@@ -2346,10 +2329,10 @@ APIRET doshPerfOpen(PDOSHPERFSYS *ppPerfSys)  // out: new DOSHPERFSYS structure
             } // end if (arc == NO_ERROR)
         } // end if (arc == NO_ERROR)
 
-        if (arc != NO_ERROR)
-        {
+        if (arc)
+            // error: clean up
             doshPerfClose(ppPerfSys);
-        }
+
     } // end else if (!*ppPerfSys)
 
     return (arc);
@@ -2404,10 +2387,9 @@ APIRET doshPerfGet(PDOSHPERFSYS pPerfSys)
         arc = ERROR_INVALID_PARAMETER;
     else
     {
-        arc = pPerfSys->pDosPerfSysCall(CMD_KI_RDCNT,
-                                        (ULONG)pPerfSys->paCPUUtils,
-                                        0, 0);
-        if (arc == NO_ERROR)
+        if (!(arc = pPerfSys->pDosPerfSysCall(CMD_KI_RDCNT,
+                                              (ULONG)pPerfSys->paCPUUtils,
+                                              0, 0)))
         {
             // go thru all processors
             ULONG ul = 0;

@@ -226,6 +226,68 @@ APIRET ProcessTable(PTABLEDEF pTableDef,
                     PDLGPRIVATE pDlgData);
 
 /*
+ *@@ SetDlgFont:
+ *
+ *@@added V0.9.16 (2001-10-11) [umoeller]
+ */
+
+VOID SetDlgFont(PCONTROLDEF pControlDef,
+                PDLGPRIVATE pDlgData)
+{
+    LONG lPointSize = 0;
+    const char *pcszFontThis = pControlDef->pcszFont;
+                    // can be NULL,
+                    // or CTL_COMMON_FONT
+
+    if (pcszFontThis == CTL_COMMON_FONT)
+        pcszFontThis = pDlgData->pcszControlsFont;
+
+    if (!pDlgData->hps)
+        pDlgData->hps = WinGetPS(pDlgData->hwndDlg);
+
+    // check if we can reuse font data from last time
+    // V0.9.14 (2001-08-01) [umoeller]
+    if (strhcmp(pcszFontThis,               // can be NULL!
+                pDlgData->pcszFontLast))
+    {
+        // different font than last time:
+
+        // delete old font?
+        if (pDlgData->lcidLast)
+        {
+            GpiSetCharSet(pDlgData->hps, LCID_DEFAULT);     // LCID_DEFAULT == 0
+            GpiDeleteSetId(pDlgData->hps, pDlgData->lcidLast);
+        }
+
+        if (pcszFontThis)
+        {
+            // create new font
+            pDlgData->lcidLast = gpihFindPresFont(NULLHANDLE,        // no window yet
+                                                  FALSE,
+                                                  pDlgData->hps,
+                                                  pcszFontThis,
+                                                  &pDlgData->fmLast,
+                                                  &lPointSize);
+
+            GpiSetCharSet(pDlgData->hps, pDlgData->lcidLast);
+            if (pDlgData->fmLast.fsDefn & FM_DEFN_OUTLINE)
+                gpihSetPointSize(pDlgData->hps, lPointSize);
+        }
+        else
+        {
+            // use default font:
+            // @@todo handle presparams, maybe inherited?
+            GpiSetCharSet(pDlgData->hps, LCID_DEFAULT);
+            GpiQueryFontMetrics(pDlgData->hps,
+                                sizeof(pDlgData->fmLast),
+                                &pDlgData->fmLast);
+        }
+
+        pDlgData->pcszFontLast = pcszFontThis;      // can be NULL
+    }
+}
+
+/*
  *@@ CalcAutoSizeText:
  *
  *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed various things with statics
@@ -238,52 +300,10 @@ VOID CalcAutoSizeText(PCONTROLDEF pControlDef,
                       PSIZEL pszlAuto,          // out: computed size
                       PDLGPRIVATE pDlgData)
 {
-    const char *pcszFontThis = pControlDef->pcszFont;
-                    // can be NULL,
-                    // or CTL_COMMON_FONT
+    SetDlgFont(pControlDef, pDlgData);
 
-    if (pcszFontThis == CTL_COMMON_FONT)
-        pcszFontThis = pDlgData->pcszControlsFont;
-
-    if (!pDlgData->hps)
-        pDlgData->hps = WinGetPS(pDlgData->hwndDlg);
-
-    if (pcszFontThis)
-    {
-        LONG lPointSize = 0;
-
-        // check if we can reuse font data from last time
-        // V0.9.14 (2001-08-01) [umoeller]
-        if (strhcmp(pcszFontThis,
-                    pDlgData->pcszFontLast))
-        {
-            // different font than last time:
-
-            // delete old font?
-            if (pDlgData->lcidLast)
-            {
-                GpiSetCharSet(pDlgData->hps, LCID_DEFAULT);
-                GpiDeleteSetId(pDlgData->hps, pDlgData->lcidLast);
-            }
-
-            // create new font
-            pDlgData->lcidLast = gpihFindPresFont(NULLHANDLE,        // no window yet
-                                                  FALSE,
-                                                  pDlgData->hps,
-                                                  pcszFontThis,
-                                                  &pDlgData->fmLast,
-                                                  &lPointSize);
-
-            GpiSetCharSet(pDlgData->hps, pDlgData->lcidLast);
-            if (pDlgData->fmLast.fsDefn & FM_DEFN_OUTLINE)
-                gpihSetPointSize(pDlgData->hps, lPointSize);
-
-            pDlgData->pcszFontLast = pcszFontThis;
-        }
-
-        pszlAuto->cy =   pDlgData->fmLast.lMaxBaselineExt
-                       + pDlgData->fmLast.lExternalLeading;
-    }
+    pszlAuto->cy =   pDlgData->fmLast.lMaxBaselineExt
+                   + pDlgData->fmLast.lExternalLeading;
 
     // ok, we FINALLY have a font now...
     // get the control string and see how much space it needs
@@ -395,6 +415,14 @@ VOID CalcAutoSize(PCONTROLDEF pControlDef,
                 pszlAuto->cy = WinQuerySysValue(HWND_DESKTOP, SV_CYICON);
             }
         break;
+
+        default:
+            // any other control (just to be safe):
+            SetDlgFont(pControlDef, pDlgData);
+            pszlAuto->cx = 50;
+            pszlAuto->cy =   pDlgData->fmLast.lMaxBaselineExt
+                           + pDlgData->fmLast.lExternalLeading
+                           + 5;         // some space
     }
 }
 
@@ -566,6 +594,8 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
     LHANDLE     lHandleSet = NULLHANDLE;
     ULONG       flOld = 0;
 
+    LONG        y, cy;              // for combo box hacks
+
     if (pColumnDef->fIsNestedTable)
     {
         // nested table:
@@ -587,6 +617,9 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
                 pControlDef = pTableDef->pCtlDef;
                 pcszTitle = pControlDef->pcszText;
                 flStyle = pControlDef->flStyle;
+
+                y = pcp->y + pDlgData->ptlTotalOfs.y;
+                cy = pcp->cy;
             }
         }
     }
@@ -597,6 +630,9 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
         pcp = &pColumnDef->cpControl;
         pcszTitle = pControlDef->pcszText;
         flStyle = pControlDef->flStyle;
+
+        y = pcp->y + pDlgData->ptlTotalOfs.y;
+        cy = pcp->cy;
 
         // change the title if this is a static with SS_BITMAP;
         // we have used a HBITMAP in there!
@@ -612,6 +648,16 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
             flStyle = ((flStyle & ~0x0F) | SS_FGNDFRAME);
             pcszTitle = "";
             lHandleSet = (LHANDLE)pControlDef->pcszText;
+        }
+        // hack the stupid drop-down combobox which doesn't
+        // expand otherwise (the size of the drop-down is
+        // the full size of the control... duh)
+        else if (    ((ULONG)pControlDef->pcszClass == 0xffff0002L)
+                  && (flStyle & (CBS_DROPDOWN | CBS_DROPDOWNLIST))
+                )
+        {
+            y -= 100;
+            cy += 100;
         }
     }
 
@@ -639,9 +685,9 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
                                     : "",
                               flStyle,      // hacked
                               pcp->x + pDlgData->ptlTotalOfs.x,
-                              pcp->y + pDlgData->ptlTotalOfs.y,
+                              y,
                               pcp->cx,
-                              pcp->cy,
+                              cy,
                               pDlgData->hwndDlg,   // owner
                               HWND_BOTTOM,
                               pControlDef->usID,

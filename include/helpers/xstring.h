@@ -102,6 +102,10 @@ extern "C" {
     typedef ULONG XWPENTRY XSTRRESERVE(PXSTRING pxstr, ULONG ulBytes);
     typedef XSTRRESERVE *PXSTRRESERVE;
 
+    void XWPENTRY xstrShrink(PXSTRING pxstr);
+    typedef void XWPENTRY XSTRSHRINK(PXSTRING pxstr);
+    typedef XSTRSHRINK *PXSTRSHRINK;
+
     PXSTRING XWPENTRY xstrCreate(ULONG ulPreAllocate);
     typedef PXSTRING XWPENTRY XSTRCREATE(ULONG ulPreAllocate);
     typedef XSTRCREATE *PXSTRCREATE;

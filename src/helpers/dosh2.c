@@ -2185,10 +2185,132 @@ APIRET doshExecFreeResources(PFSYSRESOURCE paResources)
 }
 
 /*
+ *@@ CopyToBuffer:
+ *      little helper for copying a string to
+ *      a target buffer with length checking.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR
+ *
+ *      --  ERROR_BUFFER_OVERFLOW if pszTarget does
+ *          not have enough room to hold pcszSource
+ *          (including the null terminator).
+ *
+ *@@added V0.9.16 (2001-10-08) [umoeller]
+ */
+
+APIRET CopyToBuffer(PSZ pszTarget,      // out: target buffer
+                    PCSZ pcszSource,    // in: source string
+                    ULONG cbTarget)     // in: size of target buffer
+{
+    ULONG ulLength = strlen(pcszSource);
+    if (ulLength < cbTarget)
+    {
+        memcpy(pszTarget,
+               pcszSource,
+               ulLength + 1);
+        return (NO_ERROR);
+    }
+
+    return(ERROR_BUFFER_OVERFLOW);
+}
+
+/*
+ *@@ doshSearchPath:
+ *      replacement for DosSearchPath.
+ *
+ *      This looks along all directories which are
+ *      specified in the value of the given environment
+ *      variable if pcszFile is found.
+ *
+ *      As opposed to the stupid DosSearchPath, this
+ *      ignores subdirectories in the path particles.
+ *      For example, DosSearchPath would usually not
+ *      find an INSTALL file because \OS2 contains
+ *      an INSTALL directory, or NETSCAPE because
+ *      \OS2\INSTALL contains a NETSCAPE directory.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR: pszExecutable has received the
+ *          full path of pcszFile.
+ *
+ *      --  ERROR_FILE_NOT_FOUND: pcszFile was not found
+ *          in the specified path (or is a directory).
+ *
+ *      --  ERROR_BUFFER_OVERFLOW: pcszFile was found, but
+ *          the pszExecutable buffer is too small to hold
+ *          the full path.
+ *
+ *@@added V0.9.16 (2001-10-08) [umoeller]
+ */
+
+APIRET doshSearchPath(const char *pcszPath,     // in: path variable name (e.g. "PATH")
+                      const char *pcszFile,     // in: file to look for (e.g. "LVM.EXE")
+                      PSZ pszExecutable,        // out: full path (e.g. "F:\os2\lvm.exe")
+                      ULONG cbExecutable)       // in: sizeof (*pszExecutable)
+{
+    APIRET arc = NO_ERROR;
+
+    // get the PATH value
+    PSZ pszPath;
+    if (!(arc = DosScanEnv((PSZ)pcszPath,
+                           &pszPath)))
+    {
+        // run thru the path components
+        PSZ pszPathCopy;
+        if (pszPathCopy = strdup(pszPath))
+        {
+            PSZ pszToken = strtok(pszPathCopy, ";");
+            while (pszToken)        // V0.9.12 (2001-05-03) [umoeller]
+            {
+                CHAR szFileMask[2*CCHMAXPATH];
+                FILESTATUS3 fs3;
+
+                sprintf(szFileMask,
+                        "%s\\%s",
+                        pszToken,           // path particle
+                        pcszFile);          // e.g. "netscape"
+
+                if (    (!(arc = DosQueryPathInfo(szFileMask,
+                                                  FIL_STANDARD,
+                                                  &fs3,
+                                                  sizeof(fs3))))
+                     // make sure it's not a directory
+                     // and that it's not hidden
+                     && (!(fs3.attrFile & (FILE_DIRECTORY | FILE_HIDDEN)))
+                   )
+                {
+                    // copy
+                    arc = CopyToBuffer(pszExecutable,
+                                       szFileMask,
+                                       cbExecutable);
+                    // and stop
+                    break;
+                }
+                else
+                    arc = ERROR_FILE_NOT_FOUND;
+                    // and search on
+
+                pszToken = strtok(NULL, ";");
+            };
+
+            free(pszPathCopy);
+        }
+        else
+            arc = ERROR_NOT_ENOUGH_MEMORY;
+    }
+
+    return (arc);
+}
+
+/*
  * FindFile:
  *      helper for doshFindExecutable.
  *
  *added V0.9.11 (2001-04-25) [umoeller]
+ *@@changed V0.9.16 (2001-10-08) [umoeller]: rewrote second half for DosSearchPath replacement, which returns directories too
  */
 
 APIRET FindFile(const char *pcszCommand,      // in: command (e.g. "lvm")
@@ -2209,20 +2331,32 @@ APIRET FindFile(const char *pcszCommand,      // in: command (e.g. "lvm")
                                sizeof(fs3));
         if (!arc)
             if (!(fs3.attrFile & FILE_DIRECTORY))
-                strhncpy0(pszExecutable,
-                          pcszCommand,
-                          cbExecutable);
+                arc = CopyToBuffer(pszExecutable,
+                                   pcszCommand,
+                                   cbExecutable);
             else
                 // directory:
                 arc = ERROR_INVALID_EXE_SIGNATURE;
     }
     else
+    {
         // non-qualified:
-        arc = DosSearchPath(SEARCH_IGNORENETERRS | SEARCH_ENVIRONMENT | SEARCH_CUR_DIRECTORY,
+        /* arc = DosSearchPath(SEARCH_IGNORENETERRS
+                                | SEARCH_ENVIRONMENT
+                                | SEARCH_CUR_DIRECTORY,
                             "PATH",
                             (PSZ)pcszCommand,
                             pszExecutable,
-                            cbExecutable);
+                            cbExecutable); */
+            // The above is not useable. It returns directories
+            // on the path... for example, it returns \OS2\INSTALL\NETSCAPE
+            // if netscape is looked for. So we search manually... sigh.
+            // V0.9.16 (2001-10-08) [umoeller]
+        arc = doshSearchPath("PATH",
+                             pcszCommand,
+                             pszExecutable,
+                             cbExecutable);
+    }
 
     return (arc);
 }
@@ -2234,13 +2368,16 @@ APIRET FindFile(const char *pcszCommand,      // in: command (e.g. "lvm")
  *
  *      1)  If pcszCommand appears to be qualified (i.e. contains
  *          a backslash), this checks for whether the file exists.
+ *          If it is a directory, ERROR_INVALID_EXE_SIGNATURE is
+ *          returned.
  *
- *      2)  If pcszCommand contains no backslash, this calls
- *          DosSearchPath in order to find the full path of the
- *          executable.
+ *      2)  If pcszCommand contains no backslash, this searches
+ *          all directories on the PATH in order to find the full
+ *          path of the executable. Starting with V0.9.16, we
+ *          use doshSearchPath for that.
  *
  *      papcszExtensions determines if additional searches are to be
- *      performed if the file doesn't exist (case 1) or DosSearchPath
+ *      performed if the file doesn't exist (case 1) or doshSearchPath
  *      returned ERROR_FILE_NOT_FOUND (case 2).
  *      This must point to an array of strings specifying the extra
  *      extensions to search for.
@@ -2248,9 +2385,16 @@ APIRET FindFile(const char *pcszCommand,      // in: command (e.g. "lvm")
  *      If both papcszExtensions and cExtensions are null, no
  *      extra searches are performed.
  *
- *      If this returns NO_ERROR, pszExecutable receives
- *      the full path of the executable found by DosSearchPath.
- *      Otherwise ERROR_FILE_NOT_FOUND is returned.
+ *      Returns:
+ *
+ *      --  NO_ERROR: pszExecutable has received the full path of
+ *          the executable found by DosSearchPath.
+ *
+ *      --  ERROR_FILE_NOT_FOUND
+ *
+ *      --  ERROR_BUFFER_OVERFLOW: pcszCommand was found, but
+ *          the pszExecutable buffer is too small to hold
+ *          the full path.
  *
  *      Example:
  *
@@ -2293,7 +2437,10 @@ APIRET doshFindExecutable(const char *pcszCommand,      // in: command (e.g. "lv
                  ul++)
             {
                 const char *pcszExtThis = papcszExtensions[ul];
-                sprintf(psz2, "%s.%s", pcszCommand, pcszExtThis);
+                sprintf(psz2,
+                        "%s.%s",
+                        pcszCommand,
+                        pcszExtThis);
                 arc = FindFile(psz2,
                                pszExecutable,
                                cbExecutable);
@@ -2327,18 +2474,201 @@ APIRET doshFindExecutable(const char *pcszCommand,      // in: command (e.g. "lv
  *      returns the no. of physical disks installed
  *      on the system.
  *
- *      Based on code (C) Dmitry A. Steklenev.
- *
  *@@added V0.9.0 [umoeller]
  */
 
 UINT doshQueryDiskCount(VOID)
 {
-    USHORT count = 0;
-
-    DosPhysicalDisk(INFO_COUNT_PARTITIONABLE_DISKS, &count, 2, 0, 0);
-    return (count);
+    USHORT usCount = 0;
+    DosPhysicalDisk(INFO_COUNT_PARTITIONABLE_DISKS, &usCount, 2, 0, 0);
+    return (usCount);
 }
+
+/*
+ *@@ doshType2FSName:
+ *      this returns a static, zero-terminated string
+ *      for the given FS type, or NULL if the type
+ *      is unknown.
+ *
+ *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.16 (2001-10-08) [umoeller]: rewritten
+ */
+
+const char* doshType2FSName(unsigned char bFSType)  // in: FS type
+{
+    switch (bFSType)
+    {
+        case 0x00: return "empty";
+        case 0x01: return "DOS 12-bit FAT < 10 Mb";
+        case 0x02: return "XENIX root file system";
+        case 0x03: return "XENIX /usr file system (obsolete)";
+        case 0x04: return "DOS 16-bit FAT < 32 Mb";
+        case 0x05: return "DOS 3.3+ extended partition";
+        case 0x06: return "DOS 3.31+ 16-bit FAT > 32 Mb";
+        case 0x07: return "HPFS/NTFS/QNX/Advanced Unix";
+        case 0x08: return "OS/2 1.0-1.3/AIX/Commodore/DELL";
+        case 0x09: return "AIX data/Coherent";
+        case 0x0A: return "OS/2 Boot Manager/OPUS/Coherent Swap";
+        case 0x0B: return "Windows95 with 32-bit FAT";
+        case 0x0C: return "Windows95 with 32-bit FAT (LBA)";
+        case 0x0E: return "Windows 95 VFAT (06h plus LBA)";
+        case 0x0F: return "Windows 95 VFAT (05h plus LBA)";
+        case 0x10: return "OPUS";
+        case 0x11: return "OS/2 Boot Manager hidden 12-bit FAT";
+        case 0x12: return "Compaq Diagnostics";
+        case 0x14: return "OS/2 Boot Manager hidden sub-32M 16-bit FAT";
+        case 0x16: return "OS/2 Boot Manager hidden over-32M 16-bit FAT";
+        case 0x17: return "OS/2 Boot Manager hidden HPFS";
+        case 0x18: return "AST special Windows swap file (\"Zero-Volt Suspend\")";
+        // case 0x21: reserved
+        // case 0x23: reserved
+        case 0x24: return "NEC MS-DOS 3.x";
+        // case 0x26: reserved
+        // case 0x31: reserved
+        // case 0x33: reserved
+        // case 0x34: reserved
+        // case 0x36: reserved
+        case 0x38: return "Theos";
+        case 0x3C: return "PowerQuest PartitionMagic recovery partition";
+        case 0x40: return "VENIX 80286";
+        case 0x41: return "Personal RISC Boot";
+        case 0x42: return "SFS (Secure File System) by Peter Gutmann";
+        case 0x50: return "OnTrack Disk Manager, read-only";
+        case 0x51: return "OnTrack Disk Manager, read/write";
+        case 0x52: return "CP/M or Microport System V/386";
+        case 0x53: return "OnTrack Disk Manager, write-only???";
+        case 0x54: return "OnTrack Disk Manager (DDO)";
+        case 0x56: return "GoldenBow VFeature";
+        case 0x61: return "SpeedStor";
+        case 0x63: return "Unix SysV/386, 386/ix or Mach, MtXinu BSD 4.3 on Mach or GNU HURD";
+        case 0x64: return "Novell NetWare 286";
+        case 0x65: return "Novell NetWare (3.11)";
+        case 0x67:
+        case 0x68:
+        case 0x69: return "Novell";
+        case 0x70: return "DiskSecure Multi-Boot";
+        // case 0x71: reserved
+        // case 0x73: reserved
+        // case 0x74: reserved
+        case 0x75: return "PC/IX";
+        // case 0x76: reserved
+        case 0x80: return "Minix v1.1 - 1.4a";
+        case 0x81: return "Minix v1.4b+ or Linux or Mitac Advanced Disk Manager";
+        case 0x82: return "Linux Swap or Prime";
+        case 0x83: return "Linux native file system (ext2fs/xiafs)";
+        case 0x84: return "OS/2-renumbered type 04h (hidden DOS C: drive)";
+        case 0x86: return "FAT16 volume/stripe set (Windows NT)";
+        case 0x87: return "HPFS Fault-Tolerant mirrored partition or NTFS volume/stripe set";
+        case 0x93: return "Amoeba file system";
+        case 0x94: return "Amoeba bad block table";
+        case 0xA0: return "Phoenix NoteBIOS Power Management \"Save-to-Disk\" partition";
+        // case 0xA1: reserved
+        // case 0xA3: reserved
+        // case 0xA4: reserved
+        case 0xA5: return "FreeBSD, BSD/386";
+        // case 0xA6: reserved
+        // case 0xB1: reserved
+        // case 0xB3: reserved
+        // case 0xB4: reserved
+        // case 0xB6: reserved
+        case 0xB7: return "BSDI file system (secondarily swap)";
+        case 0xB8: return "BSDI swap (secondarily file system)";
+        case 0xC1: return "DR DOS 6.0 LOGIN.EXE-secured 12-bit FAT";
+        case 0xC4: return "DR DOS 6.0 LOGIN.EXE-secured 16-bit FAT";
+        case 0xC6: return "DR DOS 6.0 LOGIN.EXE-secured Huge partition or NT corrupted FAT16 volume/stripe set";
+        case 0xC7: return "Syrinx Boot or corrupted NTFS volume/stripe set";
+        case 0xD8: return "CP/M-86";
+        case 0xDB: return "CP/M, Concurrent CP/M, Concurrent DOS, Convergent Technologies OS";
+        case 0xE1: return "SpeedStor 12-bit FAT extended partition";
+        case 0xE3: return "DOS read-only or Storage Dimensions";
+        case 0xE4: return "SpeedStor 16-bit FAT extended partition";
+        // case 0xE5: reserved
+        // case 0xE6: reserved
+        case 0xF1: return "Storage Dimensions";
+        case 0xF2: return "DOS 3.3+ secondary partition";
+        // case 0xF3: reserved
+        case 0xF4: return "SpeedStor or Storage Dimensions";
+        // case 0xF6: reserved
+        case 0xFE: return "LANstep or IBM PS/2 IML";
+        case 0xFF: return "Xenix bad block table";
+    }
+
+    return NULL;
+}
+
+/*
+ * AppendPartition:
+ *      this appends the given partition information to
+ *      the given partition list. To do this, a new
+ *      PARTITIONINFO structure is created and appended
+ *      in a list (managed thru the PARTITIONINFO.pNext
+ *      items).
+ *
+ *      pppiThis must be a pointer to a pointer to a PARTITIONINFO.
+ *      With each call of this function, this pointer is advanced
+ *      to point to the newly created PARTITIONINFO, so before
+ *      calling this function for the first time,
+ *
+ *@@added V0.9.0 [umoeller]
+ */
+
+APIRET AppendPartition(PARTITIONINFO **pppiFirst,
+                       PARTITIONINFO **pppiThis,    // in/out: partition info; pointer will be advanced
+                       PUSHORT posCount,            // in/out: partition count
+                       BYTE bDisk,                  // in: disk of partition
+                       const char *pszBootName,     // in: boot partition name
+                       CHAR cLetter,                // in/out: drive letter
+                       BYTE bFsType,                // in: file system type
+                       BOOL fPrimary,               // in: primary?
+                       BOOL fBootable,
+                       ULONG ulSectors)             // in: no. of sectors
+{
+    APIRET arc = NO_ERROR;
+    PPARTITIONINFO ppiNew = NEW(PARTITIONINFO);
+    if (ppiNew)
+    {
+        ZERO(ppiNew);
+
+        // store data
+        ppiNew->bDisk = bDisk;
+        if ((fBootable) && (pszBootName) )
+        {
+            memcpy(ppiNew->szBootName, pszBootName, 8);
+            ppiNew->szBootName[8] = 0;
+        }
+        else
+            ppiNew->szBootName[0] = 0;
+        ppiNew->cLetter = cLetter;
+        ppiNew->bFSType = bFsType;
+        ppiNew->pcszFSType = doshType2FSName(bFsType);
+        ppiNew->fPrimary = fPrimary;
+        ppiNew->fBootable = fBootable;
+        ppiNew->ulSize = ulSectors / 2048;
+
+        ppiNew->pNext = NULL;
+
+        (*posCount)++;
+
+        if (*pppiFirst == (PPARTITIONINFO)NULL)
+        {
+            // first call:
+            *pppiFirst = ppiNew;
+            *pppiThis = ppiNew;
+        }
+        else
+        {
+            // append to list
+            (**pppiThis).pNext = ppiNew;
+            *pppiThis = ppiNew;
+        }
+    }
+    else
+        arc = ERROR_NOT_ENOUGH_MEMORY;
+
+    return (arc);
+}
+
+#ifndef __XWPLITE__
 
 /*
  *@@ doshReadSector:
@@ -2347,7 +2677,7 @@ UINT doshQueryDiskCount(VOID)
  *      If NO_ERROR is returned, the sector contents
  *      have been stored in *buff.
  *
- *      Based on code (C) Dmitry A. Steklenev.
+ *      Originally contributed by Dmitry A. Steklenev.
  *
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.9 (2001-04-04) [umoeller]: added more error checking
@@ -2389,357 +2719,6 @@ APIRET doshReadSector(USHORT disk,      // in: physical disk no. (1, 2, 3, ...)
     return (arc);
 }
 
-/*
- *@@ doshType2FSName:
- *      this returns a static, zero-terminated string
- *      for the given FS type. This is always 7 bytes
- *      in length.
- *
- *      Values for operating system indicator:
- *      --  00h  empty
- *      --  01h  DOS 12-bit FAT
- *      --  02h  XENIX root file system
- *      --  03h  XENIX /usr file system (obsolete)
- *      --  04h  DOS 16-bit FAT (up to 32M)
- *      --  05h  DOS 3.3+ extended partition
- *      --  06h  DOS 3.31+ Large File System (16-bit FAT, over 32M)
- *      --  07h  QNX
- *      --  07h  OS/2 HPFS
- *      --  07h  Windows NT NTFS
- *      --  07h  Advanced Unix
- *      --  08h  OS/2 (v1.0-1.3 only)
- *      --  08h  AIX bootable partition, SplitDrive
- *      --  08h  Commodore DOS
- *      --  08h  DELL partition spanning multiple drives
- *      --  09h  AIX data partition
- *      --  09h  Coherent filesystem
- *      --  0Ah  OS/2 Boot Manager
- *      --  0Ah  OPUS
- *      --  0Ah  Coherent swap partition
- *      --  0Bh  Windows95 with 32-bit FAT
- *      --  0Ch  Windows95 with 32-bit FAT (using LBA-mode INT 13 extensions)
- *      --  0Eh  logical-block-addressable VFAT (same as 06h but using LBA-mode INT 13)
- *      --  0Fh  logical-block-addressable VFAT (same as 05h but using LBA-mode INT 13)
- *      --  10h  OPUS
- *      --  11h  OS/2 Boot Manager hidden 12-bit FAT partition
- *      --  12h  Compaq Diagnostics partition
- *      --  14h  (resulted from using Novell DOS 7.0 FDISK to delete Linux Native part)
- *      --  14h  OS/2 Boot Manager hidden sub-32M 16-bit FAT partition
- *      --  16h  OS/2 Boot Manager hidden over-32M 16-bit FAT partition
- *      --  17h  OS/2 Boot Manager hidden HPFS partition
- *      --  18h  AST special Windows swap file ("Zero-Volt Suspend" partition)
- *      --  21h  officially listed as reserved
- *      --  23h  officially listed as reserved
- *      --  24h  NEC MS-DOS 3.x
- *      --  26h  officially listed as reserved
- *      --  31h  officially listed as reserved
- *      --  33h  officially listed as reserved
- *      --  34h  officially listed as reserved
- *      --  36h  officially listed as reserved
- *      --  38h  Theos
- *      --  3Ch  PowerQuest PartitionMagic recovery partition
- *      --  40h  VENIX 80286
- *      --  41h  Personal RISC Boot
- *      --  42h  SFS (Secure File System) by Peter Gutmann
- *      --  50h  OnTrack Disk Manager, read-only partition
- *      --  51h  OnTrack Disk Manager, read/write partition
- *      --  51h  NOVEL
- *      --  52h  CP/M
- *      --  52h  Microport System V/386
- *      --  53h  OnTrack Disk Manager, write-only partition???
- *      --  54h  OnTrack Disk Manager (DDO)
- *      --  56h  GoldenBow VFeature
- *      --  61h  SpeedStor
- *      --  63h  Unix SysV/386, 386/ix
- *      --  63h  Mach, MtXinu BSD 4.3 on Mach
- *      --  63h  GNU HURD
- *      --  64h  Novell NetWare 286
- *      --  65h  Novell NetWare (3.11)
- *      --  67h  Novell
- *      --  68h  Novell
- *      --  69h  Novell
- *      --  70h  DiskSecure Multi-Boot
- *      --  71h  officially listed as reserved
- *      --  73h  officially listed as reserved
- *      --  74h  officially listed as reserved
- *      --  75h  PC/IX
- *      --  76h  officially listed as reserved
- *      --  80h  Minix v1.1 - 1.4a
- *      --  81h  Minix v1.4b+
- *      --  81h  Linux
- *      --  81h  Mitac Advanced Disk Manager
- *      --  82h  Linux Swap partition
- *      --  82h  Prime
- *      --  83h  Linux native file system (ext2fs/xiafs)
- *      --  84h  OS/2-renumbered type 04h partition (related to hiding DOS C: drive)
- *      --  86h  FAT16 volume/stripe set (Windows NT)
- *      --  87h  HPFS Fault-Tolerant mirrored partition
- *      --  87h  NTFS volume/stripe set
- *      --  93h  Amoeba file system
- *      --  94h  Amoeba bad block table
- *      --  A0h  Phoenix NoteBIOS Power Management "Save-to-Disk" partition
- *      --  A1h  officially listed as reserved
- *      --  A3h  officially listed as reserved
- *      --  A4h  officially listed as reserved
- *      --  A5h  FreeBSD, BSD/386
- *      --  A6h  officially listed as reserved
- *      --  B1h  officially listed as reserved
- *      --  B3h  officially listed as reserved
- *      --  B4h  officially listed as reserved
- *      --  B6h  officially listed as reserved
- *      --  B7h  BSDI file system (secondarily swap)
- *      --  B8h  BSDI swap partition (secondarily file system)
- *      --  C1h  DR DOS 6.0 LOGIN.EXE-secured 12-bit FAT partition
- *      --  C4h  DR DOS 6.0 LOGIN.EXE-secured 16-bit FAT partition
- *      --  C6h  DR DOS 6.0 LOGIN.EXE-secured Huge partition
- *      --  C6h  corrupted FAT16 volume/stripe set (Windows NT)
- *      --  C7h  Syrinx Boot
- *      --  C7h  corrupted NTFS volume/stripe set
- *      --  D8h  CP/M-86
- *      --  DBh  CP/M, Concurrent CP/M, Concurrent DOS
- *      --  DBh  CTOS (Convergent Technologies OS)
- *      --  E1h  SpeedStor 12-bit FAT extended partition
- *      --  E3h  DOS read-only
- *      --  E3h  Storage Dimensions
- *      --  E4h  SpeedStor 16-bit FAT extended partition
- *      --  E5h  officially listed as reserved
- *      --  E6h  officially listed as reserved
- *      --  F1h  Storage Dimensions
- *      --  F2h  DOS 3.3+ secondary partition
- *      --  F3h  officially listed as reserved
- *      --  F4h  SpeedStor
- *      --  F4h  Storage Dimensions
- *      --  F6h  officially listed as reserved
- *      --  FEh  LANstep
- *      --  FEh  IBM PS/2 IML
- *      --  FFh  Xenix bad block table
- *
- *      Note: for partition type 07h, one should inspect the partition boot record
- *            for the actual file system type
- *
- *      Based on code (C) Dmitry A. Steklenev.
- *
- *@@added V0.9.0 [umoeller]
- */
-
-const char* doshType2FSName(unsigned char bFSType)  // in: FS type
-{
-    PSZ zFSName = NULL;
-
-    switch (bFSType)
-    {
-        case PAR_UNUSED:
-            zFSName = "UNUSED ";
-            break;
-        case PAR_FAT12SMALL:
-            zFSName = "FAT-12 ";
-            break;
-        case PAR_XENIXROOT:
-            zFSName = "XENIX  ";
-            break;
-        case PAR_XENIXUSER:
-            zFSName = "XENIX  ";
-            break;
-        case PAR_FAT16SMALL:
-            zFSName = "FAT-16 ";
-            break;
-        case PAR_EXTENDED:
-            zFSName = "EXTEND ";
-            break;
-        case PAR_FAT16BIG:
-            zFSName = "BIGDOS ";
-            break;
-        case PAR_HPFS:
-            zFSName = "HPFS   ";
-            break;
-        case PAR_AIXBOOT:
-            zFSName = "AIX    ";
-            break;
-        case PAR_AIXDATA:
-            zFSName = "AIX    ";
-            break;
-        case PAR_BOOTMANAGER:
-            zFSName = "BOOTMNG";
-            break;
-        case PAR_WINDOWS95:
-            zFSName = "WIN95  ";
-            break;
-        case PAR_WINDOWS95LB:
-            zFSName = "WIN95  ";
-            break;
-        case PAR_VFAT16BIG:
-            zFSName = "VFAT   ";
-            break;
-        case PAR_VFAT16EXT:
-            zFSName = "VFAT   ";
-            break;
-        case PAR_OPUS:
-            zFSName = "OPUS   ";
-            break;
-        case PAR_HID12SMALL:
-            zFSName = "FAT-12*";
-            break;
-        case PAR_COMPAQDIAG:
-            zFSName = "COMPAQ ";
-            break;
-        case PAR_HID16SMALL:
-            zFSName = "FAT-16*";
-            break;
-        case PAR_HID16BIG:
-            zFSName = "BIGDOS*";
-            break;
-        case PAR_HIDHPFS:
-            zFSName = "HPFS*  ";
-            break;
-        case PAR_WINDOWSSWP:
-            zFSName = "WINSWAP";
-            break;
-        case PAR_NECDOS:
-            zFSName = "NECDOS ";
-            break;
-        case PAR_THEOS:
-            zFSName = "THEOS  ";
-            break;
-        case PAR_VENIX:
-            zFSName = "VENIX  ";
-            break;
-        case PAR_RISCBOOT:
-            zFSName = "RISC   ";
-            break;
-        case PAR_SFS:
-            zFSName = "SFS    ";
-            break;
-        case PAR_ONTRACK:
-            zFSName = "ONTRACK";
-            break;
-        case PAR_ONTRACKEXT:
-            zFSName = "ONTRACK";
-            break;
-        case PAR_CPM:
-            zFSName = "CP/M   ";
-            break;
-        case PAR_UNIXSYSV:
-            zFSName = "UNIX   ";
-            break;
-        case PAR_NOVELL_64:
-            zFSName = "NOVELL ";
-            break;
-        case PAR_NOVELL_65:
-            zFSName = "NOVELL ";
-            break;
-        case PAR_NOVELL_67:
-            zFSName = "NOVELL ";
-            break;
-        case PAR_NOVELL_68:
-            zFSName = "NOVELL ";
-            break;
-        case PAR_NOVELL_69:
-            zFSName = "NOVELL ";
-            break;
-        case PAR_PCIX:
-            zFSName = "PCIX   ";
-            break;
-        case PAR_MINIX:
-            zFSName = "MINIX  ";
-            break;
-        case PAR_LINUX:
-            zFSName = "LINUX  ";
-            break;
-        case PAR_LINUXSWAP:
-            zFSName = "LNXSWP ";
-            break;
-        case PAR_LINUXFILE:
-            zFSName = "LINUX  ";
-            break;
-        case PAR_FREEBSD:
-            zFSName = "FREEBSD";
-            break;
-        case PAR_BBT:
-            zFSName = "BBT    ";
-            break;
-
-        default:
-            zFSName = "       ";
-            break;
-    }
-    return zFSName;
-}
-
-/*
- * AppendPartition:
- *      this appends the given partition information to
- *      the given partition list. To do this, a new
- *      PARTITIONINFO structure is created and appended
- *      in a list (managed thru the PARTITIONINFO.pNext
- *      items).
- *
- *      pppiThis must be a pointer to a pointer to a PARTITIONINFO.
- *      With each call of this function, this pointer is advanced
- *      to point to the newly created PARTITIONINFO, so before
- *      calling this function for the first time,
- *
- *      Based on code (C) Dmitry A. Steklenev.
- *
- *@@added V0.9.0 [umoeller]
- */
-
-APIRET AppendPartition(PARTITIONINFO **pppiFirst,
-                       PARTITIONINFO **pppiThis,    // in/out: partition info; pointer will be advanced
-                       PUSHORT posCount,            // in/out: partition count
-                       BYTE bDisk,                  // in: disk of partition
-                       const char *pszBootName,     // in: boot partition name
-                       CHAR cLetter,                // in/out: drive letter
-                       BYTE bFsType,                // in: file system type
-                       BOOL fPrimary,               // in: primary?
-                       BOOL fBootable,
-                       ULONG ulSectors)             // in: no. of sectors
-{
-    APIRET arc = NO_ERROR;
-    PPARTITIONINFO ppiNew = NEW(PARTITIONINFO);
-    if (ppiNew)
-    {
-        ZERO(ppiNew);
-
-        // store data
-        ppiNew->bDisk = bDisk;
-        if ((fBootable) && (pszBootName) )
-        {
-            memcpy(ppiNew->szBootName, pszBootName, 8);
-            ppiNew->szBootName[8] = 0;
-        }
-        else
-            ppiNew->szBootName[0] = 0;
-        ppiNew->cLetter = cLetter;
-        ppiNew->bFSType = bFsType;
-        strcpy(ppiNew->szFSType,
-               doshType2FSName(bFsType));
-        ppiNew->fPrimary = fPrimary;
-        ppiNew->fBootable = fBootable;
-        ppiNew->ulSize = ulSectors / 2048;
-
-        ppiNew->pNext = NULL;
-
-        (*posCount)++;
-
-        if (*pppiFirst == (PPARTITIONINFO)NULL)
-        {
-            // first call:
-            *pppiFirst = ppiNew;
-            *pppiThis = ppiNew;
-        }
-        else
-        {
-            // append to list
-            (**pppiThis).pNext = ppiNew;
-            *pppiThis = ppiNew;
-        }
-    }
-    else
-        arc = ERROR_NOT_ENOUGH_MEMORY;
-
-    return (arc);
-}
-
 // Sector and Cylinder values are actually 6 bits and 10 bits:
 //
 //   1 1 1 1 1 1
@@ -2755,7 +2734,7 @@ APIRET AppendPartition(PARTITIONINFO **pppiFirst,
  * GetCyl:
  *      get cylinder number.
  *
- *      Based on code (C) Dmitry A. Steklenev.
+ *      Originally contributed by Dmitry A. Steklenev.
  *
  *@@added V0.9.0 [umoeller]
  */
@@ -2770,7 +2749,7 @@ static USHORT GetCyl(USHORT rBeginSecCyl)
  * GetSec:
  *      get sector number.
  *
- *      Based on code (C) Dmitry A. Steklenev.
+ *      Originally contributed by Dmitry A. Steklenev.
  *
  *@@added V0.9.0 [umoeller]
  */
@@ -2795,7 +2774,7 @@ static USHORT GetSec(USHORT rBeginSecCyl)
  *
  *      -- ERROR_NOT_SUPPORTED (50): boot manager not installed.
  *
- *      Based on code (C) Dmitry A. Steklenev.
+ *      Originally contributed by Dmitry A. Steklenev.
  *
  *@@added V0.9.0 [umoeller]
  */
@@ -2857,7 +2836,7 @@ APIRET doshGetBootManager(USHORT   *pusDisk,    // out: if != NULL, boot manager
  *
  *      -- ERROR_INVALID_PARAMETER: BMInfo is NULL.
  *
- *      Based on code (C) Dmitry A. Steklenev.
+ *      Originally contributed by Dmitry A. Steklenev.
  *
  *@@added V0.9.0 [umoeller]
  */
@@ -2906,8 +2885,8 @@ APIRET GetPrimaryPartitions(PARTITIONINFO **pppiFirst,
                 {
                     // skip unused partition, BootManager or Extended partition
                     if (    (MBoot.sPrtnInfo[i].bFileSysCode)  // skip unused
-                        &&  (MBoot.sPrtnInfo[i].bFileSysCode != PAR_BOOTMANAGER) // skip boot manager
-                        &&  (MBoot.sPrtnInfo[i].bFileSysCode != PAR_EXTENDED) // skip extended
+                        &&  (MBoot.sPrtnInfo[i].bFileSysCode != 0x0A) // skip boot manager
+                        &&  (MBoot.sPrtnInfo[i].bFileSysCode != 0x05) // skip extended partition
                        )
                     {
                         BOOL fBootable = (    (pBmInfo)
@@ -2944,7 +2923,7 @@ APIRET GetPrimaryPartitions(PARTITIONINFO **pppiFirst,
  *
  *      This gets called from GetExtendedPartition.
  *
- *      Based on code (C) Dmitry A. Steklenev.
+ *      Originally contributed by Dmitry A. Steklenev.
  *
  *@@added V0.9.0 [umoeller]
  */
@@ -2972,14 +2951,14 @@ APIRET GetLogicalDrives(PARTITIONINFO **pppiFirst,
     {
         // skip unused partition or BootManager partition
         if (    (MBoot.sPrtnInfo[i].bFileSysCode)
-             && (MBoot.sPrtnInfo[i].bFileSysCode != PAR_BOOTMANAGER)
+             && (MBoot.sPrtnInfo[i].bFileSysCode != 0x0A)
            )
         {
             BOOL    fBootable = FALSE;
             BOOL    fAssignLetter = FALSE;
 
             // special work around extended partition
-            if (MBoot.sPrtnInfo[i].bFileSysCode == PAR_EXTENDED)
+            if (MBoot.sPrtnInfo[i].bFileSysCode == 0x05)
             {
                 if ((arc = GetLogicalDrives(pppiFirst,
                                             pppiThis,
@@ -2994,7 +2973,7 @@ APIRET GetLogicalDrives(PARTITIONINFO **pppiFirst,
             }
 
             // raise driver letter if OS/2 would recognize this drive
-            if (    (MBoot.sPrtnInfo[i].bFileSysCode < PAR_PCIX)
+            if (    (MBoot.sPrtnInfo[i].bFileSysCode < 0x75)
                )
                 fAssignLetter = TRUE;
 
@@ -3033,7 +3012,7 @@ APIRET GetLogicalDrives(PARTITIONINFO **pppiFirst,
  *
  *      This gets called from doshGetPartitionsList.
  *
- *      Based on code (C) Dmitry A. Steklenev.
+ *      Originally contributed by Dmitry A. Steklenev.
  *
  *@@added V0.9.0 [umoeller]
  */
@@ -3057,7 +3036,7 @@ APIRET GetExtendedPartition(PARTITIONINFO **pppiFirst,
          i < 4;
          i++)
     {
-        if (MBoot.sPrtnInfo[i].bFileSysCode == PAR_EXTENDED)
+        if (MBoot.sPrtnInfo[i].bFileSysCode == 0x05)
         {
             if ((arc = GetLogicalDrives(pppiFirst,
                                         pppiThis,
@@ -3072,6 +3051,83 @@ APIRET GetExtendedPartition(PARTITIONINFO **pppiFirst,
 
     return (NO_ERROR);
 }
+
+/*
+ *@@ ReadFDiskPartitions:
+ *      helper for doshGetPartitionsList for non-LVM
+ *      systems.
+ *
+ *      Originally contributed by Dmitry A. Steklenev.
+ *
+ *@@added V0.9.16 (2001-10-08) [umoeller]
+ */
+
+APIRET ReadFDiskPartitions(PARTITIONINFO **ppPartitionInfos,
+                           USHORT *pcPartitions,
+                           PUSHORT pusContext)              // out: error context
+{
+    APIRET          arc = NO_ERROR;
+
+    PAR_INFO        BmInfo;     // BootManager partition
+    USHORT          usBmDisk;     // BootManager disk
+    USHORT          cDisks = doshQueryDiskCount();    // physical disks count
+    USHORT          i;
+
+    CHAR            cLetter = 'C';  // first drive letter
+
+    PARTITIONINFO   *ppiTemp = NULL;
+
+    if (cDisks > 8)              // Not above 8 disks
+        cDisks = 8;
+
+    // get boot manager disk and info
+    if ((arc = doshGetBootManager(&usBmDisk,
+                                  NULL,
+                                  &BmInfo)) != NO_ERROR)
+    {
+        *pusContext = 1;
+    }
+    else
+    {
+        // on each disk, read primary partitions
+        for (i = 1; i <= cDisks; i++)
+        {
+            if ((arc = GetPrimaryPartitions(ppPartitionInfos,
+                                            &ppiTemp,
+                                            pcPartitions,
+                                            &cLetter,
+                                            usBmDisk,
+                                            usBmDisk ? &BmInfo : 0,
+                                            i)))
+            {
+                *pusContext = 2;
+            }
+        }
+
+        if (!arc && usBmDisk)
+        {
+            // boot manager found:
+            // on each disk, read extended partition
+            // with logical drives
+            for (i = 1; i <= cDisks; i++)
+            {
+                if ((arc = GetExtendedPartition(ppPartitionInfos,
+                                                &ppiTemp,
+                                                pcPartitions,
+                                                &cLetter,
+                                                &BmInfo,
+                                                i)))
+                {
+                    *pusContext = 3;
+                }
+            }
+        }
+    } // end else if ((arc = doshGetBootManager(&usBmDisk,
+
+    return (arc);
+}
+
+#endif
 
 /*
  *@@ CleanPartitionInfos:
@@ -3136,7 +3192,7 @@ VOID CleanPartitionInfos(PPARTITIONINFO ppiThis)
  *
  *      --  0: something else.
  *
- *      Based on code (C) Dmitry A. Steklenev.
+ *      Originally contributed by Dmitry A. Steklenev.
  *
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.9 (2001-04-07) [umoeller]: added transparent LVM support; changed prototype
@@ -3150,8 +3206,7 @@ APIRET doshGetPartitionsList(PPARTITIONSLIST *ppList,
 
     PLVMINFO        pLVMInfo = NULL;
 
-    PARTITIONINFO   *pPartitionInfos = NULL, // linked list of all partitions
-                    *ppiTemp = NULL;
+    PARTITIONINFO   *pPartitionInfos = NULL; // linked list of all partitions
     USHORT          cPartitions = 0;        // bootable partition count
 
     if (!ppList)
@@ -3175,67 +3230,14 @@ APIRET doshGetPartitionsList(PPARTITIONSLIST *ppList,
         }
     }
 
+#ifndef __XWPLITE__
     if (arc)
-    {
         // LVM not installed, or failed:
         // parse partitions manually
-        PAR_INFO        BmInfo;     // BootManager partition
-        USHORT          usBmDisk;     // BootManager disk
-        USHORT          cDisks = doshQueryDiskCount();    // physical disks count
-        USHORT          i;
-
-        CHAR            cLetter = 'C';  // first drive letter
-
-        // start over
-        arc = NO_ERROR;
-
-        if (cDisks > 8)              // Not above 8 disks
-            cDisks = 8;
-
-        // get boot manager disk and info
-        if ((arc = doshGetBootManager(&usBmDisk,
-                                      NULL,
-                                      &BmInfo)) != NO_ERROR)
-        {
-            *pusContext = 1;
-        }
-        else
-        {
-            // on each disk, read primary partitions
-            for (i = 1; i <= cDisks; i++)
-            {
-                if ((arc = GetPrimaryPartitions(&pPartitionInfos,
-                                                &ppiTemp,
-                                                &cPartitions,
-                                                &cLetter,
-                                                usBmDisk,
-                                                usBmDisk ? &BmInfo : 0,
-                                                i)))
-                {
-                    *pusContext = 2;
-                }
-            }
-
-            if (!arc && usBmDisk)
-            {
-                // boot manager found:
-                // on each disk, read extended partition
-                // with logical drives
-                for (i = 1; i <= cDisks; i++)
-                {
-                    if ((arc = GetExtendedPartition(&pPartitionInfos,
-                                                    &ppiTemp,
-                                                    &cPartitions,
-                                                    &cLetter,
-                                                    &BmInfo,
-                                                    i)))
-                    {
-                        *pusContext = 3;
-                    }
-                }
-            }
-        } // end else if ((arc = doshGetBootManager(&usBmDisk,
-    } // end else if (!doshQueryLVMInfo(&pLVMInfo))
+        arc = ReadFDiskPartitions(&pPartitionInfos,
+                                  &cPartitions,
+                                  pusContext);
+#endif
 
     if (!arc)
     {

@@ -69,21 +69,26 @@ extern "C" {
 
     APIRET appFreeEnvironment(PDOSENVIRONMENT pEnv);
 
+    #ifdef INCL_WINPROGRAMLIST
+        // additional PROG_* flags for appQueryAppType
+        // #define PROG_XWP_DLL            998      // dynamic link library
+                    // removed, PROG_DLL exists already
+                    // V0.9.16 (2001-10-06)
+
+        APIRET appQueryAppType(const char *pcszExecutable,
+                                PULONG pulDosAppType,
+                                PULONG pulWinAppType);
+
+        PCSZ appDescribeAppType(PROGCATEGORY progc);
+
+        ULONG appIsWindowsApp(ULONG ulProgCategory);
+
     /* ******************************************************************
      *
      *   Application start
      *
      ********************************************************************/
 
-    #ifdef INCL_WINPROGRAMLIST
-        // additional PROG_* flags for appQueryAppType
-        #define PROG_XWP_DLL            998      // dynamic link library
-
-        APIRET appQueryAppType(const char *pcszExecutable,
-                                PULONG pulDosAppType,
-                                PULONG pulWinAppType);
-
-        ULONG appIsWindowsApp(ULONG ulProgCategory);
 
         PSZ appQueryDefaultWin31Environment(VOID);
 

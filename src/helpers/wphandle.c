@@ -59,7 +59,6 @@
 #include "helpers\prfh.h"
 #include "helpers\standards.h"
 #include "helpers\stringh.h"
-#define INCLUDE_WPHANDLE_PRIVATE
 #include "helpers\wphandle.h"
 #include "helpers\xstring.h"
 

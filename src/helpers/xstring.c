@@ -378,6 +378,30 @@ ULONG xstrReserve(PXSTRING pxstr,
 }
 
 /*
+ *@@ xstrShrink:
+ *      reallocates the string buffer so that it
+ *      is exactly the length of the string with
+ *      its null byte, if the string has excessive
+ *      memory allocated. Useful if you are sure
+ *      that the string won't grow again.
+ *
+ *@@added V0.9.16 (2001-10-08) [umoeller]
+ */
+
+void XWPENTRY xstrShrink(PXSTRING pxstr)
+{
+    if (    (pxstr)
+         && (pxstr->psz)
+         && (pxstr->cbAllocated > pxstr->ulLength + 1)
+       )
+    {
+        pxstr->psz = realloc(pxstr->psz,
+                             pxstr->ulLength + 1);
+        pxstr->cbAllocated = pxstr->ulLength + 1;
+    }
+}
+
+/*
  *@@ xstrCreate:
  *      allocates a new XSTRING from the heap
  *      and calls xstrInit on it.

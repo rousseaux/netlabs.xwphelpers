@@ -100,8 +100,8 @@ extern "C" {
         PVOID XWPENTRY winhQueryWindowPtr(HWND hwnd, LONG index);
         #define WinQueryWindowPtr(a,b) winhQueryWindowPtr((a),(b))
 
-        BOOL XWPENTRY winhSetWindowText(HWND hwnd, const char *pcsz);
-        #define WinSetWindowText(a,b) winhSetWindowText((a),(b))
+        BOOL XWPENTRY winhSetWindowText2(HWND hwnd, const char *pcsz);
+        #define WinSetWindowText(a,b) winhSetWindowText2((a),(b))
 
         BOOL XWPENTRY winhSetDlgItemText(HWND hwnd, ULONG id, const char *pcsz);
         #define WinSetDlgItemText(a,b,c) winhSetDlgItemText((a),(b),(c))
@@ -756,6 +756,10 @@ extern "C" {
     HPOINTER XWPENTRY winhSetWaitPointer(VOID);
 
     PSZ XWPENTRY winhQueryWindowText(HWND hwnd);
+
+    BOOL XWPENTRY winhSetWindowText(HWND hwnd,
+                                    const char *pcszFormat,
+                                    ...);
 
     /*
      *@@ winhQueryDlgItemText:

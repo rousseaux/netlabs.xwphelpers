@@ -146,8 +146,8 @@ ULONG dtGetULongTime(VOID)
  */
 
 int dtCreateFileTimeStamp(PSZ pszTimeStamp,      // out: time stamp
-                            FDATE* pfdate,         // in: date
-                            FTIME* pftime)         // in: time
+                          FDATE* pfdate,         // in: date
+                          FTIME* pftime)         // in: time
 {
     return (sprintf(pszTimeStamp,
                     pcszFormatTimestamp,
@@ -229,7 +229,7 @@ ULONG dtDayOfWeek(ULONG day,
  *@@ dtIsLeapYear:
  *      returns TRUE if yr is a leap year.
  *
- *      (c) Ray Gardner.
+ *      (c) Ray Gardner. Public domain.
  */
 
 int dtIsLeapYear(unsigned yr)
@@ -259,7 +259,7 @@ int dtIsLeapYear(unsigned yr)
  *      in here and add (day-1); for march 3rd,
  *      you then get 63.
  *
- *      (c) Ray Gardner.
+ *      (c) Ray Gardner. Public domain.
  */
 
 unsigned dtMonths2Days(unsigned month)
@@ -271,7 +271,7 @@ unsigned dtMonths2Days(unsigned month)
  *@@ dtYears2Days:
  *      converts a year to the no. of days passed.
  *
- *      (c) Ray Gardner.
+ *      (c) Ray Gardner. Public domain.
  */
 
 long dtYears2Days (unsigned yr)
@@ -287,7 +287,7 @@ long dtYears2Days (unsigned yr)
  *      returns a scalar (i.e. the no. of days) for
  *      the given date.
  *
- *      (c) Ray Gardner.
+ *      (c) Ray Gardner. Public domain.
  */
 
 long dtDate2Scalar(unsigned yr,     // in: year     (e.g. 1999)
@@ -307,7 +307,7 @@ long dtDate2Scalar(unsigned yr,     // in: year     (e.g. 1999)
  *@@ dtScalar2Date:
  *
  *
- *      (c) Ray Gardner.
+ *      (c) Ray Gardner. Public domain.
  */
 
 void dtScalar2Date(long scalar,     // in: date scalar

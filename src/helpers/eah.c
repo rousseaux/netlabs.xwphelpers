@@ -856,11 +856,10 @@ PEABINDING eaCreateMVBindingFromPSZ(const char *pcszEAName,      // in: EA name 
                                     const char *pcszSeparator,   // in: separator used in pszInput
                                     USHORT usCodepage)  // in: codepage to set in EAT_MVMT
 {
-    PEABINDING peab;
+    PEABINDING peab = NULL;
     if (pcszInput)
     {
-        peab = (PEABINDING)malloc(sizeof(EABINDING));
-        if (peab)
+        if ((peab = (PEABINDING)malloc(sizeof(EABINDING))))
         {
             const char *p = pcszInput,
                     *pSource;

@@ -34,7 +34,11 @@ extern "C" {
 #ifndef PRFH_HEADER_INCLUDED
     #define PRFH_HEADER_INCLUDED
 
-    /* common error codes used by the prfh* functions */
+    /* ******************************************************************
+     *
+     *   Errors
+     *
+     ********************************************************************/
 
     #define PRFERR_DATASIZE     10001   // couldn't query data size for key
     #define PRFERR_READ         10003   // couldn't read data from source (PrfQueryProfileData error)
@@ -46,6 +50,127 @@ extern "C" {
     #define PRFERR_INVALID_FILE_NAME  10008   // profile names don't contain .INI
     #define PRFERR_INVALID_KEY  10009
     #define PRFERR_KEY_EXISTS   10010
+
+    /* ******************************************************************
+     *
+     *   Strings
+     *
+     ********************************************************************/
+
+    // DECLARE_PRFH_STRING is a handy macro which saves us from
+    // keeping two string lists in both the .h and the .c file.
+    // If this include file is included from the .c file, the
+    // string is defined as a global variable. Otherwise
+    // it is only declared as "extern" so other files can
+    // see it.
+
+    #ifdef INCLUDE_PRFH_PRIVATE
+        #define DECLARE_PRFH_STRING(str, def) const char *str = def
+    #else
+        #define DECLARE_PRFH_STRING(str, def) extern const char *str;
+    #endif
+
+    /*
+     * OS2.INI applications
+     *
+     */
+
+    // NLS settings section
+    DECLARE_PRFH_STRING(PMINIAPP_NATIONAL, "PM_National");
+
+    // system font settings section
+    DECLARE_PRFH_STRING(PMINIAPP_SYSTEMFONTS, "PM_SystemFonts");
+    DECLARE_PRFH_STRING(PMINIKEY_DEFAULTFONT, "DefaultFont");
+    DECLARE_PRFH_STRING(PMINIKEY_ICONTEXTFONT, "IconText");
+    DECLARE_PRFH_STRING(PMINIKEY_MENUSFONT, "Menus");
+
+    // installed fonts secsion
+    DECLARE_PRFH_STRING(PMINIAPP_FONTS, "PM_Fonts");
+
+    // general WPS settings
+    DECLARE_PRFH_STRING(WPINIAPP_WORKPLACE, "PM_Workplace");
+    DECLARE_PRFH_STRING(WPINIKEY_MENUBAR, "FolderMenuBar");
+
+    // abstract objects per folder handle
+    DECLARE_PRFH_STRING(WPINIAPP_FDRCONTENT, "PM_Abstract:FldrContent");
+    // all defined abstract objects on the system
+    DECLARE_PRFH_STRING(WPINIAPP_OBJECTS, "PM_Abstract:Objects");
+    // their icons, if set individually
+    DECLARE_PRFH_STRING(WPINIAPP_ICONS, "PM_Abstract:Icons");
+
+    // object ID's (<WP_DESKTOP> etc.)
+    DECLARE_PRFH_STRING(WPINIAPP_LOCATION, "PM_Workplace:Location");
+
+    // folder positions
+    DECLARE_PRFH_STRING(WPINIAPP_FOLDERPOS, "PM_Workplace:FolderPos");
+
+    // palette positions
+    DECLARE_PRFH_STRING(WPINIAPP_PALETTEPOS, "PM_Workplace:PalettePos");
+    // ???
+    DECLARE_PRFH_STRING(WPINIAPP_STATUSPOS, "PM_Workplace:StatusPos");
+    // startup folders
+    DECLARE_PRFH_STRING(WPINIAPP_STARTUP, "PM_Workplace:Startup");
+    // all the defined templates on the system
+    DECLARE_PRFH_STRING(WPINIAPP_TEMPLATES, "PM_Workplace:Templates");
+
+    // all work area folders
+    DECLARE_PRFH_STRING(WPINIAPP_WORKAREARUNNING, "FolderWorkareaRunningObjects");
+    // spooler windows ?!?
+    DECLARE_PRFH_STRING(WPINIAPP_JOBCNRPOS, "PM_PrintObject:JobCnrPos");
+
+    // associations by type ("Plain Text")
+    DECLARE_PRFH_STRING(WPINIAPP_ASSOCTYPE, "PMWP_ASSOC_TYPE");
+    // associations by filter ("*.txt")
+    DECLARE_PRFH_STRING(WPINIAPP_ASSOCFILTER, "PMWP_ASSOC_FILTER");
+    // checksums ?!?
+    DECLARE_PRFH_STRING(WPINIAPP_ASSOC_CHECKSUM, "PMWP_ASSOC_CHECKSUM");
+
+    /*
+     * OS2SYS.INI applications
+     *
+     */
+
+    DECLARE_PRFH_STRING(WPINIAPP_ACTIVEHANDLES, "PM_Workplace:ActiveHandles");
+    DECLARE_PRFH_STRING(WPINIAPP_HANDLES, "PM_Workplace:Handles");
+    DECLARE_PRFH_STRING(WPINIAPP_HANDLESAPP, "HandlesAppName");
+
+    /*
+     * some default WPS INI keys:
+     *
+     */
+
+    DECLARE_PRFH_STRING(WPOBJID_DESKTOP, "<WP_DESKTOP>");
+
+    DECLARE_PRFH_STRING(WPOBJID_KEYB, "<WP_KEYB>");
+    DECLARE_PRFH_STRING(WPOBJID_MOUSE, "<WP_MOUSE>");
+    DECLARE_PRFH_STRING(WPOBJID_CNTRY, "<WP_CNTRY>");
+    DECLARE_PRFH_STRING(WPOBJID_SOUND, "<WP_SOUND>");
+    DECLARE_PRFH_STRING(WPOBJID_SYSTEM, "<WP_SYSTEM>"); // V0.9.9
+    DECLARE_PRFH_STRING(WPOBJID_POWER, "<WP_POWER>");
+    DECLARE_PRFH_STRING(WPOBJID_WINCFG, "<WP_WINCFG>");
+
+    DECLARE_PRFH_STRING(WPOBJID_HIRESCLRPAL, "<WP_HIRESCLRPAL>");
+    DECLARE_PRFH_STRING(WPOBJID_LORESCLRPAL, "<WP_LORESCLRPAL>");
+    DECLARE_PRFH_STRING(WPOBJID_FNTPAL, "<WP_FNTPAL>");
+    DECLARE_PRFH_STRING(WPOBJID_SCHPAL96, "<WP_SCHPAL96>");
+
+    DECLARE_PRFH_STRING(WPOBJID_LAUNCHPAD, "<WP_LAUNCHPAD>");
+    DECLARE_PRFH_STRING(WPOBJID_WARPCENTER, "<WP_WARPCENTER>");
+
+    DECLARE_PRFH_STRING(WPOBJID_SPOOL, "<WP_SPOOL>");
+    DECLARE_PRFH_STRING(WPOBJID_VIEWER, "<WP_VIEWER>");
+    DECLARE_PRFH_STRING(WPOBJID_SHRED, "<WP_SHRED>");
+    DECLARE_PRFH_STRING(WPOBJID_CLOCK, "<WP_CLOCK>");
+
+    DECLARE_PRFH_STRING(WPOBJID_START, "<WP_START>");
+    DECLARE_PRFH_STRING(WPOBJID_TEMPS, "<WP_TEMPS>");
+    DECLARE_PRFH_STRING(WPOBJID_DRIVES, "<WP_DRIVES>");
+
+    /* ******************************************************************
+     *
+     *   Functions
+     *
+     ********************************************************************/
 
     APIRET prfhQueryKeysForApp(HINI hIni,
                                const char *pcszApp,
@@ -73,36 +198,6 @@ extern "C" {
                               CHAR cDefault);
 
     LONG prfhQueryColor(const char *pcszKeyName, const char *pcszDefault);
-
-    /*
-     *@@ COUNTRYSETTINGS:
-     *      structure used for returning country settings
-     *      with prfhQueryCountrySettings.
-     */
-
-    typedef struct _COUNTRYSETTINGS
-    {
-        ULONG   ulDateFormat,
-                        // date format:
-                        // --  0   mm.dd.yyyy  (English)
-                        // --  1   dd.mm.yyyy  (e.g. German)
-                        // --  2   yyyy.mm.dd  (Japanese)
-                        // --  3   yyyy.dd.mm
-                ulTimeFormat;
-                        // time format:
-                        // --  0   12-hour clock
-                        // --  >0  24-hour clock
-        CHAR    cDateSep,
-                        // date separator (e.g. '/')
-                cTimeSep,
-                        // time separator (e.g. ':')
-                cDecimal,
-                        // decimal separator (e.g. '.')
-                cThousands;
-                        // thousands separator (e.g. ',')
-    } COUNTRYSETTINGS, *PCOUNTRYSETTINGS;
-
-    VOID prfhQueryCountrySettings(PCOUNTRYSETTINGS pcs);
 
     APIRET prfhCopyKey(HINI hiniSource,
                        const char *pcszSourceApp,

@@ -44,6 +44,7 @@
 
 #include "setup.h"                      // code generation and debugging options
 
+#define INCLUDE_PRFH_PRIVATE
 #include "helpers\prfh.h"
 
 #pragma hdrstop
@@ -236,41 +237,6 @@ CHAR prfhQueryProfileChar(HINI hini,        // in: INI handle (can be HINI_USER 
                           szDefault,
                           szTemp, sizeof(szTemp)-1);
     return (szTemp[0]);
-}
-
-/*
- *@@ prfhQueryCountrySettings:
- *      this returns the most frequently used country settings
- *      all at once into a COUNTRYSETTINGS structure (prfh.h).
- *      This data corresponds to the user settings in the
- *      WPS "Country" object (which writes the data in "PM_National"
- *      in OS2.INI).
- *
- *      In case a key cannot be found, the following (English)
- *      default values are set:
- *      --  ulDateFormat = 0 (English date format, mm.dd.yyyy);
- *      --  ulTimeFormat = 0 (12-hour clock);
- *      --  cDateSep = '/' (date separator);
- *      --  cTimeSep = ':' (time separator);
- *      --  cDecimal = '.' (decimal separator).
- *      --  cThousands = ',' (thousands separator).
- *
- *@@added V0.9.0 [umoeller]
- *@@changed V0.9.7 (2000-12-02) [umoeller]: added cDecimal
- */
-
-VOID prfhQueryCountrySettings(PCOUNTRYSETTINGS pcs)
-{
-    if (pcs)
-    {
-        const char *pcszApp = "PM_National";
-        pcs->ulDateFormat = PrfQueryProfileInt(HINI_USER, (PSZ)pcszApp, "iDate", 0);
-        pcs->ulTimeFormat = PrfQueryProfileInt(HINI_USER, (PSZ)pcszApp, "iTime", 0);
-        pcs->cDateSep = prfhQueryProfileChar(HINI_USER, (PSZ)pcszApp, "sDate", '/');
-        pcs->cTimeSep = prfhQueryProfileChar(HINI_USER, (PSZ)pcszApp, "sTime", ':');
-        pcs->cDecimal = prfhQueryProfileChar(HINI_USER, (PSZ)pcszApp, "sDecimal", '.');
-        pcs->cThousands = prfhQueryProfileChar(HINI_USER, (PSZ)pcszApp, "sThousand", ',');
-    }
 }
 
 /*
