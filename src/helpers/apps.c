@@ -32,10 +32,13 @@
     // as unsigned char
 
 #define INCL_DOSPROCESS
+#define INCL_DOSMODULEMGR
 #define INCL_DOSSESMGR
 #define INCL_DOSERRORS
 
 #define INCL_WINPROGRAMLIST     // needed for PROGDETAILS, wppgm.h
+#define INCL_WINERRORS
+#define INCL_SHLERRORS
 #include <os2.h>
 
 #include <stdio.h>
@@ -106,7 +109,7 @@
  */
 
 APIRET appParseEnvironment(const char *pcszEnv,
-                           PDOSENVIRONMENT pEnv)
+                           PDOSENVIRONMENT pEnv)        // out: new environment
 {
     APIRET arc = NO_ERROR;
     if (!pcszEnv)
@@ -122,24 +125,31 @@ APIRET appParseEnvironment(const char *pcszEnv,
             pszVarThis += strlen(pszVarThis) + 1;
         }
 
-        pEnv->cVars = cVars;
+        pEnv->cVars = 0;
         pEnv->papszVars = 0;
 
         if (cVars)
         {
-            PSZ *papsz = (PSZ*)malloc(sizeof(PSZ) * cVars);
-            if (!papsz)
+            ULONG cbArray = sizeof(PSZ) * cVars;
+            PSZ *papsz;
+            if (!(papsz = (PSZ*)malloc(cbArray)))
                 arc = ERROR_NOT_ENOUGH_MEMORY;
             else
             {
                 PSZ *ppszTarget = papsz;
-                memset(papsz, 0, sizeof(PSZ) * cVars);
+                memset(papsz, 0, cbArray);
                 pszVarThis = (PSZ)pcszEnv;
                 while (*pszVarThis)
                 {
-                    *ppszTarget = strdup(pszVarThis);
+                    ULONG ulThisLen;
+                    if (!(*ppszTarget = strhdup(pszVarThis, &ulThisLen)))
+                    {
+                        arc = ERROR_NOT_ENOUGH_MEMORY;
+                        break;
+                    }
+                    (pEnv->cVars)++;
                     ppszTarget++;
-                    pszVarThis += strlen(pszVarThis) + 1;
+                    pszVarThis += ulThisLen + 1;
                 }
 
                 pEnv->papszVars = papsz;
@@ -155,6 +165,15 @@ APIRET appParseEnvironment(const char *pcszEnv,
  *      calls appParseEnvironment for the current
  *      process environment, which is retrieved from
  *      the info blocks.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR:
+ *
+ *      --  ERROR_INVALID_PARAMETER
+ *
+ *      --  ERROR_BAD_ENVIRONMENT: no environment found in
+ *          info blocks.
  *
  *@@added V0.9.4 (2000-07-19) [umoeller]
  *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from dosh2.c to apps.c
@@ -172,8 +191,8 @@ APIRET appGetEnvironment(PDOSENVIRONMENT pEnv)
         arc = DosGetInfoBlocks(&ptib, &ppib);
         if (arc == NO_ERROR)
         {
-            PSZ pszEnv = ppib->pib_pchenv;
-            if (pszEnv)
+            PSZ pszEnv;
+            if (pszEnv = ppib->pib_pchenv)
                 arc = appParseEnvironment(pszEnv, pEnv);
             else
                 arc = ERROR_BAD_ENVIRONMENT;
@@ -199,51 +218,49 @@ APIRET appGetEnvironment(PDOSENVIRONMENT pEnv)
  *@@added V0.9.4 (2000-07-19) [umoeller]
  *@@changed V0.9.12 (2001-05-21) [umoeller]: fixed memory leak
  *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from dosh2.c to apps.c
+ *@@changed V0.9.16 (2002-01-01) [umoeller]: removed extra heap allocation
  */
 
 PSZ* appFindEnvironmentVar(PDOSENVIRONMENT pEnv,
                            PSZ pszVarName)
 {
-    PSZ *ppszRet = 0;
-    if (pEnv)
+    PSZ     *ppszRet = 0;
+
+    if (    (pEnv)
+         && (pEnv->papszVars)
+         && (pszVarName)
+       )
     {
-        if ((pEnv->papszVars) && (pszVarName))
+        ULONG   ul = 0;
+        ULONG   ulVarNameLen = 0;
+
+        PSZ     pFirstEqual;
+        // rewrote all the following for speed V0.9.16 (2002-01-01) [umoeller]
+        if (pFirstEqual = strchr(pszVarName, '='))
+            // VAR=VALUE
+            //    ^ pFirstEqual
+            ulVarNameLen = pFirstEqual - pszVarName;
+        else
+            ulVarNameLen = strlen(pszVarName);
+
+        for (ul = 0;
+             ul < pEnv->cVars;
+             ul++)
         {
-            PSZ     *ppszThis = pEnv->papszVars;
-            // PSZ     pszThis;
-            ULONG   ul = 0;
-            ULONG   ulVarNameLen = 0;
-
-            PSZ     pszSearch = NULL; // receives "VARNAME="
-            PSZ     pFirstEqual = strchr(pszVarName, '=');
-            if (pFirstEqual)
-                pszSearch = strhSubstr(pszVarName, pFirstEqual + 1);
-            else
+            PSZ pszThis = pEnv->papszVars[ul];
+            if (pFirstEqual = strchr(pszThis, '='))
             {
-                ulVarNameLen = strlen(pszVarName);
-                pszSearch = (PSZ)malloc(ulVarNameLen + 2);
-                memcpy(pszSearch, pszVarName, ulVarNameLen);
-                *(pszSearch + ulVarNameLen) = '=';
-                *(pszSearch + ulVarNameLen + 1) = 0;
-            }
-
-            ulVarNameLen = strlen(pszSearch);
-
-            for (ul = 0;
-                 ul < pEnv->cVars;
-                 ul++)
-            {
-                if (strnicmp(*ppszThis, pszSearch, ulVarNameLen) == 0)
+                ULONG ulLenThis = pFirstEqual - pszThis;
+                if (    (ulLenThis == ulVarNameLen)
+                     && (!memicmp(pszThis,
+                                  pszVarName,
+                                  ulVarNameLen))
+                   )
                 {
-                    ppszRet = ppszThis;
+                    ppszRet = &pEnv->papszVars[ul];
                     break;
                 }
-
-                // next environment string
-                ppszThis++;
             }
-
-            free(pszSearch);        // was missing V0.9.12 (2001-05-21) [umoeller]
         }
     }
 
@@ -295,15 +312,12 @@ APIRET appSetEnvironmentVar(PDOSENVIRONMENT pEnv,
         }
         else
         {
-            PSZ *ppszEnvLine = appFindEnvironmentVar(pEnv, pszNewEnv);
-            if (ppszEnvLine)
-            {
+            PSZ *ppszEnvLine;
+            if (ppszEnvLine = appFindEnvironmentVar(pEnv, pszNewEnv))
                 // was set already: replace
-                free(*ppszEnvLine);
-                *ppszEnvLine = strdup(pszNewEnv);
-                if (!(*ppszEnvLine))
-                    arc = ERROR_NOT_ENOUGH_MEMORY;
-            }
+                arc = strhStore(ppszEnvLine,
+                                pszNewEnv,
+                                NULL);
             else
             {
                 // not set already:
@@ -311,9 +325,9 @@ APIRET appSetEnvironmentVar(PDOSENVIRONMENT pEnv,
 
                 // allocate new array, with one new entry
                 // fixed V0.9.12 (2001-05-26) [umoeller], this crashed
-                PSZ *papszNew = (PSZ*)malloc(sizeof(PSZ) * (pEnv->cVars + 1));
+                PSZ *papszNew;
 
-                if (!papszNew)
+                if (!(papszNew = (PSZ*)malloc(sizeof(PSZ) * (pEnv->cVars + 1))))
                     arc = ERROR_NOT_ENOUGH_MEMORY;
                 else
                 {
@@ -338,9 +352,7 @@ APIRET appSetEnvironmentVar(PDOSENVIRONMENT pEnv,
                                sizeof(PSZ) * pEnv->cVars);
                     }
 
-                    if (pEnv->papszVars)
-                        free(pEnv->papszVars);      // was missing V0.9.12 (2001-05-21) [umoeller]
-
+                    free(pEnv->papszVars);      // was missing V0.9.12 (2001-05-21) [umoeller]
                     pEnv->papszVars = papszNew;
                     pEnv->cVars++;
                     *ppszNew = strdup(pszNewEnv);
@@ -373,59 +385,55 @@ APIRET appConvertEnvironment(PDOSENVIRONMENT pEnv,
                              PULONG pulSize)  // out: size of block allocated in *ppszEnv; ptr can be NULL
 {
     APIRET  arc = NO_ERROR;
-    if (!pEnv)
+    if (    (!pEnv)
+         || (!pEnv->papszVars)
+       )
         arc = ERROR_INVALID_PARAMETER;
     else
     {
-        if (!pEnv->papszVars)
-            arc = ERROR_INVALID_PARAMETER;
+        // count memory needed for all strings
+        ULONG   cbNeeded = 0,
+                ul = 0;
+        PSZ     *ppszThis = pEnv->papszVars;
+
+        for (ul = 0;
+             ul < pEnv->cVars;
+             ul++)
+        {
+            cbNeeded += strlen(*ppszThis) + 1; // length of string plus null terminator
+
+            // next environment string
+            ppszThis++;
+        }
+
+        cbNeeded++;     // for another null terminator
+
+        if (!(*ppszEnv = (PSZ)malloc(cbNeeded)))
+            arc = ERROR_NOT_ENOUGH_MEMORY;
         else
         {
-            // count memory needed for all strings
-            ULONG   cbNeeded = 0,
-                    ul = 0;
-            PSZ     *ppszThis = pEnv->papszVars;
+            PSZ     pTarget = *ppszEnv;
+            if (pulSize)
+                *pulSize = cbNeeded;
+            ppszThis = pEnv->papszVars;
 
+            // now copy each string
             for (ul = 0;
                  ul < pEnv->cVars;
                  ul++)
             {
-                cbNeeded += strlen(*ppszThis) + 1; // length of string plus null terminator
+                PSZ pSource = *ppszThis;
+
+                while ((*pTarget++ = *pSource++))
+                    ;
+
+                // *pTarget++ = 0;     // append null terminator per string
 
                 // next environment string
                 ppszThis++;
             }
 
-            cbNeeded++;     // for another null terminator
-
-            *ppszEnv = (PSZ)malloc(cbNeeded);
-            if (!(*ppszEnv))
-                arc = ERROR_NOT_ENOUGH_MEMORY;
-            else
-            {
-                PSZ     pTarget = *ppszEnv;
-                if (pulSize)
-                    *pulSize = cbNeeded;
-                ppszThis = pEnv->papszVars;
-
-                // now copy each string
-                for (ul = 0;
-                     ul < pEnv->cVars;
-                     ul++)
-                {
-                    PSZ pSource = *ppszThis;
-
-                    while ((*pTarget++ = *pSource++))
-                        ;
-
-                    // *pTarget++ = 0;     // append null terminator per string
-
-                    // next environment string
-                    ppszThis++;
-                }
-
-                *pTarget++ = 0;     // append second null terminator
-            }
+            *pTarget++ = 0;     // append second null terminator
         }
     }
 
@@ -443,32 +451,29 @@ APIRET appConvertEnvironment(PDOSENVIRONMENT pEnv,
 APIRET appFreeEnvironment(PDOSENVIRONMENT pEnv)
 {
     APIRET  arc = NO_ERROR;
-    if (!pEnv)
+    if (    (!pEnv)
+         || (!pEnv->papszVars)
+       )
         arc = ERROR_INVALID_PARAMETER;
     else
     {
-        if (!pEnv->papszVars)
-            arc = ERROR_INVALID_PARAMETER;
-        else
+        PSZ     *ppszThis = pEnv->papszVars;
+        PSZ     pszThis;
+        ULONG   ul = 0;
+
+        for (ul = 0;
+             ul < pEnv->cVars;
+             ul++)
         {
-            PSZ     *ppszThis = pEnv->papszVars;
-            PSZ     pszThis;
-            ULONG   ul = 0;
-
-            for (ul = 0;
-                 ul < pEnv->cVars;
-                 ul++)
-            {
-                pszThis = *ppszThis;
-                free(pszThis);
-                // *ppszThis = NULL;
-                // next environment string
-                ppszThis++;
-            }
-
-            free(pEnv->papszVars);
-            pEnv->cVars = 0;
+            pszThis = *ppszThis;
+            free(pszThis);
+            // *ppszThis = NULL;
+            // next environment string
+            ppszThis++;
         }
+
+        free(pEnv->papszVars);
+        pEnv->cVars = 0;
     }
 
     return (arc);
@@ -919,15 +924,22 @@ PSZ appQueryDefaultWin31Environment(VOID)
  *@@changed V0.9.16 (2001-10-19) [umoeller]: added prototype to return APIRET
  *@@changed V0.9.16 (2001-10-19) [umoeller]: added thread-1 check
  *@@changed V0.9.16 (2001-12-06) [umoeller]: now using doshSearchPath for finding pszExecutable if not qualified
+ *@@changed V0.9.16 (2002-01-04) [umoeller]: removed error report if startup directory was drive letter only
+ *@@changed V0.9.16 (2002-01-04) [umoeller]: added more detailed error reports and *FailingName params
  */
 
 APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
                    const PROGDETAILS *pcProgDetails, // in: program spec (req.)
                    ULONG ulFlags,          // in: APP_RUN_* flags
-                   HAPP *phapp)            // out: application handle if NO_ERROR is returned
+                   HAPP *phapp,            // out: application handle if NO_ERROR is returned
+                   ULONG cbFailingName,
+                   PSZ pszFailingName)
 {
     APIRET          arc = NO_ERROR;
     PROGDETAILS     ProgDetails;
+
+    if (pszFailingName)
+        *pszFailingName = '\0';
 
     if (!pcProgDetails || !phapp)
         return (ERROR_INVALID_PARAMETER);
@@ -1080,10 +1092,13 @@ APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
                     // make sure startup dir is really a directory
                     if (ProgDetails.pszStartupDir)
                     {
-                        if (!(arc = doshQueryPathAttr(ProgDetails.pszStartupDir,
-                                                      &ulAttr)))
-                            if (!(ulAttr & FILE_DIRECTORY))
-                                arc = ERROR_PATH_NOT_FOUND;
+                        // it is valid to specify a startup dir of "C:"
+                        if (    (strlen(ProgDetails.pszStartupDir) > 2)
+                             && (!(arc = doshQueryPathAttr(ProgDetails.pszStartupDir,
+                                                           &ulAttr)))
+                             && (!(ulAttr & FILE_DIRECTORY))
+                           )
+                            arc = ERROR_PATH_NOT_FOUND;
                     }
                 }
             }
@@ -1221,6 +1236,10 @@ APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
                                   0,
                                   MB_YESNO | MB_MOVEABLE)
                           == MBID_YES) */
+
+                if (pszFailingName)
+                    strhncpy0(pszFailingName, ProgDetails.pszExecutable, cbFailingName);
+
                 if (!(*phapp = WinStartApp(hwndNotify,
                                                     // receives WM_APPTERMINATENOTIFY
                                            &ProgDetails,
@@ -1234,11 +1253,90 @@ APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
                                                 // do not use SAF_STARTCHILDAPP, or the
                                                 // app will be terminated automatically
                                                 // when the WPS terminates!
-                    arc = ERROR_BAD_FORMAT;
-                            // @@todo we can probably do better
-                            // V0.9.16 (2001-10-19) [umoeller]
+                {
+                    // cannot start app: unfortunately WinStartApp doesn't
+                    // return meaningful codes like DosStartSession, so
+                    // try to see what happened
+                    switch (ERRORIDERROR(WinGetLastError(0)))
+                    {
+                        case PMERR_DOS_ERROR: //  (0x1200)
+                        {
+                            // this is probably the case where the module
+                            // couldn't be loaded, so try DosStartSession
+                            // to get a meaningful return code... note that
+                            // this cannot handle hwndNotify then
+                            RESULTCODES result;
+                            arc = DosExecPgm(pszFailingName,
+                                             cbFailingName,
+                                             EXEC_ASYNC,
+                                             NULL, // ProgDetails.pszParameters,
+                                             NULL, // ProgDetails.pszEnvironment,
+                                             &result,
+                                             ProgDetails.pszExecutable);
 
-                // _Pmpf((__FUNCTION__ ": got happ 0x%lX", happ));
+                            /* ULONG sid, pid;
+                            STARTDATA   SData;
+                            SData.Length  = sizeof(STARTDATA);
+                            SData.Related = SSF_RELATED_CHILD; //INDEPENDENT;
+                            SData.FgBg    = SSF_FGBG_FORE;
+                            SData.TraceOpt = SSF_TRACEOPT_NONE;
+
+                            SData.PgmTitle = ProgDetails.pszTitle;
+                            SData.PgmName = ProgDetails.pszExecutable;
+                            SData.PgmInputs = ProgDetails.pszParameters;
+
+                            SData.TermQ = NULL;
+                            SData.Environment = ProgDetails.pszEnvironment;
+                            SData.InheritOpt = SSF_INHERTOPT_PARENT;    // ignored
+                            SData.SessionType = SSF_TYPE_DEFAULT;
+                            SData.IconFile = 0;
+                            SData.PgmHandle = 0;
+
+                            SData.PgmControl = SSF_CONTROL_VISIBLE;
+
+                            SData.InitXPos  = 30;
+                            SData.InitYPos  = 40;
+                            SData.InitXSize = 200;
+                            SData.InitYSize = 140;
+                            SData.Reserved = 0;
+                            SData.ObjectBuffer  = pszFailingName;
+                            SData.ObjectBuffLen = cbFailingName;
+
+                            arc = DosStartSession(&SData, &sid, &pid);
+                            */
+                        }
+                        break;
+
+                        case PMERR_INVALID_APPL: //  (0x1530)
+                                // Attempted to start an application whose type is not
+                                // recognized by OS/2.
+                            arc = ERROR_INVALID_EXE_SIGNATURE;
+                        break;
+
+                        case PMERR_INVALID_PARAMETERS: //  (0x1208)
+                                // An application parameter value is invalid for
+                                // its converted PM type. For  example: a 4-byte
+                                // value outside the range -32 768 to +32 767 cannot be
+                                // converted to a SHORT, and a negative number cannot
+                                // be converted to a ULONG or USHORT.
+                            arc = ERROR_INVALID_DATA;
+                        break;
+
+                        case PMERR_STARTED_IN_BACKGROUND: //  (0x1532)
+                                // The application started a new session in the
+                                // background.
+                            arc = ERROR_SMG_START_IN_BACKGROUND;
+                        break;
+
+                        case PMERR_INVALID_WINDOW: // (0x1206)
+                                // The window specified with a Window List call
+                                // is not a valid frame window.
+
+                        default:
+                            arc = ERROR_BAD_FORMAT;
+                        break;
+                    }
+                }
             }
         }
 
@@ -1343,7 +1441,9 @@ HAPP appQuickStartApp(const char *pcszFile,
          && (!appStartApp(hwndObject,
                           &pd,
                           0,
-                          &happ))
+                          &happ,
+                          0,
+                          NULL))
        )
     {
         if (appWaitForApp(hwndObject,

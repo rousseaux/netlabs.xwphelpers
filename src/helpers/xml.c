@@ -1134,7 +1134,7 @@ VOID ValidateElement(PXMLDOM pDom,
                     else
                     {
                         // the element is allowed at all: now check for the
-                        // lists case...
+                        // lists case... @@todo
                         switch (ulDeclType)
                         {
                             case ELEMENTPARTICLE_CHOICE:

@@ -533,7 +533,7 @@ extern "C" {
      */
 
     #define winhQueryLboxSelectedItem(hwndListBox, sItemStart) \
-            (SHORT)(WinSendMsg(hwndListBox,                    \
+            SHORT1FROMMR(WinSendMsg(hwndListBox,                    \
                             LM_QUERYSELECTION,                 \
                             (MPARAM)(sItemStart),              \
                             MPNULL))

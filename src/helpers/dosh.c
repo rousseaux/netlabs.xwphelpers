@@ -1639,6 +1639,7 @@ APIRET doshSetPathAttr(const char* pcszFile,    // in: file or directory name
  *@@added V0.9.13 (2001-06-14) [umoeller]
  */
 
+/*
 APIRET doshOpenExisting(PCSZ pcszFilename,   // in: file name
                         ULONG ulOpenFlags,          // in: open flags
                         HFILE *phf)                 // out: OS/2 file handle
@@ -1653,79 +1654,7 @@ APIRET doshOpenExisting(PCSZ pcszFilename,   // in: file name
                     ulOpenFlags,
                     NULL));     // EAs
 }
-
-/*
- *@@ doshWriteAt:
- *      writes cb bytes (pointed to by pbData) to the
- *      position specified by ulMethod and lOffset into
- *      the file specified by hf.
- *
- *      If ulMethod is FILE_BEGIN, lOffset specifies the
- *      offset from the beginning of the file. With
- *      FILE_CURRENT, lOffset is considered from the
- *      current file pointer, and with FILE_END, it is
- *      considered from the end of the file.
- *
- *@@added V0.9.13 (2001-06-14) [umoeller]
- */
-
-APIRET doshWriteAt(HFILE hf,        // in: OS/2 file handle
-                   LONG lOffset,    // in: offset to write at (depends on ulMethod)
-                   ULONG ulMethod,  // in: one of FILE_BEGIN, FILE_CURRENT, FILE_END
-                   ULONG cb,        // in: bytes to write
-                   PBYTE pbData)    // in: ptr to bytes to write (must be cb bytes)
-{
-    APIRET arc;
-    ULONG ulDummy;
-    if (!(arc = DosSetFilePtr(hf,
-                              lOffset,
-                              ulMethod,
-                              &ulDummy)))
-        arc = DosWrite(hf,
-                       pbData,
-                       cb,
-                       &ulDummy);
-
-    return (arc);
-}
-
-/*
- *@@ doshReadAt:
- *      reads cb bytes from the position specified by
- *      ulMethod and lOffset into the buffer pointed to
- *      by pbData, which should be cb bytes in size.
- *
- *      Use lOffset and ulMethod as with doshWriteAt.
- *
- *@@added V0.9.13 (2001-06-14) [umoeller]
- */
-
-APIRET doshReadAt(HFILE hf,        // in: OS/2 file handle
-                  LONG lOffset,    // in: offset to write at (depends on ulMethod)
-                  ULONG ulMethod,  // in: one of FILE_BEGIN, FILE_CURRENT, FILE_END
-                  PULONG pcb,      // in: bytes to read, out: bytes read
-                  PBYTE pbData)    // out: read buffer (must be cb bytes)
-{
-    APIRET arc;
-    ULONG cb = *pcb;
-    ULONG ulDummy;
-
-    *pcb = 0;
-
-    if (!(arc = DosSetFilePtr(hf,
-                              lOffset,
-                              ulMethod,
-                              &ulDummy)))
-    {
-        if (!(arc = DosRead(hf,
-                            pbData,
-                            cb,
-                            &ulDummy)))
-            *pcb = ulDummy;     // bytes read
-    }
-
-    return (arc);
-}
+*/
 
 /*
  * doshOpen:
@@ -1740,6 +1669,9 @@ APIRET doshReadAt(HFILE hf,        // in: OS/2 file handle
  +      |  ulOpenMode             | mode | if exists  | if new    |
  +      +-------------------------+------+------------+-----------+
  +      |  XOPEN_READ_EXISTING    | read | opens      | fails     |
+ +      |                         |      | fptr = 0   |           |
+ +      +-------------------------+------+------------+-----------+
+ +      |  XOPEN_READWRITE_EXISTING r/w  | opens      | fails     |
  +      |                         |      | fptr = 0   |           |
  +      +-------------------------+------+------------+-----------+
  +      |  XOPEN_READWRITE_APPEND | r/w  | opens,     | creates   |
@@ -1801,12 +1733,21 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
                           | OPEN_ACTION_OPEN_IF_EXISTS;
             fsOpenMode |=   OPEN_SHARE_DENYWRITE
                           | OPEN_ACCESS_READONLY;
-            // _Pmpf((__FUNCTION__ ": opening XOPEN_READ_EXISTING"));
 
             // run this first, because if the file doesn't
             // exists, DosOpen only returns ERROR_OPEN_FAILED,
             // which isn't that meaningful
             // V0.9.16 (2001-12-08) [umoeller]
+            arc = doshQueryPathSize(pcszFilename,
+                                    pcbFile);
+        break;
+
+        case XOPEN_READWRITE_EXISTING:
+            fsOpenFlags =   OPEN_ACTION_FAIL_IF_NEW
+                          | OPEN_ACTION_OPEN_IF_EXISTS;
+            fsOpenMode |=   OPEN_SHARE_DENYWRITE
+                          | OPEN_ACCESS_READWRITE;
+
             arc = doshQueryPathSize(pcszFilename,
                                     pcbFile);
         break;
@@ -1927,6 +1868,51 @@ APIRET doshUnlockFile(PXFILE pFile)
 }
 
 /*
+ *@@ doshReadAt:
+ *      reads cb bytes from the position specified by
+ *      lOffset into the buffer pointed to by pbData,
+ *      which should be cb bytes in size.
+ *
+ *      Note that lOffset is always considered to
+ *      be from the beginning of the file (FILE_BEGIN
+ *      method).
+ *
+ *@@added V0.9.13 (2001-06-14) [umoeller]
+ *@@changed V0.9.16 (2001-12-18) [umoeller]: now with XFILE, and always using FILE_BEGIN
+ */
+
+APIRET doshReadAt(PXFILE pFile,
+                  ULONG ulOffset,    // in: offset to read from (from beginning of file)
+                  PULONG pcb,      // in: bytes to read, out: bytes read
+                  PBYTE pbData)    // out: read buffer (must be cb bytes)
+{
+    APIRET arc;
+    ULONG cb = *pcb;
+    ULONG ulDummy;
+
+    if (!(arc = doshLockFile(pFile)))   // this checks for pFile
+    {
+        *pcb = 0;
+
+        if (!(arc = DosSetFilePtr(pFile->hf,
+                                  (LONG)ulOffset,
+                                  FILE_BEGIN,
+                                  &ulDummy)))
+        {
+            if (!(arc = DosRead(pFile->hf,
+                                pbData,
+                                cb,
+                                &ulDummy)))
+                *pcb = ulDummy;     // bytes read
+        }
+
+        doshUnlockFile(pFile);
+    }
+
+    return (arc);
+}
+
+/*
  *@@ doshWrite:
  *      writes the specified data to the file.
  *      If (cb == 0), this runs strlen on pcsz
@@ -1936,22 +1922,26 @@ APIRET doshUnlockFile(PXFILE pFile)
  *      \n chars are converted to \r\n before
  *      writing.
  *
+ *      Note that this expects that the file
+ *      pointer is at the end of the file, or
+ *      you will get garbage.
+ *
  *@@added V0.9.16 (2001-10-19) [umoeller]
  *@@changed V0.9.16 (2001-12-02) [umoeller]: added XOPEN_BINARY \r\n support
  *@@changed V0.9.16 (2001-12-06) [umoeller]: added check for pFile != NULL
  */
 
 APIRET doshWrite(PXFILE pFile,
-                 PCSZ pcsz,
-                 ULONG cb)
+                 ULONG cb,
+                 PCSZ pbData)
 {
     APIRET arc = NO_ERROR;
-    if ((!pFile) || (!pcsz))
+    if ((!pFile) || (!pbData))
         arc = ERROR_INVALID_PARAMETER;
     else
     {
         if (!cb)
-            cb = strlen(pcsz);
+            cb = strlen(pbData);
 
         if (!cb)
             arc = ERROR_INVALID_PARAMETER;
@@ -1966,7 +1956,7 @@ APIRET doshWrite(PXFILE pFile,
 
                 // count all \n first
                 ULONG cNewLines = 0;
-                PCSZ pSource = pcsz;
+                PCSZ pSource = pbData;
                 ULONG ul;
                 for (ul = 0;
                      ul < cb;
@@ -1986,7 +1976,7 @@ APIRET doshWrite(PXFILE pFile,
                     else
                     {
                         PSZ pTarget = pszNew;
-                        pSource = pcsz;
+                        pSource = pbData;
                         for (ul = 0;
                              ul < cb;
                              ul++)
@@ -2009,7 +1999,7 @@ APIRET doshWrite(PXFILE pFile,
                     if (!(arc = DosWrite(pFile->hf,
                                          (pszNew)
                                                 ? pszNew
-                                                : (PSZ)pcsz,
+                                                : (PSZ)pbData,
                                          cb,
                                          &cbWritten)))
                         pFile->cbCurrent += cbWritten;
@@ -2020,6 +2010,45 @@ APIRET doshWrite(PXFILE pFile,
             if (pszNew)
                 free(pszNew);
         }
+    }
+
+    return (arc);
+}
+
+/*
+ *@@ doshWriteAt:
+ *      writes cb bytes (pointed to by pbData) to the
+ *      specified file at the position lOffset (from
+ *      the beginning of the file).
+ *
+ *@@added V0.9.13 (2001-06-14) [umoeller]
+ */
+
+APIRET doshWriteAt(PXFILE pFile,
+                   ULONG ulOffset,    // in: offset to write at
+                   ULONG cb,        // in: bytes to write
+                   PCSZ pbData)     // in: ptr to bytes to write (must be cb bytes)
+{
+    APIRET arc;
+    if (!(arc = doshLockFile(pFile)))   // this checks for pFile
+    {
+        ULONG cbWritten;
+        if (!(arc = DosSetFilePtr(pFile->hf,
+                                  (LONG)ulOffset,
+                                  FILE_BEGIN,
+                                  &cbWritten)))
+        {
+            if (!(arc = DosWrite(pFile->hf,
+                                 (PSZ)pbData,
+                                 cb,
+                                 &cbWritten)))
+            {
+                if (ulOffset + cbWritten > pFile->cbCurrent)
+                    pFile->cbCurrent = ulOffset + cbWritten;
+            }
+        }
+
+        doshUnlockFile(pFile);
     }
 
     return (arc);
@@ -2058,8 +2087,8 @@ APIRET doshWriteLogEntry(PXFILE pFile,
                                dt.hours, dt.minutes, dt.seconds, dt.hundredths))
         {
             if (!(arc = doshWrite(pFile,
-                                  szTemp,
-                                  ulLength)))
+                                  ulLength,
+                                  szTemp)))
             {
                 va_list arg_ptr;
                 va_start(arg_ptr, pcszFormat);
@@ -2072,8 +2101,8 @@ APIRET doshWriteLogEntry(PXFILE pFile,
                 szTemp[ulLength++] = '\n';
 
                 arc = doshWrite(pFile,
-                                (PCSZ)szTemp,
-                                ulLength);
+                                ulLength,
+                                szTemp);
             }
         }
     }

@@ -64,6 +64,7 @@
 
 #include "helpers\dosh.h"
 #include "helpers\ensure.h"
+#include "helpers\nls.h"
 #include "helpers\standards.h"
 #include "helpers\stringh.h"
 
@@ -440,16 +441,20 @@ APIRET doshSetCurrentDir(const char *pcszDir)
  *@@changed V0.9.16 (2001-12-08) [umoeller]: now using OPEN_SHARE_DENYWRITE
  *@@changed V0.9.16 (2001-12-08) [umoeller]: fLibrary was never set, works for LX and NE now
  *@@changed V0.9.16 (2001-12-08) [umoeller]: some speed optimizations, changed some return codes
+ *@@changed V0.9.16 (2002-01-04) [umoeller]: added fixes for COM, BAT, CMD extensions
  */
 
 APIRET doshExecOpen(const char* pcszExecutable,
                     PEXECUTABLE* ppExec)
 {
-    APIRET  arc = NO_ERROR;
+    APIRET      arc = NO_ERROR;
 
-    ULONG   ulAction = 0;
-    HFILE   hFile;
     PEXECUTABLE pExec = NULL;
+
+    PXFILE      pFile = NULL;
+    ULONG       cbFile = 0;
+    PCSZ        pExt;
+    BOOL        fOpenFile = FALSE;
 
     if (!ppExec)
         return (ERROR_INVALID_PARAMETER);
@@ -459,24 +464,49 @@ APIRET doshExecOpen(const char* pcszExecutable,
 
     memset(pExec, 0, sizeof(EXECUTABLE));
 
-    if (!(arc = DosOpen((PSZ)pcszExecutable,
-                        &hFile,
-                        &ulAction,                      // out: action taken
-                        0,                              // in: new file (ignored for read-mode)
-                        0,                              // in: new file attribs (ignored)
-                        // open-flags
-                        OPEN_ACTION_FAIL_IF_NEW
-                           | OPEN_ACTION_OPEN_IF_EXISTS,
-                        // open-mode
-                        OPEN_FLAGS_FAIL_ON_ERROR        // report errors to caller
-                           | OPEN_FLAGS_SEQUENTIAL
-                           | OPEN_FLAGS_NOINHERIT
-                           // | OPEN_SHARE_DENYNONE
-                           | OPEN_SHARE_DENYWRITE       // changed V0.9.16 (2001-12-08) [umoeller]
-                           | OPEN_ACCESS_READONLY,      // read-only mode
-                        NULL)))                         // no EAs
+    // check some of the default extensions
+    // V0.9.16 (2002-01-04) [umoeller]
+    if (pExt = doshGetExtension(pcszExecutable))
+    {
+        if (!stricmp(pExt, "COM"))
+        {
+            // I am not willing to find out more about the
+            // .COM executable format, so for this one case,
+            // let OS/2 determine what we have here
+            ULONG ulDosAppType = 0;
+            if (!(arc = DosQueryAppType((PSZ)pcszExecutable, &ulDosAppType)))
+            {
+                if (ulDosAppType & FAPPTYP_DOS)           // 0x20
+                    pExec->ulOS = EXEOS_DOS3;
+                else
+                    pExec->ulOS = EXEOS_OS2;
+
+                pExec->ulExeFormat = EXEFORMAT_COM;
+            }
+        }
+        else if (!stricmp(pExt, "BAT"))
+        {
+            pExec->ulOS = EXEOS_DOS3;
+            pExec->ulExeFormat = EXEFORMAT_TEXT_BATCH;
+        }
+        else if (!stricmp(pExt, "CMD"))
+        {
+            pExec->ulOS = EXEOS_OS2;
+            pExec->ulExeFormat = EXEFORMAT_TEXT_CMD;
+        }
+        else
+            fOpenFile = TRUE;
+    }
+
+    if (    (fOpenFile)
+         && (!(arc = doshOpen((PSZ)pcszExecutable,
+                              XOPEN_READ_EXISTING,
+                              &cbFile,
+                              &pFile)))
+       )
     {
         // file opened successfully:
+        pExec->pFile = pFile;
 
         // read old DOS EXE header
         if (!(pExec->pDosExeHeader = (PDOSEXEHEADER)malloc(sizeof(DOSEXEHEADER))))
@@ -484,9 +514,8 @@ APIRET doshExecOpen(const char* pcszExecutable,
         else
         {
             pExec->cbDosExeHeader = sizeof(DOSEXEHEADER);
-            if (!(arc = doshReadAt(hFile,
+            if (!(arc = doshReadAt(pFile,
                                    0,
-                                   FILE_BEGIN,
                                    &pExec->cbDosExeHeader,      // in/out
                                    (PBYTE)pExec->pDosExeHeader)))
             {
@@ -553,9 +582,8 @@ APIRET doshExecOpen(const char* pcszExecutable,
 
                     if (!(pbHeader = (PBYTE)malloc(cbRead)))
                         arc = ERROR_NOT_ENOUGH_MEMORY;
-                    else if (!(arc = doshReadAt(hFile,
+                    else if (!(arc = doshReadAt(pFile,
                                                 ulNewHeaderOfs,
-                                                FILE_BEGIN,
                                                 &cbRead,
                                                 pbHeader)))
                     {
@@ -625,8 +653,8 @@ APIRET doshExecOpen(const char* pcszExecutable,
                                 // PE has a standard header of 24 bytes
                                 // plus an extended header, so check what
                                 // we've got
-                                ULONG cbPE =   24
-                                             + ((PPEHEADER)pbHeader)->usHeaderSize;
+                                ULONG cbPE =   sizeof(PEHEADER); // 24
+                                   //           + ((PPEHEADER)pbHeader)->usHeaderSize;
                                 pExec->pPEHeader = (PPEHEADER)realloc(pbHeader,
                                                                       cbPE);
 
@@ -634,10 +662,19 @@ APIRET doshExecOpen(const char* pcszExecutable,
                                 pExec->ulOS = EXEOS_WIN32;
                                 pExec->f32Bits = TRUE;
 
+                                /*
                                 // we have the first 24 bytes already, so
-                                // go for the next chunk
-                                if (cbRead = pExec->pPEHeader->usHeaderSize)
+                                // go for the next chunk, if this is more
+                                // than we have in PEHEADER
+                                if (    (cbRead < cbPE)
+                                     && (cbRead = pExec->pPEHeader->usHeaderSize)
+                                   )
                                 {
+                                    _Pmpf(("  usHdrSize %d, sizeof(PEHEADER) %d, cbRead %d, cbPE %d --> reading extended header",
+                                           pExec->pPEHeader->usHeaderSize,
+                                           sizeof(PEHEADER),
+                                           cbRead,
+                                           cbPE));
                                     if (!(arc = doshReadAt(hFile,
                                                            ulNewHeaderOfs + 24,
                                                            FILE_BEGIN,
@@ -646,15 +683,24 @@ APIRET doshExecOpen(const char* pcszExecutable,
                                     {
                                     }
                                     else
+                                    {
                                         arc = ERROR_BAD_EXE_FORMAT;
+                                        FREE(pExec->pPEHeader);
+                                    }
                                 }
+                                else
+                                    _Pmpf(("  already got extended header"));
+                                */
                             }
                         }
                         else
+                        {
                             // strange type:
                             arc = ERROR_INVALID_EXE_SIGNATURE;
+                            FREE(pbHeader);
+                        }
 
-                        if (pbCheckOS)
+                        if ((!arc) && (pbCheckOS))
                         {
                             // BYTE to check for operating system
                             // (NE and LX):
@@ -680,13 +726,11 @@ APIRET doshExecOpen(const char* pcszExecutable,
                                 break;
                             }
                         }
-                    }
-                }
-            } // end if (!(arc = DosSetFilePtr(hFile,
-        } // end if pExec->pDosExeHeader = (PDOSEXEHEADER)malloc(sizeof(DOSEXEHEADER));
+                    } // end if (!(arc = doshReadAt(hFile,
+                } // end if (fLoadNewHeader)
+            } // end if (!(arc = doshReadAt(hFile,
+        } // end else if (!(pExec->pDosExeHeader = (PDOSEXEHEADER)malloc(sizeof(DOSEXEHEADER))))
 
-        // store exec's HFILE
-        pExec->hfExe = hFile;
     } // end if (!(arc = DosOpen((PSZ)pcszExecutable,
 
     if (arc != NO_ERROR)
@@ -940,6 +984,8 @@ APIRET doshExecQueryBldLevel(PEXECUTABLE pExec)
         arc = ERROR_INVALID_PARAMETER;
     else
     {
+        PXFILE      pFile = pExec->pFile;
+
         ULONG       ulNRNTOfs = 0;
 
         if (pExec->ulExeFormat == EXEFORMAT_LX)
@@ -977,7 +1023,7 @@ APIRET doshExecQueryBldLevel(PEXECUTABLE pExec)
 
             // move EXE file pointer to offset of non-resident name table
             // (from LX header)
-            if (!(arc = DosSetFilePtr(pExec->hfExe,     // file is still open
+            if (!(arc = DosSetFilePtr(pFile->hf,     // file is still open
                                       ulNRNTOfs,      // ofs determined above
                                       FILE_BEGIN,
                                       &ulLocal)))
@@ -989,7 +1035,7 @@ APIRET doshExecQueryBldLevel(PEXECUTABLE pExec)
                     arc = ERROR_NOT_ENOUGH_MEMORY;
                 else
                 {
-                    if (!(arc = DosRead(pExec->hfExe,
+                    if (!(arc = DosRead(pFile->hf,
                                         pszNameTable,
                                         2000,
                                         &ulBytesRead)))
@@ -1068,6 +1114,7 @@ APIRET doshExecQueryImportedModules(PEXECUTABLE pExec,
         ULONG       cModules = 0;
         PFSYSMODULE paModules = NULL;
         int i;
+        HFILE hfExe = pExec->pFile->hf;
 
         ULONG ulNewHeaderOfs = 0;       // V0.9.12 (2001-05-03) [umoeller]
 
@@ -1091,7 +1138,7 @@ APIRET doshExecQueryImportedModules(PEXECUTABLE pExec,
 
                 memset(paModules, 0, cb);   // V0.9.9 (2001-04-03) [umoeller]
 
-                ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                ENSURE_SAFE(DosSetFilePtr(hfExe,
                                           pExec->pLXHeader->ulImportModTblOfs
                                             + ulNewHeaderOfs, // V0.9.12 (2001-05-03) [umoeller]
                                           FILE_BEGIN,
@@ -1102,10 +1149,10 @@ APIRET doshExecQueryImportedModules(PEXECUTABLE pExec,
                     BYTE bLen = 0;
 
                     // reading the length of the module name
-                    ENSURE_SAFE(DosRead(pExec->hfExe, &bLen, 1, &ulDummy));
+                    ENSURE_SAFE(DosRead(hfExe, &bLen, 1, &ulDummy));
 
                     // reading the module name
-                    ENSURE_SAFE(DosRead(pExec->hfExe,
+                    ENSURE_SAFE(DosRead(hfExe,
                                         paModules[i].achModuleName,
                                         bLen,
                                         &ulDummy));
@@ -1142,25 +1189,25 @@ APIRET doshExecQueryImportedModules(PEXECUTABLE pExec,
                     // the offset in the module reference table, and
                     // then we read the name in the import table
 
-                    ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                    ENSURE_SAFE(DosSetFilePtr(hfExe,
                                               pExec->pNEHeader->usModRefTblOfs
                                                 + ulNewHeaderOfs // V0.9.12 (2001-05-03) [umoeller]
                                                 + sizeof(usOfs) * i,
                                               FILE_BEGIN,
                                               &ulDummy));
 
-                    ENSURE_SAFE(DosRead(pExec->hfExe, &usOfs, 2, &ulDummy));
+                    ENSURE_SAFE(DosRead(hfExe, &usOfs, 2, &ulDummy));
 
-                    ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                    ENSURE_SAFE(DosSetFilePtr(hfExe,
                                               pExec->pNEHeader->usImportTblOfs
                                                 + ulNewHeaderOfs // V0.9.12 (2001-05-03) [umoeller]
                                                 + usOfs,
                                               FILE_BEGIN,
                                               &ulDummy));
 
-                    ENSURE_SAFE(DosRead(pExec->hfExe, &bLen, 1, &ulDummy));
+                    ENSURE_SAFE(DosRead(hfExe, &bLen, 1, &ulDummy));
 
-                    ENSURE_SAFE(DosRead(pExec->hfExe,
+                    ENSURE_SAFE(DosRead(hfExe,
                                         paModules[i].achModuleName,
                                         bLen,
                                         &ulDummy));
@@ -1223,12 +1270,13 @@ APIRET ScanLXEntryTable(PEXECUTABLE pExec,
     int    i;
 
     ULONG ulNewHeaderOfs = 0; // V0.9.12 (2001-05-03) [umoeller]
+    HFILE hfExe = pExec->pFile->hf;
 
     if (pExec->pDosExeHeader)
         // executable has DOS stub: V0.9.12 (2001-05-03) [umoeller]
         ulNewHeaderOfs = pExec->pDosExeHeader->ulNewHeaderOfs;
 
-    ENSURE(DosSetFilePtr(pExec->hfExe,
+    ENSURE(DosSetFilePtr(hfExe,
                          pExec->pLXHeader->ulEntryTblOfs
                            + ulNewHeaderOfs, // V0.9.12 (2001-05-03) [umoeller]
                          FILE_BEGIN,
@@ -1240,13 +1288,13 @@ APIRET ScanLXEntryTable(PEXECUTABLE pExec,
                bType,
                bFlag;
 
-        ENSURE(DosRead(pExec->hfExe, &bCnt, 1, &ulDummy));
+        ENSURE(DosRead(hfExe, &bCnt, 1, &ulDummy));
 
         if (bCnt == 0)
             // end of the entry table
             break;
 
-        ENSURE(DosRead(pExec->hfExe, &bType, 1, &ulDummy));
+        ENSURE(DosRead(hfExe, &bType, 1, &ulDummy));
 
         switch (bType & 0x7F)
         {
@@ -1268,14 +1316,14 @@ APIRET ScanLXEntryTable(PEXECUTABLE pExec,
              */
 
             case 1:
-                ENSURE(DosSetFilePtr(pExec->hfExe,
+                ENSURE(DosSetFilePtr(hfExe,
                                      sizeof(USHORT),
                                      FILE_CURRENT,
                                      &ulDummy));
 
                 for (i = 0; i < bCnt; i ++)
                 {
-                    ENSURE(DosRead(pExec->hfExe, &bFlag, 1, &ulDummy));
+                    ENSURE(DosRead(hfExe, &bFlag, 1, &ulDummy));
 
                     if (bFlag & 0x01)
                     {
@@ -1290,7 +1338,7 @@ APIRET ScanLXEntryTable(PEXECUTABLE pExec,
 
                     usOrdinal++;
 
-                    ENSURE(DosSetFilePtr(pExec->hfExe,
+                    ENSURE(DosSetFilePtr(hfExe,
                                          sizeof(USHORT),
                                          FILE_CURRENT,
                                          &ulDummy));
@@ -1307,14 +1355,14 @@ APIRET ScanLXEntryTable(PEXECUTABLE pExec,
              */
 
             case 2:
-                ENSURE(DosSetFilePtr(pExec->hfExe,
+                ENSURE(DosSetFilePtr(hfExe,
                                      sizeof(USHORT),
                                      FILE_CURRENT,
                                      &ulDummy));
 
                 for (i = 0; i < bCnt; i ++)
                 {
-                    ENSURE(DosRead(pExec->hfExe, &bFlag, 1, &ulDummy));
+                    ENSURE(DosRead(hfExe, &bFlag, 1, &ulDummy));
 
                     if (bFlag & 0x01)
                     {
@@ -1329,7 +1377,7 @@ APIRET ScanLXEntryTable(PEXECUTABLE pExec,
 
                     usOrdinal++;
 
-                    ENSURE(DosSetFilePtr(pExec->hfExe,
+                    ENSURE(DosSetFilePtr(hfExe,
                                          sizeof(USHORT) + sizeof(USHORT),
                                          FILE_CURRENT,
                                          &ulDummy));
@@ -1346,14 +1394,14 @@ APIRET ScanLXEntryTable(PEXECUTABLE pExec,
              */
 
             case 3:
-                ENSURE(DosSetFilePtr(pExec->hfExe,
+                ENSURE(DosSetFilePtr(hfExe,
                                      sizeof(USHORT),
                                      FILE_CURRENT,
                                      &ulDummy));
 
                 for (i = 0; i < bCnt; i ++)
                 {
-                    ENSURE(DosRead(pExec->hfExe, &bFlag, 1, &ulDummy));
+                    ENSURE(DosRead(hfExe, &bFlag, 1, &ulDummy));
 
                     if (bFlag & 0x01)
                     {
@@ -1368,7 +1416,7 @@ APIRET ScanLXEntryTable(PEXECUTABLE pExec,
 
                     usOrdinal++;
 
-                    ENSURE(DosSetFilePtr(pExec->hfExe,
+                    ENSURE(DosSetFilePtr(hfExe,
                                          sizeof(ULONG),
                                          FILE_CURRENT,
                                          &ulDummy));
@@ -1384,14 +1432,14 @@ APIRET ScanLXEntryTable(PEXECUTABLE pExec,
              */
 
             case 4:
-                ENSURE(DosSetFilePtr(pExec->hfExe,
+                ENSURE(DosSetFilePtr(hfExe,
                                      sizeof(USHORT),
                                      FILE_CURRENT,
                                      &ulDummy));
 
                 for (i = 0; i < bCnt; i ++)
                 {
-                    ENSURE(DosSetFilePtr(pExec->hfExe,
+                    ENSURE(DosSetFilePtr(hfExe,
                                          sizeof(BYTE) + sizeof(USHORT) + sizeof(ULONG),
                                          FILE_CURRENT,
                                          &ulDummy));
@@ -1463,12 +1511,13 @@ APIRET ScanNEEntryTable(PEXECUTABLE pExec,
     int    i;
 
     ULONG ulNewHeaderOfs = 0;
+    HFILE hfExe = pExec->pFile->hf;
 
     if (pExec->pDosExeHeader)
         // executable has DOS stub: V0.9.12 (2001-05-03) [umoeller]
         ulNewHeaderOfs = pExec->pDosExeHeader->ulNewHeaderOfs;
 
-    ENSURE(DosSetFilePtr(pExec->hfExe,
+    ENSURE(DosSetFilePtr(hfExe,
                          pExec->pNEHeader->usEntryTblOfs
                            + ulNewHeaderOfs, // V0.9.12 (2001-05-03) [umoeller]
                          FILE_BEGIN,
@@ -1480,19 +1529,19 @@ APIRET ScanNEEntryTable(PEXECUTABLE pExec,
              bType,
              bFlag;
 
-        ENSURE(DosRead(pExec->hfExe, &bCnt, 1, &ulDummy));
+        ENSURE(DosRead(hfExe, &bCnt, 1, &ulDummy));
 
         if (bCnt == 0)
             // end of the entry table
             break;
 
-        ENSURE(DosRead(pExec->hfExe, &bType, 1, &ulDummy));
+        ENSURE(DosRead(hfExe, &bType, 1, &ulDummy));
 
         if (bType)
         {
             for (i = 0; i < bCnt; i++)
             {
-                ENSURE(DosRead(pExec->hfExe,
+                ENSURE(DosRead(hfExe,
                                &bFlag,
                                1,
                                &ulDummy));
@@ -1513,7 +1562,7 @@ APIRET ScanNEEntryTable(PEXECUTABLE pExec,
                 if (bType == 0xFF)
                 {
                     // moveable segment
-                    ENSURE(DosSetFilePtr(pExec->hfExe,
+                    ENSURE(DosSetFilePtr(hfExe,
                                          5,
                                          FILE_CURRENT,
                                          &ulDummy));
@@ -1521,7 +1570,7 @@ APIRET ScanNEEntryTable(PEXECUTABLE pExec,
                 else
                 {
                     // fixed segment or constant (0xFE)
-                    ENSURE(DosSetFilePtr(pExec->hfExe,
+                    ENSURE(DosSetFilePtr(hfExe,
                                          2,
                                          FILE_CURRENT,
                                          &ulDummy));
@@ -1584,6 +1633,7 @@ APIRET ScanNameTable(PEXECUTABLE pExec,
 
     USHORT        usOrdinal;
     PFSYSFUNCTION pFunction;
+    HFILE hfExe = pExec->pFile->hf;
 
     while (TRUE)
     {
@@ -1591,16 +1641,16 @@ APIRET ScanNameTable(PEXECUTABLE pExec,
         CHAR   achName[256];
         // int    i;
 
-        ENSURE(DosRead(pExec->hfExe, &bLen, 1, &ulDummy));
+        ENSURE(DosRead(hfExe, &bLen, 1, &ulDummy));
 
         if (bLen == 0)
             // end of the name table
             break;
 
-        ENSURE(DosRead(pExec->hfExe, &achName, bLen, &ulDummy));
+        ENSURE(DosRead(hfExe, &achName, bLen, &ulDummy));
         achName[bLen] = 0;
 
-        ENSURE(DosRead(pExec->hfExe, &usOrdinal, sizeof(USHORT), &ulDummy));
+        ENSURE(DosRead(hfExe, &usOrdinal, sizeof(USHORT), &ulDummy));
 
         if ((pFunction = (PFSYSFUNCTION)bsearch(&usOrdinal,
                                                 paFunctions,
@@ -1667,6 +1717,7 @@ APIRET doshExecQueryExportedFunctions(PEXECUTABLE pExec,
 
         ULONG ulDummy;
 
+        HFILE hfExe = pExec->pFile->hf;
         ULONG ulNewHeaderOfs = 0; // V0.9.12 (2001-05-03) [umoeller]
 
         if (pExec->pDosExeHeader)
@@ -1701,7 +1752,7 @@ APIRET doshExecQueryExportedFunctions(PEXECUTABLE pExec,
 
                 // we now scan the resident name table entries
 
-                ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                ENSURE_SAFE(DosSetFilePtr(hfExe,
                                           pExec->pLXHeader->ulResdNameTblOfs
                                             + ulNewHeaderOfs, // V0.9.12 (2001-05-03) [umoeller]
                                           FILE_BEGIN,
@@ -1712,7 +1763,7 @@ APIRET doshExecQueryExportedFunctions(PEXECUTABLE pExec,
                 // we now scan the non-resident name table entries,
                 // whose offset is _from the begining of the file_
 
-                ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                ENSURE_SAFE(DosSetFilePtr(hfExe,
                                           pExec->pLXHeader->ulNonResdNameTblOfs,
                                           FILE_BEGIN,
                                           &ulDummy));
@@ -1749,7 +1800,7 @@ APIRET doshExecQueryExportedFunctions(PEXECUTABLE pExec,
 
                 // we now scan the resident name table entries
 
-                ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                ENSURE_SAFE(DosSetFilePtr(hfExe,
                                           pExec->pNEHeader->usResdNameTblOfs
                                             + ulNewHeaderOfs, // V0.9.12 (2001-05-03) [umoeller]
                                           FILE_BEGIN,
@@ -1760,7 +1811,7 @@ APIRET doshExecQueryExportedFunctions(PEXECUTABLE pExec,
                 // we now scan the non-resident name table entries,
                 // whose offset is _from the begining of the file_
 
-                ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                ENSURE_SAFE(DosSetFilePtr(hfExe,
                                           pExec->pNEHeader->ulNonResdTblOfs,
                                           FILE_BEGIN,
                                           &ulDummy));
@@ -1841,6 +1892,7 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
         ULONG           cResources = 0;
         PFSYSRESOURCE   paResources = NULL;
 
+        HFILE hfExe = pExec->pFile->hf;
         ULONG           ulNewHeaderOfs = 0; // V0.9.12 (2001-05-03) [umoeller]
 
         if (pExec->pDosExeHeader)
@@ -1885,7 +1937,7 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
 
                 memset(paResources, 0, cb); // V0.9.9 (2001-04-03) [umoeller]
 
-                ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                ENSURE_SAFE(DosSetFilePtr(hfExe,
                                           pLXHeader->ulResTblOfs
                                             + ulNewHeaderOfs, // V0.9.12 (2001-05-03) [umoeller]
                                           FILE_BEGIN,
@@ -1893,7 +1945,7 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
 
                 for (i = 0; i < cResources; i++)
                 {
-                    ENSURE_SAFE(DosRead(pExec->hfExe, &rs, 14, &ulDummy));
+                    ENSURE_SAFE(DosRead(hfExe, &rs, 14, &ulDummy));
 
                     paResources[i].ulID = rs.name;
                     paResources[i].ulType = rs.type;
@@ -1911,12 +1963,12 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
                                       + (   sizeof(ot)
                                           * (paResources[i].ulFlag - 1));
 
-                    ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                    ENSURE_SAFE(DosSetFilePtr(hfExe,
                                               ulOfsThis,
                                               FILE_BEGIN,
                                               &ulDummy));
 
-                    ENSURE_SAFE(DosRead(pExec->hfExe, &ot, sizeof(ot), &ulDummy));
+                    ENSURE_SAFE(DosRead(hfExe, &ot, sizeof(ot), &ulDummy));
 
                     paResources[i].ulFlag  = ((ot.o32_flags & OBJWRITE)
                                                     ? 0
@@ -1967,7 +2019,7 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
 
                     // we first read the resources IDs and types
 
-                    ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                    ENSURE_SAFE(DosSetFilePtr(hfExe,
                                               pNEHeader->usResTblOfs
                                                 + ulNewHeaderOfs, // V0.9.12 (2001-05-03) [umoeller]
                                               FILE_BEGIN,
@@ -1975,7 +2027,7 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
 
                     for (i = 0; i < cResources; i++)
                     {
-                        ENSURE_SAFE(DosRead(pExec->hfExe, &rti, sizeof(rti), &ulDummy));
+                        ENSURE_SAFE(DosRead(hfExe, &rti, sizeof(rti), &ulDummy));
 
                         paResources[i].ulID = rti.name;
                         paResources[i].ulType = rti.type;
@@ -1985,7 +2037,7 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
 
                     for (i = 0; i < cResources; i++)
                     {
-                        ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                        ENSURE_SAFE(DosSetFilePtr(hfExe,
                                                   ulNewHeaderOfs // V0.9.12 (2001-05-03) [umoeller]
                                                     + pNEHeader->usSegTblOfs
                                                     + (sizeof(ns)
@@ -1995,7 +2047,7 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
                                                     FILE_BEGIN,
                                                     &ulDummy));
 
-                        ENSURE_SAFE(DosRead(pExec->hfExe, &ns, sizeof(ns), &ulDummy));
+                        ENSURE_SAFE(DosRead(hfExe, &ns, sizeof(ns), &ulDummy));
 
                         paResources[i].ulSize = ns.ns_cbseg;
 
@@ -2012,13 +2064,13 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
                 USHORT usAlignShift;
                 ULONG  ulDummy;
 
-                ENSURE(DosSetFilePtr(pExec->hfExe,
+                ENSURE(DosSetFilePtr(hfExe,
                                      pNEHeader->usResTblOfs
                                        + ulNewHeaderOfs, // V0.9.12 (2001-05-03) [umoeller]
                                      FILE_BEGIN,
                                      &ulDummy));
 
-                ENSURE(DosRead(pExec->hfExe,
+                ENSURE(DosRead(hfExe,
                                &usAlignShift,
                                sizeof(usAlignShift),
                                &ulDummy));
@@ -2028,7 +2080,7 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
                     USHORT usTypeID;
                     USHORT usCount;
 
-                    ENSURE(DosRead(pExec->hfExe,
+                    ENSURE(DosRead(hfExe,
                                    &usTypeID,
                                    sizeof(usTypeID),
                                    &ulDummy));
@@ -2036,12 +2088,12 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
                     if (usTypeID == 0)
                         break;
 
-                    ENSURE(DosRead(pExec->hfExe,
+                    ENSURE(DosRead(hfExe,
                                    &usCount,
                                    sizeof(usCount),
                                    &ulDummy));
 
-                    ENSURE(DosSetFilePtr(pExec->hfExe,
+                    ENSURE(DosSetFilePtr(hfExe,
                                          sizeof(ULONG),
                                          FILE_CURRENT,
                                          &ulDummy));
@@ -2049,7 +2101,7 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
                     cResources += usCount;
 
                     // first pass, skip NAMEINFO table
-                    ENSURE(DosSetFilePtr(pExec->hfExe,
+                    ENSURE(DosSetFilePtr(hfExe,
                                          usCount*6*sizeof(USHORT),
                                          FILE_CURRENT,
                                          &ulDummy));
@@ -2066,13 +2118,13 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
 
                     memset(paResources, 0, cb);
 
-                    ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                    ENSURE_SAFE(DosSetFilePtr(hfExe,
                                               pNEHeader->usResTblOfs
                                                 + ulNewHeaderOfs,
                                               FILE_BEGIN,
                                               &ulDummy));
 
-                    ENSURE_SAFE(DosRead(pExec->hfExe,
+                    ENSURE_SAFE(DosRead(hfExe,
                                         &usAlignShift,
                                         sizeof(usAlignShift),
                                         &ulDummy));
@@ -2083,7 +2135,7 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
                         USHORT usCount;
                         int i;
 
-                        ENSURE_SAFE(DosRead(pExec->hfExe,
+                        ENSURE_SAFE(DosRead(hfExe,
                                             &usTypeID,
                                             sizeof(usTypeID),
                                             &ulDummy));
@@ -2091,12 +2143,12 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
                         if (usTypeID == 0)
                             break;
 
-                        ENSURE_SAFE(DosRead(pExec->hfExe,
+                        ENSURE_SAFE(DosRead(hfExe,
                                             &usCount,
                                             sizeof(usCount),
                                             &ulDummy));
 
-                        ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                        ENSURE_SAFE(DosSetFilePtr(hfExe,
                                                   sizeof(ULONG),
                                                   FILE_CURRENT,
                                                   &ulDummy));
@@ -2108,25 +2160,25 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
                                    usFlags,
                                    usID;
 
-                            ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                            ENSURE_SAFE(DosSetFilePtr(hfExe,
                                                       sizeof(USHORT),
                                                       FILE_CURRENT,
                                                       &ulDummy));
 
-                            ENSURE_SAFE(DosRead(pExec->hfExe,
+                            ENSURE_SAFE(DosRead(hfExe,
                                                 &usLength,
                                                 sizeof(USHORT),
                                                 &ulDummy));
-                            ENSURE_SAFE(DosRead(pExec->hfExe,
+                            ENSURE_SAFE(DosRead(hfExe,
                                                 &usFlags,
                                                 sizeof(USHORT),
                                                 &ulDummy));
-                            ENSURE_SAFE(DosRead(pExec->hfExe,
+                            ENSURE_SAFE(DosRead(hfExe,
                                                 &usID,
                                                 sizeof(USHORT),
                                                 &ulDummy));
 
-                            ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                            ENSURE_SAFE(DosSetFilePtr(hfExe,
                                                       2*sizeof(USHORT),
                                                       FILE_CURRENT,
                                                       &ulDummy));
@@ -2233,6 +2285,7 @@ APIRET doshLoadLXMaps(PEXECUTABLE pExec)
         arc = ERROR_INVALID_EXE_SIGNATURE;
     else
     {
+        PXFILE pFile = pExec->pFile;
         ULONG ulNewHeaderOfs = 0;
         ULONG cb;
 
@@ -2245,10 +2298,9 @@ APIRET doshLoadLXMaps(PEXECUTABLE pExec)
                                         sizeof(RESOURCETABLEENTRY),
                                         (PBYTE*)&pExec->pRsTbl,
                                         &cb)))
-             && (!(arc = doshReadAt(pExec->hfExe,
+             && (!(arc = doshReadAt(pFile,
                                     pLXHeader->ulResTblOfs
                                       + ulNewHeaderOfs,
-                                    FILE_BEGIN,
                                     &cb,
                                     (PBYTE)pExec->pRsTbl)))
             )
@@ -2258,10 +2310,9 @@ APIRET doshLoadLXMaps(PEXECUTABLE pExec)
                                             sizeof(OBJECTTABLEENTRY),
                                             (PBYTE*)&pExec->pObjTbl,
                                             &cb)))
-                 && (!(arc = doshReadAt(pExec->hfExe,
+                 && (!(arc = doshReadAt(pFile,
                                         pLXHeader->ulObjTblOfs
                                           + ulNewHeaderOfs,
-                                        FILE_BEGIN,
                                         &cb,
                                         (PBYTE)pExec->pObjTbl)))
                )
@@ -2271,10 +2322,9 @@ APIRET doshLoadLXMaps(PEXECUTABLE pExec)
                                                 sizeof(OBJECTPAGETABLEENTRY),
                                                 (PBYTE*)&pExec->pObjPageTbl,
                                                 &cb)))
-                     && (!(arc = doshReadAt(pExec->hfExe,
+                     && (!(arc = doshReadAt(pFile,
                                             pLXHeader->ulObjPageTblOfs
                                               + ulNewHeaderOfs,
-                                            FILE_BEGIN,
                                             &cb,
                                             (PBYTE)pExec->pObjPageTbl)))
                    )
@@ -2340,6 +2390,7 @@ APIRET doshLoadOS2NEMaps(PEXECUTABLE pExec)
         arc = ERROR_INVALID_EXE_SIGNATURE;
     else
     {
+        PXFILE pFile = pExec->pFile;
         ULONG ulNewHeaderOfs = 0;
         ULONG cb;
 
@@ -2352,10 +2403,9 @@ APIRET doshLoadOS2NEMaps(PEXECUTABLE pExec)
                                         sizeof(OS2NERESTBLENTRY),
                                         (PBYTE*)&pExec->paOS2NEResTblEntry,
                                         &cb)))
-             && (!(arc = doshReadAt(pExec->hfExe,
+             && (!(arc = doshReadAt(pFile,
                                     pNEHeader->usResTblOfs
                                       + ulNewHeaderOfs,
-                                    FILE_BEGIN,
                                     &cb,
                                     (PBYTE)pExec->paOS2NEResTblEntry)))
             )
@@ -2365,11 +2415,10 @@ APIRET doshLoadOS2NEMaps(PEXECUTABLE pExec)
                                             sizeof(OS2NESEGMENT),
                                             (PBYTE*)&pExec->paOS2NESegments,
                                             &cb)))
-                 && (!(arc = doshReadAt(pExec->hfExe,
+                 && (!(arc = doshReadAt(pFile,
                                         pNEHeader->usResTblOfs
                                           + ulNewHeaderOfs
                                           - cb, // pNEHeader->usResSegmCount * sizeof(struct new_seg)
-                                        FILE_BEGIN,
                                         &cb,
                                         (PBYTE)pExec->paOS2NESegments)))
                 )
@@ -2460,8 +2509,7 @@ APIRET doshExecClose(PEXECUTABLE *ppExec)
             }
         }
 
-        if (pExec->hfExe)
-            arc = DosClose(pExec->hfExe);
+        doshClose(&pExec->pFile);
 
         free(pExec);
         *ppExec = NULL;
@@ -4112,3 +4160,195 @@ VOID doshFreeLVMInfo(PLVMINFO pInfo)
         free(pInfo);
     }
 }
+
+/*
+ *@@category: Helpers\Control program helpers\Wildcard matching
+ *      See doshMatch.
+ */
+
+/* ******************************************************************
+ *
+ *   Wildcard matching
+ *
+ ********************************************************************/
+
+/*
+ * PerformMatch:
+ *      compares a single path component. The input strings must
+ *      not have slashes or backslashes in them.
+ *
+ *      fHasDot must be true if pName contains at least one dot.
+ *
+ *      Note that this function is recursive.
+ */
+
+BOOL PerformMatch(PCSZ pMask,
+                  PCSZ pName,
+                  int fHasDot)
+{
+    while (TRUE)
+    {
+        // go thru the pMask char by char
+        switch (*pMask)
+        {
+            case 0:
+                // if we've reached the end of the mask,
+                // we better have the end of the name too
+                if (*pName == 0)
+                    return TRUE;
+                return FALSE;
+
+            case '?':
+                // a question mark matches one single character;
+                // it does _not_ match a dot;
+                // at the end of the component, it also matches
+                // no characters
+                if (    (*pName != '.')
+                     && (*pName != 0)
+                   )
+                    ++pName;
+                ++pMask;
+            break;
+
+            case '*':
+                // asterisk matches zero or more characters
+
+                // skip extra asterisks
+                do
+                {
+                    ++pMask;
+                } while (*pMask == '*');
+
+                // pMask points to after '*';
+                // pName is unchanged... so for each pName
+                // that follows, check if it matches
+                while (TRUE)
+                {
+                    if (PerformMatch(pMask, pName, fHasDot))
+                        // the remainder matched:
+                        // then everything matches
+                        return TRUE;
+
+                    if (*pName == 0)
+                        return FALSE;
+
+                    // didn't match: try next pName
+                    ++pName;
+                }
+
+            case '.':
+                // a dot matches a dot only, even if the name doesn't
+                // have one at the end
+                ++pMask;
+                if (*pName == '.')
+                    ++pName;
+                else if (    (fHasDot)
+                          || (*pName != 0)
+                        )
+                    return FALSE;
+            break;
+
+            default:
+                if (*pMask++ != *pName++)
+                    return FALSE;
+            break;
+        }
+    }
+}
+
+/*
+ *@@ doshMatch:
+ *      this matches '*' and '?' wildcards, similar to what
+ *      DosEditName does. It returns TRUE if the given name
+ *      matches the given mask.
+ *
+ *      However, this does not require a file to be present, but
+ *      works on strings only.
+ *
+ *      This accepts both short and fully qualified masks and
+ *      names, but the following rules apply:
+ *
+ *      --  Either both the mask and the name must be fully
+ *          qualified, or both must not. Otherwise the match fails.
+ *
+ *      --  If fully qualified, only the last component may contain
+ *          wildcards.
+ *
+ *      --  This compares without respect to case always.
+ *
+ *      --  As opposed to the WPS, this handles multiple dots in
+ *          filenames correctly. For example, the WPS will not
+ *          match "*.ZIP" against "whatever-0.9.3.zip", but this
+ *          one will.
+ *
+ *      This replaces strhMatchOS2 which has been removed with
+ *      V0.9.16 and is a lot faster than the old code, which has
+ *      been completely rewritten.
+ *
+ *@@added V0.9.16 (2002-01-01) [umoeller]
+ */
+
+BOOL doshMatch(const char *pcszMask,     // in: mask (e.g. "*.txt")
+               const char *pcszName)     // in: string to check (e.g. "test.txt")
+{
+    BOOL    brc = FALSE;
+
+    int     iMaskDrive = -1,
+            iNameDrive = -1;
+
+    ULONG   cbMask = strlen(pcszMask),
+            cbName = strlen(pcszName);
+    PSZ     pszMask = (PSZ)_alloca(cbMask + 1),
+            pszName = (PSZ)_alloca(cbName + 1);
+
+    PCSZ    pLastMaskComponent,
+            pLastNameComponent;
+
+    ULONG   cbMaskPath = 0,
+            cbNamePath = 0;
+
+    CHAR    c;
+
+    memcpy(pszMask, pcszMask, cbMask + 1);
+    nlsUpper(pszMask, cbMask);
+    memcpy(pszName, pcszName, cbName + 1);
+    nlsUpper(pszName, cbName);
+
+    if (pLastMaskComponent = strrchr(pszMask, '\\'))
+    {
+        // length of path component
+        cbMaskPath = pLastMaskComponent - pszMask;
+        pLastMaskComponent++;
+    }
+    else
+        pLastMaskComponent = pszMask;
+
+    if (pLastNameComponent = strrchr(pszName, '\\'))
+    {
+        // length of path component
+        cbNamePath = pLastNameComponent - pszName;
+        pLastNameComponent++;
+    }
+    else
+        pLastNameComponent = pszName;
+
+    // compare paths; if the lengths are different
+    // or memcmp fails, we can't match
+    if (    (cbMaskPath == cbNamePath)      // can both be null
+         && (    (cbMaskPath == 0)
+              || (!memcmp(pszMask, pszName, cbMaskPath))
+            )
+       )
+    {
+        // alright, paths match:
+        brc = PerformMatch(pLastMaskComponent,
+                           pLastNameComponent,
+                           // has dot?
+                           (strchr(pLastNameComponent, '.') != NULL));
+
+    }
+
+    return brc;
+}
+
+

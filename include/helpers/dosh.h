@@ -344,21 +344,10 @@ extern "C" {
     APIRET doshSetPathAttr(const char* pcszFile,
                            ULONG ulAttr);
 
-    APIRET doshOpenExisting(PCSZ pcszFilename,
+    /* APIRET doshOpenExisting(PCSZ pcszFilename,
                             ULONG ulOpenFlags,
                             HFILE *phf);
-
-    APIRET doshWriteAt(HFILE hf,
-                       LONG lOffset,
-                       ULONG ulMethod,
-                       ULONG cb,
-                       PBYTE pbData);
-
-    APIRET doshReadAt(HFILE hf,
-                      LONG lOffset,
-                      ULONG ulMethod,
-                      PULONG pcb,
-                      PBYTE pbData);
+       */
 
     /*
      *@@ XFILE:
@@ -376,8 +365,9 @@ extern "C" {
     } XFILE, *PXFILE;
 
     #define XOPEN_READ_EXISTING           0x0001
-    #define XOPEN_READWRITE_APPEND        0x0002
-    #define XOPEN_READWRITE_NEW           0x0003
+    #define XOPEN_READWRITE_EXISTING      0x0002
+    #define XOPEN_READWRITE_APPEND        0x0003
+    #define XOPEN_READWRITE_NEW           0x0004
     #define XOPEN_ACCESS_MASK             0xffff
 
     #define XOPEN_BINARY              0x10000000
@@ -387,9 +377,19 @@ extern "C" {
                     PULONG pcbFile,
                     PXFILE *ppFile);
 
+    APIRET doshReadAt(PXFILE pFile,
+                      ULONG ulOffset,
+                      PULONG pcb,
+                      PBYTE pbData);
+
     APIRET doshWrite(PXFILE pFile,
-                     PCSZ pcsz,
-                     ULONG cb);
+                     ULONG cb,
+                     PCSZ pbData);
+
+    APIRET doshWriteAt(PXFILE pFile,
+                       ULONG ulOffset,
+                       ULONG cb,
+                       PCSZ pbData);
 
     APIRET doshWriteLogEntry(PXFILE pFile,
                              const char* pcszFormat,
@@ -857,7 +857,8 @@ extern "C" {
     #define EXEFORMAT_PE            3
     #define EXEFORMAT_LX            4
     #define EXEFORMAT_TEXT_BATCH    5
-    #define EXEFORMAT_TEXT_REXX     6
+    #define EXEFORMAT_TEXT_CMD      6       // REXX or plain OS/2 batch
+    #define EXEFORMAT_COM           7       // added V0.9.16 (2002-01-04) [umoeller]
 
     // target OS (in NE and LX)
     #define EXEOS_DOS3              1
@@ -868,6 +869,10 @@ extern "C" {
                                             // for this both in NE and LX
     #define EXEOS_WIN32             6
 
+#ifndef __STRIP_DOWN_EXECUTABLE__
+// for mini stubs in warpin, which has its own
+// implementation of this
+
     /*
      *@@ EXECUTABLE:
      *      structure used with all the doshExec*
@@ -876,7 +881,8 @@ extern "C" {
 
     typedef struct _EXECUTABLE
     {
-        HFILE               hfExe;
+        // executable opened by doshOpen
+        PXFILE              pFile;
 
         /* All the following fields are set by
            doshExecOpen if NO_ERROR is returned. */
@@ -890,20 +896,17 @@ extern "C" {
         ULONG               cbDosExeHeader;
 
         // New Executable (NE) header, if ulExeFormat == EXEFORMAT_NE
-#ifndef __STRIP_DOWN_EXECUTABLE__       // for mini stubs in warpin, to reduce code size
         PNEHEADER           pNEHeader;
         ULONG               cbNEHeader;
-#endif
 
         // Linear Executable (LX) header, if ulExeFormat == EXEFORMAT_LX
         PLXHEADER           pLXHeader;
         ULONG               cbLXHeader;
 
         // Portable Executable (PE) header, if ulExeFormat == EXEFORMAT_PE
-#ifndef __STRIP_DOWN_EXECUTABLE__       // for mini stubs in warpin, to reduce code size
         PPEHEADER           pPEHeader;
         ULONG               cbPEHeader;
-#endif
+
         // module analysis (always set):
         ULONG               ulExeFormat;
                 // one of:
@@ -912,7 +915,8 @@ extern "C" {
                 // EXEFORMAT_PE            3
                 // EXEFORMAT_LX            4
                 // EXEFORMAT_TEXT_BATCH    5
-                // EXEFORMAT_TEXT_REXX     6
+                // EXEFORMAT_TEXT_CMD      6
+                // EXEFORMAT_COM           7
 
         BOOL                fLibrary,           // TRUE if this is a DLL
                             f32Bits;            // TRUE if this a 32-bits module
@@ -941,7 +945,6 @@ extern "C" {
         PSZ                 pszInfo;
                 // module info substring (if IBM BLDLEVEL format)
 
-#ifndef __STRIP_DOWN_EXECUTABLE__       // for mini stubs in warpin, to reduce code size
         // if pszInfo is extended DESCRIPTION field, the following
         // are set as well:
         PSZ                 pszBuildDateTime,
@@ -963,8 +966,6 @@ extern "C" {
         BOOL                    fOS2NEMapsLoaded;
         POS2NERESTBLENTRY       paOS2NEResTblEntry;
         POS2NESEGMENT           paOS2NESegments;
-
-#endif
     } EXECUTABLE, *PEXECUTABLE;
 
     APIRET doshExecOpen(const char* pcszExecutable,
@@ -1060,6 +1061,7 @@ extern "C" {
                               ULONG cbExecutable,
                               PCSZ *papcszExtensions,
                               ULONG cExtensions);
+#endif
 
     /********************************************************************
      *
@@ -1262,6 +1264,15 @@ extern "C" {
                                  PUSHORT pcPartitions);
 
     VOID doshFreeLVMInfo(PLVMINFO pInfo);
+
+    /* ******************************************************************
+     *
+     *   Wildcard matching
+     *
+     ********************************************************************/
+
+    BOOL doshMatch(const char *pcszMask,
+                   const char *pcszName);
 
 #endif
 

@@ -1554,91 +1554,6 @@ HBITMAP gpihCreateBitmap2(HPS hpsMem,        // in: memory DC
 }
 
 /*
- *@@ gpihCreateBmpFromPS:
- *      this creates a new bitmap and copies a screen rectangle
- *      into it. Consider this a "screen capture" function.
- *
- *      The new bitmap (which is returned) is compatible with the
- *      device associated with hpsScreen. This function calls
- *      gpihCreateMemPS and gpihCreateBitmap to have it created.
- *      The memory PS is only temporary and freed again.
- *
- *      This returns the handle of the new bitmap,
- *      which can then be used for WinDrawBitmap and such, or
- *      NULLHANDLE upon errors.
- *
- *@@changed V0.9.12 (2001-05-20) [umoeller]: fixed excessive mem PS size
- */
-
-HBITMAP gpihCreateBmpFromPS(HAB hab,        // in: anchor block
-                            HPS hpsScreen,  // in: screen PS to copy from
-                            PRECTL prcl)    // in: rectangle to copy
-{
-
-    /* To copy an image from a display screen to a bit map:
-      1. Associate the memory device context with a presentation space.
-      2. Create a bit map.
-      3. Select the bit map into the memory device context by calling GpiSetBitmap.
-      4. Determine the location (in device coordinates) of the image.
-      5. Call GpiBitBlt and copy the image to the bit map. */
-
-    HDC hdcMem;
-    HPS hpsMem;
-    HBITMAP hbm = NULLHANDLE;
-    POINTL aptl[3];
-
-    SIZEL szlPage = {prcl->xRight - prcl->xLeft,
-                     prcl->yTop - prcl->yBottom};       // fixed V0.9.12 (2001-05-20) [umoeller]
-    if (gpihCreateMemPS(hab,
-                        &szlPage,
-                        &hdcMem,
-                        &hpsMem))
-    {
-        if ((hbm = gpihCreateBitmap(hpsMem,
-                                    szlPage.cx,
-                                    szlPage.cy)))
-        {
-            // Associate the bit map and the memory presentation space.
-            if (GpiSetBitmap(hpsMem, hbm)
-                    != HBM_ERROR)
-            {
-                // Copy the screen to the bit map.
-                aptl[0].x = 0;              // lower-left corner of destination rectangle
-                aptl[0].y = 0;
-                aptl[1].x = prcl->xRight;   // upper-right corner for both
-                aptl[1].y = prcl->yTop;
-                aptl[2].x = prcl->xLeft;    // lower-left corner of source rectangle
-                aptl[2].y = prcl->yBottom;
-
-                if (GpiBitBlt(hpsMem,
-                              hpsScreen,
-                              sizeof(aptl) / sizeof(POINTL), // Number of points in aptl
-                              aptl,
-                              ROP_SRCCOPY,
-                              BBO_IGNORE)
-                        == GPI_ERROR)
-                {
-                    // error during bitblt:
-                    GpiDeleteBitmap(hbm);
-                    hbm = NULLHANDLE; // for return code
-                }
-            }
-            else
-            {
-                // error selecting bitmap for hpsMem:
-                GpiDeleteBitmap(hbm);
-                hbm = NULLHANDLE; // for return code
-            }
-        }
-
-        GpiDestroyPS(hpsMem);
-        DevCloseDC(hdcMem);
-    } // end if (hdcMem = DevOpenDC())
-
-    return (hbm);
-}
-
-/*
  *@@ gpihCreateHalftonedBitmap:
  *      this creates a half-toned copy of the
  *      input bitmap by doing the following:
@@ -2245,4 +2160,64 @@ VOID gpihDestroyXBitmap(PXBITMAP *ppbmp)
     }
 }
 
+/*
+ *@@ gpihCreateBmpFromPS:
+ *      this creates a new bitmap and copies a screen rectangle
+ *      into it. Consider this a "screen capture" function.
+ *
+ *      The new bitmap (which is returned) is compatible with the
+ *      device associated with hpsScreen. This function calls
+ *      gpihCreateMemPS and gpihCreateBitmap to have it created.
+ *      The memory PS is only temporary and freed again.
+ *
+ *      This returns the handle of the new bitmap,
+ *      which can then be used for WinDrawBitmap and such, or
+ *      NULLHANDLE upon errors.
+ *
+ *@@changed V0.9.12 (2001-05-20) [umoeller]: fixed excessive mem PS size
+ *@@changed V0.9.16 (2001-01-04) [umoeller]: now creating XBITMAP
+ */
+
+PXBITMAP gpihCreateBmpFromPS(HAB hab,        // in: anchor block
+                             HPS hpsScreen,  // in: screen PS to copy from
+                             PRECTL prcl)    // in: rectangle to copy
+{
+
+    /* To copy an image from a display screen to a bit map:
+      1. Associate the memory device context with a presentation space.
+      2. Create a bit map.
+      3. Select the bit map into the memory device context by calling GpiSetBitmap.
+      4. Determine the location (in device coordinates) of the image.
+      5. Call GpiBitBlt and copy the image to the bit map. */
+
+    PXBITMAP pBmp;
+
+    if (pBmp = gpihCreateXBitmap(hab,
+                                 prcl->xRight - prcl->xLeft,
+                                 prcl->yTop - prcl->yBottom))
+    {
+        POINTL aptl[3];
+        // Copy the screen to the bit map.
+        aptl[0].x = 0;              // lower-left corner of destination rectangle
+        aptl[0].y = 0;
+        aptl[1].x = prcl->xRight;   // upper-right corner for both
+        aptl[1].y = prcl->yTop;
+        aptl[2].x = prcl->xLeft;    // lower-left corner of source rectangle
+        aptl[2].y = prcl->yBottom;
+
+        if (GpiBitBlt(pBmp->hpsMem,
+                      hpsScreen,
+                      sizeof(aptl) / sizeof(POINTL), // Number of points in aptl
+                      aptl,
+                      ROP_SRCCOPY,
+                      BBO_IGNORE)
+                == GPI_ERROR)
+        {
+            // error during bitblt:
+            gpihDestroyXBitmap(&pBmp);
+        }
+    }
+
+    return (pBmp);
+}
 

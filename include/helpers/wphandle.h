@@ -55,6 +55,7 @@ extern "C" {
     #define ERROR_WPH_NODE_BEFORE_DRIV              (ERROR_WPH_FIRST +  10)
     #define ERROR_WPH_NO_MATCHING_DRIVE_BLOCK       (ERROR_WPH_FIRST +  11)
     #define ERROR_WPH_NO_MATCHING_ROOT_DIR          (ERROR_WPH_FIRST +  12)
+    #define ERROR_WPH_NOT_FILESYSTEM_HANDLE         (ERROR_WPH_FIRST +  13)
 
     /* ******************************************************************
      *

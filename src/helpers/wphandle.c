@@ -948,13 +948,16 @@ APIRET wphComposePath(HHANDLES hHandles,
  *      reverse to wphQueryHandleFromPath, this gets the
  *      filename for hObject.
  *      This is a one-shot function, using wphQueryActiveHandles,
- *      wphReadAllBlocks, and wphFindPartName.
+ *      wphLoadHandles, and wphComposePath.
+ *      As a result, this function is _very_ expensive.
  *
  *      Returns:
  *
  *      --  NO_ERROR
  *
  *      --  ERROR_INVALID_HANDLE: hObject is invalid.
+ *
+ *      --  ERROR_WPH_NOT_FILESYSTEM_HANDLE: hObject's hiword is wrong.
  *
  *@@changed V0.9.16 (2001-10-02) [umoeller]: rewritten
  */
@@ -982,8 +985,10 @@ APIRET wphQueryPathFromHandle(HINI hiniUser,      // in: HINI_USER or other INI 
                 _Pmpf((__FUNCTION__ ": wphLoadHandles returned %d", arc));
             else
             {
+                USHORT usHiwordFileSystem = ((PHANDLESBUF)hHandles)->usHiwordFileSystem;
+
                 // is this really a file-system object?
-                if (HIUSHORT(hObject) == ((PHANDLESBUF)hHandles)->usHiwordFileSystem)
+                if (HIUSHORT(hObject) == usHiwordFileSystem)
                 {
                     // use loword only
                     USHORT      usObjID = LOUSHORT(hObject);
@@ -997,6 +1002,8 @@ APIRET wphQueryPathFromHandle(HINI hiniUser,      // in: HINI_USER or other INI 
 
                     // _Pmpf((__FUNCTION__ ": wphFindPartName returned %d", arc));
                 }
+                else
+                    arc = ERROR_WPH_NOT_FILESYSTEM_HANDLE;
 
                 wphFreeHandles(&hHandles);
             }

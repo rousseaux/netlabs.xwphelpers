@@ -11,35 +11,16 @@
  *      tmrTimerTick, which will "distribute" the timer tick
  *      to those XTimers which have elapsed.
  *
- *      So to use XTimers, do the following:
- *
- *      1.  Create a timer set with tmrCreateSet. Specify
- *          an owner window and the timer ID of the master
- *          PM timer.
- *
- *      2.  You can then start and stop XTimers for windows
- *          on the same thread by calling tmrStartXTimer and
- *          tmrStopXTimer, respectively.
- *
- *      3.  In the window proc of the owner window, respond
- *          to WM_TIMER for the master PM timer by calling
- *          tmrTimerTick. This will call the window procs
- *          of those windows with WM_TIMER messages directly
- *          whose XTimers have elapsed.
- *
  *      The main advantage of the XTimers is that these
  *      are not a limited resource (as opposed to PM timers).
  *      I don't know how many PM timers exist on the system,
  *      but PMREF says that the no. of remaining timers can
  *      be queried with WinQuerySysValue(SV_CTIMERS).
  *
- *      There are a few limitations with the XTimers though:
+ *      XTimers are used excessively by the default widgets
+ *      of XWorkplace's XCenter.
  *
- *      --  If you start a timer with a timeout < 100 ms,
- *          the first WM_TIMER might not appear before
- *          100 ms have elapsed. This may or be not the
- *          case, depending on whether other timers are
- *          running.
+ *      There are a few limitations with the XTimers though:
  *
  *      --  tmrTimerTick (which you must call when the
  *          "master" WM_TIMER comes in) does not post WM_TIMER
@@ -61,6 +42,22 @@
  *          timers list before posting, but to be on the safe
  *          side, always call tmrStopAllTimers when WM_DESTROY
  *          comes into a window which has used timers.
+ *
+ *      So to use XTimers, do the following:
+ *
+ *      1.  Create a timer set with tmrCreateSet. Specify
+ *          an owner window and the timer ID of the master
+ *          PM timer.
+ *
+ *      2.  You can then start and stop XTimers for windows
+ *          on the same thread by calling tmrStartXTimer and
+ *          tmrStopXTimer, respectively.
+ *
+ *      3.  In the window proc of the owner window, respond
+ *          to WM_TIMER for the master PM timer by calling
+ *          tmrTimerTick. This will call the window procs
+ *          of those windows with WM_TIMER messages directly
+ *          whose XTimers have elapsed.
  *
  *      Function prefixes:
  *      --  tmr*   timer functions
@@ -194,9 +191,11 @@ PXTIMER FindTimer(PXTIMERSET pSet,          // in: timer set (from tmrCreateSet)
                   HWND hwnd,                // in: timer target window
                   USHORT usTimerID)         // in: timer ID
 {
-    if (pSet && pSet->pvllXTimers)
+    PLINKLIST pllXTimers;
+    if (    (pSet)
+         && (pllXTimers = (PLINKLIST)pSet->pvllXTimers)
+       )
     {
-        PLINKLIST pllXTimers = (PLINKLIST)pSet->pvllXTimers;
         PLISTNODE pNode = lstQueryFirstNode(pllXTimers);
         while (pNode)
         {
@@ -226,9 +225,11 @@ PXTIMER FindTimer(PXTIMERSET pSet,          // in: timer set (from tmrCreateSet)
 VOID RemoveTimer(PXTIMERSET pSet,       // in: timer set (from tmrCreateSet)
                  PXTIMER pTimer)        // in: timer to remove.
 {
-    if (pSet && pSet->pvllXTimers)
+    PLINKLIST pllXTimers;
+    if (    (pSet)
+         && (pllXTimers = (PLINKLIST)pSet->pvllXTimers)
+       )
     {
-        PLINKLIST pllXTimers = (PLINKLIST)pSet->pvllXTimers;
         lstRemoveItem(pllXTimers,
                       pTimer);       // auto-free!
     }
@@ -408,8 +409,8 @@ VOID tmrDestroySet(PXTIMERSET pSet)     // in: timer set (from tmrCreateSet)
     {
         if (pSet)
         {
-            PLINKLIST pllXTimers = (PLINKLIST)pSet->pvllXTimers;
-            if (pllXTimers)
+            PLINKLIST pllXTimers;
+            if (pllXTimers = (PLINKLIST)pSet->pvllXTimers)
             {
                 PLISTNODE pTimerNode = lstQueryFirstNode(pllXTimers);
                 while (pTimerNode)
@@ -423,17 +424,17 @@ VOID tmrDestroySet(PXTIMERSET pSet)     // in: timer set (from tmrCreateSet)
                 lstFree(&pllXTimers);
                 pSet->pvllXTimers = NULL;
             }
-        }
 
-        if (pSet->idPMTimerRunning)
-        {
-            WinStopTimer(pSet->hab,
-                         pSet->hwndOwner,
-                         pSet->idPMTimer);
-            pSet->idPMTimerRunning = 0;
-        }
+            if (pSet->idPMTimerRunning)
+            {
+                WinStopTimer(pSet->hab,
+                             pSet->hwndOwner,
+                             pSet->idPMTimer);
+                pSet->idPMTimerRunning = 0;
+            }
 
-        free(pSet);
+            free(pSet);
+        }
 
         UnlockTimers();
     }
@@ -455,150 +456,154 @@ VOID tmrDestroySet(PXTIMERSET pSet)     // in: timer set (from tmrCreateSet)
  *@@changed V0.9.12 (2001-05-24) [umoeller]: fixed crash if this got called during tmrTimerTick
  *@@changed V0.9.14 (2001-08-01) [umoeller]: fixed mem overwrite which might have caused crashes if this got called during tmrTimerTick
  *@@changed V0.9.14 (2001-08-03) [umoeller]: fixed "half frequency" regression caused by frequency optimizations
+ *@@changed V0.9.16 (2001-12-18) [umoeller]: now using WinDispatchMsg to avoid crashes during win destruction
  */
 
 VOID tmrTimerTick(PXTIMERSET pSet)      // in: timer set (from tmrCreateSet)
 {
     if (LockTimers())
     {
-        if (pSet)
+        PLINKLIST pllXTimers;
+        if (    (pSet)
+             && (pllXTimers = (PLINKLIST)pSet->pvllXTimers)
+           )
         {
-            PLINKLIST pllXTimers = (PLINKLIST)pSet->pvllXTimers;
-            if (pllXTimers)
+            // go thru all XTimers and see which one
+            // has elapsed; for all of these, post WM_TIMER
+            // to the target window proc
+            PLISTNODE pTimerNode = lstQueryFirstNode(pllXTimers);
+
+            if (!pTimerNode)
             {
-                // go thru all XTimers and see which one
-                // has elapsed; for all of these, post WM_TIMER
-                // to the target window proc
-                PLISTNODE pTimerNode = lstQueryFirstNode(pllXTimers);
-
-                if (!pTimerNode)
+                // no timers left:
+                if (pSet->idPMTimerRunning)
                 {
-                    // no timers left:
-                    if (pSet->idPMTimerRunning)
-                    {
-                        // but PM timer running:
-                        // stop it
-                        WinStopTimer(pSet->hab,
-                                     pSet->hwndOwner,
-                                     pSet->idPMTimer);
-                        pSet->idPMTimerRunning = 0;
-                    }
-
-                    pSet->ulPMTimeout = 0;
+                    // but PM timer running:
+                    // stop it
+                    WinStopTimer(pSet->hab,
+                                 pSet->hwndOwner,
+                                 pSet->idPMTimer);
+                    pSet->idPMTimerRunning = 0;
                 }
-                else
-                {
-                    // we have timers:
-                    BOOL    fFoundInvalid = FALSE;
 
-                    // get current time
-                    ULONG   ulTimeNow = 0;
-                    DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
-                                    &ulTimeNow, sizeof(ulTimeNow));
+                pSet->ulPMTimeout = 0;
+            }
+            else
+            {
+                // we have timers:
+                BOOL    fFoundInvalid = FALSE;
+
+                // get current time
+                ULONG   ulTimeNow = 0;
+                DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
+                                &ulTimeNow, sizeof(ulTimeNow));
+
+                #ifdef DEBUG_XTIMERS
+                    _Pmpf((__FUNCTION__ ": ulTimeNow = %d", ulTimeNow));
+                #endif
+
+                while (pTimerNode)
+                {
+                    // get next node first because the
+                    // list can get modified while processing
+                    // V0.9.12 (2001-05-24) [umoeller]
+                    PLISTNODE pNext = pTimerNode->pNext;
+
+                    PXTIMER pTimer = (PXTIMER)pTimerNode->pItemData;
 
                     #ifdef DEBUG_XTIMERS
-                        _Pmpf((__FUNCTION__ ": ulTimeNow = %d", ulTimeNow));
+                        _Pmpf(("   timer %d: ulNextFire = %d",
+                                lstIndexFromItem(pllXTimers, pTimer),
+                                pTimer->ulNextFire));
                     #endif
 
-                    while (pTimerNode)
+                    if (    (pTimer)
+                         // && (pTimer->ulNextFire < ulTimeNow)
+                            // V0.9.14 (2001-08-01) [umoeller]
+                            // use <= because otherwise we'll get
+                            // only half the frequency...
+                            // we get here frequently where the
+                            // two values are EXACTLY equal due
+                            // to the above optimization (DosQuerySysInfo
+                            // called once only for the entire loop)
+                         && (pTimer->ulNextFire <= ulTimeNow)
+                       )
                     {
-                        // get next node first because the
-                        // list can get modified while processing
-                        // V0.9.12 (2001-05-24) [umoeller]
-                        PLISTNODE pNext = pTimerNode->pNext;
-
-                        PXTIMER pTimer = (PXTIMER)pTimerNode->pItemData;
+                        // this timer has elapsed:
+                        // fire!
 
                         #ifdef DEBUG_XTIMERS
-                            _Pmpf(("   timer %d: ulNextFire = %d",
-                                    lstIndexFromItem(pllXTimers, pTimer),
-                                    pTimer->ulNextFire));
+                            _Pmpf(("   --> fire!"));
                         #endif
 
-                        if (    (pTimer)
-                             // && (pTimer->ulNextFire < ulTimeNow)
-                                // V0.9.14 (2001-08-01) [umoeller]
-                                // use <= because otherwise we'll get
-                                // only half the frequency...
-                                // we get here frequently where the
-                                // two values are EXACTLY equal due
-                                // to the above optimization (DosQuerySysInfo
-                                // called once only for the entire loop)
-                             && (pTimer->ulNextFire <= ulTimeNow)
-                           )
+                        if (WinIsWindow(pSet->hab,
+                                        pTimer->hwndTarget))
                         {
-                            // this timer has elapsed:
-                            // fire!
+                            // window still valid:
+                            // get the window's window proc
+                            QMSG qmsg;
+                            /* PFNWP pfnwp = (PFNWP)WinQueryWindowPtr(pTimer->hwndTarget,
+                                                                   QWP_PFNWP); */
 
-                            #ifdef DEBUG_XTIMERS
-                                _Pmpf(("   --> fire!"));
-                            #endif
+                            // moved this up V0.9.14 (2001-08-01) [umoeller]
+                            pTimer->ulNextFire = ulTimeNow + pTimer->ulTimeout;
 
-                            if (WinIsWindow(pSet->hab,
-                                            pTimer->hwndTarget))
-                            {
-                                // window still valid:
-                                // get the window's window proc
-                                QMSG qmsg;
-                                /* PFNWP pfnwp = (PFNWP)WinQueryWindowPtr(pTimer->hwndTarget,
-                                                                       QWP_PFNWP); */
+                            // call the window proc DIRECTLY
+                            // V0.9.16 (2001-12-18) [umoeller]:
+                            // now using WinDispatchMsg to avoid crashes
+                            // while hwndTarget is being destroyed
+                            qmsg.hwnd = pTimer->hwndTarget;
+                            qmsg.msg = WM_TIMER;
+                            qmsg.mp1 = (MPARAM)pTimer->usTimerID;
+                            qmsg.mp2 = (MPARAM)0;
+                            qmsg.time = 0;
+                            qmsg.ptl.x = 0;
+                            qmsg.ptl.y = 0;
+                            qmsg.reserved = 0;
+                            WinDispatchMsg(pSet->hab,
+                                           &qmsg);
 
-                                // moved this up V0.9.14 (2001-08-01) [umoeller]
-                                pTimer->ulNextFire = ulTimeNow + pTimer->ulTimeout;
+                            /* pfnwp(pTimer->hwndTarget,
+                                  WM_TIMER,
+                                  (MPARAM)pTimer->usTimerID,
+                                  0); */
+                                // V0.9.12 (2001-05-24) [umoeller]
+                                // if the winproc chooses to start or
+                                // stop a timer, pNext still points
+                                // to a valid node...
+                                // -- if a timer is removed, that's OK
+                                // -- if a timer is added, it is added to
+                                //    the list, so we'll see it in this loop
 
-                                // call the window proc DIRECTLY
-                                qmsg.hwnd = pTimer->hwndTarget;
-                                qmsg.msg = WM_TIMER;
-                                qmsg.mp1 = (MPARAM)pTimer->usTimerID;
-                                qmsg.mp2 = (MPARAM)0;
-                                qmsg.time = 0;
-                                qmsg.ptl.x = 0;
-                                qmsg.ptl.y = 0;
-                                qmsg.reserved = 0;
-                                WinDispatchMsg(pSet->hab,
-                                               &qmsg);
-                                /* pfnwp(pTimer->hwndTarget,
-                                      WM_TIMER,
-                                      (MPARAM)pTimer->usTimerID,
-                                      0); */
-                                    // V0.9.12 (2001-05-24) [umoeller]
-                                    // if the winproc chooses to start or
-                                    // stop a timer, pNext still points
-                                    // to a valid node...
-                                    // -- if a timer is removed, that's OK
-                                    // -- if a timer is added, it is added to
-                                    //    the list, so we'll see it in this loop
+                            // V0.9.14 (2001-08-01) [umoeller]
 
-                                // V0.9.14 (2001-08-01) [umoeller]
+                            // DO NOT REFERENCE pTimer AFTER THIS CODE;
+                            // the winproc might have removed the timer,
+                            // and since the list is auto-free, pTimer
+                            // might have been freed!!
+                        }
+                        else
+                        {
+                            // window has been destroyed:
+                            lstRemoveNode(pllXTimers,
+                                          pTimerNode);
+                                // pNext is still valid
 
-                                // DO NOT REFERENCE pTimer AFTER THIS CODE;
-                                // tmrTimerTick might have removed the timer,
-                                // and since the list is auto-free, pTimer
-                                // might have been freed!!
-                            }
-                            else
-                            {
-                                // window has been destroyed:
-                                lstRemoveNode(pllXTimers,
-                                              pTimerNode);
-                                    // pNext is still valid
+                            fFoundInvalid = TRUE;
+                        }
 
-                                fFoundInvalid = TRUE;
-                            }
+                    } // end if (pTimer->ulNextFire < ulTimeNow)
 
-                        } // end if (pTimer->ulNextFire < ulTimeNow)
+                    // next timer
+                    pTimerNode = pNext; // V0.9.12 (2001-05-24) [umoeller]
+                } // end while (pTimerNode)
 
-                        // next timer
-                        pTimerNode = pNext; // V0.9.12 (2001-05-24) [umoeller]
-                    } // end while (pTimerNode)
+                // destroy invalid timers, if any
+                if (fFoundInvalid)
+                    AdjustPMTimer(pSet);
 
-                    // destroy invalid timers, if any
-                    if (fFoundInvalid)
-                        AdjustPMTimer(pSet);
-
-                } // end else if (!pTimerNode)
-            } // end if (pllXTimers)
-        } // end if (pSet)
+            } // end else if (!pTimerNode)
+        } // end if (pllXTimers)
 
         UnlockTimers();
     } // end if (LockTimers())
@@ -613,9 +618,12 @@ VOID tmrTimerTick(PXTIMERSET pSet)      // in: timer set (from tmrCreateSet)
  *      WinStartTimer, except that the number of
  *      XTimers is not limited.
  *
- *      Returns a new timer or resets an existing
- *      timer (if usTimerID is already used with
- *      hwnd). Use tmrStopXTimer to stop the timer.
+ *      Returns the ID of a new timer or resets an
+ *      existing timer (if usTimerID is already used
+ *      with hwnd). Use tmrStopXTimer to stop the timer.
+ *
+ *      Returns 0 if an error occured. It is thus
+ *      invalid to specify a timer ID of 0.
  *
  *      The timer is _not_ stopped automatically
  *      when the window is destroyed.
@@ -643,7 +651,7 @@ VOID tmrTimerTick(PXTIMERSET pSet)      // in: timer set (from tmrCreateSet)
 
 USHORT XWPENTRY tmrStartXTimer(PXTIMERSET pSet, // in: timer set (from tmrCreateSet)
                                HWND hwnd,       // in: target window for XTimer
-                               USHORT usTimerID, // in: timer ID for XTimer's WM_TIMER
+                               USHORT usTimerID, // in: timer ID for XTimer's WM_TIMER (must be > 0)
                                ULONG ulTimeout) // in: XTimer's timeout
 {
     USHORT  usrc = 0;
@@ -652,60 +660,61 @@ USHORT XWPENTRY tmrStartXTimer(PXTIMERSET pSet, // in: timer set (from tmrCreate
 
     if (LockTimers())
     {
-        if (pSet)
+        PLINKLIST pllXTimers;
+        if (    (pSet)
+             && (pllXTimers = (PLINKLIST)pSet->pvllXTimers)
+             && (hwnd)
+             && (ulTimeout)
+             && (usTimerID)     // V0.9.16 (2001-12-18) [umoeller]
+           )
         {
-            PLINKLIST pllXTimers = (PLINKLIST)pSet->pvllXTimers;
+            PXTIMER pTimer;
+            ULONG ulTimeNow;
 
-            if ((pllXTimers) && (hwnd) && (ulTimeout))
+            // fix the timeout... we allow only multiples of
+            // 25, and it must be at least 25 (otherwise our
+            // internal master timer calculations will fail)
+            // V0.9.14 (2001-07-07) [umoeller]
+            if (ulTimeout < 25)
+                ulTimeout = 25;
+            else
+                ulTimeout = (ulTimeout + 10) / 25 * 25;
+
+            DosQuerySysInfo(QSV_MS_COUNT,
+                            QSV_MS_COUNT,
+                            &ulTimeNow,
+                            sizeof(ulTimeNow));
+
+            // check if this timer exists already
+            if (pTimer = FindTimer(pSet,
+                                   hwnd,
+                                   usTimerID))
             {
-                PXTIMER pTimer;
-
-                // fix the timeout... we allow only multiples of
-                // 25, and it must be at least 25 (otherwise our
-                // internal master timer calculations will fail)
-                // V0.9.14 (2001-07-07) [umoeller]
-                if (ulTimeout < 25)
-                    ulTimeout = 25;
-                else
-                    ulTimeout = (ulTimeout + 10) / 25 * 25;
-
-                // check if this timer exists already
-                if (pTimer = FindTimer(pSet,
-                                       hwnd,
-                                       usTimerID))
+                // exists already: reset only
+                pTimer->ulNextFire = ulTimeNow + ulTimeout;
+                usrc = usTimerID;
+            }
+            else
+            {
+                // new timer needed:
+                if (pTimer = NEW(XTIMER))
                 {
-                    // exists already: reset only
-                    ULONG ulTimeNow;
-                    DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
-                                    &ulTimeNow, sizeof(ulTimeNow));
+                    pTimer->usTimerID = usTimerID;
+                    pTimer->hwndTarget = hwnd;
+                    pTimer->ulTimeout = ulTimeout;
                     pTimer->ulNextFire = ulTimeNow + ulTimeout;
+
+                    lstAppendItem(pllXTimers,
+                                  pTimer);
                     usrc = usTimerID;
                 }
-                else
-                {
-                    // new timer needed:
-                    if (pTimer = NEW(XTIMER))
-                    {
-                        ULONG ulTimeNow;
-                        DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
-                                        &ulTimeNow, sizeof(ulTimeNow));
-                        pTimer->usTimerID = usTimerID;
-                        pTimer->hwndTarget = hwnd;
-                        pTimer->ulTimeout = ulTimeout;
-                        pTimer->ulNextFire = ulTimeNow + ulTimeout;
+            }
 
-                        lstAppendItem(pllXTimers,
-                                      pTimer);
-                        usrc = usTimerID;
-                    }
-                }
+            if (usrc)
+                // timer created or reset:
+                AdjustPMTimer(pSet);
 
-                if (usrc)
-                    // timer created or reset:
-                    AdjustPMTimer(pSet);
-
-            } // if ((hwnd) && (ulTimeout))
-        }
+        } // if ((hwnd) && (ulTimeout))
 
         UnlockTimers();
     }
@@ -732,20 +741,16 @@ BOOL XWPENTRY tmrStopXTimer(PXTIMERSET pSet,    // in: timer set (from tmrCreate
     BOOL brc = FALSE;
     if (LockTimers())
     {
-        if (pSet && pSet->pvllXTimers)
+        PXTIMER pTimer;
+        if (pTimer = FindTimer(pSet,
+                               hwnd,
+                               usTimerID))
+                // FindTimer checks the params
         {
-            // PLINKLIST pllXTimers = (PLINKLIST)pSet->pvllXTimers;
-
-            PXTIMER pTimer = FindTimer(pSet,
-                                       hwnd,
-                                       usTimerID);
-            if (pTimer)
-            {
-                RemoveTimer(pSet, pTimer);
-                // recalculate
-                AdjustPMTimer(pSet);
-                brc = TRUE;
-            }
+            RemoveTimer(pSet, pTimer);
+            // recalculate
+            AdjustPMTimer(pSet);
+            brc = TRUE;
         }
 
         UnlockTimers();

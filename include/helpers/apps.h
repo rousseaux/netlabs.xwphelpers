@@ -102,7 +102,9 @@ extern "C" {
         APIRET XWPENTRY appStartApp(HWND hwndNotify,
                                     const PROGDETAILS *pcProgDetails,
                                     ULONG ulFlags,
-                                    HAPP *phapp);
+                                    HAPP *phapp,
+                                    ULONG cbFailingName,
+                                    PSZ pszFailingName);
 
         BOOL XWPENTRY appWaitForApp(HWND hwndNotify,
                                     HAPP happ,

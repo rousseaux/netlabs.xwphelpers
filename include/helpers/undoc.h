@@ -112,24 +112,6 @@ extern "C" {
     #define ID_WPMI_CHECKDISK              0x80
     #define ID_WPMI_REFRESH                0x1F7
 
-    /*
-     * Return codes for wpConfirmObjectTitle:
-     *      only def'd in the Warp 4 Toolkit
-     *      (and partly in wpsystem.h).
-     */
-
-    #ifndef NAMECLASH_CANCEL
-        #define NAMECLASH_CANCEL    0
-    #endif
-    #ifndef NAMECLASH_NONE
-        #define NAMECLASH_NONE      1
-    #endif
-    #ifndef NAMECLASH_RENAME
-        #define NAMECLASH_RENAME    2
-    #endif
-    #ifndef NAMECLASH_REPLACE
-        #define NAMECLASH_REPLACE   8
-    #endif
 #endif
 
 #if __cplusplus

@@ -79,6 +79,7 @@ $(OUTPUTDIR)\animate.obj \
 $(OUTPUTDIR)\apps.obj \
 $(OUTPUTDIR)\cctl_chart.obj \
 $(OUTPUTDIR)\cctl_checkcnr.obj \
+$(OUTPUTDIR)\cctl_combo.obj \
 $(OUTPUTDIR)\cctl_progbar.obj \
 $(OUTPUTDIR)\cctl_splitwin.obj \
 $(OUTPUTDIR)\cctl_tooltip.obj \

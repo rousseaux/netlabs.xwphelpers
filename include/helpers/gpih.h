@@ -269,10 +269,6 @@ extern "C" {
 
     HBITMAP XWPENTRY gpihCreateBitmap2(HPS hpsMem, ULONG  cx, ULONG cy, ULONG cPlanes, ULONG cBitCount);
 
-    HBITMAP XWPENTRY gpihCreateBmpFromPS(HAB hab, HPS hpsScreen, PRECTL prcl);
-    typedef HBITMAP XWPENTRY GPIHCREATEBMPFROMPS(HAB hab, HPS hpsScreen, PRECTL prcl);
-    typedef GPIHCREATEBMPFROMPS *PGPIHCREATEBMPFROMPS;
-
     HBITMAP XWPENTRY gpihCreateHalftonedBitmap(HAB hab, HBITMAP hbmSource, LONG lColorGray);
     typedef HBITMAP XWPENTRY GPIHCREATEHALFTONEDBITMAP(HAB hab, HBITMAP hbmSource, LONG lColorGray);
     typedef GPIHCREATEHALFTONEDBITMAP *PGPIHCREATEHALFTONEDBITMAP;
@@ -342,6 +338,10 @@ extern "C" {
     VOID XWPENTRY gpihDestroyXBitmap(PXBITMAP *ppbmp);
     typedef VOID XWPENTRY GPIHDESTROYXBITMAP(PXBITMAP *ppbmp);
     typedef GPIHDESTROYXBITMAP *PGPIHDESTROYXBITMAP;
+
+    PXBITMAP gpihCreateBmpFromPS(HAB hab,
+                                 HPS hpsScreen,
+                                 PRECTL prcl);
 
 #endif
 

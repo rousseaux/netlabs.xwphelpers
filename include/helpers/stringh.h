@@ -165,35 +165,6 @@ extern "C" {
 
     /* ******************************************************************
      *
-     *   Wildcard matching
-     *
-     ********************************************************************/
-
-    #define FNM_MATCH           0
-    #define FNM_NOMATCH         1
-    #define FNM_ERR             2
-
-    #define FNM_NOESCAPE        16
-    #define FNM_PATHNAME        32
-    #define FNM_PERIOD          64
-
-    #define FNM_STYLE_MASK      15
-
-    #define FNM_POSIX           0
-    #define FNM_OS2             1
-    #define FNM_DOS             2
-
-    #define FNM_IGNORECASE      128
-    #define FNM_PATHPREFIX      256
-
-    BOOL XWPENTRY strhMatchOS2(const char *pcszMask, const char *pcszName);
-
-    BOOL XWPENTRY strhMatchExt(const char *pcszMask,
-                               const char *pcszName,
-                               unsigned flags);
-
-    /* ******************************************************************
-     *
      *   Fast string searches
      *
      ********************************************************************/
