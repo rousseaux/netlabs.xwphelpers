@@ -262,6 +262,11 @@ exeh.exe: $(EXEH_TEST_OBJS)
 
 # fdlg.exe
 FDLG_TEST_OBJS = \
+    $(TESTCASE_DIR)\dosh.obj \
+    $(TESTCASE_DIR)\gpih.obj \
+    $(TESTCASE_DIR)\winh.obj \
+    $(TESTCASE_DIR)\stringh.obj \
+    $(TESTCASE_DIR)\xstring.obj \
     $(TESTCASE_DIR)\_call_filedlg.obj
 
 fdlg.exe: $(FDLG_TEST_OBJS)

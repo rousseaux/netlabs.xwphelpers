@@ -9,6 +9,7 @@
 
 #define INCL_WINWINDOWMGR
 #define INCL_WINFRAMEMGR
+#define INCL_WINMENUS
 #define INCL_WINSTDFILE
 
 #include <os2.h>
@@ -19,9 +20,10 @@
 
 #include "setup.h"                      // code generation and debugging options
 
-#include "R:\projects\R_cvs\xworkplace\include\xwpapi.h"
+#include "..\..\..\xworkplace\include\xwpapi.h"
 
 #include "helpers\call_file_dlg.c"
+#include "helpers\winh.h"
 
 /*
  *@@ NewWinFileDlg:
@@ -45,16 +47,14 @@ HWND APIENTRY NewWinFileDlg(HWND hwndOwner,
     return (hwndReturn);
 }
 
+/*
+ *@@ ShowFileDlg:
+ *
+ */
 
-int main (int argc, char *argv[])
+VOID ShowFileDlg(HWND hwndFrame)
 {
-    HAB             hab;
-    HMQ             hmq;
-
     FILEDLG         fd;
-
-    hab = WinInitialize(0);
-    hmq = WinCreateMsgQueue(hab, 0);
 
     memset(&fd, 0, sizeof(FILEDLG));
     fd.cbSize = sizeof(FILEDLG);
@@ -62,23 +62,105 @@ int main (int argc, char *argv[])
 
     strcpy(fd.szFullFile, "C:\\*");
 
-    if (NewWinFileDlg(NULLHANDLE,
+    if (NewWinFileDlg(hwndFrame,
                       &fd))
     {
         CHAR sz[1000];
         sprintf(sz, "got: \"%s\"", fd.szFullFile);
-        WinMessageBox(HWND_DESKTOP, NULLHANDLE,
+        WinMessageBox(HWND_DESKTOP, hwndFrame,
                       sz,
                       "File:",
                       0,
                       MB_OK | MB_MOVEABLE);
     }
     else
-        WinMessageBox(HWND_DESKTOP, NULLHANDLE,
+        WinMessageBox(HWND_DESKTOP, hwndFrame,
                       "file dlg returned FALSE",
                       "File:",
                       0,
                       MB_OK | MB_MOVEABLE);
+}
+
+/*
+ *@@ main:
+ *
+ */
+
+int main(int argc, char *argv[])
+{
+    HAB             hab;
+    HMQ             hmq;
+
+    ULONG           flFrame =     FCF_TITLEBAR
+                                | FCF_SYSMENU
+                                | FCF_MINMAX
+                                | FCF_SIZEBORDER
+                                | FCF_NOBYTEALIGN
+                                | FCF_SHELLPOSITION
+                                | FCF_TASKLIST;
+
+    HWND            hwndFrame,
+                    hwndClient,
+                    hwndMenu,
+                    hwndSubmenu;
+    QMSG            qmsg;
+
+    hab = WinInitialize(0);
+    hmq = WinCreateMsgQueue(hab, 0);
+
+    hwndFrame = WinCreateStdWindow(HWND_DESKTOP,
+                                   WS_VISIBLE,
+                                   &flFrame,
+                                   NULL,
+                                   "Test File Dialog",
+                                   WS_VISIBLE,
+                                   0,
+                                   0,
+                                   &hwndClient);
+
+    hwndMenu = WinCreateMenu(hwndFrame,
+                             NULL);
+
+    hwndSubmenu = winhInsertSubmenu(hwndMenu,
+                                    MIT_END,
+                                    1,
+                                    "~File",
+                                    MIS_TEXT | MIS_SUBMENU,
+                                    1000,
+                                    "~Show dialog",
+                                    MIS_TEXT,
+                                    0);
+
+    winhInsertMenuItem(hwndSubmenu,
+                       MIT_END,
+                       SC_CLOSE,
+                       "~Close",
+                       MIS_SYSCOMMAND | MIS_TEXT,
+                       0);
+
+    WinSendMsg(hwndFrame, WM_UPDATEFRAME, MPNULL, MPNULL);
+
+    while (WinGetMsg(hab, &qmsg, NULLHANDLE, 0, 0))
+    {
+        BOOL fDispatch = TRUE;
+
+        if (qmsg.hwnd == hwndFrame)
+        {
+            switch (qmsg.msg)
+            {
+                case WM_COMMAND:
+                    if (SHORT1FROMMP(qmsg.mp1) == 1000)
+                    {
+                        ShowFileDlg(hwndFrame);
+                        fDispatch = FALSE;
+                    }
+                break;
+            }
+        }
+
+        if (fDispatch)
+            WinDispatchMsg(hab, &qmsg);
+    }
 
     WinDestroyMsgQueue(hmq);
     WinTerminate(hab);
