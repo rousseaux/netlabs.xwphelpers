@@ -88,6 +88,7 @@
  *      list for hIni, if you specifiy pszApp as NULL.
  *
  *@@changed V0.9.12 (2001-05-12) [umoeller]: changed prototypes to return APIRET now
+ *@@changed V0.9.19 (2002-04-11) [pr]: Fixed app. with no keys
  */
 
 APIRET prfhQueryKeysForApp(HINI hIni,      // in: INI handle (can be HINI_USER or HINI_SYSTEM)
@@ -99,18 +100,21 @@ APIRET prfhQueryKeysForApp(HINI hIni,      // in: INI handle (can be HINI_USER o
     ULONG   ulSizeOfKeysList = 0;
 
     // get size of keys list for pszApp
-    if (    (!PrfQueryProfileSize(hIni, (PSZ)pcszApp, NULL, &ulSizeOfKeysList))
-         || (ulSizeOfKeysList == 0)
-       )
+    if (!PrfQueryProfileSize(hIni, (PSZ)pcszApp, NULL, &ulSizeOfKeysList))
         arc = PRFERR_KEYSLIST;
     else
     {
-        pKeys = (PSZ)malloc(ulSizeOfKeysList);
-        if (!pKeys)
+        if (ulSizeOfKeysList == 0)
+            ulSizeOfKeysList = 1;    // V0.9.19 (2002-04-11) [pr]
+
+        if (!(pKeys = (PSZ)malloc(ulSizeOfKeysList)))
             arc = ERROR_NOT_ENOUGH_MEMORY;
         else
+        {
+            *pKeys = 0;
             if (!PrfQueryProfileData(hIni, (PSZ)pcszApp, NULL, pKeys, &ulSizeOfKeysList))
                 arc = PRFERR_KEYSLIST;
+        }
     }
 
     if (!arc)       // V0.9.12 (2001-05-12) [umoeller]

@@ -246,7 +246,12 @@ extern "C" {
     #define QS32_THREAD       0x0100
     #define QS32_MODVER       0x0200
 
+/*
     #define QS32_SUPPORTED    (QS32_PROCESS | QS32_SEMAPHORE | QS32_MTE | QS32_FILESYS \
+                               | QS32_SHMEMORY | QS32_MODVER)
+    QS32_SEMAPHORE is broken V0.9.19 (2002-04-14) [pr]
+*/
+    #define QS32_SUPPORTED    (QS32_PROCESS | QS32_MTE | QS32_FILESYS \
                                | QS32_SHMEMORY | QS32_MODVER)
 
     APIRET  APIENTRY DosQuerySysState(ULONG EntityList,

@@ -207,12 +207,18 @@ extern "C" {
     #define PM_GROUP_SPACING_X          16
     #define PM_GROUP_SPACING_TOP        16
 
+    // the following require INCL_WINSTATICS
+
     #define CONTROLDEF_GROUP(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_GROUPBOX | DT_MNEMONIC, \
             id, CTL_COMMON_FONT, 0, { cx, cy }, 0 }
 
     #define CONTROLDEF_TEXT(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_TEXT | DT_LEFT | DT_VCENTER | DT_MNEMONIC, \
+            id, CTL_COMMON_FONT,  0, {cx, cy}, COMMON_SPACING }
+
+    #define CONTROLDEF_TEXT_CENTER(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
+            WS_VISIBLE | SS_TEXT | DT_CENTER | DT_VCENTER | DT_MNEMONIC, \
             id, CTL_COMMON_FONT,  0, {cx, cy}, COMMON_SPACING }
 
     #define CONTROLDEF_TEXT_WORDBREAK(pcsz, id, cx) { WC_STATIC, pcsz, \
@@ -227,12 +233,22 @@ extern "C" {
             WS_VISIBLE | SS_BITMAP | DT_LEFT | DT_VCENTER, \
             id, CTL_COMMON_FONT, 0, {-1, -1}, COMMON_SPACING }
 
+    // the following require INCL_WINBUTTONS
+
     #define CONTROLDEF_DEFPUSHBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_DEFAULT, \
             id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
 
     #define CONTROLDEF_PUSHBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, \
+            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
+
+    #define CONTROLDEF_DEFNOFOCUSBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
+            WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_DEFAULT | BS_NOPOINTERFOCUS, \
+            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
+
+    #define CONTROLDEF_NOFOCUSBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
+            WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_NOPOINTERFOCUS, \
             id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
 
     #define CONTROLDEF_HELPPUSHBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
@@ -251,6 +267,8 @@ extern "C" {
             WS_VISIBLE | WS_TABSTOP | BS_AUTORADIOBUTTON, \
             id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
 
+    // the following require INCL_WINENTRYFIELDS
+
     #define CONTROLDEF_ENTRYFIELD(pcsz, id, cx, cy) { WC_ENTRYFIELD, pcsz, \
             WS_VISIBLE | WS_TABSTOP | ES_MARGIN | ES_AUTOSCROLL, \
             id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
@@ -259,17 +277,35 @@ extern "C" {
             WS_VISIBLE | WS_TABSTOP | ES_MARGIN | ES_READONLY | ES_AUTOSCROLL, \
             id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
 
+    // the following require INCL_WINMLE
+
     #define CONTROLDEF_MLE(pcsz, id, cx, cy) { WC_MLE, pcsz, \
             WS_VISIBLE | WS_TABSTOP | MLS_BORDER | MLS_IGNORETAB | MLS_WORDWRAP, \
             id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
+
+    // the following require INCL_WINLISTBOXES
 
     #define CONTROLDEF_LISTBOX(id, cx, cy) { WC_LISTBOX, NULL, \
             WS_VISIBLE | WS_TABSTOP | LS_HORZSCROLL | LS_NOADJUSTPOS, \
             id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
 
+    // the following require INCL_WINLISTBOXES and INCL_WINENTRYFIELDS
+
+    #define CONTROLDEF_DROPDOWN(id, cx, cy) { WC_COMBOBOX, NULL, \
+            WS_VISIBLE | WS_TABSTOP | LS_HORZSCROLL | CBS_DROPDOWN, \
+            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
+
+    #define CONTROLDEF_DROPDOWNLIST(id, cx, cy) { WC_COMBOBOX, NULL, \
+            WS_VISIBLE | WS_TABSTOP | LS_HORZSCROLL | CBS_DROPDOWNLIST, \
+            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
+
+    // the following require INCL_WINSTDSPIN
+
     #define CONTROLDEF_SPINBUTTON(id, cx, cy) { WC_SPINBUTTON, NULL, \
             WS_VISIBLE | WS_TABSTOP | SPBS_MASTER | SPBS_NUMERICONLY | SPBS_JUSTCENTER | SPBS_FASTSPIN, \
             id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
+
+    // the following require INCL_WINSTDCNR
 
     #define CONTROLDEF_CONTAINER(id, cx, cy) { WC_CONTAINER, NULL, \
             WS_VISIBLE | WS_TABSTOP | 0, \
@@ -280,6 +316,13 @@ extern "C" {
      *   Dialog formatter entry points
      *
      ********************************************************************/
+
+    #ifndef FCF_CLOSEBUTTON
+        #define FCF_CLOSEBUTTON            0x04000000L // toolkit 4 only
+    #endif
+
+    #define FCF_FIXED_DLG       FCF_TITLEBAR | FCF_SYSMENU | FCF_DLGBORDER | FCF_NOBYTEALIGN | FCF_CLOSEBUTTON
+    #define FCF_SIZEABLE_DLG    FCF_TITLEBAR | FCF_SYSMENU | FCF_SIZEBORDER | FCF_NOBYTEALIGN | FCF_CLOSEBUTTON
 
     APIRET XWPENTRY dlghCreateDlg(HWND *phwndDlg,
                                   HWND hwndOwner,

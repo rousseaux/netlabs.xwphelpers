@@ -2562,6 +2562,78 @@ ULONG winhCenteredDlgBox(HWND hwndParent,
 }
 
 /*
+ *@@ winhPlaceBesides:
+ *      attempts to place hwnd somewhere besides
+ *      hwndRelative.
+ *
+ *      fl is presently ignored, but should be
+ *      PLF_SMART for future extensions.
+ *
+ *      Works only if hwnd is a desktop child.
+ *
+ *@@added V0.9.19 (2002-04-17) [umoeller]
+ */
+
+BOOL winhPlaceBesides(HWND hwnd,
+                      HWND hwndRelative,
+                      ULONG fl)
+{
+    BOOL brc = FALSE;
+
+    SWP     swpRel,
+            swpThis;
+    LONG    xNew, yNew;
+
+    if (    (WinQueryWindowPos(hwndRelative, &swpRel))
+         && (WinQueryWindowPos(hwnd, &swpThis))
+       )
+    {
+        HWND    hwndRelParent,
+                hwndThisParent;
+        POINTL  ptlRel = {swpRel.x, swpRel.y};
+        if (    (hwndRelParent = WinQueryWindow(hwndRelative, QW_PARENT))
+             && (hwndThisParent = WinQueryWindow(hwnd, QW_PARENT))
+             && (hwndRelParent != hwndThisParent)
+           )
+        {
+            WinMapWindowPoints(hwndRelParent,
+                               hwndThisParent,
+                               &ptlRel,
+                               1);
+        }
+
+        // place right first
+        xNew = ptlRel.x + swpRel.cx;
+        // center vertically
+        yNew = ptlRel.y  + ((swpRel.cy - swpThis.cy) / 2);
+
+        if (xNew + swpThis.cy > WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN))
+        {
+            // place left then
+            xNew = ptlRel.x - swpThis.cx;
+
+            if (xNew < 0)
+            {
+                // center then
+                winhCenterWindow(hwnd);
+                brc = TRUE;
+            }
+        }
+
+        if (!brc)
+            brc = WinSetWindowPos(hwnd,
+                                  0,
+                                  xNew,
+                                  yNew,
+                                  0,
+                                  0,
+                                  SWP_MOVE);
+    }
+
+    return brc;
+}
+
+/*
  *@@ winhFindWindowBelow:
  *      finds the window with the same parent
  *      which sits right below hwndFind in the

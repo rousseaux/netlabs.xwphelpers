@@ -660,6 +660,12 @@ extern "C" {
     typedef void XWPENTRY WINHCENTERWINDOW(HWND hwnd);
     typedef WINHCENTERWINDOW *PWINHCENTERWINDOW;
 
+    #define PLF_SMART               0x0001
+
+    BOOL winhPlaceBesides(HWND hwnd,
+                          HWND hwndRelative,
+                          ULONG fl);
+
     HWND XWPENTRY winhFindWindowBelow(HWND hwndFind);
 
     /* ******************************************************************

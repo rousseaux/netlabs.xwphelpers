@@ -45,6 +45,11 @@
 #pragma hdrstop
 
 /*
+ *@@category: Helpers\National Language Support\Encodings
+ *      See encodings.c.
+ */
+
+/*
  *@@ G_aEncodings:
  *      list of all encodings supported by this engine
  *      (i.e. we have a corresponding codepage in

@@ -45,8 +45,9 @@
 
 #define INCL_WINWINDOWMGR
 #define INCL_WINFRAMEMGR
-#define INCL_WINDIALOGS
+#define INCL_WINPOINTERS
 #define INCL_WININPUT
+#define INCL_WINDIALOGS
 #define INCL_WINSTATICS
 #define INCL_WINBUTTONS
 #define INCL_WINENTRYFIELDS
@@ -122,6 +123,9 @@ typedef struct _DLGPRIVATE
     PCSZ        pcszFontLast;
     LONG        lcidLast;
     FONTMETRICS fmLast;
+
+    LONG        cxBorder,
+                cyBorder;           // cached now V0.9.19 (2002-04-17) [umoeller]
 
 } DLGPRIVATE, *PDLGPRIVATE;
 
@@ -408,8 +412,8 @@ static APIRET CalcAutoSize(PCONTROLDEF pControlDef,
                 // we can't test for BS_PUSHBUTTON because that's 0x0000
                 else if (!(pControlDef->flStyle & BS_USERBUTTON))
                 {
-                    pszlAuto->cx += (2 * WinQuerySysValue(HWND_DESKTOP, SV_CXBORDER) + 15);
-                    pszlAuto->cy += (2 * WinQuerySysValue(HWND_DESKTOP, SV_CYBORDER) + 15);
+                    pszlAuto->cx += (2 * pDlgData->cxBorder + 15);
+                    pszlAuto->cy += (2 * pDlgData->cyBorder + 15);
                 }
             }
         break;
@@ -476,10 +480,11 @@ static APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
                               PROCESSMODE ProcessMode,     // in: PROCESS_1_CALC_SIZES or PROCESS_3_CALC_FINAL_TABLE_SIZES
                               PDLGPRIVATE pDlgData)
 {
-    APIRET arc = NO_ERROR;
-
+    APIRET      arc = NO_ERROR;
+    PCONTROLDEF pControlDef = NULL;
     ULONG       ulExtraCX = 0,
                 ulExtraCY = 0;
+
     if (pColumnDef->fIsNestedTable)
     {
         // nested table: recurse!!
@@ -518,8 +523,9 @@ static APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
     else
     {
         // no nested table, but control:
-        PCONTROLDEF pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
         SIZEL       szlAuto;
+
+        pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
 
         // do auto-size calculations only on the first loop
         // V0.9.16 (2002-02-02) [umoeller]
@@ -575,7 +581,6 @@ static APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
 
         } // end if (ProcessMode == PROCESS_1_CALC_SIZES)
 
-
         ulExtraCX
         = ulExtraCY
         = (2 * pControlDef->ulSpacing);
@@ -585,6 +590,31 @@ static APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
                                + ulExtraCX;
     pColumnDef->cpColumn.cy =   pColumnDef->cpControl.cy
                                + ulExtraCY;
+
+    if (    (pControlDef)
+         && ((ULONG)pControlDef->pcszClass == 0xffff0002L)
+       )
+    {
+        // hack the stupid drop-down combobox where the
+        // size of the drop-down is the full size of the
+        // control: when creating the control, we _do_
+        // specify the full size, but for the column,
+        // we must rather use a single line with
+        // the current font
+        // V0.9.19 (2002-04-17) [umoeller]
+        if (pControlDef->flStyle & (CBS_DROPDOWN | CBS_DROPDOWNLIST))
+        {
+            LONG cyMargin = 3 * pDlgData->cyBorder;
+
+            SetDlgFont(pControlDef, pDlgData);
+
+            pColumnDef->cpColumn.cy
+                =   pDlgData->fmLast.lMaxBaselineExt
+                  + pDlgData->fmLast.lExternalLeading
+                  + 2 * cyMargin
+                  + ulExtraCY;
+        }
+    }
 
     return (arc);
 }
@@ -801,14 +831,24 @@ static APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
             break;
 
             case 0xffff0002L:   // combobox
-                // hack the stupid drop-down combobox which doesn't
-                // expand otherwise (the size of the drop-down is
-                // the full size of the control... duh)
+            {
                 if (flStyle & (CBS_DROPDOWN | CBS_DROPDOWNLIST))
                 {
-                    y -= 100;
-                    cy += 100;
+                    // in ColumnCalcSizes, we have set pColumnDef->cpColumn.cy
+                    // to the height of a single line to get the position
+                    // calculations right...
+                    // present cy is pColumnDef->cpControl.cy,
+                    // the user-specified size of the expanded combo
+                    // present y is the bottom of the combo's entry field
+                    ULONG cyDelta = pColumnDef->cpControl.cy - pColumnDef->cpColumn.cy;
+                    _Pmpf((__FUNCTION__ ": combo cpColumn.cy = %d, cpControl.cy = %d",
+                            pColumnDef->cpColumn.cy,
+                            pColumnDef->cpControl.cy));
+                    _Pmpf(("   cyDelta = %d", cyDelta));
+                    y -= cyDelta + 3 * pDlgData->cyBorder + pControlDef->ulSpacing;
+                    // cy += cyDelta;
                 }
+            }
             break;
 
             case 0xffff0006L:   // entry field
@@ -818,8 +858,8 @@ static APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
                 // V0.9.16 (2001-12-08) [umoeller]
                 if (flStyle & ES_MARGIN)
                 {
-                    LONG cxMargin = 3 * WinQuerySysValue(HWND_DESKTOP, SV_CXBORDER);
-                    LONG cyMargin = 3 * WinQuerySysValue(HWND_DESKTOP, SV_CYBORDER);
+                    LONG cxMargin = 3 * pDlgData->cxBorder;
+                    LONG cyMargin = 3 * pDlgData->cyBorder;
 
                     x += cxMargin;
                     y += cyMargin;
@@ -876,7 +916,26 @@ static APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
                                 -1,
                                 NULL,
                                 NULL);
+                winhSetPresColor(hwndDebug, PP_FOREGROUNDCOLOR, RGBCOL_DARKGREEN);
+
+                /*
+                // and another one for the control size
+                hwndDebug =
+                   WinCreateWindow(pDlgData->hwndDlg,   // parent
+                                WC_STATIC,
+                                "",
+                                WS_VISIBLE | SS_FGNDFRAME,
+                                pColumnDef->cpControl.x + pDlgData->ptlTotalOfs.x,
+                                pColumnDef->cpControl.y + pDlgData->ptlTotalOfs.y,
+                                pColumnDef->cpControl.cx,
+                                pColumnDef->cpControl.cy,
+                                pDlgData->hwndDlg,   // owner
+                                HWND_BOTTOM,
+                                -1,
+                                NULL,
+                                NULL);
                 winhSetPresColor(hwndDebug, PP_FOREGROUNDCOLOR, RGBCOL_RED);
+                */
             }
 #endif
 
@@ -1472,6 +1531,10 @@ static APIRET Dlg0_Init(PDLGPRIVATE *ppDlgData,
 
     pDlgData->pcszControlsFont = pcszControlsFont;
 
+    // cache these now too V0.9.19 (2002-04-17) [umoeller]
+    pDlgData->cxBorder = WinQuerySysValue(HWND_DESKTOP, SV_CXBORDER);
+    pDlgData->cyBorder = WinQuerySysValue(HWND_DESKTOP, SV_CYBORDER);
+
     *ppDlgData = pDlgData;
 
     return NO_ERROR;
@@ -1798,10 +1861,13 @@ static VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *
  *      A regular standard dialog would use something like
  *
- +          FCF_TITLEBAR | FCF_SYSMENU | FCF_DLGBORDER | FCF_NOBYTEALIGN
+ +          FCF_TITLEBAR | FCF_SYSMENU | FCF_DLGBORDER | FCF_NOBYTEALIGN | FCF_CLOSEBUTTON
  *
  *      for flCreateFlags. To make the dlg sizeable, specify
  *      FCF_SIZEBORDER instead of FCF_DLGBORDER.
+ *
+ *      dialog.h defines FCF_FIXED_DLG and FCF_SIZEABLE_DLG
+ *      to make this more handy.
  *
  *      <B>Usage:</B>
  *

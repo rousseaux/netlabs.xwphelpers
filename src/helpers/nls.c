@@ -65,8 +65,8 @@
 #pragma hdrstop
 
 /*
- *@@category: Helpers\C helpers\National Language Support
- *      See stringh.c and xstring.c.
+ *@@category: Helpers\National Language Support
+ *      See nls.c.
  */
 
 /*
