@@ -653,7 +653,7 @@ PSZ strhVariableDouble(PSZ pszTarget,
  *      Alternatively, you can query all the country settings
  *      at once using prfhQueryCountrySettings (prfh.c).
  *
- *@@changed (99-11-07) [umoeller]: now calling strhDateTime
+ *@@changed V0.9.0 (99-11-07) [umoeller]: now calling strhDateTime
  */
 
 VOID strhFileDate(PSZ pszBuf,           // out: string returned
@@ -695,8 +695,8 @@ VOID strhFileDate(PSZ pszBuf,           // out: string returned
  *      Alternatively, you can query all the country settings
  *      at once using prfhQueryCountrySettings (prfh.c).
  *
- *@@changed 99-03-15 fixed 12-hour crash
- *@@changed (99-11-07) [umoeller]: now calling strhDateTime
+ *@@changed V0.8.5 (99-03-15) [umoeller]: fixed 12-hour crash
+ *@@changed V0.9.0 (99-11-07) [umoeller]: now calling strhDateTime
  */
 
 VOID strhFileTime(PSZ pszBuf,           // out: string returned
@@ -971,7 +971,7 @@ BOOL strhIsWord(const char *pcszBuf,
  *      Note that this function is fairly slow compared to xstrFindWord.
  *
  *@@added V0.9.0 (99-11-08) [umoeller]
- *@@changed (99-11-10) [umoeller]: tried second algorithm, reverted to original...
+ *@@changed V0.9.0 (99-11-10) [umoeller]: tried second algorithm, reverted to original...
  */
 
 PSZ strhFindWord(const char *pszBuf,

@@ -233,8 +233,10 @@ APIRET doshIsValidFileName(const char* pcszFile,
  *      this copies pszSource to pszTarget, replacing
  *      all characters which are not supported by file
  *      systems with cReplace.
+ *
  *      pszTarget must be at least the same size as pszSource.
  *      If (fIsFAT), the file name will be made FAT-compliant (8+3).
+ *
  *      Returns TRUE if characters were replaced.
  *
  *@@changed V0.9.0 (99-11-06) [umoeller]: now replacing "*" too

@@ -1337,6 +1337,7 @@ MRESULT EXPENTRY fnwpShapeFrame(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2);
  *
  *@@changed V0.9.0 [umoeller]: added default window positioning
  *@@changed V0.9.0 [umoeller]: removed GpiSetBitmap here
+ *@@changed V0.9.9 (2001-03-18) [lafaix]: brc was not set
  */
 
 BOOL shpLoadBitmap(HAB hab, // in: anchor block
@@ -1349,7 +1350,7 @@ BOOL shpLoadBitmap(HAB hab, // in: anchor block
                    PSHAPEFRAME psb) // out: bitmap info
 {
     SIZEL       siz;
-    BOOL        brc;
+    BOOL        brc = FALSE;
 
     psb->hab = hab;
 

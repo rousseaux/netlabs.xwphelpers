@@ -1784,17 +1784,28 @@ APIRET doshPerfOpen(PDOSHPERFSYS *ppPerfSys)  // out: new DOSHPERFSYS structure
  *      Call this ONLY if doshPerfOpen returned NO_ERROR,
  *      or you'll get crashes.
  *
- *      If this call returns NO_ERROR, you get a LONG
- *      CPU load for each CPU in the system in the
- *      DOSHPERFSYS.palLoads array (in per-mille, 0-1000).
+ *      If this call returns NO_ERROR, you get LONG load
+ *      values for each CPU in the system in the arrays
+ *      in DOSHPERFSYS (in per-mille, 0-1000).
+ *
+ *      There are two arrays:
+ *
+ *      -- DOSHPERFSYS.palLoads contains the "user" load
+ *         for each CPU.
+ *
+ *      -- DOSHPERFSYS.palIntrs contains the "IRQ" load
+ *         for each CPU.
+ *
+ *      Sum up the two values to get the total load for
+ *      each CPU.
  *
  *      For example, if there are two CPUs, after this call,
  *
- *      -- DOSHPERFSYS.palLoads[0] contains the load of
- *         the first CPU,
+ *      -- DOSHPERFSYS.palLoads[0] contains the "user" load
+ *         of the first CPU,
  *
- *      -- DOSHPERFSYS.palLoads[1] contains the load of
- *         the second CPU.
+ *      -- DOSHPERFSYS.palLoads[0] contains the "user" load
+ *         of the second CPU.
  *
  *      See doshPerfOpen for example code.
  *
@@ -1883,9 +1894,8 @@ APIRET doshPerfClose(PDOSHPERFSYS *ppPerfSys)
         arc = ERROR_INVALID_PARAMETER;
     else
     {
-        /* if (pPerfSys->fInitialized)
-            pPerfSys->pDosPerfSysCall(CMD_KI_DISABLE,
-                                      0, 0, 0); */
+        // do not call this, this messes up the WarpCenter V0.9.9 (2001-02-06) [umoeller]
+        // if (pPerfSys->fInitialized) pPerfSys->pDosPerfSysCall(CMD_KI_DISABLE, 0, 0, 0);
 
         if (pPerfSys->paCPUUtils)
             free(pPerfSys->paCPUUtils);
