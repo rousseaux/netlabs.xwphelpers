@@ -1,6 +1,6 @@
 XWP Helpers 0.9.7 README
 (W) Ulrich M”ller, October 26, 2000
-Last updated July 5, 2001, Ulrich M”ller
+Last updated Feb 03, 2002 Ulrich M”ller
 
 
 0. CONTENTS OF THIS FILE
@@ -8,9 +8,10 @@ Last updated July 5, 2001, Ulrich M”ller
 
     1. LICENSE, COPYRIGHT, DISCLAIMER
     2. INTRODUCTION
-    3. CREATING CODE DOCUMENTATION
-    4. COMPILING
-    5. INCLUDING HEADER FILES
+    3. EXECUTABLE TOOLS
+    4. CREATING CODE DOCUMENTATION
+    5. COMPILING
+    6. INCLUDING HEADER FILES
 
 
 1. LICENSE, COPYRIGHT, DISCLAIMER
@@ -95,7 +96,33 @@ Last updated July 5, 2001, Ulrich M”ller
     compression during transfers. This greatly speeds up things.
 
 
-3. CREATING CODE DOCUMENTATION
+3. EXECUTABLE TOOLS
+===================
+
+    The root directory of this repository contains a few executables
+    in binary form that are used by XWorkplace and WarpIN.
+
+
+    --  FastDep.exe was written by Knut Stange Osmundsen (taken from
+        the Odin sources) and is used by the "nmake dep" facility
+        of both WarpIN and XWorkplace. This scans C source files
+        and writes dependencies for the makefiles automatically.
+
+    --  h2i.exe was written by me (the sources are in the xwphelpers
+        repository, in the "tools" directory) to translate a bunch
+        of HTML files to IPF.
+
+    --  strrpl.exe was written by me (the sources are in the warpin
+        repository, in the "tools" directory) to replace strings in
+        text files.
+
+    --  xdoc.exe was written by me (the sources are in the warpin
+        repository, in the "tools" directory) to extract documentation
+        from C source files directory. See "Creating code documentation"
+        below.
+
+
+4. CREATING CODE DOCUMENTATION
 ==============================
 
     The XWPHelpers do not come with pre-made documentation. However,
@@ -111,7 +138,7 @@ Last updated July 5, 2001, Ulrich M”ller
     should start with the "index.html" file.
 
 
-4. COMPILING
+5. COMPILING
 ============
 
     You don't have to worry about compilation if you only want
@@ -156,7 +183,7 @@ Last updated July 5, 2001, Ulrich M”ller
         @cd olddir
 
 
-5. INCLUDING HEADER FILES
+6. INCLUDING HEADER FILES
 =========================
 
     The "include policy" of the helpers is that the "include"

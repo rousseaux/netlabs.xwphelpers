@@ -1164,6 +1164,7 @@ extern "C" {
         // module analysis (always set, otherwise error would be
         // returned by exehOpen):
         ULONG           ulExeFormat;
+#endif
                     #define EXEFORMAT_OLDDOS        1
                     #define EXEFORMAT_NE            2
                     #define EXEFORMAT_PE            3
@@ -1172,12 +1173,14 @@ extern "C" {
                     #define EXEFORMAT_TEXT_CMD      6       // REXX or plain OS/2 batch
                     #define EXEFORMAT_COM           7       // added V0.9.16 (2002-01-04) [umoeller]
 
+#ifndef __STRIP_DOWN_EXECUTABLE__
         BOOL            fLibrary,           // TRUE if this is a DLL
                                             // (works for NE, LX, PE)
                         f32Bits;            // TRUE if this a 32-bits module
                                             // (TRUE always for PE)
 
         ULONG           ulOS;
+#endif
                 // target operating system as flagged in one of
                 // the EXE headers; one of:
                     #define EXEOS_UNKNOWN           0
@@ -1197,6 +1200,7 @@ extern "C" {
                                 // Win32 command line (see IMAGE_OPTIONAL_HEADER.usSubsystem),
                                 // if PE optional header was successfully read
 
+#ifndef __STRIP_DOWN_EXECUTABLE__
         // The following fields are only set after
         // an extra call to exehQueryBldLevel (NE and LX only):
 

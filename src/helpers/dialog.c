@@ -316,11 +316,11 @@ APIRET CalcAutoSizeText(PCONTROLDEF pControlDef,
         if (fMultiLine)
         {
             RECTL rcl = {0, 0, 0, 0};
-            if (pControlDef->szlControlProposed.cx != -1)
+            if (pControlDef->szlControlProposed.cx > 0)
                 rcl.xRight = pControlDef->szlControlProposed.cx;   // V0.9.12 (2001-05-31) [umoeller]
             else
                 rcl.xRight = winhQueryScreenCX() * 2 / 3;
-            if (pControlDef->szlControlProposed.cy != -1)
+            if (pControlDef->szlControlProposed.cy > 0)
                 rcl.yTop = pControlDef->szlControlProposed.cy;   // V0.9.12 (2001-05-31) [umoeller]
             else
                 rcl.yTop = winhQueryScreenCY() * 2 / 3;
@@ -450,6 +450,7 @@ APIRET CalcAutoSize(PCONTROLDEF pControlDef,
  *@@added V0.9.15 (2001-08-26) [umoeller]
  *@@changed V0.9.16 (2001-10-15) [umoeller]: fixed ugly group table spacings
  *@@changed V0.9.16 (2001-10-15) [umoeller]: added APIRET
+ *@@changed V0.9.16 (2002-02-02) [umoeller]: added support for explicit group size
  */
 
 APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
@@ -475,7 +476,20 @@ APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
             // should we create a PM control around the table?
             if (pTableDef->pCtlDef)
             {
-                // yes: make this wider
+                // yes:
+
+                // check if maybe an explicit size was specified
+                // for the group; if that is larger than what
+                // we've calculated above, use it instead
+                if (pTableDef->pCtlDef->szlControlProposed.cx > pColumnDef->cpControl.cx)
+                        // should be -1 for auto-size
+                    pColumnDef->cpControl.cx = pTableDef->pCtlDef->szlControlProposed.cx;
+
+                if (pTableDef->pCtlDef->szlControlProposed.cy > pColumnDef->cpControl.cy)
+                        // should be -1 for auto-size
+                    pColumnDef->cpControl.cy = pTableDef->pCtlDef->szlControlProposed.cy;
+
+                // in any case, make this wider
                 ulXSpacing =    2 * PM_GROUP_SPACING_X;
                 ulYSpacing =    // 3 * PM_GROUP_SPACING_X;
                             (PM_GROUP_SPACING_X + PM_GROUP_SPACING_TOP);
@@ -489,9 +503,19 @@ APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
         PSIZEL      pszl = &pControlDef->szlControlProposed;
         SIZEL       szlAuto;
 
-        if (    (pszl->cx == -1)
-             || (pszl->cy == -1)
+        if (    (pszl->cx < -1)
+             && (pszl->cx >= -100)
            )
+        {
+            // other negative CX value:
+            // this is then a percentage of the row width... ignore for now
+            // V0.9.16 (2002-02-02) [umoeller]
+            szlAuto.cx = 0;
+            szlAuto.cy = 0;
+        }
+        else if (    (pszl->cx == -1)
+                  || (pszl->cy == -1)
+                )
         {
             arc = CalcAutoSize(pControlDef,
                                &szlAuto,
@@ -500,12 +524,12 @@ APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
 
         if (!arc)
         {
-            if (pszl->cx == -1)
+            if (pszl->cx < 0)
                 pColumnDef->cpControl.cx = szlAuto.cx;
             else
                 pColumnDef->cpControl.cx = pszl->cx;
 
-            if (pszl->cy == -1)
+            if (pszl->cy < 0)
                 pColumnDef->cpControl.cy = szlAuto.cy;
             else
                 pColumnDef->cpControl.cy = pszl->cy;
@@ -1097,6 +1121,7 @@ APIRET ProcessAll(PDLGPRIVATE pDlgData,
         {
             if (ProcessMode == PROCESS_CALC_SIZES)
             {
+                // all sizes have now been computed:
                 pszlClient->cx += pTableDefThis->cpTable.cx;
                 pszlClient->cy += pTableDefThis->cpTable.cy;
             }

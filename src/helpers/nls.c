@@ -458,7 +458,9 @@ VOID APIENTRY strhDateTime(PSZ pszDate,          // out: date string returned (c
  *      quick hack for upper-casing a string.
  *
  *      This uses DosMapCase with the default system country
- *      code and the process's codepage.
+ *      code and the process's codepage. WARNING: DosMapCase
+ *      is a 16-bit API and therefore quite slow. Use this
+ *      with care.
  *
  *@@added V0.9.16 (2001-10-25) [umoeller]
  */

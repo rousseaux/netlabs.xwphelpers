@@ -61,6 +61,7 @@ extern "C" {
      ********************************************************************/
 
     #define SZL_AUTOSIZE                (-1)
+    #define SZL_LARGEST_ROW_WIDTH       (-2)
 
     #define CTL_COMMON_FONT             ((PCSZ)-1)
 
@@ -105,9 +106,14 @@ extern "C" {
         SIZEL       szlControlProposed;
                 // proposed size; a number of special flags are
                 // available (per cx, cy field):
-                // -- SZL_AUTOSIZE: determine size automatically.
+                // -- SZL_AUTOSIZE (-1): determine size automatically.
                 //    Works only for statics with SS_TEXT and
                 //    SS_BITMAP.
+                // -- Any other _negative_ value is considered a
+                //    percentage of the largest row width in the
+                //    table. For example, -50 would mean 50% of
+                //    the largest row in the table. This is valid
+                //    for the CX field only.
                 // This field is IGNORED if the CONTROLDEF appears
                 // with a START_NEW_TABLE type in _DLGHITEM.
 
@@ -189,9 +195,9 @@ extern "C" {
 
     #define COMMON_SPACING          3
 
-    #define CONTROLDEF_GROUP(pcsz, id) { WC_STATIC, pcsz, \
+    #define CONTROLDEF_GROUP(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_GROUPBOX | DT_MNEMONIC, \
-            id, CTL_COMMON_FONT, 0, { -1, -1 }, 0 }
+            id, CTL_COMMON_FONT, 0, { cx, cy }, 0 }
 
     #define CONTROLDEF_TEXT(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
             WS_VISIBLE | SS_TEXT | DT_LEFT | DT_VCENTER | DT_MNEMONIC, \

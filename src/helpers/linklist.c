@@ -960,7 +960,7 @@ void lstQuickSort2(PLINKLIST pList,
  *      this will sort the given linked list using the
  *      sort function pfnSort, which works similar to those of the
  *      container sorts, i.e. it must be declared as a
- +          SHORT fnSort(void* pItem1, void* pItem1, void* pStorage)
+ +          SHORT fnSort(void* pItem1, void* pItem2, void* pStorage)
  *
  *      These sort functions need to return the following:
  *      --      0:   pItem1 == pItem2
