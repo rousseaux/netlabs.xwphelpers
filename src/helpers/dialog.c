@@ -108,9 +108,9 @@ typedef struct _DLGPRIVATE
 
     POINTL      ptlTotalOfs;
 
-    LINKLIST    llControls;     // linked list of all PCOLUMNDEF structs,
-                                 // in the order in which windows were
-                                 // created
+    PLINKLIST   pllControls;            // linked list of HWNDs in the order
+                                        // in which controls were created;
+                                        // ptr can be NULL
 
     PCSZ        pcszControlsFont;  // from dlghCreateDlg
 
@@ -909,8 +909,11 @@ static APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
                     winhSetWindowFont(pColumnDef->hwndControl,
                                       pcszFont);
 
-            lstAppendItem(&pDlgData->llControls,
-                          pColumnDef);
+            // append window that was created
+            // V0.9.18 (2002-03-03) [umoeller]
+            if (pDlgData->pllControls)
+                lstAppendItem(pDlgData->pllControls,
+                              (PVOID)pColumnDef->hwndControl);
 
             // if this is the first control with WS_TABSTOP,
             // we give it the focus later
@@ -1454,17 +1457,21 @@ typedef struct _STACKITEM
  *@@ Dlg0_Init:
  *
  *@@added V0.9.15 (2001-08-26) [umoeller]
+ *@@changed V0.9.18 (2002-03-03) [umoeller]: aded pllWindows
  */
 
 static APIRET Dlg0_Init(PDLGPRIVATE *ppDlgData,
-                        PCSZ pcszControlsFont)
+                        PCSZ pcszControlsFont,
+                        PLINKLIST pllControls)
 {
     PDLGPRIVATE pDlgData;
     if (!(pDlgData = NEW(DLGPRIVATE)))
         return (ERROR_NOT_ENOUGH_MEMORY);
     ZERO(pDlgData);
     lstInit(&pDlgData->llTables, FALSE);
-    lstInit(&pDlgData->llControls, FALSE);
+
+    if (pllControls)
+        pDlgData->pllControls = pllControls;
 
     pDlgData->pcszControlsFont = pcszControlsFont;
 
@@ -1755,7 +1762,6 @@ static VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
         }
 
         lstClear(&pDlgData->llTables);
-        lstClear(&pDlgData->llControls);
 
         free(pDlgData);
 
@@ -2039,7 +2045,8 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
      */
 
     if (!(arc = Dlg0_Init(&pDlgData,
-                          pcszControlsFont)))
+                          pcszControlsFont,
+                          NULL)))
     {
         if (!(arc = Dlg1_ParseTables(pDlgData,
                                      paDlgItems,
@@ -2203,47 +2210,52 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
  *          function will essentially work like dlghCreateDlg,
  *          except that the frame is already created.
  *
- *      --  DFFL_RESIZEFRAME: hwndDlg should be resized so
- *          that it will properly surround the controls.
- *
- *          This can only be used in conjunction with
- *          DFFL_RESIZEFRAME.
+ *      If pszlClient is specified, it receives the required
+ *      size of the client to surround all controls properly.
+ *      You can then use dlghResizeFrame to resize the frame
+ *      with a bit of spacing, if desired.
  *
  *@@added V0.9.16 (2001-09-29) [umoeller]
+ *@@changed V0.9.18 (2002-03-03) [umoeller]: added pszlClient, fixed output
  */
 
 APIRET dlghFormatDlg(HWND hwndDlg,              // in: dialog frame to work on
                      PCDLGHITEM paDlgItems,      // in: definition array
                      ULONG cDlgItems,           // in: array item count (NOT array size)
                      PCSZ pcszControlsFont, // in: font for ctls with CTL_COMMON_FONT
-                     ULONG flFlags)             // in: DFFL_* flags
+                     ULONG flFlags,             // in: DFFL_* flags
+                     PSIZEL pszlClient,         // out: size of all controls (ptr can be NULL)
+                     PVOID *ppllControls)   // out: new LINKLIST receiving HWNDs of created controls (ptr can be NULL)
 {
     APIRET      arc = NO_ERROR;
 
     ULONG       ul;
 
     PDLGPRIVATE  pDlgData = NULL;
+    PLINKLIST   pllControls = NULL;
 
     /*
      *  1) parse the table and create structures from it
      *
      */
 
+    if (ppllControls)
+        pllControls = *(PLINKLIST*)ppllControls = lstCreate(FALSE);
+
     if (!(arc = Dlg0_Init(&pDlgData,
-                          pcszControlsFont)))
+                          pcszControlsFont,
+                          pllControls)))
     {
         if (!(arc = Dlg1_ParseTables(pDlgData,
                                      paDlgItems,
                                      cDlgItems)))
         {
+            HWND hwndFocusItem;
+
             /*
              *  2) create empty dialog frame
              *
              */
-
-            HWND    hwndFocusItem = NULLHANDLE;
-            SIZEL   szlClient = {0};
-            RECTL   rclClient;
 
             pDlgData->hwndDlg = hwndDlg;
 
@@ -2254,31 +2266,10 @@ APIRET dlghFormatDlg(HWND hwndDlg,              // in: dialog frame to work on
 
             Dlg2_CalcSizes(pDlgData);
 
-            // WinSubclassWindow(hwndDlg, pfnwpDialogProc);
-
-            /*
-             *  4) compute size of dialog client from total
-             *     size of all controls
-             */
-
-            if (flFlags & DFFL_RESIZEFRAME)
+            if (pszlClient)
             {
-                // calculate the frame size from the client size
-                rclClient.xLeft = 10;
-                rclClient.yBottom = 10;
-                rclClient.xRight = szlClient.cx + 2 * SPACING;
-                rclClient.yTop = szlClient.cy + 2 * SPACING;
-                WinCalcFrameRect(hwndDlg,
-                                 &rclClient,
-                                 FALSE);            // frame from client
-
-                WinSetWindowPos(hwndDlg,
-                                0,
-                                10,
-                                10,
-                                rclClient.xRight,
-                                rclClient.yTop,
-                                SWP_MOVE | SWP_SIZE | SWP_NOADJUST);
+                pszlClient->cx = pDlgData->szlClient.cx + 2 * SPACING;
+                pszlClient->cy = pDlgData->szlClient.cy + 2 * SPACING;
             }
 
             if (flFlags & DFFL_CREATECONTROLS)
@@ -2302,6 +2293,34 @@ APIRET dlghFormatDlg(HWND hwndDlg,              // in: dialog frame to work on
     }
 
     return (arc);
+}
+
+/*
+ *@@ dlghResizeFrame:
+ *
+ *@@added V0.9.18 (2002-03-03) [umoeller]
+ */
+
+VOID dlghResizeFrame(HWND hwndDlg,
+                     PSIZEL pszlClient)
+{
+    // calculate the frame size from the client size
+    RECTL   rclClient;
+    rclClient.xLeft = 10;
+    rclClient.yBottom = 10;
+    rclClient.xRight = pszlClient->cx;
+    rclClient.yTop = pszlClient->cy;
+    WinCalcFrameRect(hwndDlg,
+                     &rclClient,
+                     FALSE);            // frame from client
+
+    WinSetWindowPos(hwndDlg,
+                    0,
+                    10,
+                    10,
+                    rclClient.xRight,
+                    rclClient.yTop,
+                    SWP_MOVE | SWP_SIZE | SWP_NOADJUST);
 }
 
 /* ******************************************************************

@@ -2915,6 +2915,10 @@ APIRET doshClose(PXFILE *ppFile)
  *      buffer null-terminated always. The buffer
  *      is _not_ converted WRT the line format.
  *
+ *      If CTRL-Z (ASCII 26) is encountered in the
+ *      content, it is set to the null character
+ *      instead (V0.9.18).
+ *
  *      This returns the APIRET of DosOpen and DosRead.
  *      If any error occured, no buffer was allocated.
  *      Otherwise, you should free() the buffer when
@@ -2923,6 +2927,7 @@ APIRET doshClose(PXFILE *ppFile)
  *@@changed V0.9.7 (2001-01-15) [umoeller]: renamed from doshReadTextFile
  *@@changed V0.9.16 (2002-01-05) [umoeller]: added pcbRead
  *@@changed V0.9.16 (2002-01-05) [umoeller]: rewritten using doshOpen
+ *@@changed V0.9.18 (2002-03-08) [umoeller]: fixed ctrl-z (EOF) bug
  */
 
 APIRET doshLoadTextFile(PCSZ pcszFile,      // in: file name to read
@@ -2954,7 +2959,19 @@ APIRET doshLoadTextFile(PCSZ pcszFile,      // in: file name to read
                     arc = ERROR_NO_DATA;
                 else
                 {
+                    PSZ p;
                     pszContent[cbRead] = '\0';
+
+                    // check if we have a ctrl-z (EOF) marker
+                    // this is present, for example, in config.sys
+                    // after install
+                    // V0.9.18 (2002-03-08) [umoeller]
+                    if (p = strchr(pszContent, '\26'))
+                    {
+                        *p = '\0';
+                        cbRead = p - pszContent;
+                    }
+
                     *ppszContent = pszContent;
                     if (pcbRead)
                         *pcbRead = cbRead + 1;
@@ -2967,56 +2984,6 @@ APIRET doshLoadTextFile(PCSZ pcszFile,      // in: file name to read
 
         doshClose(&pFile);
     }
-
-    /*
-    ULONG   ulSize,
-            ulBytesRead = 0,
-            ulAction, ulLocal;
-    HFILE   hFile;
-    PSZ     pszContent = NULL;
-
-    APIRET arc;
-
-    *ppszContent = 0;
-
-    if (!(arc = DosOpen((PSZ)pcszFile,
-                        &hFile,
-                        &ulAction,                      // action taken
-                        5000L,                          // primary allocation size
-                        FILE_ARCHIVED | FILE_NORMAL,    // file attribute
-                        OPEN_ACTION_OPEN_IF_EXISTS,     // open flags
-                        OPEN_FLAGS_NOINHERIT
-                           | OPEN_SHARE_DENYNONE
-                           | OPEN_ACCESS_READONLY,      // read-only mode
-                        NULL)))                         // no EAs
-    {
-        if (!(arc = doshQueryFileSize(hFile, &ulSize)))
-        {
-            pszContent = (PSZ)malloc(ulSize+1);
-
-            if (!(arc = DosSetFilePtr(hFile,
-                                      0L,
-                                      FILE_BEGIN,
-                                      &ulLocal)))
-                if (!(arc = DosRead(hFile,
-                                    pszContent,
-                                    ulSize,
-                                    &ulBytesRead)))
-                {
-                    *(pszContent+ulBytesRead) = 0;
-                    // set output buffer pointer
-                    *ppszContent = pszContent;
-
-                    if (pcbRead)
-                        *pcbRead = ulBytesRead + 1;
-                }
-
-            if (arc)
-                free(pszContent);
-        }
-        DosClose(hFile);
-    }
-    */
 
     return (arc);
 }

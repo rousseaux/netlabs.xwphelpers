@@ -2389,8 +2389,8 @@ BOOL winhAdjustControls(HWND hwndDlg,           // in: dialog (req.)
                  ul < ulCount;
                  ul++)
             {
-                HWND hwndThis = WinWindowFromID(hwndDlg, SHORT1FROMMP(*pmpThis));
-                if (hwndThis)
+                HWND hwndThis;
+                if (hwndThis = WinWindowFromID(hwndDlg, SHORT1FROMMP(*pmpThis)))
                 {
                     WinQueryWindowPos(hwndThis, pswpThis);
                     cWindows++;
@@ -3590,7 +3590,7 @@ ULONG winhEnableControls(HWND hwndDlg,                  // in: dialog window
  */
 
 HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
-                         PSWP pswpFrame,            // in: frame wnd pos
+                         PSWP pswpFrame,            // in: frame wnd pos (ptr can be NULL)
                          ULONG flFrameCreateFlags,  // in: FCF_* flags
                          ULONG ulFrameStyle,        // in: WS_* flags (e.g. WS_VISIBLE, WS_ANIMATE)
                          const char *pcszFrameTitle, // in: frame title (title bar)

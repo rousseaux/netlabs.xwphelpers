@@ -186,28 +186,6 @@ BOOL ctlDrawCheckbox(HPS hps,               // in: paint PS
 }
 
 /*
- *@@ CHECKBOXCNROWNER:
- *
- *
- *@@added V0.9.0 (99-11-28) [umoeller]
- */
-
-typedef struct _CHECKBOXCNROWNER
-{
-    HWND        hwndCnr;            // container window handle
-    USHORT      usCnrID;            // container item ID
-    HWND        hwndOwner;          // owner of that container
-    PFNWP       pfnwpCnrOrig;       // original window proc of hwndCnr
-    PFNWP       pfnwpOwnerOrig;     // original window proc of hwndOwner
-
-    HAB         habCnr;
-
-    PCHECKBOXRECORDCORE preccClicked;   // != NULL if mb1 is currently down on recc
-    PCHECKBOXRECORDCORE preccSpace;     // != NULL if space key is down with recc
-    RECTL       rclReccClicked;     // rectangle of that record
-} CHECKBOXCNROWNER, *PCHECKBOXCNROWNER;
-
-/*
  *@@ CnrCheckboxClicked:
  *
  *
@@ -248,14 +226,139 @@ static VOID CnrCheckboxClicked(PCHECKBOXCNROWNER pcbco,
 }
 
 /*
- *@@ ctl_fnwpSubclCheckboxCnr:
+ *@@ ctlDrawCheckBoxRecord:
+ *
+ *@@added V0.9.18 (2002-03-03) [umoeller]
+ */
+
+MRESULT ctlDrawCheckBoxRecord(MPARAM mp2)
+{
+    MRESULT mrc = 0;
+
+    // get generic DRAWITEM structure
+    POWNERITEM poi = (POWNERITEM)mp2;
+
+    // _Pmpf(("WM_DRAWITEM poi->idItem %d", poi->idItem));
+
+    // check if we're to draw the icon
+    // (and not the text)
+    if (poi->idItem == CMA_ICON)
+    {
+        PCNRDRAWITEMINFO pcdi = (PCNRDRAWITEMINFO)poi->hItem;
+        PCHECKBOXRECORDCORE precc = (PCHECKBOXRECORDCORE)pcdi->pRecord;
+
+        if (precc->ulStyle & WS_VISIBLE)
+        {
+            USHORT usRow,
+                   usColumn;
+
+            switch (precc->usCheckState)
+            {
+                case 0: // unchecked
+                    usRow = 2;
+                    usColumn = 0;
+                break;
+
+                case 1: // checked
+                    usRow = 2;
+                    usColumn = 1;
+                break;
+
+                case 2: // indeterminate
+                    usRow = 0;
+                    usColumn = 1;
+                break;
+            }
+
+            if (precc->ulStyle & BS_BITMAP)
+                // button currently depressed:
+                // add two to column
+                usColumn += 2;
+
+            ctlDrawCheckbox(poi->hps,
+                            poi->rclItem.xLeft,
+                            poi->rclItem.yBottom,
+                            usRow,
+                            usColumn,
+                            // halftoned?
+                            ((precc->recc.flRecordAttr & CRA_DISABLED) != 0));
+            mrc = (MPARAM)FALSE;
+                        // we still need the cnr to draw the
+                        // emphasis
+        }
+        else
+            mrc = (MPARAM)TRUE; // tell cnr that we've drawn the item;
+                    // don't even draw emphasis
+    }
+    else if (poi->idItem == CMA_TEXT)
+    {
+        // for text, buttons etc.:
+        PCNRDRAWITEMINFO pcdi = (PCNRDRAWITEMINFO)poi->hItem;
+        PCHECKBOXRECORDCORE precc = (PCHECKBOXRECORDCORE)pcdi->pRecord;
+        if (precc->recc.flRecordAttr & CRA_DISABLED)
+        {
+            RECTL rcl2;
+            LONG lBackground, lForeground;
+            ULONG flCmd = DT_LEFT | DT_TOP | DT_ERASERECT;
+            if ((pcdi->pRecord->flRecordAttr) & CRA_SELECTED)
+            {
+                // disabled and selected:
+                lBackground = WinQuerySysColor(HWND_DESKTOP,
+                                               SYSCLR_SHADOWTEXT, 0);
+                lForeground = winhQueryPresColor(poi->hwnd,
+                                                 PP_BACKGROUNDCOLOR,
+                                                 FALSE, // no inherit
+                                                 SYSCLR_WINDOW);
+            }
+            else
+            {
+                // disabled and not selected:
+                lBackground = winhQueryPresColor(poi->hwnd,
+                                                 PP_BACKGROUNDCOLOR,
+                                                 FALSE,
+                                                 SYSCLR_WINDOW);
+                lForeground = winhQueryPresColor(poi->hwnd,
+                                                 PP_FOREGROUNDCOLOR,
+                                                 FALSE, // no inherit
+                                                 SYSCLR_WINDOWTEXT);
+                flCmd |= DT_HALFTONE;
+            }
+
+            // _Pmpf(("back: 0x%lX, fore: 0x%lX", lBackground, lForeground));
+
+            GpiCreateLogColorTable(poi->hps, 0, LCOLF_RGB, 0, 0, NULL);
+            GpiSetBackColor(poi->hps, lBackground);
+            GpiSetColor(poi->hps, lForeground);
+
+            memcpy(&rcl2, &(poi->rclItem), sizeof(rcl2));
+
+            winhDrawFormattedText(poi->hps,
+                                  &rcl2,
+                                  precc->recc.pszTree,
+                                  flCmd);
+            mrc = (MPARAM)TRUE;
+        }
+        else
+            // tell cnr to draw the item
+            mrc = (MPARAM)FALSE;
+    }
+    else
+        // tell cnr to draw the item
+        mrc = (MPARAM)FALSE;
+
+    return mrc;
+}
+
+/*
+ *@@ fnwpSubclCheckboxCnr:
  *      window proc for subclassed containers.
  *      See ctlMakeCheckboxContainer for details.
  *
  *@@added V0.9.0 (99-11-29) [umoeller]
+ *@@changed V0.9.18 (2002-03-03) [umoeller]: fixed bad orig win msg, other optimizations
  */
 
-MRESULT EXPENTRY ctl_fnwpSubclCheckboxCnr(HWND hwndCnr, ULONG msg, MPARAM mp1, MPARAM mp2)
+static MRESULT EXPENTRY fnwpSubclCheckboxCnr(HWND hwndCnr, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT             mrc = 0;
     PCHECKBOXCNROWNER   pcbco = 0;
@@ -269,7 +372,7 @@ MRESULT EXPENTRY ctl_fnwpSubclCheckboxCnr(HWND hwndCnr, ULONG msg, MPARAM mp1, M
             pcbco = (PCHECKBOXCNROWNER)pNode->pItemData;
             if (pcbco->hwndCnr == hwndCnr)
             {
-                pfnwpOrig = pcbco->pfnwpOwnerOrig;
+                pfnwpOrig = pcbco->pfnwpCnrOrig; // fixed V0.9.18 (2002-03-03) [umoeller]
                 break;
             }
             pNode = pNode->pNext;
@@ -313,7 +416,8 @@ MRESULT EXPENTRY ctl_fnwpSubclCheckboxCnr(HWND hwndCnr, ULONG msg, MPARAM mp1, M
 
                 mrc = pfnwpOrig(hwndCnr, msg, mp1, mp2);
                         // apperently, the cnr captures the mouse
-            break; }
+            }
+            break;
 
             case WM_MOUSEMOVE:
                 if (pcbco->preccClicked)
@@ -437,7 +541,8 @@ MRESULT EXPENTRY ctl_fnwpSubclCheckboxCnr(HWND hwndCnr, ULONG msg, MPARAM mp1, M
                 }
 
                 mrc = pfnwpOrig(hwndCnr, msg, mp1, mp2);
-            break; }
+            }
+            break;
 
             /*
              * WM_DESTROY:
@@ -451,7 +556,14 @@ MRESULT EXPENTRY ctl_fnwpSubclCheckboxCnr(HWND hwndCnr, ULONG msg, MPARAM mp1, M
             case WM_DESTROY:
                 if (WinRequestMutexSem(G_hmtxCnrOwnersList, 5000) == NO_ERROR)
                 {
+                    if (WinIsWindow(pcbco->habCnr,
+                                    pcbco->hwndOwner))
+                        // un-subclass the owner
+                        WinSubclassWindow(pcbco->hwndOwner,
+                                          pcbco->pfnwpOwnerOrig);
+
                     lstRemoveItem(G_pllCnrOwners, pcbco);
+
                     if (lstCountItems(G_pllCnrOwners) == 0)
                     {
                         lstFree(&G_pllCnrOwners);
@@ -474,14 +586,14 @@ MRESULT EXPENTRY ctl_fnwpSubclCheckboxCnr(HWND hwndCnr, ULONG msg, MPARAM mp1, M
 
 
 /*
- *@@ ctl_fnwpSubclCheckboxCnrOwner:
+ *@@ fnwpSubclCheckboxCnrOwner:
  *      window proc for subclassed container owners.
  *      See ctlMakeCheckboxContainer for details.
  *
  *@@added V0.9.0 (99-11-28) [umoeller]
  */
 
-MRESULT EXPENTRY ctl_fnwpSubclCheckboxCnrOwner(HWND hwndOwner, ULONG msg, MPARAM mp1, MPARAM mp2)
+static MRESULT EXPENTRY fnwpSubclCheckboxCnrOwner(HWND hwndOwner, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT             mrc = 0;
     PCHECKBOXCNROWNER   pcbco = 0;
@@ -530,12 +642,14 @@ MRESULT EXPENTRY ctl_fnwpSubclCheckboxCnrOwner(HWND hwndOwner, ULONG msg, MPARAM
                                 CnrCheckboxClicked(pcbco,
                                                    precc,
                                                    TRUE);
-                        break; }
+                        }
+                        break;
                     }
                 }
 
                 mrc = pfnwpOrig(hwndOwner, msg, mp1, mp2);
-            break; }
+            }
+            break;
 
             /*
              * WM_DRAWITEM:
@@ -545,123 +659,12 @@ MRESULT EXPENTRY ctl_fnwpSubclCheckboxCnrOwner(HWND hwndOwner, ULONG msg, MPARAM
 
             case WM_DRAWITEM:
             {
-                USHORT usID = SHORT1FROMMP(mp1);
-                if (usID == pcbco->usCnrID)
-                {
-                    // get generic DRAWITEM structure
-                    POWNERITEM poi = (POWNERITEM)mp2;
-
-                    // _Pmpf(("WM_DRAWITEM poi->idItem %d", poi->idItem));
-
-                    // check if we're to draw the icon
-                    // (and not the text)
-                    if (poi->idItem == CMA_ICON)
-                    {
-                        PCNRDRAWITEMINFO pcdi = (PCNRDRAWITEMINFO)poi->hItem;
-                        PCHECKBOXRECORDCORE precc = (PCHECKBOXRECORDCORE)pcdi->pRecord;
-
-                        if (precc->ulStyle & WS_VISIBLE)
-                        {
-                            USHORT usRow,
-                                   usColumn;
-
-                            switch (precc->usCheckState)
-                            {
-                                case 0: // unchecked
-                                    usRow = 2;
-                                    usColumn = 0;
-                                break;
-
-                                case 1: // checked
-                                    usRow = 2;
-                                    usColumn = 1;
-                                break;
-
-                                case 2: // indeterminate
-                                    usRow = 0;
-                                    usColumn = 1;
-                                break;
-                            }
-
-                            if (precc->ulStyle & BS_BITMAP)
-                                // button currently depressed:
-                                // add two to column
-                                usColumn += 2;
-
-                            ctlDrawCheckbox(poi->hps,
-                                            poi->rclItem.xLeft,
-                                            poi->rclItem.yBottom,
-                                            usRow,
-                                            usColumn,
-                                            // halftoned?
-                                            ((precc->recc.flRecordAttr & CRA_DISABLED) != 0));
-                            mrc = (MPARAM)FALSE;
-                                        // we still need the cnr to draw the
-                                        // emphasis
-                        }
-                        else
-                            mrc = (MPARAM)TRUE; // tell cnr that we've drawn the item;
-                                    // don't even draw emphasis
-                    }
-                    else if (poi->idItem == CMA_TEXT)
-                    {
-                        // for text, buttons etc.:
-                        PCNRDRAWITEMINFO pcdi = (PCNRDRAWITEMINFO)poi->hItem;
-                        PCHECKBOXRECORDCORE precc = (PCHECKBOXRECORDCORE)pcdi->pRecord;
-                        if (precc->recc.flRecordAttr & CRA_DISABLED)
-                        {
-                            RECTL rcl2;
-                            LONG lBackground, lForeground;
-                            ULONG flCmd = DT_LEFT | DT_TOP | DT_ERASERECT;
-                            if ((pcdi->pRecord->flRecordAttr) & CRA_SELECTED)
-                            {
-                                // disabled and selected:
-                                lBackground = WinQuerySysColor(HWND_DESKTOP,
-                                                               SYSCLR_SHADOWTEXT, 0);
-                                lForeground = winhQueryPresColor(poi->hwnd,
-                                                                 PP_BACKGROUNDCOLOR,
-                                                                 FALSE, // no inherit
-                                                                 SYSCLR_WINDOW);
-                            }
-                            else
-                            {
-                                // disabled and not selected:
-                                lBackground = winhQueryPresColor(poi->hwnd,
-                                                                 PP_BACKGROUNDCOLOR,
-                                                                 FALSE,
-                                                                 SYSCLR_WINDOW);
-                                lForeground = winhQueryPresColor(poi->hwnd,
-                                                                 PP_FOREGROUNDCOLOR,
-                                                                 FALSE, // no inherit
-                                                                 SYSCLR_WINDOWTEXT);
-                                flCmd |= DT_HALFTONE;
-                            }
-
-                            // _Pmpf(("back: 0x%lX, fore: 0x%lX", lBackground, lForeground));
-
-                            GpiCreateLogColorTable(poi->hps, 0, LCOLF_RGB, 0, 0, NULL);
-                            GpiSetBackColor(poi->hps, lBackground);
-                            GpiSetColor(poi->hps, lForeground);
-
-                            memcpy(&rcl2, &(poi->rclItem), sizeof(rcl2));
-
-                            winhDrawFormattedText(poi->hps,
-                                                  &rcl2,
-                                                  precc->recc.pszTree,
-                                                  flCmd);
-                            mrc = (MPARAM)TRUE;
-                        }
-                        else
-                            // tell cnr to draw the item
-                            mrc = (MPARAM)FALSE;
-                    }
-                    else
-                        // tell cnr to draw the item
-                        mrc = (MPARAM)FALSE;
-                }
+                if (SHORT1FROMMP(mp1) == pcbco->usCnrID)
+                    mrc = ctlDrawCheckBoxRecord(mp2);
                 else
                     mrc = pfnwpOrig(hwndOwner, msg, mp1, mp2);
-            break; }
+            }
+            break;
 
             default:
                 mrc = pfnwpOrig(hwndOwner, msg, mp1, mp2);
@@ -671,6 +674,70 @@ MRESULT EXPENTRY ctl_fnwpSubclCheckboxCnrOwner(HWND hwndOwner, ULONG msg, MPARAM
         mrc = WinDefWindowProc(hwndOwner, msg, mp1, mp2);
 
     return (mrc);
+}
+
+/*
+ *@@ ctlInitCheckboxContainer:
+ *
+ *@@added V0.9.18 (2002-03-03) [umoeller]
+ */
+
+VOID ctlInitCheckboxContainer(HWND hwndCnr)
+{
+    if (G_hbmCheckboxes == NULLHANDLE)
+    {
+        // first call:
+        BITMAPINFOHEADER bmih;
+        // load checkboxes bitmap
+        G_hbmCheckboxes = WinGetSysBitmap(HWND_DESKTOP,
+                                          SBMP_CHECKBOXES);
+
+        // _Pmpf(("hbmCheckboxes: 0x%lX", G_hbmCheckboxes));
+
+        // and compute size of one checkbox
+        // (4 columns, 3 rows)
+        GpiQueryBitmapParameters(G_hbmCheckboxes,
+                                 &bmih);
+        G_cxCheckbox = bmih.cx / 4;
+    }
+
+    BEGIN_CNRINFO()
+    {
+        cnrhSetView(CV_TREE | CV_ICON | CA_TREELINE | CA_OWNERDRAW | CV_MINI);
+        cnrhSetTreeIndent(20);
+        cnrhSetBmpOrIconSize(G_cxCheckbox, G_cxCheckbox);
+    } END_CNRINFO(hwndCnr);
+}
+
+/*
+ *@@ ctlSubclassCheckboxContainer:
+ *
+ *@@added V0.9.18 (2002-03-03) [umoeller]
+ */
+
+PCHECKBOXCNROWNER ctlSubclassCheckboxContainer(HWND hwndCnr)
+{
+    PFNWP pfnwpCnrOrig;
+    if (pfnwpCnrOrig = WinSubclassWindow(hwndCnr, fnwpSubclCheckboxCnr))
+    {
+        // cnr successfully subclassed:
+        // create storage for both subclassed cnr and owner
+        PCHECKBOXCNROWNER pcbco;
+        if (pcbco = (PCHECKBOXCNROWNER)malloc(sizeof(CHECKBOXCNROWNER)))
+        {
+            memset(pcbco, 0, sizeof(CHECKBOXCNROWNER));
+            pcbco->hwndCnr = hwndCnr;
+            pcbco->usCnrID = WinQueryWindowUShort(hwndCnr, QWS_ID);
+            pcbco->hwndOwner = WinQueryWindow(hwndCnr, QW_OWNER);
+            pcbco->pfnwpCnrOrig = pfnwpCnrOrig;
+
+            pcbco->habCnr = WinQueryAnchorBlock(hwndCnr);
+
+            return (pcbco);
+        }
+    }
+
+    return NULL;
 }
 
 /*
@@ -748,76 +815,32 @@ BOOL ctlMakeCheckboxContainer(HWND hwndCnrOwner,    // in: owner (and parent) of
 
     if (hwndCnr)
     {
-        if (G_hbmCheckboxes == NULLHANDLE)
-        {
-            // first call:
-            BITMAPINFOHEADER bmih;
-            // load checkboxes bitmap
-            G_hbmCheckboxes = WinGetSysBitmap(HWND_DESKTOP,
-                                              SBMP_CHECKBOXES);
-
-            // _Pmpf(("hbmCheckboxes: 0x%lX", G_hbmCheckboxes));
-
-            // and compute size of one checkbox
-            // (4 columns, 3 rows)
-            GpiQueryBitmapParameters(G_hbmCheckboxes,
-                                     &bmih);
-            G_cxCheckbox = bmih.cx / 4;
-        }
-
-        BEGIN_CNRINFO()
-        {
-            cnrhSetView(CV_TREE | CV_ICON | CA_TREELINE | CA_OWNERDRAW | CV_MINI);
-            cnrhSetTreeIndent(20);
-            cnrhSetBmpOrIconSize(G_cxCheckbox, G_cxCheckbox);
-            // cnrhSetSortFunc(fnCompareName);
-        } END_CNRINFO(hwndCnr);
+        ctlInitCheckboxContainer(hwndCnr);
 
         if (    (hwndCnrOwner)
              && (G_hmtxCnrOwnersList)
            )
         {
             // subclass container owner
-            PFNWP pfnwpOwnerOrig = WinSubclassWindow(hwndCnrOwner, ctl_fnwpSubclCheckboxCnrOwner);
+            PFNWP pfnwpOwnerOrig = WinSubclassWindow(hwndCnrOwner, fnwpSubclCheckboxCnrOwner);
             /* _Pmpf(("Subclassed hwnd 0x%lX: orig 0x%lX",
                     hwndCnrOwner, pfnwpOwnerOrig)); */
             if (pfnwpOwnerOrig)
             {
                 // owner successfully subclassed:
                 // subclass container too
-                PFNWP pfnwpCnrOrig = WinSubclassWindow(hwndCnr, ctl_fnwpSubclCheckboxCnr);
-                if (pfnwpCnrOrig)
+                PCHECKBOXCNROWNER pcbco;
+                if (pcbco = ctlSubclassCheckboxContainer(hwndCnr))
                 {
-                    // cnr successfully subclassed:
-                    // create storage for both subclassed cnr and owner
-                    PCHECKBOXCNROWNER pcbco = (PCHECKBOXCNROWNER)malloc(sizeof(CHECKBOXCNROWNER));
-                    if (pcbco)
+                    if (WinRequestMutexSem(G_hmtxCnrOwnersList, 5000) == NO_ERROR)
                     {
-                        memset(pcbco, 0, sizeof(CHECKBOXCNROWNER));
-                        pcbco->hwndCnr = hwndCnr;
-                        pcbco->usCnrID = usCnrID;
-                        pcbco->hwndOwner = hwndCnrOwner;
-                        pcbco->pfnwpCnrOrig = pfnwpCnrOrig;
+                        lstAppendItem(G_pllCnrOwners, pcbco);
+                        DosReleaseMutexSem(G_hmtxCnrOwnersList);
+                        brc = TRUE;
+
                         pcbco->pfnwpOwnerOrig = pfnwpOwnerOrig;
-
-                        pcbco->habCnr = WinQueryAnchorBlock(hwndCnr);
-
-                        if (WinRequestMutexSem(G_hmtxCnrOwnersList, 5000) == NO_ERROR)
-                        {
-                            lstAppendItem(G_pllCnrOwners, pcbco);
-                            DosReleaseMutexSem(G_hmtxCnrOwnersList);
-                            brc = TRUE;
-                        }
                     }
-
-                    if (!brc)
-                        // failed: unsubclass cnr
-                        WinSubclassWindow(hwndCnr, pfnwpCnrOrig);
                 }
-
-                if (!brc)
-                    // failed: unsubclass owner
-                    WinSubclassWindow(hwndCnrOwner, pfnwpOwnerOrig);
             }
         }
     }
@@ -955,7 +978,7 @@ ULONG ctlQueryRecordChecked(HWND hwndCnr,          // in: container prepared wit
  *      for the record which matches the given item
  *      ID and updates that record enablement. If
  *      the record is disabled, it's painted halftoned
- *      by ctl_fnwpSubclCheckboxCnr.
+ *      by fnwpSubclCheckboxCnr.
  *
  *@@added V0.9.1 (99-12-03) [umoeller]
  */
