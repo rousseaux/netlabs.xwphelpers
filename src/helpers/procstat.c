@@ -517,7 +517,7 @@ ULONG prc16QueryThreadPriority(PQPROCSTAT16 pps, // in: from prc16GetInfo
 
 PQTOPLEVEL32 prc32GetInfo(APIRET *parc)     // out: error, ptr can be NULL
 {
-    #define BUFSIZE (256 * 1024) // 128000l
+    #define BUFSIZE (1024 * 1024) // 1 meg
 
     PCHAR pBuf = NULL; // (PCHAR)malloc(BUFSIZE);
 
@@ -740,7 +740,8 @@ PQMODULE32 prc32FindModule(PQTOPLEVEL32 pInfo,  // in: as returned by prc32GetIn
     while (pModule)
     {
         if (pModule->usHModule == usHModule)
-            return (pModule);
+            return pModule;
+
         pModule = pModule->pNext;
     }
 
