@@ -12,8 +12,8 @@
  */
 
 /*      Copyright (C) 1997-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -29,6 +29,10 @@ extern "C" {
 
 #ifndef LINKLIST_HEADER_INCLUDED
     #define LINKLIST_HEADER_INCLUDED
+
+    #ifndef XWPENTRY
+        #error You must define XWPENTRY to contain the standard linkage for the XWPHelpers.
+    #endif
 
     // define some basic things to make this work even with standard C
     #if (!defined OS2_INCLUDED) && (!defined _OS2_H) && (!defined __SIMPLES_DEFINED)   // changed V0.9.0 (99-10-22) [umoeller]
@@ -91,73 +95,115 @@ extern "C" {
     typedef FNSORTLIST *PFNSORTLIST;
 
     /* ******************************************************************
-     *                                                                  *
-     *   List base functions                                            *
-     *                                                                  *
+     *
+     *   List base functions
+     *
      ********************************************************************/
 
-    void lstInit(PLINKLIST pList, BOOL fItemsFreeable);
+    void* XWPENTRY lstMalloc(size_t size);
+    typedef void* XWPENTRY LSTMALLOC(size_t size);
+    typedef LSTMALLOC *PLSTMALLOC;
+
+    void* XWPENTRY lstStrDup(const char *pcsz);
+    typedef void* XWPENTRY LSTSTRDUP(const char *pcsz);
+    typedef LSTSTRDUP *PLSTSTRDUP;
+
+    void XWPENTRY lstInit(PLINKLIST pList, BOOL fItemsFreeable);
+    typedef void XWPENTRY LSTINIT(PLINKLIST pList, BOOL fItemsFreeable);
+    typedef LSTINIT *PLSTINIT;
 
     #ifdef __XWPMEMDEBUG__ // setup.h, helpers\memdebug.c
-        PLINKLIST lstCreateDebug(BOOL fItemsFreeable,
-                                 const char *file,
-                                 unsigned long line,
-                                 const char *function);
+        PLINKLIST XWPENTRY lstCreateDebug(BOOL fItemsFreeable,
+                                          const char *file,
+                                          unsigned long line,
+                                          const char *function);
+        typedef PLINKLIST XWPENTRY LSTCREATEDEBUG(BOOL fItemsFreeable,
+                                          const char *file,
+                                          unsigned long line,
+                                          const char *function);
+        typedef LSTCREATEDEBUG *PLSTCREATEDEBUG;
 
         #define lstCreate(b) lstCreateDebug((b), __FILE__, __LINE__, __FUNCTION__)
     #else
-        PLINKLIST lstCreate(BOOL fItemsFreeable);
+        PLINKLIST XWPENTRY lstCreate(BOOL fItemsFreeable);
+        typedef PLINKLIST XWPENTRY LSTCREATE(BOOL fItemsFreeable);
+        typedef LSTCREATE *PLSTCREATE;
     #endif
 
-    BOOL lstFree(PLINKLIST pList);
+    BOOL XWPENTRY lstFree(PLINKLIST pList);
+    typedef BOOL XWPENTRY LSTFREE(PLINKLIST pList);
+    typedef LSTFREE *PLSTFREE;
 
-    BOOL lstClear(PLINKLIST pList);
+    BOOL XWPENTRY lstClear(PLINKLIST pList);
+    typedef BOOL XWPENTRY LSTCLEAR(PLINKLIST pList);
+    typedef LSTCLEAR *PLSTCLEAR;
 
-    long lstCountItems(PLINKLIST pList);
+    long XWPENTRY lstCountItems(PLINKLIST pList);
+    typedef long XWPENTRY LSTCOUNTITEMS(PLINKLIST pList);
+    typedef LSTCOUNTITEMS *PLSTCOUNTITEMS;
 
-    PLISTNODE lstQueryFirstNode(PLINKLIST pList);
+    PLISTNODE XWPENTRY lstQueryFirstNode(PLINKLIST pList);
+    typedef PLISTNODE XWPENTRY LSTQUERYFIRSTNODE(PLINKLIST pList);
+    typedef LSTQUERYFIRSTNODE *PLSTQUERYFIRSTNODE;
 
-    PLISTNODE lstNodeFromIndex(PLINKLIST pList, unsigned long ulIndex);
+    PLISTNODE XWPENTRY lstNodeFromIndex(PLINKLIST pList, unsigned long ulIndex);
+    typedef PLISTNODE XWPENTRY LSTNODEFROMINDEX(PLINKLIST pList, unsigned long ulIndex);
+    typedef LSTNODEFROMINDEX *PLSTNODEFROMINDEX;
 
-    PLISTNODE lstNodeFromItem(PLINKLIST pList, void* pItemData);
+    PLISTNODE XWPENTRY lstNodeFromItem(PLINKLIST pList, void* pItemData);
+    typedef PLISTNODE XWPENTRY LSTNODEFROMITEM(PLINKLIST pList, void* pItemData);
+    typedef LSTNODEFROMITEM *PLSTNODEFROMITEM;
 
-    void* lstItemFromIndex(PLINKLIST pList, unsigned long ulIndex);
+    void* XWPENTRY lstItemFromIndex(PLINKLIST pList, unsigned long ulIndex);
+    typedef void* XWPENTRY LSTITEMFROMINDEX(PLINKLIST pList, unsigned long ulIndex);
+    typedef LSTITEMFROMINDEX *PLSTITEMFROMINDEX;
 
     #ifdef __XWPMEMDEBUG__ // setup.h, helpers\memdebug.c
-        PLISTNODE lstAppendItemDebug(PLINKLIST pList,
-                                     void* pNewItemData,
-                                     const char *file,
-                                     unsigned long line,
-                                     const char *function);
+        PLISTNODE XWPENTRY lstAppendItemDebug(PLINKLIST pList,
+                                              void* pNewItemData,
+                                              const char *file,
+                                              unsigned long line,
+                                              const char *function);
         #define lstAppendItem(pl, pd) lstAppendItemDebug((pl), (pd), __FILE__, __LINE__, __FUNCTION__)
     #else
-        PLISTNODE lstAppendItem(PLINKLIST pList, void* pNewItemData);
+        PLISTNODE XWPENTRY lstAppendItem(PLINKLIST pList, void* pNewItemData);
+        typedef PLISTNODE XWPENTRY LSTAPPENDITEM(PLINKLIST pList, void* pNewItemData);
+        typedef LSTAPPENDITEM *PLSTAPPENDITEM;
     #endif
 
-    PLISTNODE lstInsertItemBefore(PLINKLIST pList,
-                                  void* pNewItemData,
-                                  unsigned long ulIndex);
+    PLISTNODE XWPENTRY lstInsertItemBefore(PLINKLIST pList,
+                                           void* pNewItemData,
+                                           unsigned long ulIndex);
+    typedef PLISTNODE XWPENTRY LSTINSERTITEMBEFORE(PLINKLIST pList,
+                                           void* pNewItemData,
+                                           unsigned long ulIndex);
+    typedef LSTINSERTITEMBEFORE *PLSTINSERTITEMBEFORE;
 
-    BOOL lstRemoveNode(PLINKLIST pList, PLISTNODE pRemoveNode);
+    BOOL XWPENTRY lstRemoveNode(PLINKLIST pList, PLISTNODE pRemoveNode);
+    typedef BOOL XWPENTRY LSTREMOVENODE(PLINKLIST pList, PLISTNODE pRemoveNode);
+    typedef LSTREMOVENODE *PLSTREMOVENODE;
 
-    BOOL lstRemoveItem(PLINKLIST pList, void* pRemoveItem);
+    BOOL XWPENTRY lstRemoveItem(PLINKLIST pList, void* pRemoveItem);
+    typedef BOOL XWPENTRY LSTREMOVEITEM(PLINKLIST pList, void* pRemoveItem);
+    typedef LSTREMOVEITEM *PLSTREMOVEITEM;
 
-    BOOL lstSwapNodes(PLISTNODE pNode1,
-                      PLISTNODE pNode2);
+    BOOL XWPENTRY lstSwapNodes(PLISTNODE pNode1, PLISTNODE pNode2);
+    typedef BOOL XWPENTRY LSTSWAPNODES(PLISTNODE pNode1, PLISTNODE pNode2);
+    typedef LSTSWAPNODES *PLSTSWAPNODES;
 
     /* ******************************************************************
-     *                                                                  *
-     *   List sorting                                                   *
-     *                                                                  *
+     *
+     *   List sorting
+     *
      ********************************************************************/
 
-    BOOL lstQuickSort(PLINKLIST pList,
-                      PFNSORTLIST pfnSort,
-                      void* pStorage);
+    BOOL XWPENTRY lstQuickSort(PLINKLIST pList,
+                               PFNSORTLIST pfnSort,
+                               void* pStorage);
 
-    BOOL lstBubbleSort(PLINKLIST pList,
-                       PFNSORTLIST pfnSort,
-                       void* pStorage);
+    BOOL XWPENTRY lstBubbleSort(PLINKLIST pList,
+                                PFNSORTLIST pfnSort,
+                                void* pStorage);
 
 #endif
 

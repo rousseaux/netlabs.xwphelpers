@@ -18,8 +18,8 @@
 
 /*
  *      Copyright (C) 1997-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -34,9 +34,8 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
-#define INCL_DOS
 #define INCL_DOSERRORS
-#define INCL_WIN
+#define INCL_WINSHELLDATA
 #include <os2.h>
 
 #include <stdlib.h>
@@ -169,9 +168,9 @@ PSZ prfhQueryProfileDataDebug(HINI hIni,      // in: INI handle (can be HINI_USE
  */
 
 PSZ prfhQueryProfileData(HINI hIni,      // in: INI handle (can be HINI_USER or HINI_SYSTEM)
-                        PSZ pszApp,      // in: application to query
-                        PSZ pszKey,      // in: key to query
-                        PULONG pcbBuf)   // out: size of the returned buffer
+                         PSZ pszApp,     // in: application to query
+                         PSZ pszKey,     // in: key to query
+                         PULONG pcbBuf)  // out: size of the returned buffer; ptr can be NULL
 {
     PSZ     pData = NULL;
     ULONG   ulSizeOfData = 0;
@@ -237,20 +236,24 @@ CHAR prfhQueryProfileChar(HINI hini,        // in: INI handle (can be HINI_USER 
  *      --  ulTimeFormat = 0 (12-hour clock);
  *      --  cDateSep = '/' (date separator);
  *      --  cTimeSep = ':' (time separator);
+ *      --  cDecimal = '.' (decimal separator).
  *      --  cThousands = ',' (thousands separator).
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.7 (2000-12-02) [umoeller]: added cDecimal
  */
 
 VOID prfhQueryCountrySettings(PCOUNTRYSETTINGS pcs)
 {
     if (pcs)
     {
-        pcs->ulDateFormat = PrfQueryProfileInt(HINI_USER, "PM_National", "iDate", 0);
-        pcs->ulTimeFormat = PrfQueryProfileInt(HINI_USER, "PM_National", "iTime", 0);
-        pcs->cDateSep = prfhQueryProfileChar(HINI_USER, "PM_National", "sDate", '/');
-        pcs->cTimeSep = prfhQueryProfileChar(HINI_USER, "PM_National", "sTime", ':');
-        pcs->cThousands = prfhQueryProfileChar(HINI_USER, "PM_National", "sThousand", ',');
+        const char *pcszApp = "PM_National";
+        pcs->ulDateFormat = PrfQueryProfileInt(HINI_USER, (PSZ)pcszApp, "iDate", 0);
+        pcs->ulTimeFormat = PrfQueryProfileInt(HINI_USER, (PSZ)pcszApp, "iTime", 0);
+        pcs->cDateSep = prfhQueryProfileChar(HINI_USER, (PSZ)pcszApp, "sDate", '/');
+        pcs->cTimeSep = prfhQueryProfileChar(HINI_USER, (PSZ)pcszApp, "sTime", ':');
+        pcs->cDecimal = prfhQueryProfileChar(HINI_USER, (PSZ)pcszApp, "sDecimal", '.');
+        pcs->cThousands = prfhQueryProfileChar(HINI_USER, (PSZ)pcszApp, "sThousand", ',');
     }
 }
 

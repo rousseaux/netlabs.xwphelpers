@@ -10,8 +10,8 @@
  */
 
 /*      Copyright (C) 1997-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -39,19 +39,22 @@ extern "C" {
     #define COMCTL_HEADER_INCLUDED
 
     /* ******************************************************************
-     *                                                                  *
-     *   "Menu button" control                                          *
-     *                                                                  *
+     *
+     *   "Menu button" control
+     *
      ********************************************************************/
 
-     BOOL ctlMakeMenuButton(HWND hwndButton,
-                            HMODULE hmodMenu,
-                            ULONG idMenu);
+    VOID ctlDisplayButtonMenu(HWND hwndButton,
+                              HWND hwndMenu);
+
+    BOOL ctlMakeMenuButton(HWND hwndButton,
+                           HMODULE hmodMenu,
+                           ULONG idMenu);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Progress bars                                                  *
-     *                                                                  *
+     *
+     *   Progress bars
+     *
      ********************************************************************/
 
     /*
@@ -84,9 +87,9 @@ extern "C" {
     BOOL ctlProgressBarFromStatic(HWND hwndStatic, ULONG ulAttr);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Chart Control                                                  *
-     *                                                                  *
+     *
+     *   Chart Control
+     *
      ********************************************************************/
 
     /*
@@ -235,9 +238,9 @@ extern "C" {
     #define CHTM_ITEMFROMPOINT     WM_USER + 4
 
     /* ******************************************************************
-     *                                                                  *
-     *   Split bars                                                     *
-     *                                                                  *
+     *
+     *   Split bars
+     *
      ********************************************************************/
 
     #define WC_SPLITWINDOW          "SplitWindowClass"
@@ -357,9 +360,9 @@ extern "C" {
     LONG ctlQuerySplitPos(HWND hwndSplit);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Subclassed Static Bitmap Control                               *
-     *                                                                  *
+     *
+     *   Subclassed Static Bitmap Control
+     *
      ********************************************************************/
 
     // flags for ANIMATIONDATA.ulFlags
@@ -423,9 +426,9 @@ extern "C" {
 
 
     /* ******************************************************************
-     *                                                                  *
-     *   "Tooltip" control                                              *
-     *                                                                  *
+     *
+     *   "Tooltip" control
+     *
      ********************************************************************/
 
     // addt'l tooltip window styles: use lower 16 bits
@@ -700,9 +703,9 @@ extern "C" {
     MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Checkbox container record cores                                *
-     *                                                                  *
+     *
+     *   Checkbox container record cores
+     *
      ********************************************************************/
 
     BOOL ctlDrawCheckbox(HPS hps,
@@ -776,9 +779,9 @@ extern "C" {
     #endif
 
     /* ******************************************************************
-     *                                                                  *
-     *   Hotkey entry field                                             *
-     *                                                                  *
+     *
+     *   Hotkey entry field
+     *
      ********************************************************************/
 
     /*

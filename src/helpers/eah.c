@@ -66,8 +66,8 @@
  *
  *      Copyright (C) 1995 Massachusetts Institute of Technology.
  *      Copyright (C) 1997-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -82,7 +82,7 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
-#define INCL_DOS
+#define INCL_DOSFILEMGR
 #define INCL_DOSERRORS
 #include <os2.h>
 
@@ -100,9 +100,9 @@
  */
 
 /********************************************************************
- *                                                                  *
- *   Extended Attribute handling                                    *
- *                                                                  *
+ *
+ *   Extended Attribute handling
+ *
  ********************************************************************/
 
 #define EA_BINDING_FLAGS(binding) ((binding)->bFlags)
@@ -172,9 +172,9 @@ void eaFreeList(PEALIST list)
 }
 
 /* ******************************************************************
- *                                                                  *
- *   Read-EA functions                                              *
- *                                                                  *
+ *
+ *   Read-EA functions
+ *
  ********************************************************************/
 
 /*
@@ -195,15 +195,13 @@ void eaFreeList(PEALIST list)
  *      the EA data.
  */
 
-ULONG eaPathQueryTotalSize(PSZ pszPath)
+ULONG eaPathQueryTotalSize(const char *pcszPath)
 {
     APIRET  arc;
     ULONG   ulTotalEASize = 0;
     FILEFINDBUF4   ffb4;
 
-    _Pmpf(("eaPathQueryTotalSize %s", pszPath));
-
-    arc = DosQueryPathInfo(pszPath,
+    arc = DosQueryPathInfo((PSZ)pcszPath,
                            FIL_QUERYEASIZE,
                            &ffb4,
                            sizeof(FILEFINDBUF4));
@@ -219,7 +217,7 @@ ULONG eaPathQueryTotalSize(PSZ pszPath)
         lCount = -1;
 
         arc = DosEnumAttribute(ENUMEA_REFTYPE_PATH,
-                               pszPath,
+                               (PSZ)pcszPath,
                                1,
                                abBuf,
                                sizeof(abBuf),
@@ -228,8 +226,6 @@ ULONG eaPathQueryTotalSize(PSZ pszPath)
             // ulCount now contains the EA count
 
         pdena2 = (PDENA2)abBuf;
-
-        _Pmpf(("  %s: arc = %d, count = %d", pszPath, arc, lCount));
 
         if (lCount > 0)
         {
@@ -246,8 +242,6 @@ ULONG eaPathQueryTotalSize(PSZ pszPath)
         }
     }
 
-    _Pmpf(("    %s: total %d", pszPath, ulTotalEASize));
-
     return (ulTotalEASize);
 }
 
@@ -258,9 +252,9 @@ ULONG eaPathQueryTotalSize(PSZ pszPath)
  *      The returned list should be freed using eaFreeList.
  */
 
-PEALIST eaPathReadAll(PSZ path)
+PEALIST eaPathReadAll(const char *pcszPath)
 {
-    return (ReadEAList(ENUMEA_REFTYPE_PATH, path));
+    return (ReadEAList(ENUMEA_REFTYPE_PATH, (PSZ)pcszPath));
 }
 
 /*
@@ -282,9 +276,9 @@ PEALIST eaHFileReadAll(HFILE hfile)
  *      The returned binding should be freed using eaFreeBinding.
  */
 
-PEABINDING eaPathReadOneByIndex(PSZ path, ULONG index)
+PEABINDING eaPathReadOneByIndex(const char *pcszPath, ULONG index)
 {
-    return (ReadEAByIndex(ENUMEA_REFTYPE_PATH, path, index));
+    return (ReadEAByIndex(ENUMEA_REFTYPE_PATH, (PSZ)pcszPath, index));
 }
 
 /*
@@ -304,9 +298,9 @@ PEABINDING eaHFileReadOneByIndex(HFILE hfile, ULONG index)
  *      The returned binding should be freed using eaFreeBinding.
  */
 
-PEABINDING eaPathReadOneByName(PSZ path, PSZ name)
+PEABINDING eaPathReadOneByName(const char *pcszPath, const char *pcszEAName)
 {
-    return (ReadEAByName(ENUMEA_REFTYPE_PATH, path, name));
+    return (ReadEAByName(ENUMEA_REFTYPE_PATH, (PSZ)pcszPath, (PSZ)pcszEAName));
 }
 
 /*
@@ -314,15 +308,15 @@ PEABINDING eaPathReadOneByName(PSZ path, PSZ name)
  *      like eaPathReadOneByName, but for an open file handle.
  */
 
-PEABINDING eaHFileReadOneByName(HFILE hfile, PSZ name)
+PEABINDING eaHFileReadOneByName(HFILE hfile, const char *pcszEAName)
 {
-    return (ReadEAByName(ENUMEA_REFTYPE_FHANDLE, (&hfile), name));
+    return (ReadEAByName(ENUMEA_REFTYPE_FHANDLE, (&hfile), (PSZ)pcszEAName));
 }
 
 /* ******************************************************************
- *                                                                  *
- *   Write-EA functions                                             *
- *                                                                  *
+ *
+ *   Write-EA functions
+ *
  ********************************************************************/
 
 /*
@@ -334,21 +328,25 @@ PEABINDING eaHFileReadOneByName(HFILE hfile, PSZ name)
  *      A given EA is deleted if its EABINDING.usValueLength
  *      field is 0; only in that case, the EABINDING.value
  *      field may also be NULL.
+ *
+ *@@changed V0.9.7 (2000-11-30) [umoeller]: now returning APIRET
  */
 
-void eaPathWriteAll(PSZ path, PEALIST list)
+APIRET eaPathWriteAll(const char *pcszPath, PEALIST list)
 {
-    WriteEAList(ENUMEA_REFTYPE_PATH, path, list);
+    return (WriteEAList(ENUMEA_REFTYPE_PATH, (PSZ)pcszPath, list));
 }
 
 /*
  *@@ eaHFileWriteAll:
  *      like eaPathWriteAll, but for an open file handle.
+ *
+ *@@changed V0.9.7 (2000-11-30) [umoeller]: now returning APIRET
  */
 
-void eaHFileWriteAll(HFILE hfile, PEALIST list)
+APIRET eaHFileWriteAll(HFILE hfile, PEALIST list)
 {
-    WriteEAList(ENUMEA_REFTYPE_FHANDLE, (&hfile), list);
+    return (WriteEAList(ENUMEA_REFTYPE_FHANDLE, (&hfile), list));
 }
 
 /*
@@ -361,21 +359,25 @@ void eaHFileWriteAll(HFILE hfile, PEALIST list)
  *      field may also be NULL.
  *
  *      To delete an EA, you may also use eaPathDeleteOne.
+ *
+ *@@changed V0.9.7 (2000-11-30) [umoeller]: now returning APIRET
  */
 
-void eaPathWriteOne(PSZ path, PEABINDING peab)
+APIRET eaPathWriteOne(const char *pcszPath, PEABINDING peab)
 {
-    WriteEA(ENUMEA_REFTYPE_PATH, path, peab);
+    return (WriteEA(ENUMEA_REFTYPE_PATH, (PSZ)pcszPath, peab));
 }
 
 /*
  *@@ eaHFileWriteOne:
  *      like eaPathWriteOne, but for an open file handle.
+ *
+ *@@changed V0.9.7 (2000-11-30) [umoeller]: now returning APIRET
  */
 
-void eaHFileWriteOne(HFILE hfile, PEABINDING peab)
+APIRET eaHFileWriteOne(HFILE hfile, PEABINDING peab)
 {
-    WriteEA(ENUMEA_REFTYPE_FHANDLE, (&hfile), peab);
+    return (WriteEA(ENUMEA_REFTYPE_FHANDLE, (&hfile), peab));
 }
 
 /*
@@ -385,17 +387,18 @@ void eaHFileWriteOne(HFILE hfile, PEABINDING peab)
  *      eaPathWriteOne.
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.7 (2000-11-30) [umoeller]: now returning APIRET
  */
 
-void eaPathDeleteOne(PSZ path, PSZ pszEAName)
+APIRET eaPathDeleteOne(const char *pcszPath, const char *pcszEAName)
 {
     EABINDING eab;
     eab.bFlags = 0;
-    eab.bNameLength = strlen(pszEAName);
-    eab.pszName = pszEAName;
+    eab.bNameLength = strlen(pcszEAName);
+    eab.pszName = (PSZ)pcszEAName;
     eab.usValueLength = 0;
     eab.pszValue = 0;
-    eaPathWriteOne(path, &eab);
+    return (eaPathWriteOne(pcszPath, &eab));
 }
 
 /*
@@ -403,9 +406,9 @@ void eaPathDeleteOne(PSZ path, PSZ pszEAName)
  */
 
 /********************************************************************
- *                                                                  *
- *   Translation funcs                                              *
- *                                                                  *
+ *
+ *   Translation funcs
+ *
  ********************************************************************/
 
 /*
@@ -483,19 +486,19 @@ PSZ eaCreatePSZFromBinding(PEABINDING peab)
  *@@changed V0.9.2 (2000-02-26) [umoeller]: fixed null-string behaviour AGAIN
  */
 
-PEABINDING eaCreateBindingFromPSZ(PSZ pszEAName,     // in: EA name (e.g. ".LONGNAME")
-                                  PSZ pszString)     // in: string for EAT_ASCII EA
+PEABINDING eaCreateBindingFromPSZ(const char *pcszEAName, // in: EA name (e.g. ".LONGNAME")
+                                  const char *pcszInput)  // in: string for EAT_ASCII EA
 {
     PEABINDING peab = (PEABINDING)malloc(sizeof(EABINDING));
     if (peab)
     {
         SHORT cbString = 0;
-        if (pszString)
-            cbString = strlen(pszString);
+        if (pcszInput)
+            cbString = strlen(pcszInput);
 
         peab->bFlags = 0;
-        peab->bNameLength = strlen(pszEAName);
-        peab->pszName = strdup(pszEAName);
+        peab->bNameLength = strlen(pcszEAName);
+        peab->pszName = strdup(pcszEAName);
 
         if (cbString)
         {
@@ -509,7 +512,7 @@ PEABINDING eaCreateBindingFromPSZ(PSZ pszEAName,     // in: EA name (e.g. ".LONG
                 // set second USHORT to length of string
                 *((PUSHORT)(peab->pszValue + 2)) = cbString;
                 // copy string to byte 4 (no null-terminator)
-                memcpy(peab->pszValue + 4, pszString, cbString);
+                memcpy(peab->pszValue + 4, pcszInput, cbString);
             }
             else
             {
@@ -742,7 +745,7 @@ PSZ eaQueryMVItem(PEABINDING peab,            // in: binding to examing
  */
 
 PSZ eaCreatePSZFromMVBinding(PEABINDING peab,       // in: EAT_MVMT binding
-                             PSZ     pszSeparator,  // in: null-terminated string used as separator
+                             const char *pcszSeparator,  // in: null-terminated string used as separator
                              PUSHORT pusCodepage)   // out: codepage found in binding (ptr can be NULL)
 {
     PSZ     pszTotal = NULL;     // this will hold the whole string
@@ -764,7 +767,7 @@ PSZ eaCreatePSZFromMVBinding(PEABINDING peab,       // in: EAT_MVMT binding
             // go thru all of them
             USHORT  us = 0;
             USHORT  cbComment = 0;
-            USHORT  cbSeparator = strlen(pszSeparator);
+            USHORT  cbSeparator = strlen(pcszSeparator);
             while (us < usMVCount)
             {
                 USHORT  usEATypeThis = 0;
@@ -793,7 +796,7 @@ PSZ eaCreatePSZFromMVBinding(PEABINDING peab,       // in: EAT_MVMT binding
                             strcpy(pszTotal, pszTemp);
                             // append separator
                             memcpy(pszTotal + cbCommentOld,
-                                   pszSeparator,
+                                   pcszSeparator,
                                    cbSeparator);
                             // copy the rest after the separator (below)
                             pTarget = pszTotal + cbCommentOld + cbSeparator;
@@ -845,33 +848,33 @@ PSZ eaCreatePSZFromMVBinding(PEABINDING peab,       // in: EAT_MVMT binding
  *@@added V0.9.0 [umoeller]
  */
 
-PEABINDING eaCreateMVBindingFromPSZ(PSZ pszEAName,      // in: EA name (e.g. ".KEYPHRASES")
-                                    PSZ pszInput,       // in: string to parse
-                                    PSZ pszSeparator,   // in: separator used in pszInput
+PEABINDING eaCreateMVBindingFromPSZ(const char *pcszEAName,      // in: EA name (e.g. ".KEYPHRASES")
+                                    const char *pcszInput,       // in: string to parse
+                                    const char *pcszSeparator,   // in: separator used in pszInput
                                     USHORT usCodepage)  // in: codepage to set in EAT_MVMT
 {
     PEABINDING peab;
-    if (pszInput)
+    if (pcszInput)
     {
         peab = (PEABINDING)malloc(sizeof(EABINDING));
         if (peab)
         {
-            PSZ     p = pszInput,
-                    pSource,
-                    pTarget;
-            USHORT  cbInput = strlen(pszInput),
-                    cbSep = strlen(pszSeparator),
+            const char *p = pcszInput,
+                    *pSource;
+            PSZ     pTarget;
+            USHORT  cbInput = strlen(pcszInput),
+                    cbSep = strlen(pcszSeparator),
                     usSepCount = 0,
                     cbToAlloc = 0,
                     cbThis,
                     us;
 
             peab->bFlags = 0;
-            peab->bNameLength = strlen(pszEAName);
-            peab->pszName = strdup(pszEAName);
+            peab->bNameLength = strlen(pcszEAName);
+            peab->pszName = strdup(pcszEAName);
 
             // now count the number of pszSeparators in pszInput
-            while ((p = strstr(p, pszSeparator)))
+            while ((p = strstr(p, pcszSeparator)))
             {
                 usSepCount++;
                 p += cbSep;
@@ -897,7 +900,7 @@ PEABINDING eaCreateMVBindingFromPSZ(PSZ pszEAName,      // in: EA name (e.g. ".K
             *((PUSHORT)(peab->pszValue + 4)) = (usSepCount + 1);
 
             // set pointer to first field
-            pSource = pszInput;
+            pSource = pcszInput;
             pTarget = peab->pszValue + 6;
 
             // now go thru all fields except the last
@@ -906,7 +909,7 @@ PEABINDING eaCreateMVBindingFromPSZ(PSZ pszEAName,      // in: EA name (e.g. ".K
                  us++)
             {
                 // find the next separator
-                PSZ     pNextSep = strstr(pSource, pszSeparator);
+                PSZ     pNextSep = strstr(pSource, pcszSeparator);
                 // calculate the length of the substring
                 cbThis = pNextSep - pSource;
                 // set data type in field
@@ -933,9 +936,9 @@ PEABINDING eaCreateMVBindingFromPSZ(PSZ pszEAName,      // in: EA name (e.g. ".K
 }
 
 /********************************************************************
- *                                                                  *
- *   EA helper funcs                                                *
- *                                                                  *
+ *
+ *   EA helper funcs
+ *
  ********************************************************************/
 
 /*
@@ -1216,9 +1219,9 @@ static PFEA2LIST ConvertBinding2Feal(PEABINDING binding)
 }
 
 /* ******************************************************************
- *                                                                  *
- *   Direct plain-string EA handling                                *
- *                                                                  *
+ *
+ *   Direct plain-string EA handling
+ *
  ********************************************************************/
 
 #define USE_EAMVMT 1

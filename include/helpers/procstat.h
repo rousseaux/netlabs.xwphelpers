@@ -16,8 +16,8 @@
 /*
  *      This file Copyright (C) 1992-99 Ulrich M”ller,
  *                                      Kai Uwe Rommel.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -37,9 +37,9 @@ extern "C" {
     #pragma pack(1)
 
     /********************************************************************
-     *                                                                  *
-     *   DosQProcStatus declarations (16-bit)                           *
-     *                                                                  *
+     *
+     *   DosQProcStatus declarations (16-bit)
+     *
      ********************************************************************/
 
     #define PTR(ptr, ofs)  ((void *) ((char *) (ptr) + (ofs)))
@@ -229,9 +229,9 @@ extern "C" {
     } QSHAREDMEM16, *PQSHAREDMEM16;
 
     /********************************************************************
-     *                                                                  *
-     *   DosQuerySysState declarations (32-bit)                         *
-     *                                                                  *
+     *
+     *   DosQuerySysState declarations (32-bit)
+     *
      ********************************************************************/
 
     #define QS32_PROCESS      0x0001
@@ -595,9 +595,9 @@ extern "C" {
     } QTOPLEVEL32, *PQTOPLEVEL32;
 
     /********************************************************************
-     *                                                                  *
-     *   New procstat.c declarations                                    *
-     *                                                                  *
+     *
+     *   New procstat.c declarations
+     *
      ********************************************************************/
 
     /*
@@ -638,9 +638,9 @@ extern "C" {
     #pragma pack()
 
    /********************************************************************
-    *                                                                  *
-    *   DosQProcStat (16-bit) interface                                *
-    *                                                                  *
+    *
+    *   DosQProcStat (16-bit) interface
+    *
     ********************************************************************/
 
     PQPROCSTAT16 prc16GetInfo(APIRET *parc);
@@ -654,9 +654,9 @@ extern "C" {
                                         ULONG ulPID);
 
     /********************************************************************
-     *                                                                  *
-     *   DosQProcStat (16-bit) helpers                                  *
-     *                                                                  *
+     *
+     *   DosQProcStat (16-bit) helpers
+     *
      ********************************************************************/
 
     BOOL prc16QueryProcessInfo(USHORT usPID, PPRCPROCESS pprcp);
@@ -670,9 +670,9 @@ extern "C" {
     ULONG prc16QueryThreadPriority(USHORT usPID, USHORT usTID);
 
     /********************************************************************
-     *                                                                  *
-     *   DosQuerySysState (32-bit) interface                            *
-     *                                                                  *
+     *
+     *   DosQuerySysState (32-bit) interface
+     *
      ********************************************************************/
 
     PQTOPLEVEL32 prc32GetInfo(APIRET *parc);

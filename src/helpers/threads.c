@@ -23,8 +23,8 @@
 
 /*
  *      Copyright (C) 1997-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -101,13 +101,13 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
             // no msgqueue:
             ((PTHREADFUNC)pti->pThreadFunc)(pti);
 
-        // thread func returns:
-        pti->fExitComplete = TRUE;
-        pti->tid = NULLHANDLE;
-
         if (pti->flFlags & THRF_WAIT)
             // "Wait" flag set: delete semaphore
             DosCloseEventSem(pti->hevRunning);
+
+        // thread func returns:
+        pti->fExitComplete = TRUE;
+        pti->tid = NULLHANDLE;
 
         if (pti->pfRunning)
             // clear "running" flag

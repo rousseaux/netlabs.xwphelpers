@@ -15,8 +15,8 @@
 
 /*
  *      Copyright (C) 1997-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -69,7 +69,9 @@ extern "C" {
 
     ULONG strhWords(PSZ psz);
 
-    PSZ strhThousandsULong(PSZ pszTarget, ULONG ul, CHAR cThousands);
+    PSZ APIENTRY strhThousandsULong(PSZ pszTarget, ULONG ul, CHAR cThousands);
+    typedef PSZ APIENTRY STRHTHOUSANDSULONG(PSZ pszTarget, ULONG ul, CHAR cThousands);
+    typedef STRHTHOUSANDSULONG *PSTRHTHOUSANDSULONG;
 
     PSZ strhThousandsDouble(PSZ pszTarget, double dbl, CHAR cThousands);
 
@@ -86,13 +88,21 @@ extern "C" {
                       ULONG ulTimeFormat,
                       CHAR cTimeSep);
 
-    VOID strhDateTime(PSZ pszDate,
-                      PSZ pszTime,
-                      DATETIME *pDateTime,
-                      ULONG ulDateFormat,
-                      CHAR cDateSep,
-                      ULONG ulTimeFormat,
-                      CHAR cTimeSep);
+    VOID APIENTRY strhDateTime(PSZ pszDate,
+                               PSZ pszTime,
+                               DATETIME *pDateTime,
+                               ULONG ulDateFormat,
+                               CHAR cDateSep,
+                               ULONG ulTimeFormat,
+                               CHAR cTimeSep);
+    typedef VOID APIENTRY STRHDATETIME(PSZ pszDate,
+                               PSZ pszTime,
+                               DATETIME *pDateTime,
+                               ULONG ulDateFormat,
+                               CHAR cDateSep,
+                               ULONG ulTimeFormat,
+                               CHAR cTimeSep);
+    typedef STRHDATETIME *PSTRHDATETIME;
 
     #define STRH_BEGIN_CHARS    "\x0d\x0a "
     #define STRH_END_CHARS      "\x0d\x0a /-"
@@ -155,13 +165,13 @@ extern "C" {
                        PULONG pulOfsBeginBlock);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Miscellaneous                                                  *
-     *                                                                  *
+     *
+     *   Miscellaneous
+     *
      ********************************************************************/
 
     VOID strhArrayAppend(PSZ *ppszRoot,
-                         PSZ pszNew,
+                         const char *pcszNew,
                          PULONG pcbRoot);
 
     PSZ strhCreateDump(PBYTE pb,
@@ -169,9 +179,9 @@ extern "C" {
                        ULONG ulIndent);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Wildcard matching                                              *
-     *                                                                  *
+     *
+     *   Wildcard matching
+     *
      ********************************************************************/
 
     #define FNM_MATCH         0
@@ -194,9 +204,9 @@ extern "C" {
     BOOL strhMatchOS2(const unsigned char* pcszMask, const unsigned char* pcszName);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Fast string searches                                           *
-     *                                                                  *
+     *
+     *   Fast string searches
+     *
      ********************************************************************/
 
     void* strhmemfind(const void *in_block,

@@ -49,8 +49,8 @@
 /*
  *      Copyright (C) 1999 Christian Langanke.
  *      Copyright (C) 1999-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -65,8 +65,10 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
-#define INCL_DOS
-#define INCL_ERRORS
+#define INCL_DOSFILEMGR
+#define INCL_DOSMISC
+#define INCL_DOSNLS
+#define INCL_DOSERRORS
 #include <os2.h>
 
 #include <stdio.h>
@@ -84,9 +86,9 @@
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Declarations                                                   *
- *                                                                  *
+ *
+ *   Declarations
+ *
  ********************************************************************/
 
 // extended attribute used for timestamp; written to .TMF file
@@ -110,9 +112,9 @@ APIRET          CompileMsgTable(PSZ pszMessageFile, PBYTE * ppbTableData);
 APIRET          GetTimeStamp(PFILESTATUS3 pfs3, PSZ pszBuffer, ULONG ulBufferlen);
 
 /* ******************************************************************
- *                                                                  *
- *   Text Message File Code                                         *
- *                                                                  *
+ *
+ *   Text Message File Code
+ *
  ********************************************************************/
 
 /*

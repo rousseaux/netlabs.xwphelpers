@@ -33,8 +33,8 @@
  *                                      Marc Fiammante,
  *                                      John Currier,
  *                                      Anthony Cruise.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -49,7 +49,10 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
-#define INCL_BASE
+#define INCL_DOSPROCESS
+#define INCL_DOSMODULEMGR
+#define INCL_DOSMISC
+#define INCL_DOSERRORS
 #include <os2.h>
 
 #include <stdlib.h>
@@ -87,9 +90,9 @@
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Global variables                                               *
- *                                                                  *
+ *
+ *   Global variables
+ *
  ********************************************************************/
 
 // this specifies whether we're dealing with 32-bit code;
@@ -352,9 +355,9 @@ typedef struct _XDEBUGINFO
 #pragma pack()
 
 /* ******************************************************************
- *                                                                  *
- *   PART 1: ANALYZE DEBUG CODE                                     *
- *                                                                  *
+ *
+ *   PART 1: ANALYZE DEBUG CODE
+ *
  ********************************************************************/
 
 int Read16CodeView(FILE *LogFile, PXDEBUGINFO pxdi, int fh, int TrapSeg, int TrapOff, CHAR *FileName);
@@ -1128,9 +1131,9 @@ int Read16CodeView(FILE *LogFile,       // in: text log file to write to
 }
 
 /* ******************************************************************
- *                                                                  *
- *   PART 2: ANALYZE VARIABLES                                      *
- *                                                                  *
+ *
+ *   PART 2: ANALYZE VARIABLES
+ *
  ********************************************************************/
 
 /*
@@ -1420,9 +1423,9 @@ void dbgPrintVariables(FILE *LogFile,   // in: text log file to write to
 }
 
 /* ******************************************************************
- *                                                                  *
- *   PART 3: ANALYZE SYMBOL (.SYM) FILE                             *
- *                                                                  *
+ *
+ *   PART 3: ANALYZE SYMBOL (.SYM) FILE
+ *
  ********************************************************************/
 
 /*
@@ -1565,9 +1568,9 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
 }
 
 /* ******************************************************************
- *                                                                  *
- *   PART 4: dbgPrintStack                                          *
- *                                                                  *
+ *
+ *   PART 4: dbgPrintStack
+ *
  ********************************************************************/
 
 /*

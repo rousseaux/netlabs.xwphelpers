@@ -13,8 +13,8 @@
  */
 
 /*      Copyright (C) 1997-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -40,6 +40,10 @@ extern "C" {
     int dtCreateDosTimeStamp(PSZ pszTimeStamp,
                              DATETIME* pdt);
 
+    ULONG dtDayOfWeek(ULONG day,
+                      ULONG mon,
+                      ULONG yr);
+
     int dtIsLeapYear(unsigned yr);
 
     unsigned dtMonths2Days(unsigned month);
@@ -55,6 +59,9 @@ extern "C" {
                        unsigned *pmo,
                        unsigned *pday);
 
+    BOOL dtIsValidDate(LONG day,
+                       LONG month,
+                       ULONG year);
 #if __cplusplus
 }
 #endif

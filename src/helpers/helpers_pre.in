@@ -79,6 +79,7 @@ $(OUTPUTDIR)\shapewin.obj \
 $(OUTPUTDIR)\threads.obj \
 $(OUTPUTDIR)\textview.obj \
 $(OUTPUTDIR)\textv_html.obj \
+$(OUTPUTDIR)\timer.obj \
 $(OUTPUTDIR)\winh.obj
 
 # helpers include path

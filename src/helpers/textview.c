@@ -251,9 +251,9 @@
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Device-independent functions                                   *
- *                                                                  *
+ *
+ *   Device-independent functions
+ *
  ********************************************************************/
 
 /*
@@ -465,9 +465,9 @@ VOID txvStripLinefeeds(char **ppszText,
 }
 
 /* ******************************************************************
- *                                                                  *
- *   Device-independent text formatting                             *
- *                                                                  *
+ *
+ *   Device-independent text formatting
+ *
  ********************************************************************/
 
 /*
@@ -1399,9 +1399,9 @@ VOID txvFormatText(HPS hps,             // in: HPS whose font is used for
 }
 
 /* ******************************************************************
- *                                                                  *
- *   Device-independent text painting                               *
- *                                                                  *
+ *
+ *   Device-independent text painting
+ *
  ********************************************************************/
 
 /*
@@ -1805,9 +1805,9 @@ PLISTNODE txvFindWordFromAnchor(PXFORMATDATA pxfd,
 }
 
 /* ******************************************************************
- *                                                                  *
- *   Window-dependent functions                                     *
- *                                                                  *
+ *
+ *   Window-dependent functions
+ *
  ********************************************************************/
 
 /*
@@ -3179,9 +3179,9 @@ HWND txvReplaceWithTextView(HWND hwndParentAndOwner,
 }
 
 /* ******************************************************************
- *                                                                  *
- *   Printer-dependent functions                                    *
- *                                                                  *
+ *
+ *   Printer-dependent functions
+ *
  ********************************************************************/
 
 /*

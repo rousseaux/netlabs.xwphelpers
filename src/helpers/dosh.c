@@ -30,8 +30,8 @@
 
 /*
  *      This file Copyright (C) 1997-2000 Ulrich Mîller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -46,15 +46,21 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
-#define INCL_DOS
+#define INCL_DOSMODULEMGR
+#define INCL_DOSPROCESS
+#define INCL_DOSSESMGR
+#define INCL_DOSQUEUES
+#define INCL_DOSMISC
+#define INCL_DOSDEVICES
 #define INCL_DOSDEVIOCTL
 #define INCL_DOSERRORS
+
 #define INCL_KBD
 #include <os2.h>
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-// #include <ctype.h>
 
 #include "setup.h"                      // code generation and debugging options
 
@@ -69,9 +75,9 @@ const CHAR  G_acDriveLetters[28] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ";
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Miscellaneous                                                  *
- *                                                                  *
+ *
+ *   Miscellaneous
+ *
  ********************************************************************/
 
 /*
@@ -174,6 +180,42 @@ BOOL doshIsWarp4(VOID)
 }
 
 /*
+ *@@ doshQueryAvailPhysMem:
+ *      returns the amount of physical memory which
+ *      is presently available (before the swapper
+ *      would have to be expanded).
+ *
+ *      This number is calculated by getting the
+ *      total available memory (QSV_TOTRESMEM)
+ *      and subtracting the free space on the
+ *      drive with the swap file from it.
+ *
+ *      As a result, you also need to specify
+ *      the logical drive on which the swapper
+ *      resides (3 = C, 4 = D, and so on).
+ *
+ *@@added V0.9.7 (2000-12-01) [umoeller]
+ */
+
+APIRET doshQueryAvailPhysMem(PULONG pulMem,
+                             ULONG ulLogicalSwapDrive)
+{
+    APIRET arc = DosQuerySysInfo(QSV_TOTAVAILMEM,
+                                 QSV_TOTAVAILMEM,
+                                 pulMem,
+                                 sizeof(*pulMem));
+    if (arc == NO_ERROR)
+    {
+        double dFree = 0;
+        arc = doshQueryDiskFree(ulLogicalSwapDrive,
+                                &dFree);
+        *pulMem -= (ULONG)dFree;
+    }
+
+    return (arc);
+}
+
+/*
  *@@ doshQuerySysErrorMsg:
  *      this retrieves the error message for a system error
  *      (APIRET) from the system error message file (OSO001.MSG).
@@ -212,9 +254,9 @@ PSZ doshQuerySysErrorMsg(APIRET arc)    // in: DOS error code
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Memory helpers                                                 *
- *                                                                  *
+ *
+ *   Memory helpers
+ *
  ********************************************************************/
 
 /*
@@ -282,9 +324,9 @@ PVOID doshRequestSharedMem(const char *pcszName)
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Drive helpers                                                  *
- *                                                                  *
+ *
+ *   Drive helpers
+ *
  ********************************************************************/
 
 /*
@@ -416,7 +458,9 @@ VOID doshEnumDrives(PSZ pszBuffer,      // out: drive letters
 CHAR doshQueryBootDrive(VOID)
 {
     ULONG ulBootDrive;
-    DosQuerySysInfo(5, 5, &ulBootDrive, sizeof(ulBootDrive));
+    DosQuerySysInfo(QSV_BOOT_DRIVE, QSV_BOOT_DRIVE,
+                    &ulBootDrive,
+                    sizeof(ulBootDrive));
     return (G_acDriveLetters[ulBootDrive]);
 }
 
@@ -460,6 +504,7 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive) // in: 1 for A:, 2 for B:, 3 for C:
                          | OPEN_ACTION_OPEN_IF_EXISTS,
                   OPEN_FLAGS_DASD
                          | OPEN_FLAGS_FAIL_ON_ERROR
+                         | OPEN_FLAGS_NOINHERIT     // V0.9.6 (2000-11-25) [pr]
                          | OPEN_ACCESS_READONLY
                          | OPEN_SHARE_DENYNONE,
                   NULL);
@@ -522,29 +567,82 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive) // in: 1 for A:, 2 for B:, 3 for C:
 }
 
 /*
+ *@@ doshSetLogicalMap:
+ *       sets the mapping of logical floppy drives onto a single
+ *       physical floppy drive.
+ *       This means selecting either drive A: or drive B: to refer
+ *       to the physical drive.
+ *
+ *@@added V0.9.6 (2000-11-24) [pr]
+ */
+
+APIRET doshSetLogicalMap(ULONG ulLogicalDrive)
+{
+    CHAR    name[3] = "?:";
+    ULONG   fd = 0,
+            action = 0,
+            paramsize = 0,
+            datasize = 0;
+    APIRET    rc = NO_ERROR;
+    USHORT    data,
+              param;
+
+    name[0] = doshQueryBootDrive();
+    rc = DosOpen(name,
+                 &fd,
+                 &action,
+                 0,
+                 0,
+                 OPEN_ACTION_FAIL_IF_NEW
+                          | OPEN_ACTION_OPEN_IF_EXISTS,
+                 OPEN_FLAGS_DASD
+                       | OPEN_FLAGS_FAIL_ON_ERROR
+                       | OPEN_FLAGS_NOINHERIT
+                       | OPEN_ACCESS_READONLY
+                       | OPEN_SHARE_DENYNONE,
+                 0);
+    if (rc == NO_ERROR)
+    {
+        param = 0;
+        data = (USHORT)ulLogicalDrive;
+        paramsize = sizeof(param);
+        datasize = sizeof(data);
+        rc = DosDevIOCtl(fd,
+                         IOCTL_DISK, DSK_SETLOGICALMAP,
+                         &param, paramsize, &paramsize,
+                         &data, datasize, &datasize);
+        DosClose(fd);
+    }
+
+    return(rc);
+}
+
+/*
  *@@ doshQueryDiskFree:
  *       returns the number of bytes remaining on the disk
- *       specified by the given logical drive, or -1 upon errors.
+ *       specified by the given logical drive.
  *
  *       Note: This returns a "double" value, because a ULONG
  *       can only hold values of some 4 billion, which would
  *       lead to funny results for drives > 4 GB.
  *
  *@@changed V0.9.0 [umoeller]: fixed another > 4 GB bug (thanks to RÅdiger Ihle)
+ *@@changed V0.9.7 (2000-12-01) [umoeller]: changed prototype
  */
 
-double doshQueryDiskFree(ULONG ulLogicalDrive) // in: 1 for A:, 2 for B:, 3 for C:, ...
+APIRET doshQueryDiskFree(ULONG ulLogicalDrive, // in: 1 for A:, 2 for B:, 3 for C:, ...
+                         double *pdFree)
 {
+    APIRET      arc = NO_ERROR;
     FSALLOCATE  fsa;
     double      dbl = -1;
 
-    if (ulLogicalDrive)
-        if (DosQueryFSInfo(ulLogicalDrive, FSIL_ALLOC, &fsa, sizeof(fsa))
-                == NO_ERROR)
-            dbl = ((double)fsa.cSectorUnit * fsa.cbSector * fsa.cUnitAvail);
+    arc = DosQueryFSInfo(ulLogicalDrive, FSIL_ALLOC, &fsa, sizeof(fsa));
+    if (arc == NO_ERROR)
+        *pdFree = ((double)fsa.cSectorUnit * fsa.cbSector * fsa.cUnitAvail);
                    // ^ fixed V0.9.0
 
-    return (dbl);
+    return (arc);
 }
 
 /*
@@ -778,9 +876,9 @@ APIRET doshSetDiskLabel(ULONG ulLogicalDrive,        // in:  1 for A:, 2 for B:,
  */
 
 /* ******************************************************************
- *                                                                  *
- *   File helpers                                                   *
- *                                                                  *
+ *
+ *   File helpers
+ *
  ********************************************************************/
 
 /*
@@ -1225,9 +1323,9 @@ APIRET doshWriteToLogFile(HFILE hfLog, const char* pcsz)
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Directory helpers                                              *
- *                                                                  *
+ *
+ *   Directory helpers
+ *
  ********************************************************************/
 
 /*
@@ -1458,13 +1556,274 @@ APIRET doshDeleteDir(const char *pcszDir,
 }
 
 /*
+ *@@category: Helpers\Control program helpers\Performance (CPU load) helpers
+ */
+
+/* ******************************************************************
+ *
+ *   Performance Counters (CPU Load)
+ *
+ ********************************************************************/
+
+/*
+ *@@ doshPerfOpen:
+ *      initializes the OS/2 DosPerfSysCall API for
+ *      the calling thread.
+ *
+ *      Note: This API is not supported on all OS/2
+ *      versions. I believe it came up with some Warp 4
+ *      fixpak. The API is resolved dynamically by
+ *      this function (using DosQueryProcAddr). Only
+ *      if NO_ERROR is returned, you may call doshPerfGet
+ *      afterwards.
+ *
+ *      This properly initializes the internal counters
+ *      which the OS/2 kernel uses for this API. Apparently,
+ *      with newer kernels (FP13/14), IBM has chosen to no
+ *      longer do this automatically, which is the reason
+ *      why many "pulse" utilities display garbage with these
+ *      fixpaks.
+ *
+ *      After NO_ERROR is returned, DOSHPERFSYS.cProcessors
+ *      contains the no. of processors found on the system.
+ *      All pointers in DOSHPERFSYS then point to arrays
+ *      which have exactly cProcessors array items.
+ *
+ *      Call doshPerfClose to clean up resources allocated
+ *      by this function.
+ *
+ *      Example code:
+ *
+ +      PDOSHPERFSYS pPerf = NULL;
+ +      APIRET arc = doshPerfOpen(&pPerf);
+ +      if (arc == NO_ERROR)
+ +      {
+ +          // this should really be in a timer
+ +          ULONG   ulCPU;
+ +          arc = doshPerfGet(&pPerf);
+ +          // go thru all CPUs
+ +          for (ulCPU = 0; ulCPU < pPerf->cProcessors; ulCPU++)
+ +          {
+ +              LONG lLoadThis = pPerf->palLoads[ulCPU];
+ +              ...
+ +          }
+ +
+ +          ...
+ +
+ +          // clean up
+ +          doshPerfClose(&pPerf);
+ +      }
+ +
+ *
+ *@@added V0.9.7 (2000-12-02) [umoeller]
+ */
+
+APIRET doshPerfOpen(PDOSHPERFSYS *ppPerfSys)  // out: new DOSHPERFSYS structure
+{
+    APIRET  arc = NO_ERROR;
+
+    // allocate DOSHPERFSYS structure
+    *ppPerfSys = (PDOSHPERFSYS)malloc(sizeof(DOSHPERFSYS));
+    if (!*ppPerfSys)
+        arc = ERROR_NOT_ENOUGH_MEMORY;
+    else
+    {
+        // initialize structure
+        PDOSHPERFSYS pPerfSys = *ppPerfSys;
+        memset(pPerfSys, 0, sizeof(*pPerfSys));
+
+        // resolve DosPerfSysCall API entry
+        arc = DosLoadModule(NULL, 0, "DOSCALLS", &pPerfSys->hmod);
+        if (arc == NO_ERROR)
+        {
+            arc = DosQueryProcAddr(pPerfSys->hmod,
+                                   976,
+                                   "DosPerfSysCall",
+                                   (PFN*)(&pPerfSys->pDosPerfSysCall));
+            if (arc == NO_ERROR)
+            {
+                // OK, we got the API: initialize!
+                arc = pPerfSys->pDosPerfSysCall(CMD_KI_ENABLE, 0, 0, 0);
+                if (arc == NO_ERROR)
+                {
+                    pPerfSys->fInitialized = TRUE;
+                            // call CMD_KI_DISABLE later
+
+                    arc = pPerfSys->pDosPerfSysCall(CMD_PERF_INFO,
+                                                    0,
+                                                    (ULONG)(&pPerfSys->cProcessors),
+                                                    0);
+                    if (arc == NO_ERROR)
+                    {
+                        ULONG   ul = 0;
+
+                        // allocate arrays
+                        pPerfSys->paCPUUtils = (PCPUUTIL)calloc(pPerfSys->cProcessors,
+                                                                sizeof(CPUUTIL));
+                        if (!pPerfSys->paCPUUtils)
+                            arc = ERROR_NOT_ENOUGH_MEMORY;
+                        else
+                        {
+                            pPerfSys->padBusyPrev = (double*)malloc(pPerfSys->cProcessors * sizeof(double));
+                            if (!pPerfSys->padBusyPrev)
+                                arc = ERROR_NOT_ENOUGH_MEMORY;
+                            else
+                            {
+                                pPerfSys->padTimePrev
+                                    = (double*)malloc(pPerfSys->cProcessors * sizeof(double));
+                                if (!pPerfSys->padTimePrev)
+                                    arc = ERROR_NOT_ENOUGH_MEMORY;
+                                else
+                                {
+                                    pPerfSys->palLoads = (PLONG)malloc(pPerfSys->cProcessors * sizeof(LONG));
+                                    if (!pPerfSys->palLoads)
+                                        arc = ERROR_NOT_ENOUGH_MEMORY;
+                                    else
+                                    {
+                                        for (ul = 0; ul < pPerfSys->cProcessors; ul++)
+                                        {
+                                            pPerfSys->padBusyPrev[ul] = 0.0;
+                                            pPerfSys->padTimePrev[ul] = 0.0;
+                                            pPerfSys->palLoads[ul] = 0;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } // end if (arc == NO_ERROR)
+        } // end if (arc == NO_ERROR)
+
+        if (arc != NO_ERROR)
+        {
+            doshPerfClose(ppPerfSys);
+        }
+    } // end else if (!*ppPerfSys)
+
+    return (arc);
+}
+
+/*
+ *@@ doshPerfGet:
+ *      calculates a current snapshot of the system load,
+ *      compared with the load which was calculated on
+ *      the previous call.
+ *
+ *      If you want to continually measure the system CPU
+ *      load, this is the function you will want to call
+ *      regularly -- e.g. with a timer once per second.
+ *
+ *      Call this ONLY if doshPerfOpen returned NO_ERROR,
+ *      or you'll get crashes.
+ *
+ *      If this call returns NO_ERROR, you get a LONG
+ *      CPU load for each CPU in the system in the
+ *      DOSHPERFSYS.palLoads array (in per-mille, 0-1000).
+ *
+ *      For example, if there are two CPUs, after this call,
+ *
+ *      -- DOSHPERFSYS.palLoads[0] contains the load of
+ *         the first CPU,
+ *
+ *      -- DOSHPERFSYS.palLoads[1] contains the load of
+ *         the second CPU.
+ *
+ *      See doshPerfOpen for example code.
+ *
+ *@@added V0.9.7 (2000-12-02) [umoeller]
+ */
+
+APIRET doshPerfGet(PDOSHPERFSYS pPerfSys)
+{
+    APIRET arc = NO_ERROR;
+    if (!pPerfSys->pDosPerfSysCall)
+        arc = ERROR_INVALID_PARAMETER;
+    else
+    {
+        arc = pPerfSys->pDosPerfSysCall(CMD_KI_RDCNT,
+                                        (ULONG)pPerfSys->paCPUUtils,
+                                        0, 0);
+        if (arc == NO_ERROR)
+        {
+            // go thru all processors
+            ULONG ul = 0;
+            for (; ul < pPerfSys->cProcessors; ul++)
+            {
+                PCPUUTIL    pCPUUtilThis = &pPerfSys->paCPUUtils[ul];
+
+                double      dTime = LL2F(pCPUUtilThis->ulTimeHigh,
+                                         pCPUUtilThis->ulTimeLow);
+                double      dBusy = LL2F(pCPUUtilThis->ulBusyHigh,
+                                         pCPUUtilThis->ulBusyLow);
+
+                double      *pdBusyPrevThis = &pPerfSys->padBusyPrev[ul];
+                double      *pdTimePrevThis = &pPerfSys->padTimePrev[ul];
+
+                // avoid division by zero
+                double      dTimeDelta = (dTime - *pdTimePrevThis);
+                if (dTimeDelta)
+                    pPerfSys->palLoads[ul]
+                        = (LONG)( (double)(   (dBusy - *pdBusyPrevThis)
+                                            / dTimeDelta
+                                            * 1000.0
+                                          )
+                                );
+                else
+                    pPerfSys->palLoads[ul] = 0;
+
+                *pdTimePrevThis = dTime;
+                *pdBusyPrevThis = dBusy;
+            }
+        }
+    }
+
+    return (arc);
+}
+
+/*
+ *@@ doshPerfClose:
+ *      frees all resources allocated by doshPerfOpen.
+ *
+ *@@added V0.9.7 (2000-12-02) [umoeller]
+ */
+
+APIRET doshPerfClose(PDOSHPERFSYS *ppPerfSys)
+{
+    APIRET arc = NO_ERROR;
+    PDOSHPERFSYS pPerfSys = *ppPerfSys;
+    if (!pPerfSys)
+        arc = ERROR_INVALID_PARAMETER;
+    else
+    {
+        if (pPerfSys->fInitialized)
+            pPerfSys->pDosPerfSysCall(CMD_KI_DISABLE,
+                                      0, 0, 0);
+
+        if (pPerfSys->paCPUUtils)
+            free(pPerfSys->paCPUUtils);
+        if (pPerfSys->padBusyPrev)
+            free(pPerfSys->padBusyPrev);
+        if (pPerfSys->padTimePrev)
+            free(pPerfSys->padTimePrev);
+
+        if (pPerfSys->hmod)
+            DosFreeModule(pPerfSys->hmod);
+        free(pPerfSys);
+        *ppPerfSys = NULL;
+    }
+
+    return (arc);
+}
+
+/*
  *@@category: Helpers\Control program helpers\Process management
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Process helpers                                                *
- *                                                                  *
+ *
+ *   Process helpers
+ *
  ********************************************************************/
 
 /*

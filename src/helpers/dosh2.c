@@ -29,8 +29,8 @@
 /*
  *      This file Copyright (C) 1997-2000 Ulrich M”ller,
  *                                        Dmitry A. Steklenev.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -45,11 +45,16 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
+#define INCL_DOSMODULEMGR
+#define INCL_DOSPROCESS
+#define INCL_DOSSESMGR
+#define INCL_DOSQUEUES
+#define INCL_DOSMISC
+#define INCL_DOSDEVICES
 #define INCL_DOSDEVIOCTL
-#define INCL_DOS
 #define INCL_DOSERRORS
-// #define INCL_GPI
 #include <os2.h>
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -67,9 +72,9 @@
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Miscellaneous                                                  *
- *                                                                  *
+ *
+ *   Miscellaneous
+ *
  ********************************************************************/
 
 /*
@@ -108,6 +113,7 @@
 APIRET doshIsValidFileName(const char* pcszFile,
                            BOOL fFullyQualified)    // in: if TRUE, pcszFile must be fully q'fied
 {
+    APIRET  arc = NO_ERROR;
     CHAR    szPath[CCHMAXPATH+4] = " :";
     CHAR    szComponent[CCHMAXPATH];
     PSZ     p1, p2;
@@ -119,104 +125,107 @@ APIRET doshIsValidFileName(const char* pcszFile,
         if (    (*(pcszFile + 1) != ':')
              || (*(pcszFile + 2) != '\\')
            )
-            return (ERROR_CURRENT_DIRECTORY);
+            arc = ERROR_CURRENT_DIRECTORY;
     }
 
     // check drive first
     if (*(pcszFile + 1) == ':')
     {
         CHAR cDrive = toupper(*pcszFile);
+        double d;
         // drive specified:
         strcpy(szPath, pcszFile);
         szPath[0] = toupper(*pcszFile);
-        if (doshQueryDiskFree(cDrive - 'A' + 1) == -1)
-            return (ERROR_INVALID_DRIVE);
+        arc = doshQueryDiskFree(cDrive - 'A' + 1, &d);
     }
     else
     {
         // no drive specified: take current
         ULONG   ulDriveNum = 0,
                 ulDriveMap = 0;
-        DosQueryCurrentDisk(&ulDriveNum, &ulDriveMap);
+        arc = DosQueryCurrentDisk(&ulDriveNum, &ulDriveMap);
         szPath[0] = ((UCHAR)ulDriveNum) + 'A' - 1;
         szPath[1] = ':';
         strcpy(&szPath[2], pcszFile);
     }
 
-    fIsFAT = doshIsFileOnFAT(szPath);
+    if (arc == NO_ERROR)
+    {
+        fIsFAT = doshIsFileOnFAT(szPath);
 
-    pszInvalid = (fIsFAT)
-                    ? "<>|+=:;,\"/[] "  // invalid characters in FAT
-                    : "<>|:\"/";        // invalid characters in IFS's
+        pszInvalid = (fIsFAT)
+                        ? "<>|+=:;,\"/[] "  // invalid characters in FAT
+                        : "<>|:\"/";        // invalid characters in IFS's
 
-    // now separate path components
-    p1 = &szPath[2];       // advance past ':'
+        // now separate path components
+        p1 = &szPath[2];       // advance past ':'
 
-    do {
+        do {
 
-        if (*p1 == '\\')
-            p1++;
+            if (*p1 == '\\')
+                p1++;
 
-        p2 = strchr(p1, '\\');
-        if (p2 == NULL)
-            p2 = p1 + strlen(p1);
+            p2 = strchr(p1, '\\');
+            if (p2 == NULL)
+                p2 = p1 + strlen(p1);
 
-        if (p1 != p2)
-        {
-            LONG    lDotOfs = -1,
-                    lAfterDot = -1;
-            ULONG   cbFile,
-                    ul;
-            PSZ     pSource = szComponent;
-
-            strncpy(szComponent, p1, p2-p1);
-            szComponent[p2-p1] = 0;
-            cbFile = strlen(szComponent);
-
-            // now check each path component
-            for (ul = 0; ul < cbFile; ul++)
+            if (p1 != p2)
             {
-                if (fIsFAT)
+                LONG    lDotOfs = -1,
+                        lAfterDot = -1;
+                ULONG   cbFile,
+                        ul;
+                PSZ     pSource = szComponent;
+
+                strncpy(szComponent, p1, p2-p1);
+                szComponent[p2-p1] = 0;
+                cbFile = strlen(szComponent);
+
+                // now check each path component
+                for (ul = 0; ul < cbFile; ul++)
                 {
-                    // on FAT: only 8 characters allowed before dot
-                    if (*pSource == '.')
+                    if (fIsFAT)
                     {
-                        lDotOfs = ul;
-                        lAfterDot = 0;
-                        if (ul > 7)
-                            return (ERROR_FILENAME_EXCED_RANGE);
+                        // on FAT: only 8 characters allowed before dot
+                        if (*pSource == '.')
+                        {
+                            lDotOfs = ul;
+                            lAfterDot = 0;
+                            if (ul > 7)
+                                return (ERROR_FILENAME_EXCED_RANGE);
+                        }
                     }
+                    // and check for invalid characters
+                    if (strchr(pszInvalid, *pSource) != NULL)
+                        return (ERROR_INVALID_NAME);
+
+                    pSource++;
+
+                    // on FAT, allow only three chars after dot
+                    if (fIsFAT)
+                        if (lAfterDot != -1)
+                        {
+                            lAfterDot++;
+                            if (lAfterDot > 3)
+                                return (ERROR_FILENAME_EXCED_RANGE);
+                        }
                 }
-                // and check for invalid characters
-                if (strchr(pszInvalid, *pSource) != NULL)
-                    return (ERROR_INVALID_NAME);
 
-                pSource++;
-
-                // on FAT, allow only three chars after dot
+                // we are still missing the case of a FAT file
+                // name without extension; if so, check whether
+                // the file stem is <= 8 chars
                 if (fIsFAT)
-                    if (lAfterDot != -1)
-                    {
-                        lAfterDot++;
-                        if (lAfterDot > 3)
-                            return(ERROR_FILENAME_EXCED_RANGE);
-                    }
+                    if (lDotOfs == -1)  // dot not found:
+                        if (cbFile > 8)
+                            return (ERROR_FILENAME_EXCED_RANGE);
             }
 
-            // we are still missing the case of a FAT file
-            // name without extension; if so, check whether
-            // the file stem is <= 8 chars
-            if (fIsFAT)
-                if (lDotOfs == -1)  // dot not found:
-                    if (cbFile > 8)
-                        return (ERROR_FILENAME_EXCED_RANGE);
-        }
+            // go for next component
+            p1 = p2+1;
+        } while (*p2);
+    }
 
-        // go for next component
-        p1 = p2+1;
-    } while (*p2);
-
-    return (NO_ERROR);
+    return (arc);
 }
 
 /*
@@ -339,9 +348,9 @@ APIRET doshSetCurrentDir(const char *pcszDir)
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Environment helpers                                            *
- *                                                                  *
+ *
+ *   Environment helpers
+ *
  ********************************************************************/
 
 /*
@@ -715,9 +724,9 @@ APIRET doshFreeEnvironment(PDOSENVIRONMENT pEnv)
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Module handling helpers                                        *
- *                                                                  *
+ *
+ *   Module handling helpers
+ *
  ********************************************************************/
 
 /*
@@ -772,9 +781,9 @@ APIRET doshResolveImports(PSZ pszModuleName,    // in: DLL to load
  */
 
 /********************************************************************
- *                                                                  *
- *   Executable functions                                           *
- *                                                                  *
+ *
+ *   Executable functions
+ *
  ********************************************************************/
 
 /*
@@ -1218,9 +1227,9 @@ APIRET doshExecQueryBldLevel(PEXECUTABLE pExec)
  */
 
 /********************************************************************
- *                                                                  *
- *   Partition functions                                            *
- *                                                                  *
+ *
+ *   Partition functions
+ *
  ********************************************************************/
 
 /*

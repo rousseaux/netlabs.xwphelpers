@@ -15,8 +15,8 @@
 
 /*
  *      Copyright (C) 1997-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -83,9 +83,9 @@
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Global variables                                               *
- *                                                                  *
+ *
+ *   Global variables
+ *
  ********************************************************************/
 
 // screen size
@@ -97,9 +97,9 @@ HMTX        G_hmtxSubclassedTools = NULLHANDLE;
 PLINKLIST   G_pllSubclassedTools = NULL;      // linked list of SUBCLASSEDTOOL items
 
 /* ******************************************************************
- *                                                                  *
- *   "Tooltip" control                                              *
- *                                                                  *
+ *
+ *   "Tooltip" control
+ *
  ********************************************************************/
 
 /*
@@ -723,7 +723,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
 
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
 
-    TRY_LOUD(excpt1, NULL)
+    TRY_LOUD(excpt1)
     {
         switch (msg)
         {

@@ -13,8 +13,8 @@
 
 /*
  *      Copyright (C) 1999-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -31,6 +31,10 @@ extern "C" {
 #ifndef XSTRING_HEADER_INCLUDED
     #define XSTRING_HEADER_INCLUDED
 
+    #ifndef XWPENTRY
+        #error You must define XWPENTRY to contain the standard linkage for the XWPHelpers.
+    #endif
+
     /*
      *@@ XSTRING:
      *
@@ -45,29 +49,29 @@ extern "C" {
                                         // (>= ulLength + 1)
     } XSTRING, *PXSTRING;
 
-    void xstrInit(PXSTRING pxstr,
-                  ULONG ulPreAllocate);
+    void XWPENTRY xstrInit(PXSTRING pxstr, ULONG ulPreAllocate);
+    typedef void XWPENTRY XSTRINIT(PXSTRING pxstr, ULONG ulPreAllocate);
+    typedef XSTRINIT *PXSTRINIT;
 
-    void xstrInitSet(PXSTRING pxstr,
-                     PSZ pszNew);
+    void XWPENTRY xstrInitSet(PXSTRING pxstr, PSZ pszNew);
 
-    void xstrInitCopy(PXSTRING pxstr,
-                      const char *pcszSource);
+    void XWPENTRY xstrInitCopy(PXSTRING pxstr, const char *pcszSource);
 
-    void xstrClear(PXSTRING pxstr);
+    void XWPENTRY xstrClear(PXSTRING pxstr);
+    typedef void XWPENTRY XSTRCLEAR(PXSTRING pxstr);
+    typedef XSTRCLEAR *PXSTRCLEAR;
 
-    PXSTRING xstrCreate(ULONG ulPreAllocate);
+    PXSTRING XWPENTRY xstrCreate(ULONG ulPreAllocate);
 
-    VOID xstrFree(PXSTRING pxstr);
+    VOID XWPENTRY xstrFree(PXSTRING pxstr);
 
-    ULONG xstrset(PXSTRING pxstr,
-                  PSZ pszNew);
+    ULONG XWPENTRY xstrset(PXSTRING pxstr, PSZ pszNew);
 
-    ULONG xstrcpy(PXSTRING pxstr,
-                  const char *pcszSource);
+    ULONG XWPENTRY xstrcpy(PXSTRING pxstr, const char *pcszSource);
 
-    ULONG xstrcat(PXSTRING pxstr,
-                  const char *pcszSource);
+    ULONG XWPENTRY xstrcat(PXSTRING pxstr, const char *pcszSource);
+    typedef ULONG XWPENTRY XSTRCAT(PXSTRING pxstr, const char *pcszSource);
+    typedef XSTRCAT *PXSTRCAT;
 
     /*
      *@@ xstrIsString:
@@ -78,25 +82,25 @@ extern "C" {
 
     #define xstrIsString(psz) ( (psz != 0) && (*(psz) != 0) )
 
-    PSZ xstrFindWord(const XSTRING *pxstr,
-                     ULONG ulOfs,
-                     const XSTRING *pstrFind,
-                     size_t *pShiftTable,
-                     PBOOL pfRepeatFind,
-                     const char *pcszBeginChars,
-                     const char *pcszEndChars);
+    PSZ XWPENTRY xstrFindWord(const XSTRING *pxstr,
+                              ULONG ulOfs,
+                              const XSTRING *pstrFind,
+                              size_t *pShiftTable,
+                              PBOOL pfRepeatFind,
+                              const char *pcszBeginChars,
+                              const char *pcszEndChars);
 
-    ULONG xstrrpl(PXSTRING pxstr,
-                  PULONG pulOfs,
-                  const XSTRING *pstrSearch,
-                  const XSTRING *pstrReplace,
-                  size_t *pShiftTable,
-                  PBOOL pfRepeatFind);
+    ULONG XWPENTRY xstrrpl(PXSTRING pxstr,
+                           PULONG pulOfs,
+                           const XSTRING *pstrSearch,
+                           const XSTRING *pstrReplace,
+                           size_t *pShiftTable,
+                           PBOOL pfRepeatFind);
 
-    ULONG xstrcrpl(PXSTRING pxstr,
-                   PULONG pulOfs,
-                   const char *pcszSearch,
-                   const char *pcszReplace);
+    ULONG XWPENTRY xstrcrpl(PXSTRING pxstr,
+                            PULONG pulOfs,
+                            const char *pcszSearch,
+                            const char *pcszReplace);
 #endif
 
 #if __cplusplus

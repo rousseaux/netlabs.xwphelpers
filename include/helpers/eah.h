@@ -48,8 +48,8 @@
  *
  *      This file Copyright (C) 1997-2000 Ulrich M”ller,
  *                                        Massachusetts Institute of Technology.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -114,79 +114,79 @@ extern "C" {
     void eaFreeList(PEALIST list);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Read-EA functions                                              *
-     *                                                                  *
+     *
+     *   Read-EA functions
+     *
      ********************************************************************/
 
     ULONG eaHFileQueryTotalSize(HFILE hFile);
 
-    ULONG eaPathQueryTotalSize(PSZ path);
+    ULONG eaPathQueryTotalSize(const char *pcszPath);
 
     PEALIST eaHFileReadAll(HFILE hfile);
 
-    PEALIST eaPathReadAll(PSZ path);
+    PEALIST eaPathReadAll(const char *pcszPath);
 
     PEABINDING eaHFileReadOneByIndex(HFILE hfile, ULONG index);
 
-    PEABINDING eaPathReadOneByIndex(PSZ path, ULONG index);
+    PEABINDING eaPathReadOneByIndex(const char *pcszPath, ULONG index);
 
-    PEABINDING eaHFileReadOneByName(HFILE hfile, PSZ name);
+    PEABINDING eaHFileReadOneByName(HFILE hfile, const char *pcszEAName);
 
-    PEABINDING eaPathReadOneByName(PSZ path, PSZ name);
+    PEABINDING eaPathReadOneByName(const char *pcszPath, const char *pcszEAName);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Write-EA functions                                             *
-     *                                                                  *
+     *
+     *   Write-EA functions
+     *
      ********************************************************************/
 
-    void eaHFileWriteAll(HFILE hfile, PEALIST list);
+    APIRET eaHFileWriteAll(HFILE hfile, PEALIST list);
 
-    void eaPathWriteAll(PSZ path, PEALIST list);
+    APIRET eaPathWriteAll(const char *pcszPath, PEALIST list);
 
-    void eaHFileWriteOne(HFILE hfile, PEABINDING peab);
+    APIRET eaHFileWriteOne(HFILE hfile, PEABINDING peab);
 
-    void eaPathWriteOne(PSZ path, PEABINDING peab);
+    APIRET eaPathWriteOne(const char *pcszPath, PEABINDING peab);
 
-    void eaPathDeleteOne(PSZ path, PSZ pszEAName);
+    APIRET eaPathDeleteOne(const char *pcszPath, const char *pcszEAName);
 
     /********************************************************************
-     *                                                                  *
-     *   Translation funcs                                              *
-     *                                                                  *
+     *
+     *   Translation funcs
+     *
      ********************************************************************/
 
     USHORT eaQueryEAType(PEABINDING peab);
 
     PSZ eaCreatePSZFromBinding(PEABINDING peab);
 
-    PEABINDING eaCreateBindingFromPSZ(PSZ pszEAName,
-                             PSZ pszString);
+    PEABINDING eaCreateBindingFromPSZ(const char *pcszEAName,
+                                      const char *pcszInput);
 
     USHORT eaQueryMVCount(PEABINDING peab,
                           PUSHORT pusCodepage,
                           PUSHORT pusEAType);
 
     PSZ eaQueryMVItem(PEABINDING peab,
-                                USHORT usIndex,
-                                PUSHORT pusEAType,
-                                PUSHORT pusCodepage,
-                                PUSHORT pusDataLength);
+                      USHORT usIndex,
+                      PUSHORT pusEAType,
+                      PUSHORT pusCodepage,
+                      PUSHORT pusDataLength);
 
     PSZ eaCreatePSZFromMVBinding(PEABINDING peab,
-                                 PSZ     pszSeparator,
+                                 const char *pcszSeparator,
                                  PUSHORT pusCodepage);
 
-    PEABINDING eaCreateMVBindingFromPSZ(PSZ pszEAName,
-                                        PSZ pszInput,
-                                        PSZ pszSeparator,
+    PEABINDING eaCreateMVBindingFromPSZ(const char *pcszEAName,
+                                        const char *pcszInput,
+                                        const char *pcszSeparator,
                                         USHORT usCodepage);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Direct plain-string EA handling                                *
-     *                                                                  *
+     *
+     *   Direct plain-string EA handling
+     *
      ********************************************************************/
 
     typedef struct _EAMVMT

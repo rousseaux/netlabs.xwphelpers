@@ -23,8 +23,8 @@
 /*
  *      This file Copyright (C) 1997-2000 Ulrich M”ller,
  *                                        Henk Kelder.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -39,7 +39,6 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
-#define INCL_DOS
 #define INCL_WINSHELLDATA
 #include <os2.h>
 
@@ -72,9 +71,9 @@ PNODE wphFindPartName(PBYTE pHandlesBuffer, ULONG ulBufSize, USHORT usID, PSZ ps
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Helper functions                                               *
- *                                                                  *
+ *
+ *   Helper functions
+ *
  ********************************************************************/
 
 /*
@@ -280,9 +279,9 @@ BOOL wphReadAllBlocks(HINI hiniSystem,       // in: can be HINI_USER or HINI_SYS
 }
 
 /* ******************************************************************
- *                                                                  *
- *   Get HOBJECT from filename                                      *
- *                                                                  *
+ *
+ *   Get HOBJECT from filename
+ *
  ********************************************************************/
 
 /*
@@ -520,9 +519,9 @@ HOBJECT wphQueryHandleFromPath(HINI hIniUser,   // in: user ini file
 }
 
 /* ******************************************************************
- *                                                                  *
- *   Get filename from HOBJECT                                      *
- *                                                                  *
+ *
+ *   Get filename from HOBJECT
+ *
  ********************************************************************/
 
 /*
@@ -639,9 +638,9 @@ BOOL wphQueryPathFromHandle(HINI hIniSystem,    // in: HINI_SYSTEM or other INI 
 }
 
 /* ******************************************************************
- *                                                                  *
- *   Manipulation functions                                         *
- *                                                                  *
+ *
+ *   Manipulation functions
+ *
  ********************************************************************/
 
 /*

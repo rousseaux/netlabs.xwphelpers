@@ -56,8 +56,8 @@
 
 /*
  *      Copyright (C) 1997-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -81,10 +81,40 @@
  */
 
 /* ******************************************************************
- *                                                                  *
- *   List base functions                                            *
- *                                                                  *
+ *
+ *   List base functions
+ *
  ********************************************************************/
+
+/*
+ *@@ lstMalloc:
+ *      wrapper around malloc() to make sure memory is
+ *      allocated from the C runtime the helpers were
+ *      compiled with. This is useful for auto-free
+ *      lists.
+ *
+ *@@added V0.9.7 (2000-12-07) [umoeller]
+ */
+
+void* lstMalloc(size_t size)
+{
+    return (malloc(size));
+}
+
+/*
+ *@@ lstStrDup:
+ *      wrapper around strdup() to make sure memory is
+ *      allocated from the C runtime the helpers were
+ *      compiled with. This is useful for auto-free
+ *      lists.
+ *
+ *@@added V0.9.7 (2000-12-07) [umoeller]
+ */
+
+void* lstStrDup(const char *pcsz)
+{
+    return (strdup(pcsz));
+}
 
 /*
  *@@ lstInit:
@@ -110,6 +140,17 @@
  *      list items yourself. Set this to FALSE if
  *      you're storing other objects, such as numbers
  *      or other static items.
+ *
+ *      This of course will be a "flat" free(). If
+ *      you store structures in the list using other
+ *      heap pointers, auto-free would cause memory leaks.
+ *
+ *      Also, auto-free only works if the malloc() that
+ *      has been used on the list item is in the same C
+ *      runtime as with the linklist functions. If the
+ *      caller uses a different runtime (e.g. from a DLL),
+ *      it can use lstMalloc() for allocating the list
+ *      item and still use auto-free.
  *
  *      Note: You better call lstInit only once per list,
  *      because we don't check here if the list
@@ -757,9 +798,9 @@ BOOL lstSwapNodes(PLISTNODE pNode1,
 }
 
 /* ******************************************************************
- *                                                                  *
- *   List sorting                                                   *
- *                                                                  *
+ *
+ *   List sorting
+ *
  ********************************************************************/
 
 /*
@@ -932,9 +973,9 @@ BOOL lstBubbleSort(PLINKLIST pList,
 }
 
 /* ******************************************************************
- *                                                                  *
- *   List pseudo-stacks                                             *
- *                                                                  *
+ *
+ *   List pseudo-stacks
+ *
  ********************************************************************/
 
 /*

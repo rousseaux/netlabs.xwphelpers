@@ -10,8 +10,8 @@
  */
 
 /*      Copyright (C) 1997-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -33,6 +33,7 @@
  *@@include #define INCL_WININPUT
  *@@include #define INCL_WINSYS
  *@@include #define INCL_WINSHELLDATA
+ *@@include #define INCL_WINSWITCHLIST      // for winhQuerySwitchList
  *@@include #define INCL_WINPROGRAMLIST     // for winhStartApp
  *@@include #define INCL_WINHELP            // for help manager helpers
  *@@include #include <os2.h>
@@ -46,10 +47,14 @@ extern "C" {
 #ifndef WINH_HEADER_INCLUDED
     #define WINH_HEADER_INCLUDED
 
+    #ifndef XWPENTRY
+        #error You must define XWPENTRY to contain the standard linkage for the XWPHelpers.
+    #endif
+
     /* ******************************************************************
-     *                                                                  *
-     *   Declarations                                                   *
-     *                                                                  *
+     *
+     *   Declarations
+     *
      ********************************************************************/
 
     #define MPNULL                 (MPFROMP(NULL))
@@ -61,9 +66,9 @@ extern "C" {
     #define BM_INDETERMINATE       2   // for tri-state checkboxes: indeterminate
 
     /* ******************************************************************
-     *                                                                  *
-     *   Macros                                                         *
-     *                                                                  *
+     *
+     *   Macros
+     *
      ********************************************************************/
 
     /*
@@ -100,9 +105,9 @@ extern "C" {
             WinSetFocus(HWND_DESKTOP, WinWindowFromID(hwndDlg, ulId))
 
     /* ******************************************************************
-     *                                                                  *
-     *   Menu helpers                                                   *
-     *                                                                  *
+     *
+     *   Menu helpers
+     *
      ********************************************************************/
 
     /*
@@ -120,22 +125,22 @@ extern "C" {
     WinCreateWindow(HWND_DESKTOP, WC_MENU, "", 0, 0, 0, 0, 0,       \
                     HWND_DESKTOP, HWND_TOP, 0, 0, 0)
 
-    SHORT winhInsertMenuItem(HWND hwndMenu,
-                             SHORT iPosition,
-                             SHORT sItemId,
-                             PSZ pszItemTitle,
-                             SHORT afStyle,
-                             SHORT afAttr);
+    SHORT XWPENTRY winhInsertMenuItem(HWND hwndMenu,
+                                      SHORT iPosition,
+                                      SHORT sItemId,
+                                      PSZ pszItemTitle,
+                                      SHORT afStyle,
+                                      SHORT afAttr);
 
-    HWND winhInsertSubmenu(HWND hwndMenu,
-                           ULONG iPosition,
-                           SHORT sMenuId,
-                           PSZ pszSubmenuTitle,
-                           USHORT afMenuStyle,
-                           SHORT sItemId,
-                           PSZ pszItemTitle,
-                           USHORT afItemStyle,
-                           USHORT afAttribute);
+    HWND XWPENTRY winhInsertSubmenu(HWND hwndMenu,
+                                    ULONG iPosition,
+                                    SHORT sMenuId,
+                                    PSZ pszSubmenuTitle,
+                                    USHORT afMenuStyle,
+                                    SHORT sItemId,
+                                    PSZ pszItemTitle,
+                                    USHORT afItemStyle,
+                                    USHORT afAttribute);
 
     /*
      *@@ winhRemoveMenuItem:
@@ -164,39 +169,37 @@ extern "C" {
     #define winhDeleteMenuItem(hwndMenu, sItemId) \
             (SHORT)WinSendMsg(hwndMenu, MM_DELETEITEM, MPFROM2SHORT(sItemId, FALSE), 0)
 
-    SHORT winhInsertMenuSeparator(HWND hMenu,
-                                  SHORT iPosition,
-                                  SHORT sId);
+    SHORT XWPENTRY winhInsertMenuSeparator(HWND hMenu,
+                                           SHORT iPosition,
+                                           SHORT sId);
 
-    PSZ winhQueryMenuItemText(HWND hwndMenu,
-                              USHORT usItemID);
+    PSZ XWPENTRY winhQueryMenuItemText(HWND hwndMenu,
+                                       USHORT usItemID);
 
-    BOOL winhAppend2MenuItemText(HWND hwndMenu,
-                                 USHORT usItemID,
-                                 const char *pcszAppend,
-                                 BOOL fTab);
+    BOOL XWPENTRY winhAppend2MenuItemText(HWND hwndMenu,
+                                          USHORT usItemID,
+                                          const char *pcszAppend,
+                                          BOOL fTab);
 
-    VOID winhMenuRemoveEllipse(HWND hwndMenu,
-                               USHORT usItemId);
+    VOID XWPENTRY winhMenuRemoveEllipse(HWND hwndMenu,
+                                        USHORT usItemId);
 
-    SHORT winhQueryItemUnderMouse(HWND hwndMenu, POINTL *pptlMouse, RECTL *prtlItem);
+    SHORT XWPENTRY winhQueryItemUnderMouse(HWND hwndMenu, POINTL *pptlMouse, RECTL *prtlItem);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Slider helpers                                                 *
-     *                                                                  *
+     *
+     *   Slider helpers
+     *
      ********************************************************************/
 
-    HWND winhReplaceWithLinearSlider(HWND hwndParent,
-                                     HWND hwndOwner,
-                                     HWND hwndInsertAfter,
-                                     ULONG ulID,
-                                     ULONG ulSliderStyle,
-                                     ULONG ulTickCount);
+    HWND XWPENTRY winhReplaceWithLinearSlider(HWND hwndParent,
+                                              HWND hwndOwner,
+                                              HWND hwndInsertAfter,
+                                              ULONG ulID,
+                                              ULONG ulSliderStyle,
+                                              ULONG ulTickCount);
 
-    BOOL winhSetSliderTicks(HWND hwndSlider,
-                            MPARAM mpEveryOther,
-                            ULONG ulPixels);
+    BOOL XWPENTRY winhSetSliderTicks(HWND hwndSlider, MPARAM mpEveryOther, ULONG ulPixels);
 
     /*
      * winhSetSliderArmPosition:
@@ -229,37 +232,37 @@ extern "C" {
                                            usMode),                 \
                               0))
 
-    HWND winhReplaceWithCircularSlider(HWND hwndParent,
-                           HWND hwndOwner,
-                           HWND hwndInsertAfter,
-                           ULONG ulID,
-                           ULONG ulSliderStyle,
-                           SHORT sMin,
-                           SHORT sMax,
-                           USHORT usIncrement,
-                           USHORT usTicksEvery);
+    HWND XWPENTRY winhReplaceWithCircularSlider(HWND hwndParent,
+                                                HWND hwndOwner,
+                                                HWND hwndInsertAfter,
+                                                ULONG ulID,
+                                                ULONG ulSliderStyle,
+                                                SHORT sMin,
+                                                SHORT sMax,
+                                                USHORT usIncrement,
+                                                USHORT usTicksEvery);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Spin button helpers                                            *
-     *                                                                  *
+     *
+     *   Spin button helpers
+     *
      ********************************************************************/
 
-    VOID winhSetDlgItemSpinData(HWND hwndDlg,
-                               ULONG idSpinButton,
-                               ULONG min,
-                               ULONG max,
-                               ULONG current);
+    VOID XWPENTRY winhSetDlgItemSpinData(HWND hwndDlg,
+                                         ULONG idSpinButton,
+                                         ULONG min,
+                                         ULONG max,
+                                         ULONG current);
 
-    LONG winhAdjustDlgItemSpinData(HWND hwndDlg,
-                                   USHORT usItemID,
-                                   LONG lGrid,
-                                   USHORT usNotifyCode);
+    LONG XWPENTRY winhAdjustDlgItemSpinData(HWND hwndDlg,
+                                            USHORT usItemID,
+                                            LONG lGrid,
+                                            USHORT usNotifyCode);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Entry field helpers                                            *
-     *                                                                  *
+     *
+     *   Entry field helpers
+     *
      ********************************************************************/
 
     /*
@@ -301,21 +304,65 @@ extern "C" {
             (BOOL)WinSendMsg(hwndEntryField, EM_QUERYCHANGED, (MPARAM)0, (MPARAM)0)
 
     /* ******************************************************************
-     *                                                                  *
-     *   List box helpers                                               *
-     *                                                                  *
+     *
+     *   List box helpers
+     *
      ********************************************************************/
 
+    /*  The following macros are defined in the OS/2 headers for
+        list boxes:
+
+        LONG WinQueryLboxCount(HWND hwndLbox);
+                    // wrapper around LM_QUERYITEMCOUNT;
+                    // list box item count
+
+        SHORT WinQueryLboxItemTextLength(HWND hwndLbox,
+                                         SHORT index); // item index, starting from 0
+                    // wrapper around LM_QUERYITEMTEXTLENGTH;
+                    // returns length of item text, excluding NULL character
+
+        LONG WinQueryLboxItemText(HWND hwndLbox,
+                                  SHORT index,      // item index, starting from 0
+                                  PSZ psz,          // buffer
+                                  PSZ cchMax);      // size of buffer, incl. null
+                    // wrapper around LM_QUERYITEMTEXT;
+                    // returns length of item text, excluding NULL character
+
+        BOOL WinSetLboxItemText(HWND hwndLbox,
+                                LONG index,
+                                PSZ psz);
+                    // wrapper around LM_SETITEMTEXT
+
+        LONG WinInsertLboxItem(HWND hwndLbox,
+                               LONG index,          // new item index, starting from 0
+                                                    // or LIT_END
+                                                    // or LIT_SORTASCENDING
+                                                    // or LIT_SORTDESCENDING
+                               PSZ psz)
+                    // wrapper around LM_INSERTITEM;
+                    // returns LIT_MEMERROR, LIT_ERROR, or zero-based index
+
+        LONG WinDeleteLboxItem(HWND hwndLbox,
+                               LONG index);         // item index, starting from 0
+
+        LONG WinQueryLboxSelectedItem(HWND hwndLbox);
+                    // wrapper around LM_QUERYSELECTION;
+                    // works with single selection only,
+                    // use winhQueryLboxSelectedItem instead
+    */
+
     /*
-     *@@ winhQueryLboxItemCount:
+     * winhQueryLboxItemCount:
      *      returns the no. of items in the listbox
      *      as a SHORT.
      *
-     *@@added V0.9.1 (99-12-14) [umoeller]
+     *added V0.9.1 (99-12-14) [umoeller]
      */
 
-    #define winhQueryLboxItemCount(hwndListBox)                 \
-        (SHORT)WinSendMsg(hwndListBox, LM_QUERYITEMCOUNT, 0, 0)
+    // #define winhQueryLboxItemCount(hwndListBox)
+    // (SHORT)WinSendMsg(hwndListBox, LM_QUERYITEMCOUNT, 0, 0)
+
+    // removed, use WinQueryLboxCount
 
     /*
      *@@ winhDeleteAllItems:
@@ -348,6 +395,9 @@ extern "C" {
      +          }
      *
      *      To have the cursored item returned, use LIT_CURSOR.
+     *
+     *      For single selection, you can also use
+     *      WinQueryLboxSelectedItem from the OS/2 PM headers.
      */
 
     #define winhQueryLboxSelectedItem(hwndListBox, sItemStart) \
@@ -374,8 +424,7 @@ extern "C" {
                             (MPARAM)(sItemIndex),                       \
                             (MPARAM)(fSelect)))
 
-    ULONG winhLboxSelectAll(HWND hwndListBox,
-                            BOOL fSelect);
+    ULONG XWPENTRY winhLboxSelectAll(HWND hwndListBox, BOOL fSelect);
 
     /*
      * winhSetLboxItemHandle:
@@ -397,60 +446,52 @@ extern "C" {
             (ULONG)WinSendMsg(hwndListBox, LM_QUERYITEMHANDLE,          \
                               MPFROMSHORT(sItemIndex), (MPARAM)NULL)
 
-    PSZ winhQueryLboxItemText(HWND hwndListbox,
-                              SHORT sIndex);
+    PSZ XWPENTRY winhQueryLboxItemText(HWND hwndListbox, SHORT sIndex);
 
-    BOOL winhMoveLboxItem(HWND hwndSource,
-                          SHORT sSourceIndex,
-                          HWND hwndTarget,
-                          SHORT sTargetIndex,
-                          BOOL fSelectTarget);
-
-    /* ******************************************************************
-     *                                                                  *
-     *   Scroll bar helpers                                             *
-     *                                                                  *
-     ********************************************************************/
-
-    BOOL winhUpdateScrollBar(HWND hwndScrollBar,
-                             ULONG ulWinPels,
-                             ULONG ulViewportPels,
-                             ULONG ulCurUnitOfs,
-                             BOOL fAutoHide);
-
-    BOOL winhHandleScrollMsg(HWND hwnd2Scroll,
-                             HWND hwndScrollBar,
-                             PLONG plCurUnitOfs,
-                             PRECTL prcl2Scroll,
-                             LONG ulViewportPels,
-                             USHORT usLineStepUnits,
-                             ULONG msg,
-                             MPARAM mp2);
-
-    BOOL winhProcessScrollChars(HWND hwndClient,
-                                HWND hwndVScroll,
-                                HWND hwndHScroll,
-                                MPARAM mp1,
-                                MPARAM mp2,
-                                ULONG ulVertMax,
-                                ULONG ulHorzMax);
+    BOOL XWPENTRY winhMoveLboxItem(HWND hwndSource,
+                                   SHORT sSourceIndex,
+                                   HWND hwndTarget,
+                                   SHORT sTargetIndex,
+                                   BOOL fSelectTarget);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Window positioning helpers                                     *
-     *                                                                  *
+     *
+     *   Scroll bar helpers
+     *
      ********************************************************************/
 
-    BOOL winhSaveWindowPos(HWND hwnd,
-                           HINI hIni,
-                           PSZ pszApp,
-                           PSZ pszKey);
+    BOOL XWPENTRY winhUpdateScrollBar(HWND hwndScrollBar,
+                                      ULONG ulWinPels,
+                                      ULONG ulViewportPels,
+                                      ULONG ulCurUnitOfs,
+                                      BOOL fAutoHide);
 
-    BOOL winhRestoreWindowPos(HWND hwnd,
-                           HINI hIni,
-                           PSZ pszApp,
-                           PSZ pszKey,
-                           ULONG fl);
+    BOOL XWPENTRY winhHandleScrollMsg(HWND hwnd2Scroll,
+                                      HWND hwndScrollBar,
+                                      PLONG plCurUnitOfs,
+                                      PRECTL prcl2Scroll,
+                                      LONG ulViewportPels,
+                                      USHORT usLineStepUnits,
+                                      ULONG msg,
+                                      MPARAM mp2);
+
+    BOOL XWPENTRY winhProcessScrollChars(HWND hwndClient,
+                                         HWND hwndVScroll,
+                                         HWND hwndHScroll,
+                                         MPARAM mp1,
+                                         MPARAM mp2,
+                                         ULONG ulVertMax,
+                                         ULONG ulHorzMax);
+
+    /* ******************************************************************
+     *
+     *   Window positioning helpers
+     *
+     ********************************************************************/
+
+    BOOL XWPENTRY winhSaveWindowPos(HWND hwnd, HINI hIni, PSZ pszApp, PSZ pszKey);
+
+    BOOL XWPENTRY winhRestoreWindowPos(HWND hwnd, HINI hIni, PSZ pszApp, PSZ pszKey, ULONG fl);
 
     #define XAC_MOVEX       0x0001
     #define XAC_MOVEY       0x0002
@@ -469,24 +510,31 @@ extern "C" {
         SWP         *paswp;             // pointer to array of control SWP structs
     } XADJUSTCTRLS, *PXADJUSTCTRLS;
 
-    BOOL winhAdjustControls(HWND hwndDlg,
-                            MPARAM *pmpFlags,
-                            ULONG ulCount,
-                            PSWP pswpNew,
-                            PXADJUSTCTRLS pxac);
+    BOOL XWPENTRY winhAdjustControls(HWND hwndDlg,
+                                     MPARAM *pmpFlags,
+                                     ULONG ulCount,
+                                     PSWP pswpNew,
+                                     PXADJUSTCTRLS pxac);
 
-    void winhCenterWindow(HWND hwnd);
+    void XWPENTRY winhCenterWindow(HWND hwnd);
+    typedef void XWPENTRY WINHCENTERWINDOW(HWND hwnd);
+    typedef WINHCENTERWINDOW *PWINHCENTERWINDOW;
+
+    HWND XWPENTRY winhFindWindowBelow(HWND hwndFind);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Presparams helpers                                             *
-     *                                                                  *
+     *
+     *   Presparams helpers
+     *
      ********************************************************************/
 
-    PSZ winhQueryWindowFont(HWND hwnd);
+    PSZ XWPENTRY winhQueryWindowFont(HWND hwnd);
+    typedef PSZ XWPENTRY WINHQUERYWINDOWFONT(HWND hwnd);
+    typedef WINHQUERYWINDOWFONT *PWINHQUERYWINDOWFONT;
 
-    BOOL winhSetWindowFont(HWND hwnd,
-                           PSZ pszFont);
+    BOOL XWPENTRY winhSetWindowFont(HWND hwnd, const char *pcszFont);
+    typedef BOOL XWPENTRY WINHSETWINDOWFONT(HWND hwnd, const char *pcszFont);
+    typedef WINHSETWINDOWFONT *PWINHSETWINDOWFONT;
 
     /*
      *@@ winhSetDlgItemFont:
@@ -501,38 +549,33 @@ extern "C" {
     #define winhSetDlgItemFont(hwnd, usId, pszFont) \
             (winhSetWindowFont(WinWindowFromID(hwnd, usId), pszFont))
 
-    ULONG winhSetControlsFont(HWND hwndDlg,
-                              SHORT usIDMin,
-                              SHORT usIDMax,
-                              const char *pcszFont);
+    ULONG XWPENTRY winhSetControlsFont(HWND hwndDlg, SHORT usIDMin, SHORT usIDMax, const char *pcszFont);
 
     #ifdef INCL_WINSYS
-        BOOL winhStorePresParam(PPRESPARAMS *pppp,
-                                ULONG ulAttrType,
-                                ULONG cbData,
-                                PVOID pData);
+        BOOL XWPENTRY winhStorePresParam(PPRESPARAMS *pppp,
+                                         ULONG ulAttrType,
+                                         ULONG cbData,
+                                         PVOID pData);
     #endif
 
-    LONG winhQueryPresColor(HWND    hwnd,
-                            ULONG   ulPP,
-                            BOOL    fInherit,
-                            LONG    lSysColor);
+    LONG XWPENTRY winhQueryPresColor(HWND hwnd, ULONG ulPP, BOOL fInherit, LONG lSysColor);
+    typedef LONG XWPENTRY WINHQUERYPRESCOLOR(HWND hwnd, ULONG ulPP, BOOL fInherit, LONG lSysColor);
+    typedef WINHQUERYPRESCOLOR *PWINHQUERYPRESCOLOR;
 
     /* ******************************************************************
-     *                                                                  *
-     *   Help instance helpers                                          *
-     *                                                                  *
+     *
+     *   Help instance helpers
+     *
      ********************************************************************/
 
     #ifdef INCL_WINHELP
-        HWND winhCreateHelp(HWND hwndFrame,
-                            PSZ pszFileName,
-                            HMODULE hmod,
-                            PHELPTABLE pHelpTable,
-                            PSZ pszWindowTitle);
+        HWND XWPENTRY winhCreateHelp(HWND hwndFrame,
+                                     PSZ pszFileName,
+                                     HMODULE hmod,
+                                     PHELPTABLE pHelpTable,
+                                     PSZ pszWindowTitle);
 
-        void winhDestroyHelp(HWND hwndHelp,
-                             HWND hwndFrame);
+        void XWPENTRY winhDestroyHelp(HWND hwndHelp, HWND hwndFrame);
     #endif
 
     /* ******************************************************************
@@ -542,39 +585,39 @@ extern "C" {
      ********************************************************************/
 
     #ifdef INCL_WINPROGRAMLIST
-        HAPP winhStartApp(HWND hwndNotify,
-                          const PROGDETAILS *pcProgDetails);
+        HAPP XWPENTRY winhStartApp(HWND hwndNotify, const PROGDETAILS *pcProgDetails);
     #endif
 
-    BOOL winhAnotherInstance(PSZ pszSemName,
-                             BOOL fSwitch);
+    BOOL XWPENTRY winhAnotherInstance(PSZ pszSemName, BOOL fSwitch);
 
-    HSWITCH winhAddToTasklist(HWND hwnd,
-                              HPOINTER hIcon);
+    HSWITCH XWPENTRY winhAddToTasklist(HWND hwnd, HPOINTER hIcon);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Miscellaneous                                                  *
-     *                                                                  *
+     *
+     *   Miscellaneous
+     *
      ********************************************************************/
 
-    VOID winhSleep(HAB hab,
-                   ULONG ulSleep);
+    VOID XWPENTRY winhFree(PVOID p);
+    typedef VOID XWPENTRY WINHFREE(PVOID p);
+    typedef WINHFREE *PWINHFREE;
+
+    VOID XWPENTRY winhSleep(HAB hab, ULONG ulSleep);
 
     #define WINH_FOD_SAVEDLG        0x0001
     #define WINH_FOD_INILOADDIR     0x0010
     #define WINH_FOD_INISAVEDIR     0x0020
 
-    BOOL winhFileDlg(HWND hwndOwner,
-                     PSZ pszFile,
-                     ULONG flFlags,
-                     HINI hini,
-                     PSZ pszApplication,
-                     PSZ pszKey);
+    BOOL XWPENTRY winhFileDlg(HWND hwndOwner,
+                              PSZ pszFile,
+                              ULONG flFlags,
+                              HINI hini,
+                              PSZ pszApplication,
+                              PSZ pszKey);
 
-    HPOINTER winhSetWaitPointer(VOID);
+    HPOINTER XWPENTRY winhSetWaitPointer(VOID);
 
-    PSZ winhQueryWindowText(HWND hwnd);
+    PSZ XWPENTRY winhQueryWindowText(HWND hwnd);
 
     /*
      *@@ winhQueryDlgItemText:
@@ -584,29 +627,32 @@ extern "C" {
 
     #define winhQueryDlgItemText(hwnd, usItemID) winhQueryWindowText(WinWindowFromID(hwnd, usItemID))
 
-    BOOL winhReplaceWindowText(HWND hwnd,
-                               PSZ pszSearch,
-                               PSZ pszReplaceWith);
+    BOOL XWPENTRY winhReplaceWindowText(HWND hwnd,
+                                        PSZ pszSearch,
+                                        PSZ pszReplaceWith);
 
-    ULONG winhCenteredDlgBox(HWND hwndParent, HWND hwndOwner,
+    ULONG XWPENTRY winhCenteredDlgBox(HWND hwndParent, HWND hwndOwner,
                   PFNWP pfnDlgProc, HMODULE hmod, ULONG idDlg, PVOID pCreateParams);
+    typedef ULONG XWPENTRY WINHCENTEREDDLGBOX(HWND hwndParent, HWND hwndOwner,
+                  PFNWP pfnDlgProc, HMODULE hmod, ULONG idDlg, PVOID pCreateParams);
+    typedef WINHCENTEREDDLGBOX *PWINHCENTEREDDLGBOX;
 
-    ULONG winhEnableControls(HWND hwndDlg,
-                             USHORT usIDFirst,
-                             USHORT usIDLast,
-                             BOOL fEnable);
+    ULONG XWPENTRY winhEnableControls(HWND hwndDlg,
+                                      USHORT usIDFirst,
+                                      USHORT usIDLast,
+                                      BOOL fEnable);
 
-    HWND winhCreateStdWindow(HWND hwndFrameParent,
-                             PSWP pswpFrame,
-                             ULONG flFrameCreateFlags,
-                             ULONG ulFrameStyle,
-                             PSZ pszFrameTitle,
-                             ULONG ulResourcesID,
-                             PSZ pszClassClient,
-                             ULONG flStyleClient,
-                             ULONG ulID,
-                             PVOID pClientCtlData,
-                             PHWND phwndClient);
+    HWND XWPENTRY winhCreateStdWindow(HWND hwndFrameParent,
+                                      PSWP pswpFrame,
+                                      ULONG flFrameCreateFlags,
+                                      ULONG ulFrameStyle,
+                                      PSZ pszFrameTitle,
+                                      ULONG ulResourcesID,
+                                      PSZ pszClassClient,
+                                      ULONG flStyleClient,
+                                      ULONG ulID,
+                                      PVOID pClientCtlData,
+                                      PHWND phwndClient);
 
     /*
      *@@ winhCreateObjectWindow:
@@ -625,28 +671,35 @@ extern "C" {
                 WinCreateWindow(HWND_OBJECT, pcszWindowClass,   \
                     (PSZ)"", 0, 0,0,0,0, 0, HWND_BOTTOM, 0, pvCreateParam, NULL)
 
-    VOID winhRepaintWindows(HWND hwndParent);
+    VOID XWPENTRY winhRepaintWindows(HWND hwndParent);
 
-    HMQ winhFindMsgQueue(PID pid,
-                         TID tid,
-                         HAB* phab);
+    HMQ XWPENTRY winhFindMsgQueue(PID pid, TID tid, HAB* phab);
 
-    VOID winhFindPMErrorWindows(HWND *phwndHardError,
-                                HWND *phwndSysError);
+    VOID XWPENTRY winhFindPMErrorWindows(HWND *phwndHardError, HWND *phwndSysError);
 
-    HWND winhCreateFakeDesktop(HWND hwndSibling);
+    HWND XWPENTRY winhCreateFakeDesktop(HWND hwndSibling);
 
-    BOOL winhAssertWarp4Notebook(HWND hwndDlg,
+    BOOL XWPENTRY winhAssertWarp4Notebook(HWND hwndDlg,
                                  USHORT usIdThreshold,
                                  ULONG ulDownUnits);
 
-    ULONG winhDrawFormattedText(HPS hps, PRECTL prcl, PSZ pszText, ULONG flCmd);
+    ULONG XWPENTRY winhDrawFormattedText(HPS hps, PRECTL prcl, PSZ pszText, ULONG flCmd);
 
-    VOID winhKillTasklist(VOID);
+    #ifdef INCL_WINSWITCHLIST
+        PSWBLOCK XWPENTRY winhQuerySwitchList(HAB hab);
+        typedef PSWBLOCK XWPENTRY WINHQUERYSWITCHLIST(HAB hab);
+        typedef WINHQUERYSWITCHLIST *PWINHQUERYSWITCHLIST;
+    #endif
 
-    ULONG winhQueryPendingSpoolJobs(VOID);
+    HWND XWPENTRY winhQueryTasklistWindow(VOID);
+    typedef HWND XWPENTRY WINHQUERYTASKLISTWINDOW(VOID);
+    typedef WINHQUERYTASKLISTWINDOW *PWINHQUERYTASKLISTWINDOW;
 
-    VOID winhSetNumLock(BOOL fState);
+    VOID XWPENTRY winhKillTasklist(VOID);
+
+    ULONG XWPENTRY winhQueryPendingSpoolJobs(VOID);
+
+    VOID XWPENTRY winhSetNumLock(BOOL fState);
 
     /*
      *@@ winhQueryScreenCX:
@@ -663,24 +716,23 @@ extern "C" {
     #define winhQueryScreenCY() (WinQuerySysValue(HWND_DESKTOP, SV_CYSCREEN))
 
     /* ******************************************************************
-     *                                                                  *
-     *   WPS Class List helpers                                         *
-     *                                                                  *
+     *
+     *   WPS Class List helpers
+     *
      ********************************************************************/
 
-    PBYTE winhQueryWPSClassList(VOID);
+    PBYTE XWPENTRY winhQueryWPSClassList(VOID);
 
-    PBYTE winhQueryWPSClass(PBYTE pObjClass,
-                            const char *pszClass);
+    PBYTE XWPENTRY winhQueryWPSClass(PBYTE pObjClass, const char *pszClass);
 
-    APIRET winhRegisterClass(const char* pcszClassName,
-                             const char* pcszModule,
-                             PSZ pszBuf,
-                             ULONG cbBuf);
+    APIRET XWPENTRY winhRegisterClass(const char* pcszClassName,
+                                      const char* pcszModule,
+                                      PSZ pszBuf,
+                                      ULONG cbBuf);
 
-    BOOL winhIsClassRegistered(const char *pcszClass);
+    BOOL XWPENTRY winhIsClassRegistered(const char *pcszClass);
 
-    ULONG winhResetWPS(HAB hab);
+    ULONG XWPENTRY winhResetWPS(HAB hab);
 #endif
 
 #if __cplusplus

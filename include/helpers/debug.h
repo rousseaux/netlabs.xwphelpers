@@ -42,9 +42,9 @@
     #define DEBUG_HEADER_INCLUDED
 
     /********************************************************************
-     *                                                                  *
-     *   SYM file declarations                                          *
-     *                                                                  *
+     *
+     *   SYM file declarations
+     *
      ********************************************************************/
 
     // Pointer means offset from beginning of file or beginning of struct
@@ -134,9 +134,9 @@
     #define LINESOFFSET(LinedefOffset,LineDef) ((LinedefOffset)+LineDef.pLines)
 
     /********************************************************************
-     *                                                                  *
-     *   EXE declarations taken from exe.h                              *
-     *                                                                  *
+     *
+     *   EXE declarations taken from exe.h
+     *
      ********************************************************************/
 
     #ifndef WORD
@@ -184,9 +184,9 @@
     #define EXEID 0x5a4d                    // magic ID value
 
     /********************************************************************
-     *                                                                  *
-     *   Object Module Format (OMF) declarations                        *
-     *                                                                  *
+     *
+     *   Object Module Format (OMF) declarations
+     *
      ********************************************************************/
 
     struct exehdr_rec
@@ -630,9 +630,9 @@
     };
 
     /********************************************************************
-     *                                                                  *
-     *   Prototypes                                                     *
-     *                                                                  *
+     *
+     *   Prototypes
+     *
      ********************************************************************/
 
     BOOL dbgPrintStackFrame(FILE *LogFile,
@@ -673,9 +673,9 @@
 
 
     /********************************************************************
-     *                                                                  *
-     *   Executable definitions                                         *
-     *                                                                  *
+     *
+     *   Executable definitions
+     *
      ********************************************************************/
 
     #define EXE386 1

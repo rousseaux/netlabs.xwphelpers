@@ -21,8 +21,8 @@
 
 /*
  *      Copyright (C) 2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -37,7 +37,6 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
-#define INCL_DOS
 #define INCL_DOSERRORS
 #define INCL_WINSHELLDATA
 #include <os2.h>
@@ -60,9 +59,9 @@
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Copy API Functions                                             *
- *                                                                  *
+ *
+ *   Copy API Functions
+ *
  ********************************************************************/
 
 /*

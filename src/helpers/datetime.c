@@ -24,8 +24,8 @@
 
 /*
  *      This file Copyright (C) 1997-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -62,6 +62,8 @@
 
 const char  *pcszFormatTimestamp = "%4u%02u%02u%02u%02u%02u%";
 
+ULONG G_ulDateScalarFirstCalled = 0;
+
 /*
  *@@ dtGetULongTime:
  *      this returns the current time as a ULONG value (in milliseconds).
@@ -70,15 +72,51 @@ const char  *pcszFormatTimestamp = "%4u%02u%02u%02u%02u%02u%";
  *      and subtract the two values, which will give you the execution
  *      time in milliseconds.
  *
- *      Warning: this does not handle day information. When called twice
- *      in between day changes, this returns incorrect information.
+ *      Even though this does handle date information (i.e.
+ *      will still return an increasing number when the
+ *      clock switches from 23:59:59:9999 to 0:00:00:0000),
+ *      this will not work forver after the first call.
+ *      Here's the calculation:
+ *
+ +          1000 ms per second
+ +            * 60 secs per minute
+ +                * 60 minutes per hour
+ +                    * 24 hours per day
+ +                      = 86'400'000       after 23:59:59:9999
+ *
+ *      A ULONG can hold a max value of 4'294'967'295.
+ *      So this overflows after 49.71... days.
+ *
+ *@@changed V0.9.7 (2000-12-05) [umoeller]: now handling date also
  */
 
 ULONG dtGetULongTime(VOID)
 {
     DATETIME    dt;
+    ULONG       ulTime,
+                ulDateScalarPassed = 1;
     DosGetDateTime(&dt);
-    return (10*(dt.hundredths + 100*(dt.seconds + 60*(dt.minutes + 60*(dt.hours)))));
+    ulTime = (10*(dt.hundredths + 100*(dt.seconds + 60*(dt.minutes + 60*(dt.hours)))));
+
+    if (G_ulDateScalarFirstCalled == 0)
+    {
+        // first call:
+        G_ulDateScalarFirstCalled = dtDate2Scalar(dt.year,
+                                                  dt.month,
+                                                  dt.day);
+    }
+    else
+    {
+        // not first call:
+        ULONG ulDateScalarNow = dtDate2Scalar(dt.year,
+                                              dt.month,
+                                              dt.day);
+        // calculate days passed since first call;
+        // this should be 1 if the date hasn't changed
+        ulDateScalarPassed = (G_ulDateScalarFirstCalled - ulDateScalarNow) + 1;
+    }
+
+    return (ulTime * ulDateScalarPassed);
 }
 
 /*
@@ -146,6 +184,49 @@ int dtCreateDosTimeStamp(PSZ pszTimeStamp,
 }
 
 /*
+**
+**
+**   day:    day of month
+**   mon:    month (1-12)
+**   yr:     year
+**
+**
+*/
+
+/*
+ *@@ dtDayOfWeek:
+ *      returns an integer that represents the day of
+ *      the week for the date passed as parameters.
+ *
+ *      Returns 0-6 where 0 is sunday.
+ *
+ *@@added V0.9.7 (2000-12-05) [umoeller]
+ */
+
+ULONG dtDayOfWeek(ULONG day,
+                  ULONG mon,    // 1-12
+                  ULONG yr)
+{
+    int dow;
+
+    if (mon <= 2)
+    {
+          mon += 12;
+          yr -= 1;
+    }
+    dow = (   day
+            + mon * 2
+            + ((mon + 1) * 6) / 10
+            + yr
+            + yr / 4
+            - yr / 100
+            + yr / 400
+            + 2);
+    dow = dow % 7;
+    return ((dow ? dow : 7) - 1);
+}
+
+/*
  *@@ dtIsLeapYear:
  *      returns TRUE if yr is a leap year.
  *
@@ -163,14 +244,28 @@ int dtIsLeapYear(unsigned yr)
 
 /*
  *@@ dtMonths2Days:
- *      returns the no. of days for month.
+ *      returns the no. of days for the beginning
+ *      of "month" (starting from 1).
+ *
+ *      For example, if you pass 1 (for january),
+ *      you get 0 because there's no days at jan 1st
+ *      yet.
+ *
+ *      If you pass 2 (for february), you get 31.
+ *
+ *      If you pass 3 (for march), you get 61.
+ *
+ *      This is useful for computing a day index
+ *      for a given month/day pair. Pass the month
+ *      in here and add (day-1); for march 3rd,
+ *      you then get 63.
  *
  *      (c) Ray Gardner.
  */
 
 unsigned dtMonths2Days(unsigned month)
 {
-   return (month * 3057 - 3007) / 100;
+    return (month * 3057 - 3007) / 100;
 }
 
 /*
@@ -227,7 +322,8 @@ void dtScalar2Date(long scalar,     // in: date scalar
       n++;                          /* 146097 == dtYears2Days(400) */
    *pyr = n;
    n = (unsigned)(scalar - dtYears2Days(n-1));
-   if ( n > 59 ) {                       /* adjust if past February */
+   if ( n > 59 )    /* adjust if past February */
+   {
       n += 2;
       if ( dtIsLeapYear(*pyr) )
          n -= n > 62 ? 1 : 2;
@@ -236,4 +332,50 @@ void dtScalar2Date(long scalar,     // in: date scalar
    *pday = n - dtMonths2Days(*pmo);
 }
 
+/*
+ *@@ dtIsValidDate:
+ *      returns TRUE if the given date is valid.
+ *
+ *@@added V0.9.7 (2000-12-05) [umoeller]
+ */
+
+BOOL dtIsValidDate(LONG day,      // in: day (1-31)
+                   LONG month,    // in: month (1-12)
+                   ULONG year)    // in: year (e.g. 1999)
+{
+    BOOL brc = FALSE;
+    if (day > 0)
+    {
+        switch( month )
+        {
+            case 1  :
+            case 3  :
+            case 5  :
+            case 7  :
+            case 8  :
+            case 10 :
+            case 12 :
+                if (day <= 31)
+                    brc = TRUE;
+            break;
+
+            case 4  :
+            case 6  :
+            case 9  :
+            case 11 :
+                if (day <= 30)
+                    brc = TRUE;
+            break;
+
+            case 2 :
+                if (day < 29)
+                    brc = TRUE;
+                else
+                    if (day == 29)
+                        if (dtIsLeapYear(year))
+                            return 1 ;
+        }
+    }
+    return (brc);
+}
 

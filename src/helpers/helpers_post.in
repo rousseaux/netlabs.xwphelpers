@@ -152,6 +152,10 @@ $(OUTPUTDIR)\textview.obj:   $(@B).c $(HLPINC)\$(@B).h \
 $(OUTPUTDIR)\threads.obj:   $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h
 
+$(OUTPUTDIR)\timer.obj:   $(@B).c $(HLPINC)\$(@B).h \
+               $(HLPINC)\datetime.h $(HLPINC)\except.h $(HLPINC)\linklist.h $(HLPINC)\threads.h \
+               $(PROJECTINC)\setup.h
+
 $(OUTPUTDIR)\tmsgfile.obj:  $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h \
                $(HLPINC)\eah.h

@@ -33,8 +33,8 @@
 /*
  *      Copyright (C) 1992-1994 Kai Uwe Rommel.
  *      Copyright (C) 1998-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -49,9 +49,8 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
-#define INCL_DOS
-#define INCL_DOSERRORS
 #define INCL_DOSMODULEMGR
+#define INCL_DOSERRORS
 #include <os2.h>
 
 #include <stdlib.h>      // already #include'd
@@ -69,9 +68,9 @@
  */
 
 /********************************************************************
- *                                                                  *
- *   DosQProcStat (16-bit) interface                                *
- *                                                                  *
+ *
+ *   DosQProcStat (16-bit) interface
+ *
  ********************************************************************/
 
 /*
@@ -195,9 +194,9 @@ PQPROCESS16 prc16FindProcessFromPID(PQPROCSTAT16 pInfo, // in: from prc16GetInfo
 }
 
 /********************************************************************
- *                                                                  *
- *   DosQProcStat (16-bit) helpers                                  *
- *                                                                  *
+ *
+ *   DosQProcStat (16-bit) helpers
+ *
  ********************************************************************/
 
 /*
@@ -438,9 +437,9 @@ ULONG prc16QueryThreadPriority(USHORT usPID,
  */
 
 /********************************************************************
- *                                                                  *
- *   DosQuerySysState (32-bit) interface                            *
- *                                                                  *
+ *
+ *   DosQuerySysState (32-bit) interface
+ *
  ********************************************************************/
 
 /*

@@ -1,19 +1,17 @@
-/* $Id$ */
-
-
 /*
- *@@sourcefile animate.h:
- *      header file for animate.c.
+ *@@sourcefile threads.h:
+ *      header file for treads.c. See remarks there.
  *
  *      Note: Version numbering in this file relates to XWorkplace version
  *            numbering.
  *
- *@@include #define INCL_WINWINDOWMGR
+ *@@include #define INCL_DOSPROCESS
  *@@include #include <os2.h>
- *@@include #include "animate.h"
+ *@@include #include "threads.h"
  */
 
-/*      Copyright (C) 1997-2000 Ulrich M”ller.
+/*
+ *      Copyright (C) 1997-2000 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -29,14 +27,20 @@
 extern "C" {
 #endif
 
-#ifndef ANIMATE_HEADER_INCLUDED
-    #define ANIMATE_HEADER_INCLUDED
+#ifndef TIMER_HEADER_INCLUDED
+    #define TIMER_HEADER_INCLUDED
 
-    BOOL anmBlowUpBitmap(HPS hps,
-                         HBITMAP hbm,
-                         ULONG ulAnimationTime);
+    USHORT APIENTRY tmrStartTimer(HWND hwnd, USHORT usTimerID, ULONG ulTimeout);
+    typedef USHORT APIENTRY TMRSTARTTIMER(HWND hwnd, USHORT usTimerID, ULONG ulTimeout);
+    typedef TMRSTARTTIMER *PTMRSTARTTIMER;
 
-    VOID anmPowerOff(HPS hps, ULONG ulSteps);
+    BOOL APIENTRY tmrStopTimer(HWND hwnd, USHORT usTimerID);
+    typedef BOOL APIENTRY TMRSTOPTIMER(HWND hwnd, USHORT usTimerID);
+    typedef TMRSTOPTIMER *PTMRSTOPTIMER;
+
+    VOID tmrStopAllTimers(HWND hwnd);
+    typedef VOID TMRSTOPALLTIMERS(HWND hwnd);
+    typedef TMRSTOPALLTIMERS *PTMRSTOPALLTIMERS;
 
 #endif
 

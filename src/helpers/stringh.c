@@ -24,8 +24,8 @@
 /*
  *      Copyright (C) 1997-2000 Ulrich M”ller.
  *      Parts Copyright (C) 1991-1999 iMatix Corporation.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -1708,9 +1708,9 @@ ULONG strhGetBlock(const char *pszSearchIn, // in: buffer to search
 }
 
 /* ******************************************************************
- *                                                                  *
- *   Miscellaneous                                                  *
- *                                                                  *
+ *
+ *   Miscellaneous
+ *
  ********************************************************************/
 
 /*
@@ -1741,10 +1741,10 @@ ULONG strhGetBlock(const char *pszSearchIn, // in: buffer to search
  */
 
 VOID strhArrayAppend(PSZ *ppszRoot,         // in: root of array
-                     PSZ pszNew,            // in: string to append
+                     const char *pcszNew,   // in: string to append
                      PULONG pcbRoot)        // in/out: size of array
 {
-    ULONG cbNew = strlen(pszNew);
+    ULONG cbNew = strlen(pcszNew);
     PSZ pszTemp = (PSZ)malloc(*pcbRoot
                               + cbNew
                               + 1);    // two null bytes
@@ -1758,7 +1758,7 @@ VOID strhArrayAppend(PSZ *ppszRoot,         // in: root of array
     }
     // append new string
     strcpy(pszTemp + *pcbRoot,
-           pszNew);
+           pcszNew);
     // update root
     *ppszRoot = pszTemp;
     // update length
@@ -1858,9 +1858,9 @@ PSZ strhCreateDump(PBYTE pb,            // in: start address of buffer
 }
 
 /* ******************************************************************
- *                                                                  *
- *   Wildcard matching                                              *
- *                                                                  *
+ *
+ *   Wildcard matching
+ *
  ********************************************************************/
 
 /*
@@ -2456,9 +2456,9 @@ BOOL strhMatchOS2(const unsigned char* pcszMask,     // in: mask (e.g. "*.txt")
 }
 
 /* ******************************************************************
- *                                                                  *
- *   Fast string searches                                           *
- *                                                                  *
+ *
+ *   Fast string searches
+ *
  ********************************************************************/
 
 #define ASSERT(a)

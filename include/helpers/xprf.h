@@ -14,8 +14,8 @@
  */
 
 /*      Copyright (C) 2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -33,9 +33,9 @@ extern "C" {
     #define XPRF_HEADER_INCLUDED
 
     /* ******************************************************************
-     *                                                                  *
-     *   OS/2 INI file layout                                           *
-     *                                                                  *
+     *
+     *   OS/2 INI file layout
+     *
      ********************************************************************/
 
     #pragma pack(1)
@@ -129,9 +129,9 @@ extern "C" {
     #pragma pack()
 
     /* ******************************************************************
-     *                                                                  *
-     *   API Functions                                                  *
-     *                                                                  *
+     *
+     *   API Functions
+     *
      ********************************************************************/
 
     #define XINI_MAGIC_BYTES    "hjba78j,"
@@ -182,9 +182,9 @@ extern "C" {
                        ULONG ulDataLen);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Copy API Functions                                             *
-     *                                                                  *
+     *
+     *   Copy API Functions
+     *
      ********************************************************************/
 
     /*

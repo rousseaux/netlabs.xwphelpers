@@ -52,15 +52,19 @@ extern "C" {
     #endif
 
     /********************************************************************
-     *                                                                  *
-     *   Declarations                                                   *
-     *                                                                  *
+     *
+     *   Declarations
+     *
      ********************************************************************/
+
+    // forward declaration
+    typedef struct _EXCEPTIONREGISTRATIONRECORD2 *PEXCEPTIONREGISTRATIONRECORD2;
 
     // "OnKill" function prototype for EXCEPTIONREGISTRATIONRECORD2
     // added V0.9.0 (99-10-22) [umoeller]
-    typedef VOID APIENTRY FNEXCONKILL(VOID);
-    typedef FNEXCONKILL *PFNEXCONKILL;
+    // removed V0.9.7 (2000-12-08) [umoeller]
+    // typedef VOID APIENTRY FNEXCONKILL(PEXCEPTIONREGISTRATIONRECORD2);
+    // typedef FNEXCONKILL *PFNEXCONKILL;
 
     /*
      *@@ EXCEPTIONREGISTRATIONRECORD2:
@@ -76,8 +80,9 @@ extern "C" {
         PVOID           pNext;              // as in EXCEPTIONREGISTRATIONRECORD
         PFN             pfnHandler;         // as in EXCEPTIONREGISTRATIONRECORD
         jmp_buf         jmpThread;          // additional buffer for setjmp
-        PFNEXCONKILL    pfnOnKill;          // subroutine to call upon process/thread termination
-    } EXCEPTIONREGISTRATIONRECORD2, *PEXCEPTIONREGISTRATIONRECORD2;
+        // PFNEXCONKILL    pfnOnKill;          // subroutine to call upon process/thread termination
+        PVOID           pvUser;             // user ptr
+    } EXCEPTIONREGISTRATIONRECORD2;
 
     /*
      *@@ EXCEPTSTRUCT:
@@ -109,9 +114,9 @@ extern "C" {
     typedef FNEXCHOOKERROR *PFNEXCHOOKERROR;
 
     /********************************************************************
-     *                                                                  *
-     *   Prototypes                                                     *
-     *                                                                  *
+     *
+     *   Prototypes
+     *
      ********************************************************************/
 
     VOID excRegisterHooks(PFNEXCOPENFILE pfnExcOpenFileNew,
@@ -132,22 +137,21 @@ extern "C" {
     extern PFNEXCHOOKERROR G_pfnExcHookError;
 
     /********************************************************************
-     *                                                                  *
-     *   Macros                                                         *
-     *                                                                  *
+     *
+     *   Macros
+     *
      ********************************************************************/
 
     /* See except.c for explanations how to use these. */
 
     #ifdef __NO_EXCEPTION_HANDLERS__
         // exception handlers can completely be disabled
-        #define TRY_LOUD(excptstruct, _pfnOnKill)
+        #define TRY_LOUD(excptstruct)
     #else
-        #define TRY_LOUD(excptstruct, _pfnOnKill)                               \
+        #define TRY_LOUD(excptstruct)                                           \
                 {                                                               \
                     EXCEPTSTRUCT          excptstruct = {0};                    \
                     excptstruct.RegRec2.pfnHandler = (PFN)excHandlerLoud;       \
-                    excptstruct.RegRec2.pfnOnKill = _pfnOnKill;                 \
                     excptstruct.arc = DosSetExceptionHandler(                   \
                                 (PEXCEPTIONREGISTRATIONRECORD)&(excptstruct.RegRec2)); \
                     if (excptstruct.arc)                                        \
@@ -158,17 +162,17 @@ extern "C" {
                     excptstruct.ulExcpt = setjmp(excptstruct.RegRec2.jmpThread); \
                     if (excptstruct.ulExcpt == 0)                               \
                     {
+
     #endif
 
     #ifdef __NO_EXCEPTION_HANDLERS__
         // exception handlers can completely be disabled
-        #define TRY_QUIET(excptstruct, _pfnOnKill)
+        #define TRY_QUIET(excptstruct)
     #else
-        #define TRY_QUIET(excptstruct, _pfnOnKill)                              \
+        #define TRY_QUIET(excptstruct)                                          \
                 {                                                               \
                     EXCEPTSTRUCT          excptstruct = {0};                    \
                     excptstruct.RegRec2.pfnHandler = (PFN)excHandlerQuiet;      \
-                    excptstruct.RegRec2.pfnOnKill = _pfnOnKill;                 \
                     excptstruct.arc = DosSetExceptionHandler(                   \
                                 (PEXCEPTIONREGISTRATIONRECORD)&(excptstruct.RegRec2)); \
                     if (excptstruct.arc)                                        \
@@ -179,6 +183,7 @@ extern "C" {
                     excptstruct.ulExcpt = setjmp(excptstruct.RegRec2.jmpThread); \
                     if (excptstruct.ulExcpt == 0)                               \
                     {
+
     #endif
 
     #ifdef __NO_EXCEPTION_HANDLERS__
@@ -191,8 +196,7 @@ extern "C" {
                     } /* end of TRY block */                                    \
                     else                                                        \
                     { /* exception occured: */                                  \
-                        DosUnsetExceptionHandler(                               \
-                                (PEXCEPTIONREGISTRATIONRECORD)&(excptstruct.RegRec2));
+                        DosUnsetExceptionHandler((PEXCEPTIONREGISTRATIONRECORD)&(excptstruct.RegRec2));
     #endif
 
     #ifdef __NO_EXCEPTION_HANDLERS__

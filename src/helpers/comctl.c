@@ -52,8 +52,8 @@
 
 /*
  *      Copyright (C) 1997-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -116,9 +116,9 @@
 #pragma hdrstop
 
 /* ******************************************************************
- *                                                                  *
- *   Global variables                                               *
- *                                                                  *
+ *
+ *   Global variables
+ *
  ********************************************************************/
 
 /*
@@ -126,9 +126,9 @@
  */
 
 /* ******************************************************************
- *                                                                  *
- *   "Menu button" control                                          *
- *                                                                  *
+ *
+ *   "Menu button" control
+ *
  ********************************************************************/
 
 /*
@@ -148,6 +148,44 @@ typedef struct _MENUBUTTONDATA
                 fButtonSunk;            // toggle state of the button
     HWND        hwndMenu;
 } MENUBUTTONDATA, *PMENUBUTTONDATA;
+
+/*
+ *@@ ctlDisplayButtonMenu:
+ *      displays the specified menu above the button.
+ *
+ *@@added V0.9.7 (2000-11-29) [umoeller]
+ */
+
+VOID ctlDisplayButtonMenu(HWND hwndButton,
+                          HWND hwndMenu)
+{
+    SWP     swpButton;
+    POINTL  ptlMenu;
+    WinQueryWindowPos(hwndButton, &swpButton);
+    ptlMenu.x = swpButton.x;
+    ptlMenu.y = swpButton.y;
+
+    // ptlMenu now has button coordinates
+    // relative to the button's parent;
+    // convert this to screen coordinates:
+    WinMapWindowPoints(WinQueryWindow(hwndButton, QW_PARENT),
+                       HWND_DESKTOP,
+                       &ptlMenu,
+                       1);
+
+    // now show the menu on top of the button
+    WinPopupMenu(HWND_DESKTOP,               // menu parent
+                 hwndButton,                 // owner
+                 hwndMenu,
+                 (SHORT)(ptlMenu.x),
+                 (SHORT)(ptlMenu.y + swpButton.cy - 1),
+                 0,                          // ID
+                 PU_NONE
+                     | PU_MOUSEBUTTON1
+                     | PU_KEYBOARD
+                     | PU_HCONSTRAIN
+                     | PU_VCONSTRAIN);
+}
 
 /*
  *@@ ctl_fnwpSubclassedMenuButton:
@@ -287,32 +325,8 @@ MRESULT EXPENTRY ctl_fnwpSubclassedMenuButton(HWND hwndButton, ULONG msg, MPARAM
                     {
                         // menu successfully loaded:
                         // find out where to put it
-                        SWP     swpButton;
-                        POINTL  ptlMenu;
-                        WinQueryWindowPos(hwndButton, &swpButton);
-                        ptlMenu.x = swpButton.x;
-                        ptlMenu.y = swpButton.y;
-
-                        // ptlMenu now has button coordinates
-                        // relative to the button's parent;
-                        // convert this to screen coordinates:
-                        WinMapWindowPoints(WinQueryWindow(hwndButton, QW_PARENT),
-                                           HWND_DESKTOP,
-                                           &ptlMenu,
-                                           1);
-
-                        // now show the menu on top of the button
-                        WinPopupMenu(HWND_DESKTOP,               // menu parent
-                                     hwndButton,                 // owner
-                                     pmbd->hwndMenu,
-                                     (SHORT)(ptlMenu.x),
-                                     (SHORT)(ptlMenu.y + swpButton.cy - 1),
-                                     0,                          // ID
-                                      PU_NONE
-                                         | PU_MOUSEBUTTON1
-                                         | PU_KEYBOARD
-                                         | PU_HCONSTRAIN
-                                         | PU_VCONSTRAIN);
+                        ctlDisplayButtonMenu(hwndButton,
+                                             pmbd->hwndMenu);
                     } // end if (pmbd->hwndMenu)
                     else
                     {
@@ -483,9 +497,9 @@ BOOL ctlMakeMenuButton(HWND hwndButton,      // in: button to subclass
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Subclassed Static Bitmap Control                               *
- *                                                                  *
+ *
+ *   Subclassed Static Bitmap Control
+ *
  ********************************************************************/
 
 /*
@@ -787,9 +801,9 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
 }
 
 /* ******************************************************************
- *                                                                  *
- *   Icon animation                                                 *
- *                                                                  *
+ *
+ *   Icon animation
+ *
  ********************************************************************/
 
 /*
@@ -966,9 +980,9 @@ BOOL ctlStopAnimation(HWND hwndStatic)
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Bitmap functions                                               *
- *                                                                  *
+ *
+ *   Bitmap functions
+ *
  ********************************************************************/
 
 /*
@@ -1049,9 +1063,9 @@ PANIMATIONDATA ctlPrepareStretchedBitmap(HWND hwndStatic,
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Hotkey entry field                                             *
- *                                                                  *
+ *
+ *   Hotkey entry field
+ *
  ********************************************************************/
 
 /*

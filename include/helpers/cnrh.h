@@ -16,8 +16,8 @@
  */
 
 /*      Copyright (C) 1997-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -39,9 +39,9 @@ extern "C" {
     #endif
 
     /* ******************************************************************
-     *                                                                  *
-     *   Details view field infos                                       *
-     *                                                                  *
+     *
+     *   Details view field infos
+     *
      ********************************************************************/
 
     // redefine the FIELDOFFSET macro; the one
@@ -107,9 +107,9 @@ extern "C" {
                                  ULONG ulFieldReturn);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Record core management                                         *
-     *                                                                  *
+     *
+     *   Record core management
+     *
      ********************************************************************/
 
     /*
@@ -174,9 +174,9 @@ extern "C" {
         WinSendMsg(hwndCnr, CM_INVALIDATERECORD, NULL, MPFROM2SHORT(0, CMA_ERASE | CMA_REPOSITION | CMA_TEXTCHANGED))
 
     /* ******************************************************************
-     *                                                                  *
-     *   CNRINFO management                                             *
-     *                                                                  *
+     *
+     *   CNRINFO management
+     *
      ********************************************************************/
 
     /*
@@ -402,9 +402,9 @@ extern "C" {
         ulSendFlags_ |= CMA_PSORTRECORD;
 
     /* ******************************************************************
-     *                                                                  *
-     *   View management                                                *
-     *                                                                  *
+     *
+     *   View management
+     *
      ********************************************************************/
 
     /*
@@ -471,15 +471,15 @@ extern "C" {
                                             PRECORDCORE preccCurrent);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Record relations/iteration                                     *
-     *                                                                  *
+     *
+     *   Record relations/iteration
+     *
      ********************************************************************/
 
     LONG cnrhQueryRecordIndex(HWND hwndCnr,
                               PRECORDCORE precc);
 
-    typedef ULONG (EXPENTRY FNCBRECC)(HWND, PRECORDCORE, ULONG, ULONG);
+    typedef ULONG EXPENTRY FNCBRECC(HWND, PRECORDCORE, ULONG, ULONG);
     typedef FNCBRECC *PFNCBRECC;
 
     /*
@@ -538,9 +538,9 @@ extern "C" {
                                  ULONG ulp2); */
 
     /* ******************************************************************
-     *                                                                  *
-     *   Miscellaneous                                                  *
-     *                                                                  *
+     *
+     *   Miscellaneous
+     *
      ********************************************************************/
 
     HWND cnrhQueryCnrFromFrame(HWND hwndFrame);

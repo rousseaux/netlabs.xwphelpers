@@ -2,42 +2,44 @@
 /*
  *@@sourcefile except.c:
  *      this file contains powerful exception handlers.
+ *      except.h also defines easy-to-use macros for them.
  *
  *      Usage: All OS/2 programs, PM or text mode.
  *
- *      <B>except.h macros</B>
+ *      <B>Introduction</B>
  *
- *      except.h declares a few handy macros to easily install
- *      exception handling for a section of code.
+ *      OS/2 exception handlers are a mess to program and,
+ *      if installed wrongly, almost impossible to debug.
+ *      The problem is that for any program that does a bit
+ *      more than showing a message box, using exception
+ *      handlers is a must to avoid system hangs. This
+ *      especially applies to multi-thread programs using
+ *      mutex semaphores (more on that below). The functions
+ *      and macros in here are designed to make that more simple.
  *
- *      These macros automatically insert code for properly
- *      registering and deregistering the handlers. You should
- *      ALWAYS use these macros instead of directly registering
+ *      The macros in except.h automatically insert code for properly
+ *      registering and deregistering the handlers in except.c. You
+ *      should ALWAYS use these macros instead of directly registering
  *      the handlers to avoid accidentally forgetting to deregister
  *      them. If you forget to deregister an exception handler, this
  *      can lead to really strange errors (crashes, hangs) which are
  *      nearly impossible to debug because the thread's stack space
  *      might get completely messed up.
  *
- *      The general idea of these macros is to define
- *      TRY / CATCH blocks similar to C++. If an exception
- *      occurs in the TRY block, execution is transferred
- *      to the CATCH block. (This works in both C and C++,
- *      by the way.)
+ *      The general idea of these macros is to define TRY / CATCH
+ *      blocks similar to C++. If an exception occurs in the TRY block,
+ *      execution is transferred to the CATCH block. (This works in both
+ *      C and C++, by the way.)
  *
- *      In addition, with the TRY statement, you may specify
- *      an optional "OnKill" function which gets called if
- *      the thread gets killed while code in the TRY block is
- *      executed (new with V0.9.0). If you need no such
- *      function, specify NULL. Details follow.
+ *      The "OnKill" function that was added with V0.9.0 has been
+ *      removed again with V0.9.7. Use DosEnterMustComplete instead.
+ *      Details follow.
  *
  *      The general usage is like this:
  *
  +          int your_protected_func(int ...)
  +          {
- +              TRY_LOUD(excptid, OnKillFunc)
- +              // or: TRY_QUIET(excptid, OnKillFunc)
- +              // OnKillFunc can be NULL
+ +              TRY_LOUD(excptid)         // or: TRY_QUIET(excptid)
  +              {
  +                  ....        // the stuff in here is protected by
  +                              // the excHandlerLoud or excHandlerQuiet
@@ -49,68 +51,95 @@
  +              } END_CATCH();  // always needed!
  +          } // end of your_func
  *
- *      TRY_LOUD  is for excHandlerLoud (see below).
- *      TRY_QUIET is for excHandlerQuiet (see below).
+ *      TRY_LOUD  is for installing excHandlerLoud.
+ *      TRY_QUIET is for installing excHandlerQuiet.
  *      CATCH / END_CATCH are the same for the two. This
  *      is where the exception handler jumps to if an
  *      exception occurs.
  *      The CATCH block is _required_ even if you do nothing
  *      in there.
  *
- *      "excptid" can be any identifier which is not used in
+ *      "excptid" can be any C identifier which is not used in
  *      your current variable scope, e.g. "excpt1". This
  *      is used for creating an EXCEPTSTRUCT variable of
  *      that name on the stack. The "excptid"'s in TRY_* and
  *      CATCH must match, since this is where the macros
  *      store the exception handler data.
  *
- *      It is possible to nest these handlers though. You
- *      must use different "excptid"'s only if more than one
- *      TRY_* block exists in the same variable scope. Avoid
- *      using gotos to jump between the different CATCH blocks,
- *      because this might not properly deregister the handlers.
+ *      These macros may be nested if you use different
+ *      "excptid"'s for sub-macros.
+ *
+ *      Inside the TRY and CATCH blocks, you must not use
+ *      "goto" (to a location outside the block) or "return",
+ *      because this will not deregister the handler.
  *
  *      Keep in mind that all the code in the TRY_* block is
  *      protected by the handler, including all functions that
  *      get called. So if you enclose your main() code in a
  *      TRY_* block, your entire application is protected.
  *
- *      Your "OnKillFunc" must be declared as
- +          VOID APIENTRY YourOnKillFunc(VOID) {...}.
- *      This gets called when the thread gets terminated
- *      while being executed in the TRY block (that is,
- *      if either the thread gets killed explicitly or
- *      the entire process ends for some reason). After
- *      that function got executed, the thread will _always_
- *      be terminated; the CATCH block will not be executed
- *      then. You can specify NULL for the "OnKillFunc", if
- *      you don't need one.
+ *      <B>Asynchronous exceptions</B>
  *
- *      To summarize: If an exception occurs in the TRY
- *      block,
+ *      The exception handlers in this file (which are installed
+ *      with the TRY/CATCH mechanism) only intercept synchronous
+ *      exceptions (see excHandlerLoud for a list). They do not
+ *      protect your code against asynchronous exceptions.
  *
- *      a) "OnKillFunc" gets called if the thread got
- *         killed, and the thread then terminates;
+ *      OS/2 defines asynchronous exceptions to be those that
+ *      can be delayed. With OS/2, there are only three of these:
  *
- *      b) the CATCH block is executed for other exceptions
- *         and execution continues.
+ *      -- XCPT_PROCESS_TERMINATE
+ *      -- XCPT_ASYNC_PROCESS_TERMINATE
+ *      -- XCPT_SIGNAL (thread 1 only)
+ *
+ *      To protect yourself against these also, put the section
+ *      in question in a DosEnterMustComplete/DosExitMustComplete
+ *      block as well.
  *
  *      <B>Mutex semaphores</B>
  *
- *      Here's how to deal with mutex semaphores: WHENEVER
- *      you request a mutex semaphore, enclose the block
- *      with TRY/CATCH in case an error occurs, like this:
+ *      The problem with OS/2 mutex semaphores is that they are
+ *      not automatically released when a thread terminates.
+ *      If the thread owning the mutex died without releasing
+ *      the mutex, other threads which are blocked on that mutex
+ *      will wait forever and become zombie threads. Even worse,
+ *      if this happens to a PM thread, this will hang the system.
+ *
+ *      Here's the typical scenario with two threads:
+ *
+ *      1)  Thread 2 requests a mutex and does lots of processing.
+ *
+ *      2)  Thread 1 requests the mutex. Since it's still owned
+ *          by thread 2, thread 1 blocks.
+ *
+ *      3)  Thread 2 crashes in its processing. Without an
+ *          exception handler, OS/2 will terminate the process.
+ *          It will first kill thread 2 and then attempt to
+ *          kill thread 1. This fails because it is still
+ *          blocking on the semaphore that thread 2 never
+ *          released. Boom.
+ *
+ *      The same scenario happens when a process gets killed.
+ *      Since OS/2 will kill secondary threads before thread 1,
+ *      the same situation can arise.
+ *
+ *      As a result, you must protect any section of code which
+ *      requests a semaphore _both_ against crashes _and_
+ *      termination.
+ *
+ *      So _whenever_ you request a mutex semaphore, enclose
+ *      the block with TRY/CATCH in case the code crashes.
+ *      Besides, enclose the TRY/CATCH block in a must-complete
+ *      section, like this:
  *
  +          HMTX hmtx = ...
  +
- +          VOID APIENTRY OnKillYourFunc(VOID)
- +          {
- +              DosReleaseMutexSem(hmtx);
- +          }
- +
  +          int your_func(int)
  +          {
- +              BOOL fSemOwned = FALSE;
+ +              BOOL    fSemOwned = FALSE;
+ +              ULONG   ulNesting = 0;
+ +
+ +              DosEnterMustComplete(&ulNesting);
  +              TRY_QUIET(excpt1, OnKillYourFunc) // or TRY_LOUD
  +              {
  +                  fSemOwned = (WinRequestMutexSem(hmtx, ...) == NO_ERROR);
@@ -125,18 +154,15 @@
  +                  DosReleaseMutexSem(hmtx);
  +                  fSemOwned = FALSE;
  +              }
+ +              DosExitMustComplete(&ulNesting);
  +          } // end of your_func
  *
- *      This way your mutex semaphore gets released even if
- *      exceptions occur in your code. If you don't do this,
- *      threads waiting for that semaphore will be blocked
- *      forever when exceptions occur. As a result, depending
- *      on the thread, PM will hang, or the application will
- *      never terminate.
+ *      This way your mutex semaphore gets released in every
+ *      possible condition.
  *
  *      <B>Customizing</B>
  *
- *      Note: As opposed to versions < 0.9.0, this is now
+ *      As opposed to versions before 0.9.0, this code is now
  *      completely independent of XWorkplace. This file now
  *      contains "pure" exception handlers only.
  *
@@ -145,6 +171,7 @@
  *      This should be done upon initialization of your application.
  *      If excRegisterHooks is not called, the following safe
  *      defaults are used:
+ *
  *          --  the trap log file is TRAP.LOG in the root
  *              directory of your boot drive.
  *
@@ -181,8 +208,8 @@
  *                                      Marc Fiammante,
  *                                      John Currier,
  *                                      Anthony Cruise.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -222,9 +249,9 @@
 #pragma hdrstop
 
 /* ******************************************************************
- *                                                                  *
- *   Global variables                                               *
- *                                                                  *
+ *
+ *   Global variables
+ *
  ********************************************************************/
 
 // hooks to be registered using excRegisterHooks
@@ -239,9 +266,9 @@ BOOL            G_fBeepOnException = TRUE;
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Exception helper routines                                      *
- *                                                                  *
+ *
+ *   Exception helper routines
+ *
  ********************************************************************/
 
 /*
@@ -489,7 +516,7 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
     {
         case XCPT_ACCESS_VIOLATION:
         {
-            fprintf(file, "\nAccess violation: ");
+            fprintf(file, "\nXCPT_ACCESS_VIOLATION: ");
             if (pReportRec->ExceptionInfo[0] & XCPT_READ_ACCESS)
                 fprintf(file, "Invalid read access from 0x%04lX:%08lX.\n",
                         pContextRec->ctx_SegDs, pReportRec->ExceptionInfo[1]);
@@ -515,7 +542,7 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
 
         case XCPT_INTEGER_DIVIDE_BY_ZERO:
         {
-            fprintf(file, "\nInteger division by zero.\n");
+            fprintf(file, "\nXCPT_INTEGER_DIVIDE_BY_ZERO.\n");
             fprintf(file,
                     "Explanation: An attempt was made to divide an integer value by zero,\n"
                     "             which is not defined.\n");
@@ -524,7 +551,7 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
 
         case XCPT_ILLEGAL_INSTRUCTION:
         {
-            fprintf(file, "\nIllegal instruction found.\n");
+            fprintf(file, "\nXCPT_ILLEGAL_INSTRUCTION.\n");
             fprintf(file,
                     "Explanation: An attempt was made to execute an instruction that\n"
                     "             is not defined on this machine's architecture.\n");
@@ -533,7 +560,7 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
 
         case XCPT_PRIVILEGED_INSTRUCTION:
         {
-            fprintf(file, "\nPrivileged instruction found.\n");
+            fprintf(file, "\nXCPT_PRIVILEGED_INSTRUCTION.\n");
             fprintf(file,
                     "Explanation: An attempt was made to execute an instruction that\n"
                     "             is not permitted in the current machine mode or that\n"
@@ -542,11 +569,15 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
         }
 
         case XCPT_INTEGER_OVERFLOW:
-            fprintf(file, "\nInteger overflow.\n");
+            fprintf(file, "\nXCPT_INTEGER_OVERFLOW.\n");
             fprintf(file,
                     "Explanation: An integer operation generated a carry-out of the most\n"
                     "             significant bit. This is a sign of an attempt to store\n"
                     "             a value which does not fit into an integer variable.\n");
+
+        default:
+            fprintf(file, "\nUnknown OS/2 exception number %d.\n", pReportRec->ExceptionNum);
+            fprintf(file, "Look this up in the OS/2 header files.\n");
     }
 
     if (DosGetInfoBlocks(&ptib, &ppib) == NO_ERROR)
@@ -699,9 +730,9 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
 }
 
 /* ******************************************************************
- *                                                                  *
- *   Exported routines                                              *
- *                                                                  *
+ *
+ *   Exported routines
+ *
  ********************************************************************/
 
 /*
@@ -721,14 +752,14 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
  *
  *      The hooks are as follows:
  *
- *      pfnExcOpenFileNew gets called to open
+ *      --  pfnExcOpenFileNew gets called to open
  *          the trap log file. This must return a FILE*
  *          pointer from fopen(). If this is not defined,
  *          ?:\TRAP.LOG is used. Use this to specify a
  *          different file and have some notes written
  *          into it before the actual exception info.
  *
- *      pfnExcHookNew gets called while the trap log
+ *      --  pfnExcHookNew gets called while the trap log
  *          is being written. At this point,
  *          the following info has been written into
  *          the trap log already:
@@ -742,11 +773,12 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
  *
  *          Use this hook to write additional application
  *          info into the trap log, such as the state
- *          of your threads.
+ *          of your own threads and mutexes.
  *
- *      pfnExcHookError gets called when the TRY_* macros
+ *      --  pfnExcHookError gets called when the TRY_* macros
  *          fail to install an exception handler (when
- *          DosSetExceptionHandler fails).
+ *          DosSetExceptionHandler fails). I've never seen
+ *          this happen.
  *
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.2 (2000-03-10) [umoeller]: pfnExcHookError added
@@ -771,18 +803,15 @@ VOID excRegisterHooks(PFNEXCOPENFILE pfnExcOpenFileNew,
  *      speaker, writes a trap log and then returns back
  *      to the thread to continue execution, i.e. the
  *      default OS/2 exception handler will never get
- *      called. This requires a setjmp() call on
+ *      called.
+ *
+ *      This requires a setjmp() call on
  *      EXCEPTIONREGISTRATIONRECORD2.jmpThread before
- *      being installed.
+ *      being installed. The TRY_LOUD macro will take
+ *      care of this for you (see except.c).
  *
- *      This is best registered thru the TRY_LOUD macro
- *      (new with V0.84, described in except.c), which
- *      does the necessary setup.
- *
- *      Depending on the type of exception, the following
- *      happens:
- *
- *      <B>a) "real" exceptions</B>
+ *      This intercepts the following exceptions (see
+ *      the OS/2 Control Program Reference for details):
  *
  *      --  XCPT_ACCESS_VIOLATION         (traps 0x0d, 0x0e)
  *      --  XCPT_INTEGER_DIVIDE_BY_ZERO   (trap 0)
@@ -794,30 +823,23 @@ VOID excRegisterHooks(PFNEXCOPENFILE pfnExcOpenFileNew,
  *      to try to find debug code or SYM file information about
  *      what source code corresponds to the error.
  *
+ *      See excRegisterHooks for the default setup of this.
+ *
  *      Note that to get meaningful debugging information
  *      in this handler's traplog, you need the following:
- *      a)  have a MAP file created at link time (/MAP)
- *      b)  convert the MAP to a SYM file using MAPSYM
- *      c)  put the SYM file in the same directory of
- *          the executable. This must have the same
- *          filestem as the executable.
  *
- *      See the "Control Programming Guide and Reference"
- *      for details.
+ *      a)  have a MAP file created at link time (/MAP)
+ *
+ *      b)  convert the MAP to a SYM file using MAPSYM
+ *
+ *      c)  put the SYM file in the same directory of
+ *          the module (EXE or DLL). This must have the
+ *          same filestem as the module.
+ *
  *      All other exceptions are passed to the next handler
  *      in the exception handler chain. This might be the
  *      C/C++ compiler handler or the default OS/2 handler,
  *      which will probably terminate the process.
- *
- *      <B>b) thread kills</B>
- *
- *      -- XCPT_PROCESS_TERMINATE
- *      -- XCPT_ASYNC_PROCESS_TERMINATE:
- *
- *      If EXCEPTIONREGISTRATIONRECORD2.pfnOnKill is != NULL,
- *      that function gets called to allow for thread cleanup
- *      before the thread really terminates. This should be
- *      used for releasing mutex semaphores.
  *
  *@@changed V0.9.0 [umoeller]: added support for thread termination
  *@@changed V0.9.2 (2000-03-10) [umoeller]: switched date format to ISO
@@ -851,21 +873,22 @@ ULONG _System excHandlerLoud(PEXCEPTIONREPORTRECORD pReportRec,
 
     switch (pReportRec->ExceptionNum)
     {
-        case XCPT_PROCESS_TERMINATE:
+        /* case XCPT_PROCESS_TERMINATE:
         case XCPT_ASYNC_PROCESS_TERMINATE:
             // thread terminated:
             // if the handler has been registered to catch
             // these exceptions, continue;
             if (pRegRec2->pfnOnKill)
                 // call the "OnKill" function
-                pRegRec2->pfnOnKill();
+                pRegRec2->pfnOnKill(pRegRec2);
             // get outta here, which will kill the thread
-        break;
+        break; */
 
         case XCPT_ACCESS_VIOLATION:
         case XCPT_INTEGER_DIVIDE_BY_ZERO:
         case XCPT_ILLEGAL_INSTRUCTION:
         case XCPT_PRIVILEGED_INSTRUCTION:
+        case XCPT_INVALID_LOCK_SEQUENCE:
         case XCPT_INTEGER_OVERFLOW:
         {
             // "real" exceptions:
@@ -923,7 +946,7 @@ ULONG _System excHandlerLoud(PEXCEPTIONREPORTRECORD pReportRec,
  *      "quiet" xcpt handler, which simply suppresses exceptions;
  *      this is useful for certain error-prone functions, where
  *      exceptions are likely to appear, for example used by
- *      cmnCheckObject to implement a fail-safe SOM object check.
+ *      wpshCheckObject to implement a fail-safe SOM object check.
  *
  *      This does _not_ write an error log and makes _no_ sound.
  *      This simply jumps back to the trapping thread or
@@ -952,24 +975,25 @@ ULONG _System excHandlerQuiet(PEXCEPTIONREPORTRECORD pReportRec,
 
     switch (pReportRec->ExceptionNum)
     {
-        case XCPT_PROCESS_TERMINATE:
+        /* case XCPT_PROCESS_TERMINATE:
         case XCPT_ASYNC_PROCESS_TERMINATE:
             // thread terminated:
             // if the handler has been registered to catch
             // these exceptions, continue;
             if (pRegRec2->pfnOnKill)
                 // call the "OnKill" function
-                pRegRec2->pfnOnKill();
+                pRegRec2->pfnOnKill(pRegRec2);
             // get outta here, which will kill the thread
-        break;
+        break; */
 
         case XCPT_ACCESS_VIOLATION:
         case XCPT_INTEGER_DIVIDE_BY_ZERO:
         case XCPT_ILLEGAL_INSTRUCTION:
         case XCPT_PRIVILEGED_INSTRUCTION:
+        case XCPT_INVALID_LOCK_SEQUENCE:
         case XCPT_INTEGER_OVERFLOW:
             // write excpt explanation only if the
-            // resp. debugging #define is set (common.h)
+            // resp. debugging #define is set (setup.h)
             #ifdef DEBUG_WRITEQUIETEXCPT
             {
                 FILE *file = excOpenTraplogFile();

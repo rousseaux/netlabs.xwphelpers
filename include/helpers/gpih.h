@@ -8,15 +8,15 @@
  *      Note: Version numbering in this file relates to XWorkplace version
  *            numbering.
  *
- *@@include #define INCL_GPILOGCOLORTABLE
+ *@@include #define INCL_GPILOGCOLORTABLE       // for some funcs
  *@@include #include <os2.h>
  *@@include #include "gpih.h"
  */
 
 /*
  *      Copyright (C) 1997-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -34,17 +34,17 @@ extern "C" {
     #define GPIH_HEADER_INCLUDED
 
     /* ******************************************************************
-     *                                                                  *
-     *   Device helpers                                                 *
-     *                                                                  *
+     *
+     *   Device helpers
+     *
      ********************************************************************/
 
     ULONG gpihQueryDisplayCaps(ULONG ulIndex);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Color helpers                                                  *
-     *                                                                  *
+     *
+     *   Color helpers
+     *
      ********************************************************************/
 
     // common RGB colors
@@ -71,19 +71,23 @@ extern "C" {
                            BYTE bMultiplier,
                            BYTE bDivisor);
 
-    /*
-     *@@ gpihSwitchToRGB:
-     *      this switches the given HPS into RGB mode.
-     *      Requires INCL_GPILOGCOLORTABLE.
-     */
+    #ifdef INCL_GPILOGCOLORTABLE
 
-    #define gpihSwitchToRGB(hps)                \
-        GpiCreateLogColorTable(hps, 0, LCOLF_RGB, 0, 0, NULL);
+        /*
+         *@@ gpihSwitchToRGB:
+         *      this switches the given HPS into RGB mode.
+         *      Requires INCL_GPILOGCOLORTABLE.
+         */
+
+        #define gpihSwitchToRGB(hps)                \
+            GpiCreateLogColorTable(hps, 0, LCOLF_RGB, 0, 0, NULL);
+
+    #endif
 
     /* ******************************************************************
-     *                                                                  *
-     *   Drawing primitives helpers                                     *
-     *                                                                  *
+     *
+     *   Drawing primitives helpers
+     *
      ********************************************************************/
 
     VOID gpihDrawRect(HPS hps, PRECTL prcl);
@@ -99,11 +103,21 @@ extern "C" {
                     ULONG ulWidth,
                     LONG lColor);
 
-    VOID gpihDraw3DFrame(HPS hps,
-                         PRECTL prcl,
-                         USHORT usWidth,
-                         LONG lColorLeft,
-                         LONG lColorRight);
+    VOID gpihDrawThickFrame(HPS hps,
+                            PRECTL prcl,
+                            ULONG ulWidth);
+
+    VOID APIENTRY gpihDraw3DFrame(HPS hps,
+                                  PRECTL prcl,
+                                  USHORT usWidth,
+                                  LONG lColorLeft,
+                                  LONG lColorRight);
+    typedef VOID APIENTRY GPIHDRAW3DFRAME(HPS hps,
+                                          PRECTL prcl,
+                                          USHORT usWidth,
+                                          LONG lColorLeft,
+                                          LONG lColorRight);
+    typedef GPIHDRAW3DFRAME *PGPIHDRAW3DFRAME;
 
     LONG gpihCharStringPosAt(HPS hps,
                              PPOINTL pptlStart,
@@ -113,9 +127,9 @@ extern "C" {
                              PCH pchString);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Font helpers                                                   *
-     *                                                                  *
+     *
+     *   Font helpers
+     *
      ********************************************************************/
 
     BOOL gpihSplitPresFont(PSZ pszFontNameSize,
@@ -143,9 +157,9 @@ extern "C" {
                               PSZ pszText);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Bitmap helpers                                                 *
-     *                                                                  *
+     *
+     *   Bitmap helpers
+     *
      ********************************************************************/
 
     BOOL gpihCreateMemPS(HAB hab,

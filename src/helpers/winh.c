@@ -19,8 +19,8 @@
 
 /*
  *      Copyright (C) 1997-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -35,18 +35,39 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
+#define INCL_DOSPROCESS
+#define INCL_DOSMODULEMGR
+#define INCL_DOSSEMAPHORES
+#define INCL_DOSDEVICES
 #define INCL_DOSDEVIOCTL
-#define INCL_DOS
 #define INCL_DOSERRORS
-#define INCL_WIN
-#define INCL_GPI
 
-// spooler #include's
-#define INCL_BASE
+#define INCL_WINWINDOWMGR
+#define INCL_WINMESSAGEMGR
+#define INCL_WINFRAMEMGR
+#define INCL_WININPUT
+#define INCL_WINDIALOGS
+#define INCL_WINPOINTERS
+#define INCL_WINRECTANGLES
+#define INCL_WINSHELLDATA
+#define INCL_WINSYS
+#define INCL_WINHELP
+#define INCL_WINPROGRAMLIST
+#define INCL_WINSWITCHLIST
+#define INCL_WINMENUS
+#define INCL_WINSCROLLBARS
+#define INCL_WINLISTBOXES
+#define INCL_WINSTDSPIN
+#define INCL_WINSTDSLIDER
+#define INCL_WINCIRCULARSLIDER
+#define INCL_WINSTDFILE
+
 #define INCL_SPL
 #define INCL_SPLDOSPRINT
 #define INCL_SPLERRORS
 
+#define INCL_GPIBITMAPS
+#define INCL_GPIPRIMITIVES
 #include <os2.h>
 
 #include <stdlib.h>
@@ -68,9 +89,9 @@
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Menu helpers                                                   *
- *                                                                  *
+ *
+ *   Menu helpers
+ *
  ********************************************************************/
 
 /*
@@ -254,8 +275,8 @@ SHORT winhInsertMenuSeparator(HWND hMenu,       // in: menu to add separator to
  *      to a newly allocated buffer or NULL if
  *      not found.
  *
- *      If something != NULL is returned, you
- *      should free() the buffer afterwards.
+ *      Returns NULL on error. Use winhFree()
+ *      to free the return value.
  *
  *      Use the WinSetMenuItemText macro to
  *      set the menu item text.
@@ -386,9 +407,9 @@ SHORT winhQueryItemUnderMouse(HWND hwndMenu,      // in: menu handle
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Slider helpers                                                 *
- *                                                                  *
+ *
+ *   Slider helpers
+ *
  ********************************************************************/
 
 /*
@@ -790,9 +811,9 @@ HWND winhReplaceWithCircularSlider(HWND hwndParent,   // in: parent of old contr
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Spin button helpers                                            *
- *                                                                  *
+ *
+ *   Spin button helpers
+ *
  ********************************************************************/
 
 /*
@@ -895,17 +916,19 @@ LONG winhAdjustDlgItemSpinData(HWND hwndDlg,     // in: dlg window
  */
 
 /* ******************************************************************
- *                                                                  *
- *   List box helpers                                               *
- *                                                                  *
+ *
+ *   List box helpers
+ *
  ********************************************************************/
 
 /*
  *@@ winhQueryLboxItemText:
  *      returns the text of the specified
  *      list box item in a newly allocated
- *      buffer, which you should free() afterwards,
- *      or NULL upon errors.
+ *      buffer.
+ *
+ *      Returns NULL on error. Use winhFree()
+ *      to free the return value.
  *
  *@@added V0.9.1 (99-12-14) [umoeller]
  */
@@ -1024,9 +1047,9 @@ ULONG winhLboxSelectAll(HWND hwndListBox,   // in: list box
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Scroll bar helpers                                             *
- *                                                                  *
+ *
+ *   Scroll bar helpers
+ *
  ********************************************************************/
 
 /*
@@ -1502,9 +1525,9 @@ BOOL winhProcessScrollChars(HWND hwndClient,    // in: client window
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Window positioning helpers                                     *
- *                                                                  *
+ *
+ *   Window positioning helpers
+ *
  ********************************************************************/
 
 /*
@@ -1915,20 +1938,56 @@ ULONG winhCenteredDlgBox(HWND hwndParent,
 }
 
 /*
+ *@@ winhFindWindowBelow:
+ *      finds the window with the same parent
+ *      which sits right below hwndFind in the
+ *      window Z-order.
+ *
+ *@@added V0.9.7 (2000-12-04) [umoeller]
+ */
+
+HWND winhFindWindowBelow(HWND hwndFind)
+{
+    HWND hwnd = NULLHANDLE,
+         hwndParent = WinQueryWindow(hwndFind, QW_PARENT);
+
+    if (hwndParent)
+    {
+        HENUM   henum = WinBeginEnumWindows(hwndParent);
+        HWND    hwndThis;
+        while (hwndThis = WinGetNextWindow(henum))
+        {
+            SWP swp;
+            WinQueryWindowPos(hwndThis, &swp);
+            if (swp.hwndInsertBehind == hwndFind)
+            {
+                hwnd = hwndThis;
+                break;
+            }
+        }
+        WinEndEnumWindows(henum);
+    }
+
+    return (hwnd);
+}
+
+/*
  *@@category: Helpers\PM helpers\Presentation parameters
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Presparams helpers                                             *
- *                                                                  *
+ *
+ *   Presparams helpers
+ *
  ********************************************************************/
 
 /*
  *@@ winhQueryWindowFont:
  *      returns the window font presentation parameter
- *      in a newly allocated buffer, which you must
- *      free() afterwards. Returns NULL if not found.
+ *      in a newly allocated buffer.
+ *
+ *      Returns NULL on error. Use winhFree()
+ *      to free the return value.
  *
  *@@added V0.9.1 (2000-02-14) [umoeller]
  */
@@ -1965,11 +2024,11 @@ PSZ winhQueryWindowFont(HWND hwnd)
  */
 
 BOOL winhSetWindowFont(HWND hwnd,
-                       PSZ pszFont)
+                       const char *pcszFont)
 {
     CHAR    szFont[256];
 
-    if (pszFont == NULL)
+    if (pcszFont == NULL)
     {
         if (doshIsWarp4())
             strhncpy0(szFont, "9.WarpSans", sizeof(szFont));
@@ -1977,7 +2036,7 @@ BOOL winhSetWindowFont(HWND hwnd,
             strhncpy0(szFont, "8.Helv", sizeof(szFont));
     }
     else
-        strhncpy0(szFont, pszFont, sizeof(szFont));
+        strhncpy0(szFont, pcszFont, sizeof(szFont));
 
     return (WinSetPresParam(hwnd,
                             PP_FONTNAMESIZE,
@@ -2060,6 +2119,9 @@ ULONG winhSetControlsFont(HWND hwndDlg,      // in: dlg to set
  *      Use free() on your PPRESPARAMS pointer (whose
  *      address was passed) after WinCreateWindow.
  *
+ *      See winhQueryPresColor for typical presparams
+ *      used in OS/2.
+ *
  *      Example:
  +      PPRESPARAMS ppp = NULL;
  +      CHAR szFont[] = "9.WarpSans";
@@ -2138,7 +2200,8 @@ BOOL winhStorePresParam(PPRESPARAMS *pppp,      // in: data pointer (modified)
  *          are searched also;
  *      3)  if this fails or (fInherit == FALSE), WinQuerySysColor
  *          is called to get lSysColor (which should be a SYSCLR_*
- *          index).
+ *          index), if lSysColor != -1;
+ *      4)  if (lSysColor == -1), -1 is returned.
  *
  *      The return value is always an RGB LONG, _not_ a color index.
  *      This is even true for the returned system colors, which are
@@ -2204,6 +2267,7 @@ BOOL winhStorePresParam(PPRESPARAMS *pppp,      // in: data pointer (modified)
  *
  *@@changed V0.9.0 [umoeller]: removed INI key query, using SYSCLR_* instead; function prototype changed
  *@@changed V0.9.0 [umoeller]: added fInherit parameter
+ *@@changed V0.9.7 (2000-12-02) [umoeller]: added lSysColor == -1 support
  */
 
 LONG winhQueryPresColor(HWND    hwnd,       // in: window to query
@@ -2228,7 +2292,10 @@ LONG winhQueryPresColor(HWND    hwnd,       // in: window to query
             return (abValue[0]);
 
     // not found: get system color
-    return (WinQuerySysColor(HWND_DESKTOP, lSysColor, 0));
+    if (lSysColor != -1)
+        return (WinQuerySysColor(HWND_DESKTOP, lSysColor, 0));
+
+    return -1;
 }
 
 /*
@@ -2236,9 +2303,9 @@ LONG winhQueryPresColor(HWND    hwnd,       // in: window to query
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Help instance helpers                                          *
- *                                                                  *
+ *
+ *   Help instance helpers
+ *
  ********************************************************************/
 
 /*
@@ -2759,10 +2826,30 @@ HSWITCH winhAddToTasklist(HWND hwnd,       // in: window to add
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Miscellaneous                                                  *
- *                                                                  *
+ *
+ *   Miscellaneous
+ *
  ********************************************************************/
+
+/*
+ *@@ winhFree:
+ *      frees a block of memory allocated by the
+ *      winh* functions.
+ *
+ *      Since the winh* functions use malloc(),
+ *      you can also use free() directly on such
+ *      blocks. However, you must use winhFree
+ *      if the winh* functions are in a module
+ *      with a different C runtime.
+ *
+ *@@added V0.9.7 (2000-12-06) [umoeller]
+ */
+
+VOID winhFree(PVOID p)
+{
+    if (p)
+        free(p);
+}
 
 /*
  *@@ winhSleep:
@@ -2929,10 +3016,10 @@ HPOINTER winhSetWaitPointer(VOID)
 /*
  *@@ winhQueryWindowText:
  *      this returns the window text of the specified
- *      HWND in a newly allocated buffer, which has
- *      the exact size of the window text.
+ *      HWND in a newly allocated buffer.
  *
- *      This buffer must be free()'d later.
+ *      Returns NULL on error. Use winhFree()
+ *      to free the return value.
  */
 
 PSZ winhQueryWindowText(HWND hwnd)
@@ -3057,6 +3144,7 @@ ULONG winhEnableControls(HWND hwndDlg,                  // in: dialog window
  *
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.5 (2000-08-13) [umoeller]: flStyleClient never worked, fixed
+ *@@changed V0.9.7 (2000-12-08) [umoeller]: fixed client calc for invisible window
  */
 
 HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
@@ -3118,8 +3206,14 @@ HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
                                 pswpFrame->fl);
 
             // position client
-            WinQueryWindowRect(hwndFrame, &rclClient);
-            WinCalcFrameRect(hwndFrame, &rclClient,
+            // WinQueryWindowRect(hwndFrame, &rclClient);
+            // doesn't work because it might be invisible V0.9.7 (2000-12-08) [umoeller]
+            rclClient.xLeft = 0;
+            rclClient.yBottom = 0;
+            rclClient.xRight = pswpFrame->cx;
+            rclClient.yTop = pswpFrame->cy;
+            WinCalcFrameRect(hwndFrame,
+                             &rclClient,
                              TRUE);     // calc client from frame
             WinSetWindowPos(*phwndClient,
                             HWND_TOP,
@@ -3514,6 +3608,57 @@ ULONG winhDrawFormattedText(HPS hps,     // in: presentation space; its settings
 }
 
 /*
+ *@@ winhQuerySwitchList:
+ *      returns the switch list in a newly
+ *      allocated buffer. This does the
+ *      regular double WinQuerySwitchList
+ *      call to first get the no. of items
+ *      and then get the items.
+ *
+ *      The no. of items can be found in
+ *      the returned SWBLOCK.cwsentry.
+ *
+ *      Returns NULL on errors. Use
+ *      winhFree to free the return value.
+ *
+ *@@added V0.9.7 (2000-12-06) [umoeller]
+ */
+
+PSWBLOCK winhQuerySwitchList(HAB hab)
+{
+    ULONG   cItems = WinQuerySwitchList(hab, NULL, 0);
+    ULONG   ulBufSize = (cItems * sizeof(SWENTRY)) + sizeof(HSWITCH);
+    PSWBLOCK pSwBlock = (PSWBLOCK)malloc(ulBufSize);
+    if (pSwBlock)
+    {
+        cItems = WinQuerySwitchList(hab, pSwBlock, ulBufSize);
+        if (!cItems)
+        {
+            free(pSwBlock);
+            pSwBlock = NULL;
+        }
+    }
+
+    return (pSwBlock);
+}
+
+/*
+ *@@ winhQueryTasklistWindow:
+ *      returns the window handle of the PM task list.
+ *
+ *@@added V0.9.7 (2000-12-07) [umoeller]
+ */
+
+HWND winhQueryTasklistWindow(VOID)
+{
+    SWBLOCK  swblock;
+    HWND     hwndTasklist = winhQueryTasklistWindow();
+    // the tasklist has entry #0 in the SWBLOCK
+    WinQuerySwitchList(NULLHANDLE, &swblock, sizeof(SWBLOCK));
+    return (swblock.aswentry[0].swctl.hwnd);
+}
+
+/*
  *@@ winhKillTasklist:
  *      this will destroy the Tasklist (window list) window.
  *      Note: you will only be able to get it back after a
@@ -3524,11 +3669,7 @@ ULONG winhDrawFormattedText(HPS hps,     // in: presentation space; its settings
 
 VOID winhKillTasklist(VOID)
 {
-    SWBLOCK  swblock;
-    HWND     hwndTasklist;
-    // the tasklist has entry #0 in the SWBLOCK
-    WinQuerySwitchList(NULLHANDLE, &swblock, sizeof(SWBLOCK));
-    hwndTasklist = swblock.aswentry[0].swctl.hwnd;
+    HWND     hwndTasklist = winhQueryTasklistWindow();
     WinPostMsg(hwndTasklist,
                0x0454,     // undocumented msg for killing tasklist
                NULL, NULL);
@@ -3694,9 +3835,9 @@ VOID winhSetNumLock(BOOL fState)
  */
 
 /* ******************************************************************
- *                                                                  *
- *   WPS Class List helpers                                         *
- *                                                                  *
+ *
+ *   WPS Class List helpers
+ *
  ********************************************************************/
 
 /*
@@ -3711,11 +3852,8 @@ VOID winhSetNumLock(BOOL fState)
  *      INCL_WINWORKPLACE.
  *      See WinEnumObjectClasses() for details.
  *
- *      The buffer is allocated using malloc(), so
- *      you should free() it when it is no longer
- *      needed.
- *
- *      This returns NULL if an error occured.
+ *      Returns NULL on error. Use winhFree()
+ *      to free the return value.
  *
  *@@added V0.9.0 [umoeller]
  */

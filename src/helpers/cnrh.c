@@ -21,8 +21,8 @@
 
 /*
  *      Copyright (C) 1997-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -37,7 +37,15 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
-#define INCL_WIN
+#define INCL_WINWINDOWMGR
+#define INCL_WINRECTANGLES
+#define INCL_WININPUT
+#define INCL_WINPOINTERS
+#define INCL_WINMENUS
+#define INCL_WINSYS
+#define INCL_WINSTDDRAG
+#define INCL_WINSTDCNR
+
 #define INCL_GPILOGCOLORTABLE
 #define INCL_GPIPRIMITIVES
 #include <os2.h>
@@ -58,9 +66,9 @@
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Details view field infos                                       *
- *                                                                  *
+ *
+ *   Details view field infos
+ *
  ********************************************************************/
 
 /*
@@ -337,9 +345,9 @@ PFIELDINFO cnrhSetFieldInfos(HWND hwndCnr,            // in: container hwnd
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Record core management                                         *
- *                                                                  *
+ *
+ *   Record core management
+ *
  ********************************************************************/
 
 /*
@@ -352,6 +360,8 @@ PFIELDINFO cnrhSetFieldInfos(HWND hwndCnr,            // in: container hwnd
  *      core; the following record cores may be reached
  *      by following the RECORDCORE.preccNextRecord pointers
  *      (i.e. we have a linked list here).
+ *
+ *      Returns NULL on errors (what CM_ALLOCRECORD returns).
  *
  *      The record cores returned by the container are
  *      automatically zeroed out, and their "cb" field
@@ -734,9 +744,9 @@ BOOL cnrhMoveTree(HWND hwndCnr,          // in: container control
  */
 
 /* ******************************************************************
- *                                                                  *
- *   View management                                                *
- *                                                                  *
+ *
+ *   View management
+ *
  ********************************************************************/
 
 /*
@@ -1118,9 +1128,9 @@ BOOL cnrhShowContextMenu(HWND hwndCnr,
 
                 // convert this to screen coordinates
                 WinMapWindowPoints(hwndCnr,
-                           HWND_DESKTOP,
-                           &ptl,
-                           1);
+                                   HWND_DESKTOP,
+                                   &ptl,
+                                   1);
                 fQueried = TRUE;
             }
         }
@@ -1302,9 +1312,9 @@ PRECORDCORE cnrhQueryNextSelectedRecord(HWND hwndCnr,
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Record relations/iteration                                     *
- *                                                                  *
+ *
+ *   Record relations/iteration
+ *
  ********************************************************************/
 
 /*
@@ -1579,9 +1589,9 @@ ULONG cnrhForAllRecords(HWND hwndCnr,
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Miscellaneous                                                  *
- *                                                                  *
+ *
+ *   Miscellaneous
+ *
  ********************************************************************/
 
 /*

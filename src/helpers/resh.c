@@ -33,9 +33,9 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
+#define INCL_DOSMODULEMGR
+#define INCL_DOSRESOURCES
 #define INCL_DOSERRORS
-#define INCL_DOS
-#define INCL_DOS
 #include <os2.h>
 
 #include "setup.h"                      // code generation and debugging options

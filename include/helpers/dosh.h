@@ -16,8 +16,8 @@
 
 /*      This file Copyright (C) 1997-2000 Ulrich M”ller,
  *                                        Dmitry A. Steklenev.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -35,9 +35,9 @@ extern "C" {
     #define DOSH_HEADER_INCLUDED
 
     /* ******************************************************************
-     *                                                                  *
-     *   Miscellaneous                                                  *
-     *                                                                  *
+     *
+     *   Miscellaneous
+     *
      ********************************************************************/
 
     CHAR doshGetChar(VOID);
@@ -46,12 +46,15 @@ extern "C" {
 
     BOOL doshIsWarp4(VOID);
 
+    APIRET doshQueryAvailPhysMem(PULONG pulMem,
+                                 ULONG ulLogicalSwapDrive);
+
     PSZ doshQuerySysErrorMsg(APIRET arc);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Memory helpers                                                 *
-     *                                                                  *
+     *
+     *   Memory helpers
+     *
      ********************************************************************/
 
     PVOID doshAllocSharedMem(ULONG ulSize,
@@ -60,9 +63,9 @@ extern "C" {
     PVOID doshRequestSharedMem(const char *pcszName);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Drive helpers                                                  *
-     *                                                                  *
+     *
+     *   Drive helpers
+     *
      ********************************************************************/
 
     VOID doshEnumDrives(PSZ pszBuffer,
@@ -73,7 +76,10 @@ extern "C" {
 
     APIRET doshAssertDrive(ULONG ulLogicalDrive);
 
-    double doshQueryDiskFree(ULONG ulLogicalDrive);
+    APIRET doshSetLogicalMap(ULONG ulLogicalDrive);
+
+    APIRET doshQueryDiskFree(ULONG ulLogicalDrive,
+                             double *pdFree);
 
     APIRET doshQueryDiskFSType(ULONG ulLogicalDrive,
                                PSZ pszBuf,
@@ -173,9 +179,9 @@ extern "C" {
                             PSZ pszNewLabel);
 
     /* ******************************************************************
-     *                                                                  *
-     *   File helpers                                                   *
-     *                                                                  *
+     *
+     *   File helpers
+     *
      ********************************************************************/
 
     PSZ doshGetExtension(const char *pcszFilename);
@@ -212,9 +218,9 @@ extern "C" {
     APIRET doshWriteToLogFile(HFILE hfLog, const char* pcsz);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Directory helpers                                              *
-     *                                                                  *
+     *
+     *   Directory helpers
+     *
      ********************************************************************/
 
     BOOL doshQueryDirExist(PSZ pszDir);
@@ -235,9 +241,73 @@ extern "C" {
                          PULONG pulFiles);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Process helpers                                                *
-     *                                                                  *
+     *
+     *   Performance Counters (CPU Load)
+     *
+     ********************************************************************/
+
+    #define CMD_PERF_INFO           0x41
+    #define CMD_KI_ENABLE           0x60
+    #define CMD_KI_DISABLE          0x61
+    #ifndef CMD_KI_RDCNT
+        #define CMD_KI_RDCNT            0x63
+        typedef APIRET APIENTRY FNDOSPERFSYSCALL(ULONG ulCommand,
+                                                 ULONG ulParm1,
+                                                 ULONG ulParm2,
+                                                 ULONG ulParm3);
+        typedef FNDOSPERFSYSCALL *PFNDOSPERFSYSCALL;
+    #endif
+
+    typedef struct _CPUUTIL
+    {
+        ULONG ulTimeLow;     // low 32 bits of time stamp
+        ULONG ulTimeHigh;    // high 32 bits of time stamp
+        ULONG ulIdleLow;     // low 32 bits of idle time
+        ULONG ulIdleHigh;    // high 32 bits of idle time
+        ULONG ulBusyLow;     // low 32 bits of busy time
+        ULONG ulBusyHigh;    // high 32 bits of busy time
+        ULONG ulIntrLow;     // low 32 bits of interrupt time
+        ULONG ulIntrHigh;    // high 32 bits of interrupt time
+    } CPUUTIL, *PCPUUTIL;
+
+    // macro to convert 8-byte (low, high) time value to double
+    #define LL2F(high, low) (4294967296.0*(high)+(low))
+
+    /*
+     *@@ DOSHPERFSYS:
+     *      structure used with doshPerfOpen.
+     *
+     *@@added V0.9.7 (2000-12-02) [umoeller]
+     */
+
+    typedef struct _DOSHPERFSYS
+    {
+        // output: no. of processors on the system
+        ULONG       cProcessors;
+        // output: one CPU load for each CPU
+        PLONG       palLoads;
+
+        // each of the following ptrs points to an array of cProcessors items
+        PCPUUTIL    paCPUUtils;     // CPUUTIL structures
+        double      *padBusyPrev;   // previous "busy" calculations
+        double      *padTimePrev;   // previous "time" calculations
+
+        // private stuff
+        HMODULE     hmod;
+        BOOL        fInitialized;
+        PFNDOSPERFSYSCALL pDosPerfSysCall;
+    } DOSHPERFSYS, *PDOSHPERFSYS;
+
+    APIRET doshPerfOpen(PDOSHPERFSYS *ppPerfSys);
+
+    APIRET doshPerfGet(PDOSHPERFSYS pPerfSys);
+
+    APIRET doshPerfClose(PDOSHPERFSYS *ppPerfSys);
+
+    /* ******************************************************************
+     *
+     *   Process helpers
+     *
      ********************************************************************/
 
     APIRET doshExecVIO(const char *pcszExecWithArgs,
@@ -252,9 +322,9 @@ extern "C" {
                                  PPID ppid);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Environment helpers                                            *
-     *                                                                  *
+     *
+     *   Environment helpers
+     *
      ********************************************************************/
 
     /*
@@ -290,9 +360,9 @@ extern "C" {
     APIRET doshFreeEnvironment(PDOSENVIRONMENT pEnv);
 
     /* ******************************************************************
-     *                                                                  *
-     *   Module handling helpers                                        *
-     *                                                                  *
+     *
+     *   Module handling helpers
+     *
      ********************************************************************/
 
     /*
@@ -315,9 +385,9 @@ extern "C" {
                               ULONG cResolves);
 
     /********************************************************************
-     *                                                                  *
-     *   Executable helpers                                             *
-     *                                                                  *
+     *
+     *   Executable helpers
+     *
      ********************************************************************/
 
     /*
@@ -547,9 +617,9 @@ extern "C" {
     APIRET doshExecQueryBldLevel(PEXECUTABLE pExec);
 
     /********************************************************************
-     *                                                                  *
-     *   Partition functions                                            *
-     *                                                                  *
+     *
+     *   Partition functions
+     *
      ********************************************************************/
 
     #define DOSH_PARTITIONS_LIMIT   10

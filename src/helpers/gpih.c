@@ -5,11 +5,16 @@
  *
  *      Usage: All PM programs.
  *
- *      A word about GPI rectangles: In general, graphics operations involving
- *      device coordinates (such as regions, bit maps and bit blts, and window
- *      management) use inclusive-exclusive rectangles.  All other graphics
- *      operations, such as GPI functions that define paths, use inclusive-inclusive
- *      rectangles.
+ *      A word about GPI rectangles: In general, graphics operations
+ *      involving device coordinates (such as regions, bit maps and
+ *      bit blts, and window management) use inclusive-exclusive
+ *      rectangles.  All other graphics operations, such as GPI
+ *      functions that define paths, use inclusive-inclusive rectangles.
+ *
+ *      This can be a problem with mixing Win and Gpi functions. For
+ *      example, WinQueryWindowRect returns an inclusive-exclusive
+ *      rectangle (so that the xRight value is the same as the window
+ *      width). However, GpiBox expects an inclusive-inclusive rectangle.
  *
  *      Function prefixes (new with V0.81):
  *      --  gpih*   GPI helper functions
@@ -22,8 +27,8 @@
 
 /*
  *      Copyright (C) 1997-2000 Ulrich M”ller.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -38,11 +43,16 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
-#define INCL_DOSDEVIOCTL
-#define INCL_DOS
 #define INCL_DOSERRORS
-#define INCL_WIN
-#define INCL_GPI
+
+#define INCL_WINWINDOWMGR
+#define INCL_WINPOINTERS
+#define INCL_WINSYS
+
+#define INCL_GPIPRIMITIVES
+#define INCL_GPIBITMAPS
+#define INCL_GPILOGCOLORTABLE
+#define INCL_GPILCIDS
 #include <os2.h>
 
 #include <stdlib.h>
@@ -67,9 +77,9 @@ BOOL            fCapsQueried = FALSE;
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Device helpers                                                 *
- *                                                                  *
+ *
+ *   Device helpers
+ *
  ********************************************************************/
 
 /*
@@ -99,9 +109,9 @@ ULONG gpihQueryDisplayCaps(ULONG ulIndex)
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Color helpers                                                  *
- *                                                                  *
+ *
+ *   Color helpers
+ *
  ********************************************************************/
 
 /*
@@ -138,9 +148,9 @@ VOID gpihManipulateRGB(PLONG plColor,       // in/out: RGB color
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Drawing primitives helpers                                     *
- *                                                                  *
+ *
+ *   Drawing primitives helpers
+ *
  ********************************************************************/
 
 /*
@@ -186,7 +196,8 @@ VOID gpihDrawRect(HPS hps,      // in: presentation space for output
  *      The specified rectangle is exclusive, meaning that
  *      the top right point lies _outside_ the rectangle
  *      which is actually drawn. This is the same as with
- *      WinFillRect.
+ *      WinFillRect. ### I don't think so any more... GpiBox
+ *      uses inclusive-inclusive rectangles...
  *
  *      Changes to the HPS:
  *      --  the current (foreground) color is changed to
@@ -251,6 +262,52 @@ VOID gpihMarker(HPS hps,
             lColor);
     GpiMove(hps, &ptlSave);
     GpiSetColor(hps, lColorSave);
+}
+
+/*
+ *@@ gpihThickBox:
+ *      draws a box from the specified rectangle with the
+ *      specified width.
+ *
+ *      The specified rectangle is inclusive, that is, the top
+ *      right corner specifies the top right pixel to be drawn.
+ *
+ *      If usWidth > 1, the additional pixels will be drawn towards
+ *      the _center_ of the rectangle. prcl thus always specifies
+ *      the bottom left and top right pixels to be drawn.
+ *
+ *      This is different from using GpiSetLineWidth, with which
+ *      I was unable to find out in which direction lines are
+ *      extended.
+ *
+ *      This is similar to gpihDraw3DFrame, except that everything
+ *      is painted in the current color.
+ *
+ *@@added V0.9.7 (2000-12-06) [umoeller]
+ */
+
+VOID gpihDrawThickFrame(HPS hps,              // in: presentation space for output
+                        PRECTL prcl,          // in: rectangle to draw (exclusive)
+                        ULONG ulWidth)       // in: line width (>= 1)
+{
+    ULONG ul = 0;
+    for (;
+         ul < ulWidth;
+         ul++)
+    {
+        GpiMove(hps, (PPOINTL)prcl);
+        GpiBox(hps,
+               DRO_OUTLINE,
+               (PPOINTL)&(prcl->xRight),
+               0,
+               0);
+
+        // and one more to the outside
+        prcl->xLeft++;
+        prcl->yBottom++;
+        prcl->xRight--;
+        prcl->yTop--;
+    }
 }
 
 /*
@@ -354,9 +411,9 @@ LONG gpihCharStringPosAt(HPS hps,
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Font helpers                                                   *
- *                                                                  *
+ *
+ *   Font helpers
+ *
  ********************************************************************/
 
 /*
@@ -1029,9 +1086,9 @@ LONG gpihQueryLineSpacing(HPS hps,
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Bitmap helpers                                                 *
- *                                                                  *
+ *
+ *   Bitmap helpers
+ *
  ********************************************************************/
 
 /*

@@ -133,9 +133,9 @@
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Global variables                                               *
- *                                                                  *
+ *
+ *   Global variables
+ *
  ********************************************************************/
 
 #define MEMBLOCKMAGIC_HEAD     "\210\203`H&cx$&%\254"
@@ -155,9 +155,9 @@ extern ULONG    G_ulItemsReleased = 0;
 extern ULONG    G_ulBytesReleased = 0;
 
 /* ******************************************************************
- *                                                                  *
- *   Debug heap management                                          *
- *                                                                  *
+ *
+ *   Debug heap management
+ *
  ********************************************************************/
 
 /*
@@ -659,9 +659,9 @@ unsigned long memdReleaseFreed(void)
 }
 
 /* ******************************************************************
- *                                                                  *
- *   XFolder debugging helpers                                      *
- *                                                                  *
+ *
+ *   XFolder debugging helpers
+ *
  ********************************************************************/
 
 #ifdef _PMPRINTF_

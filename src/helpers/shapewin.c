@@ -166,8 +166,8 @@
  *                  Ulrich M”ller,
  *                  Akira Hatakeyama,
  *                  Takayuki Suwa.
- *      This file is part of the XWorkplace source package.
- *      XWorkplace is free software; you can redistribute it and/or modify
+ *      This file is part of the "XWorkplace helpers" source package.
+ *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
  *      by the Free Software Foundation, in version 2 as it comes in the
  *      "COPYING" file of the XWorkplace main distribution.
@@ -183,10 +183,17 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
-#define INCL_DOS
 #define INCL_DOSERRORS
-#define INCL_WIN
+
+#define INCL_WINWINDOWMGR
+#define INCL_WINFRAMEMGR
+#define INCL_WINDIALOGS
+#define INCL_WININPUT
+#define INCL_WINPOINTERS
 #define INCL_WINSYS
+#define INCL_WINRECTANGLES
+#define INCL_WINTRACKRECT
+
 #define INCL_GPILOGCOLORTABLE
 #define INCL_GPIPRIMITIVES
 #define INCL_GPIBITMAPS
@@ -208,17 +215,17 @@
  */
 
 /* ******************************************************************
- *                                                                  *
- *   Global variables                                               *
- *                                                                  *
+ *
+ *   Global variables
+ *
  ********************************************************************/
 
 BOOL    G_ShapeRegisteredRegion = FALSE;
 
 /* ******************************************************************
- *                                                                  *
- *   Part 1: Shape window functions                                 *
- *                                                                  *
+ *
+ *   Part 1: Shape window functions
+ *
  ********************************************************************/
 
 // forward declarations for structures, because
@@ -514,7 +521,7 @@ MRESULT EXPENTRY shp_fnwpShapeRegion(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp
     PSHPREGION   pRgn;
     HPS         hps ;
 
-    pRgn = (PSHPREGION) WinQueryWindowPtr(hwnd, 0);
+    pRgn = (PSHPREGION)WinQueryWindowPtr(hwnd, 0);
 
     switch (msg)
     {
@@ -1215,7 +1222,7 @@ MRESULT EXPENTRY shp_fnwpShapeMgr(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
 
         case WM_QUERYDLGCODE:
             // TRACE("WM_QUERYDLGCODE\n");
-            return (MRESULT) DLGC_STATIC;
+            return (MRESULT)DLGC_STATIC;
 
         /*
          * WM_PAINT:
@@ -1294,9 +1301,9 @@ MRESULT EXPENTRY shp_fnwpShapeMgr(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
 }
 
 /* ******************************************************************
- *                                                                  *
- *   Part 2: Shape frame functions                                  *
- *                                                                  *
+ *
+ *   Part 2: Shape frame functions
+ *
  ********************************************************************/
 
 MRESULT EXPENTRY fnwpShapeFrame(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2);
