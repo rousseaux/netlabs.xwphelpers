@@ -853,7 +853,8 @@ extern "C" {
     HWND XWPENTRY winhCreateObjectWindow(const char *pcszWindowClass,
                                          PVOID pvCreateParam);
 
-    HWND XWPENTRY winhCreateControl(HWND hwndParentAndOwner,
+    HWND XWPENTRY winhCreateControl(HWND hwndParent,
+                                    HWND hwndOwner,
                                     const char *pcszClass,
                                     const char *pcszText,
                                     ULONG ulStyle,

@@ -99,7 +99,7 @@ extern "C" {
     DECLARE_PRFH_STRING(PMINIKEY_ICONTEXTFONT,  "IconText");
     DECLARE_PRFH_STRING(PMINIKEY_MENUSFONT,     "Menus");
 
-    // installed fonts secsion
+    // installed fonts section
     DECLARE_PRFH_STRING(PMINIAPP_FONTS,         "PM_Fonts");
 
     // general WPS settings
@@ -108,6 +108,9 @@ extern "C" {
 
     DECLARE_PRFH_STRING(WPINIKEY_SHORTMENUS,    "FolderMenus");
             // V0.9.19 (2002-04-17) [umoeller]
+
+    // class replacements list V0.9.21 (2002-08-26) [umoeller]
+    DECLARE_PRFH_STRING(WPINIAPP_REPLACEMENTS, "PM_Workplace:ReplaceList");
 
     // abstract objects per folder handle
     DECLARE_PRFH_STRING(WPINIAPP_FDRCONTENT,    "PM_Abstract:FldrContent");
@@ -125,16 +128,16 @@ extern "C" {
     // palette positions
     DECLARE_PRFH_STRING(WPINIAPP_PALETTEPOS,    "PM_Workplace:PalettePos");
     // ???
-    DECLARE_PRFH_STRING(WPINIAPP_STATUSPOS, "PM_Workplace:StatusPos");
+    DECLARE_PRFH_STRING(WPINIAPP_STATUSPOS,     "PM_Workplace:StatusPos");
     // startup folders
-    DECLARE_PRFH_STRING(WPINIAPP_STARTUP, "PM_Workplace:Startup");
+    DECLARE_PRFH_STRING(WPINIAPP_STARTUP,       "PM_Workplace:Startup");
     // all the defined templates on the system
-    DECLARE_PRFH_STRING(WPINIAPP_TEMPLATES, "PM_Workplace:Templates");
+    DECLARE_PRFH_STRING(WPINIAPP_TEMPLATES,     "PM_Workplace:Templates");
 
     // all work area folders
     DECLARE_PRFH_STRING(WPINIAPP_WORKAREARUNNING, "FolderWorkareaRunningObjects");
     // spooler windows ?!?
-    DECLARE_PRFH_STRING(WPINIAPP_JOBCNRPOS, "PM_PrintObject:JobCnrPos");
+    DECLARE_PRFH_STRING(WPINIAPP_JOBCNRPOS,     "PM_PrintObject:JobCnrPos");
 
     // associations by type ("Plain Text")
     DECLARE_PRFH_STRING(WPINIAPP_ASSOCTYPE, "PMWP_ASSOC_TYPE");

@@ -4007,24 +4007,26 @@ HWND winhCreateObjectWindow(const char *pcszWindowClass,    // in: PM window cla
  *      creates a control with a size and position of 0.
  *
  *@@added V0.9.9 (2001-03-13) [umoeller]
+ *@@changed V0.9.21 (2002-08-26) [umoeller]: added separate hwndOwner
  */
 
-HWND winhCreateControl(HWND hwndParentAndOwner,     // in: owner and parent window
+HWND winhCreateControl(HWND hwndParent,             // in: parent window
+                       HWND hwndOwner,              // in: owner window
                        const char *pcszClass,       // in: window class (e.g. WC_BUTTON)
                        const char *pcszText,        // in: window title
                        ULONG ulStyle,               // in: control style
                        ULONG ulID)                  // in: control ID
 {
-    return (WinCreateWindow(hwndParentAndOwner,
-                            (PSZ)pcszClass,
-                            (PSZ)pcszText,
-                            ulStyle,
-                            0, 0, 0, 0,
-                            hwndParentAndOwner,
-                            HWND_TOP,
-                            ulID,
-                            NULL,
-                            NULL));
+    return WinCreateWindow(hwndParent,
+                           (PSZ)pcszClass,
+                           (PSZ)pcszText,
+                           ulStyle,
+                           0, 0, 0, 0,
+                           hwndOwner,
+                           HWND_TOP,
+                           ulID,
+                           NULL,
+                           NULL);
 }
 
 /*
