@@ -30,17 +30,40 @@ extern "C" {
 #ifndef TIMER_HEADER_INCLUDED
     #define TIMER_HEADER_INCLUDED
 
-    USHORT APIENTRY tmrStartTimer(HWND hwnd, USHORT usTimerID, ULONG ulTimeout);
-    typedef USHORT APIENTRY TMRSTARTTIMER(HWND hwnd, USHORT usTimerID, ULONG ulTimeout);
-    typedef TMRSTARTTIMER *PTMRSTARTTIMER;
+    /*
+     *@@ XTIMERSET:
+     *
+     *@@added V0.9.9 (2001-02-28) [umoeller]
+     */
 
-    BOOL APIENTRY tmrStopTimer(HWND hwnd, USHORT usTimerID);
-    typedef BOOL APIENTRY TMRSTOPTIMER(HWND hwnd, USHORT usTimerID);
-    typedef TMRSTOPTIMER *PTMRSTOPTIMER;
+    typedef struct _XTIMERSET
+    {
+        HAB         hab;
+        HWND        hwndOwner;          // owner of XTimers (who has the PM timer)
+        USHORT      idPMTimer;          // ID of main PM timer
+        USHORT      idPMTimerRunning;   // if != 0, PM timer is running
+        PVOID       pvllXTimers;        // linked list of current XTIMER structures, auto-free
+    } XTIMERSET, *PXTIMERSET;
 
-    VOID tmrStopAllTimers(HWND hwnd);
-    typedef VOID TMRSTOPALLTIMERS(HWND hwnd);
-    typedef TMRSTOPALLTIMERS *PTMRSTOPALLTIMERS;
+    PXTIMERSET XWPENTRY tmrCreateSet(HWND hwndOwner, USHORT usPMTimerID);
+    typedef PXTIMERSET XWPENTRY TMRCREATESET(HWND hwndOwner, USHORT usPMTimerID);
+    typedef TMRCREATESET *PTMRCREATESET;
+
+    VOID XWPENTRY tmrDestroySet(PXTIMERSET pSet);
+    typedef VOID XWPENTRY TMRDESTROYSET(PXTIMERSET pSet);
+    typedef TMRDESTROYSET *PTMRDESTROYSET;
+
+    USHORT XWPENTRY tmrStartXTimer(PXTIMERSET pSet, HWND hwnd, USHORT usTimerID, ULONG ulTimeout);
+    typedef USHORT XWPENTRY TMRSTARTXTIMER(PXTIMERSET pSet, HWND hwnd, USHORT usTimerID, ULONG ulTimeout);
+    typedef TMRSTARTXTIMER *PTMRSTARTXTIMER;
+
+    BOOL XWPENTRY tmrStopXTimer(PXTIMERSET pSet, HWND hwnd, USHORT usTimerID);
+    typedef BOOL XWPENTRY TMRSTOPXTIMER(PXTIMERSET pSet, HWND hwnd, USHORT usTimerID);
+    typedef TMRSTOPXTIMER *PTMRSTOPXTIMER;
+
+    VOID XWPENTRY tmrTimerTick(PXTIMERSET pSet);
+    typedef VOID XWPENTRY TMRTIMERTICK(PXTIMERSET pSet);
+    typedef TMRTIMERTICK *PTMRTIMERTICK;
 
 #endif
 

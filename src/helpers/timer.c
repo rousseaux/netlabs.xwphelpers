@@ -1,15 +1,16 @@
 
 /*
  *@@sourcefile timer.c:
- *      XTimers, which can replace the PM timers.
+ *      XTimers, which can be used to avoid excessive PM
+ *      timer usage.
  *
  *      These timers operate similar to PM timers started
  *      with WinStartTimer. These are implemented thru a
  *      separate thread (fntTimersThread) which posts
  *      WM_TIMER messages regularly.
  *
- *      Instead of WinStartTimer, use tmrStartTimer.
- *      Instead of WinStopTimer, use tmrStopTimer.
+ *      Instead of WinStartTimer, use tmrStartXTimer.
+ *      Instead of WinStopTimer, use tmrStopXTimer.
  *
  *      The main advantage of the XTimers is that these
  *      are not a limited resource (as opposed to PM timers).
@@ -74,7 +75,9 @@
 #define INCL_DOSMISC
 #define INCL_DOSERRORS
 
+#define INCL_WINWINDOWMGR
 #define INCL_WINMESSAGEMGR
+#define INCL_WINTIMER
 #include <os2.h>
 
 #include <stdio.h>
@@ -107,8 +110,8 @@
 
 typedef struct _XTIMER
 {
-    USHORT     usTimerID;           // timer ID, as passed to tmrStartTimer
-    HWND       hwndTarget;          // target window, as passed to tmrStartTimer
+    USHORT     usTimerID;           // timer ID, as passed to tmrStartXTimer
+    HWND       hwndTarget;          // target window, as passed to tmrStartXTimer
     ULONG      ulTimeout;           // timer's timeout (in ms)
     ULONG      ulNextFire;          // next time scalar (from dtGetULongTime) to fire at
 } XTIMER, *PXTIMER;
@@ -120,54 +123,11 @@ typedef struct _XTIMER
  ********************************************************************/
 
 // timers thread
-HMTX                G_hmtxTimers = NULLHANDLE;  // timers lock mutex
-THREADINFO          G_tiTimers = {0};           // timers thread (only running
+// HMTX                G_hmtxTimers = NULLHANDLE;  // timers lock mutex
+// THREADINFO          G_tiTimers = {0};           // timers thread (only running
                                                 // if any timers were requested)
-BOOL                G_fTimersThreadRunning = FALSE;
-LINKLIST            G_llTimers;         // linked list of XTIMER pointers
-
-/* ******************************************************************
- *
- *   Timer helpers
- *
- ********************************************************************/
-
-/*
- *@@ LockTimers:
- *      locks the global timer resources.
- *      You MUST call UnlockTimers after this.
- */
-
-BOOL LockTimers(VOID)
-{
-    BOOL brc = FALSE;
-    if (G_hmtxTimers == NULLHANDLE)
-    {
-        // this initializes all globals
-        lstInit(&G_llTimers,
-                TRUE);     // auto-free
-
-        brc = (DosCreateMutexSem(NULL,  // unnamed
-                                 &G_hmtxTimers,
-                                 0,     // unshared
-                                 TRUE)  // lock!
-                        == NO_ERROR);
-    }
-    else
-        brc = (WinRequestMutexSem(G_hmtxTimers, SEM_INDEFINITE_WAIT)
-                    == NO_ERROR);
-    return (brc);
-}
-
-/*
- *@@ UnlockTimers:
- *      the reverse to LockTimers.
- */
-
-VOID UnlockTimers(VOID)
-{
-    DosReleaseMutexSem(G_hmtxTimers);
-}
+// BOOL                G_fTimersThreadRunning = FALSE;
+// LINKLIST            G_llTimers;         // linked list of XTIMER pointers
 
 /*
  *@@ fntTimersThread:
@@ -176,16 +136,16 @@ VOID UnlockTimers(VOID)
  *      target windows when a timer has elapsed.
  *
  *      This thread is dynamically started when the
- *      first timer is started thru tmrStartTimer.
+ *      first timer is started thru tmrStartXTimer.
  *      It is automatically stopped (to be precise:
  *      it terminates itself) when the last timer
- *      is stopped thru tmrStopTimer, which then
+ *      is stopped thru tmrStopXTimer, which then
  *      sets the thread's fExit flag to TRUE.
  *
  *@@changed V0.9.7 (2000-12-08) [umoeller]: got rid of dtGetULongTime
  */
 
-void _Optlink fntTimersThread(PTHREADINFO ptiMyself)
+/* void _Optlink fntTimersThread(PTHREADINFO ptiMyself)
 {
     ULONG       ulInterval = 25;
     HAB         hab = WinInitialize(0);
@@ -224,75 +184,6 @@ void _Optlink fntTimersThread(PTHREADINFO ptiMyself)
             fLocked = LockTimers();
             if (fLocked)
             {
-                // go thru all XTimers and see which one
-                // has elapsed; for all of these, post WM_TIMER
-                // to the target window proc
-                PLISTNODE pTimerNode = lstQueryFirstNode(&G_llTimers);
-                if (!pTimerNode)
-                    // no more timers left:
-                    // terminate thread
-                    ptiMyself->fExit = TRUE;
-                else
-                {
-                    // we have timers:
-                    BOOL      fFoundInvalid = FALSE;
-
-                    // get current time
-                    DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
-                                    &ulTimeNow, sizeof(ulTimeNow));
-
-                    while ((pTimerNode) && (!ptiMyself->fExit))
-                    {
-                        PXTIMER pTimer = (PXTIMER)pTimerNode->pItemData;
-
-                        if (pTimer->ulNextFire < ulTimeNow)
-                        {
-                            // this timer has elapsed:
-                            // fire!
-                            if (WinIsWindow(hab,
-                                            pTimer->hwndTarget))
-                            {
-                                // window still valid:
-                                WinPostMsg(pTimer->hwndTarget,
-                                           WM_TIMER,
-                                           (MPARAM)pTimer->usTimerID,
-                                           0);
-                                pTimer->ulNextFire = ulTimeNow + pTimer->ulTimeout;
-                            }
-                            else
-                            {
-                                // window has been destroyed:
-                                #ifdef __DEBUG__
-                                    DosBeep(100, 100);
-                                #endif
-                                lstAppendItem(&llInvalidTimers,
-                                              (PVOID)pTimerNode);
-                                fFoundInvalid = TRUE;
-                            }
-                        } // end if (pTimer->ulNextFire < ulTimeNow)
-
-                        // adjust DosSleep interval
-                        if (pTimer->ulTimeout < ulInterval)
-                            ulInterval = pTimer->ulTimeout;
-
-                        // next timer
-                        pTimerNode = pTimerNode->pNext;
-                    } // end while (pTimerNode)
-
-                    // destroy invalid timers, if any
-                    if ((fFoundInvalid) && (!ptiMyself->fExit))
-                    {
-                        PLISTNODE pNodeNode = lstQueryFirstNode(&llInvalidTimers);
-                        while (pNodeNode)
-                        {
-                            PLISTNODE pNode2Remove = (PLISTNODE)pNodeNode->pItemData;
-                            lstRemoveNode(&G_llTimers,
-                                          pNode2Remove);
-                            pNodeNode = pNodeNode->pNext;
-                        }
-                        lstClear(&llInvalidTimers);
-                    }
-                } // end else if (!pTimerNode)
             } // end if (fLocked)
         }
         CATCH(excpt1) { } END_CATCH();
@@ -312,7 +203,13 @@ void _Optlink fntTimersThread(PTHREADINFO ptiMyself)
     #ifdef __DEBUG__
         DosBeep(1500, 30);
     #endif
-}
+} */
+
+/* ******************************************************************
+ *
+ *   Private functions
+ *
+ ********************************************************************/
 
 /*
  *@@ FindTimer:
@@ -321,28 +218,30 @@ void _Optlink fntTimersThread(PTHREADINFO ptiMyself)
  *      _and_ timer ID.
  *
  *      Internal function.
- *
- *      Preconditions:
- *
- *      -- The caller must call LockTimers() first.
  */
 
-PXTIMER FindTimer(HWND hwnd,
+PXTIMER FindTimer(PXTIMERSET pSet,
+                  HWND hwnd,
                   USHORT usTimerID)
 {
-    PLISTNODE pNode = lstQueryFirstNode(&G_llTimers);
-    while (pNode)
+    if (pSet && pSet->pvllXTimers)
     {
-        PXTIMER pTimer = (PXTIMER)pNode->pItemData;
-        if (    (pTimer->usTimerID == usTimerID)
-             && (pTimer->hwndTarget == hwnd)
-           )
+        PLINKLIST pllXTimers = (PLINKLIST)pSet->pvllXTimers;
+        PLISTNODE pNode = lstQueryFirstNode(pllXTimers);
+        while (pNode)
         {
-            return (pTimer);
-        }
+            PXTIMER pTimer = (PXTIMER)pNode->pItemData;
+            if (    (pTimer->usTimerID == usTimerID)
+                 && (pTimer->hwndTarget == hwnd)
+               )
+            {
+                return (pTimer);
+            }
 
-        pNode = pNode->pNext;
+            pNode = pNode->pNext;
+        }
     }
+
     return (NULL);
 }
 
@@ -358,18 +257,227 @@ PXTIMER FindTimer(HWND hwnd,
  *      -- The caller must call LockTimers() first.
  */
 
-VOID RemoveTimer(PXTIMER pTimer)
+VOID RemoveTimer(PXTIMERSET pSet,
+                 PXTIMER pTimer)
 {
-    lstRemoveItem(&G_llTimers,
-                  pTimer);       // auto-free!
-    /* if (lstCountItems(&G_llTimers) == 0)
-        // no more timers left:
-        // stop the main timer
-        thrClose(&G_tiTimers); */
+    if (pSet && pSet->pvllXTimers)
+    {
+        PLINKLIST pllXTimers = (PLINKLIST)pSet->pvllXTimers;
+        lstRemoveItem(pllXTimers,
+                      pTimer);       // auto-free!
+        /* if (lstCountItems(&G_llTimers) == 0)
+            // no more timers left:
+            // stop the main timer
+            thrClose(&G_tiTimers); */
+    }
+}
+
+/* ******************************************************************
+ *
+ *   Exported functions
+ *
+ ********************************************************************/
+
+/*
+ *@@ tmrCreateSet:
+ *      creates a "timer set" for use with the XTimer functions.
+ *      This is the first step if you want to use the XTimers.
+ *
+ *      Use tmrDestroySet to free all resources again.
+ *
+ *@@added V0.9.9 (2001-02-28) [umoeller]
+ */
+
+PXTIMERSET tmrCreateSet(HWND hwndOwner,
+                        USHORT usPMTimerID)
+{
+    PXTIMERSET pSet = NULL;
+
+    // _Pmpf((__FUNCTION__ ": entering"));
+
+    pSet = (PXTIMERSET)malloc(sizeof(*pSet));
+    if (pSet)
+    {
+        pSet->hab = WinQueryAnchorBlock(hwndOwner);
+        pSet->hwndOwner = hwndOwner;
+        pSet->idPMTimer = usPMTimerID;
+        pSet->idPMTimerRunning = 0;
+
+        pSet->pvllXTimers = (PVOID)lstCreate(TRUE);
+    }
+
+    // _Pmpf((__FUNCTION__ ": leaving, returning 0x%lX", pSet));
+
+    return (pSet);
 }
 
 /*
- *@@ tmrStartTimer:
+ *@@ tmrDestroySet:
+ *      destroys a timer set previously created using
+ *      tmrCreateSet.
+ *
+ *      Of course, this will stop all XTimers which
+ *      might still be running with this set.
+ *
+ *@@added V0.9.9 (2001-02-28) [umoeller]
+ */
+
+VOID tmrDestroySet(PXTIMERSET pSet)
+{
+    // _Pmpf((__FUNCTION__ ": entering"));
+
+    if (pSet)
+    {
+        if (pSet->pvllXTimers)
+        {
+            PLINKLIST pllXTimers = (PLINKLIST)pSet->pvllXTimers;
+
+            PLISTNODE pTimerNode;
+
+            while (pTimerNode = lstQueryFirstNode(pllXTimers))
+            {
+                PXTIMER pTimer = (PXTIMER)pTimerNode->pItemData;
+                RemoveTimer(pSet, pTimer);
+            }
+
+            lstFree(pllXTimers);
+        }
+
+        free(pSet);
+    }
+
+    // _Pmpf((__FUNCTION__ ": leaving"));
+}
+
+/*
+ *@@ tmrTimerTick:
+ *      implements a PM timer tick.
+ *
+ *      When your window procs receives WM_TIMER for the
+ *      one PM timer which is supposed to trigger all the
+ *      XTimers, it must call this function. This will
+ *      evaluate all XTimers on the list and "fire" them
+ *      by calling the window procs directly with the
+ *      WM_TIMER message.
+ *
+ *@@added V0.9.9 (2001-02-28) [umoeller]
+ */
+
+VOID tmrTimerTick(PXTIMERSET pSet)
+{
+    // _Pmpf((__FUNCTION__ ": entering"));
+
+    if (pSet && pSet->pvllXTimers)
+    {
+        PLINKLIST pllXTimers = (PLINKLIST)pSet->pvllXTimers;
+        // go thru all XTimers and see which one
+        // has elapsed; for all of these, post WM_TIMER
+        // to the target window proc
+        PLISTNODE pTimerNode = lstQueryFirstNode(pllXTimers);
+
+        // stop the PM timer for now; we'll restart it later
+        WinStopTimer(pSet->hab,
+                     pSet->hwndOwner,
+                     pSet->idPMTimer);
+        pSet->idPMTimerRunning = 0;
+
+        if (pTimerNode)
+        {
+            // we have timers:
+            BOOL    fFoundInvalid = FALSE;
+
+            ULONG   ulInterval = 100,
+                    ulTimeNow = 0;
+
+            // linked list of timers found to be invalid;
+            // this holds LISTNODE pointers from the global
+            // list to be removed
+            LINKLIST    llInvalidTimers;
+            lstInit(&llInvalidTimers,
+                    FALSE);     // no auto-free
+
+            // get current time
+            DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
+                            &ulTimeNow, sizeof(ulTimeNow));
+
+            while (pTimerNode)
+            {
+                PXTIMER pTimer = (PXTIMER)pTimerNode->pItemData;
+
+                if (pTimer->ulNextFire < ulTimeNow)
+                {
+                    // this timer has elapsed:
+                    // fire!
+                    if (WinIsWindow(pSet->hab,
+                                    pTimer->hwndTarget))
+                    {
+                        // window still valid:
+                        // get the window's window proc
+                        PFNWP pfnwp = (PFNWP)WinQueryWindowPtr(pTimer->hwndTarget,
+                                                               QWP_PFNWP);
+                        // call the window proc DIRECTLY
+                        pfnwp(pTimer->hwndTarget,
+                              WM_TIMER,
+                              (MPARAM)pTimer->usTimerID,
+                              0);
+                        pTimer->ulNextFire = ulTimeNow + pTimer->ulTimeout;
+                    }
+                    else
+                    {
+                        // window has been destroyed:
+                        lstAppendItem(&llInvalidTimers,
+                                      (PVOID)pTimerNode);
+                        fFoundInvalid = TRUE;
+                    }
+                } // end if (pTimer->ulNextFire < ulTimeNow)
+
+                // adjust DosSleep interval
+                if (pTimer->ulTimeout < ulInterval)
+                    ulInterval = pTimer->ulTimeout;
+
+                // next timer
+                pTimerNode = pTimerNode->pNext;
+            } // end while (pTimerNode)
+
+            // destroy invalid timers, if any
+            if (fFoundInvalid)
+            {
+                PLISTNODE pNodeNode = lstQueryFirstNode(&llInvalidTimers);
+                while (pNodeNode)
+                {
+                    PLISTNODE pNode2Remove = (PLISTNODE)pNodeNode->pItemData;
+                    lstRemoveNode(pllXTimers,
+                                  pNode2Remove);
+                    pNodeNode = pNodeNode->pNext;
+                }
+                lstClear(&llInvalidTimers);
+            }
+
+            if (lstCountItems(pllXTimers))
+            {
+                // any timers left:
+                // restart timer with the timeout calculated above
+                pSet->idPMTimerRunning = WinStartTimer(pSet->hab,
+                                                       pSet->hwndOwner,
+                                                       pSet->idPMTimer,
+                                                       ulInterval);
+                /* _Pmpf(("  %d timers left, restarted PM timer == %d, interval %d",
+                            lstCountItems(pllXTimers),
+                            pSet->idPMTimerRunning,
+                            ulInterval));
+                _Pmpf(("  pSet->hab: 0x%lX, hwndOwner = 0x%lX, usPMTimerID = %d",
+                        pSet->hab,
+                        pSet->hwndOwner,
+                        pSet->idPMTimer)); */
+            }
+        } // end else if (!pTimerNode)
+    }
+
+    // _Pmpf((__FUNCTION__ ": leaving"));
+}
+
+/*
+ *@@ tmrStartXTimer:
  *      starts an XTimer.
  *
  *      Any window can request an XTimer using
@@ -379,7 +487,7 @@ VOID RemoveTimer(PXTIMER pTimer)
  *
  *      Returns a new timer or resets an existing
  *      timer (if usTimerID is already used with
- *      hwnd). Use tmrStopTimer to stop the timer.
+ *      hwnd). Use tmrStopXTimer to stop the timer.
  *
  *      The timer is _not_ stopped automatically
  *      when the window is destroyed.
@@ -387,182 +495,108 @@ VOID RemoveTimer(PXTIMER pTimer)
  *@@changed V0.9.7 (2000-12-08) [umoeller]: got rid of dtGetULongTime
  */
 
-USHORT APIENTRY tmrStartTimer(HWND hwnd,
-                              USHORT usTimerID,
-                              ULONG ulTimeout)
+USHORT XWPENTRY tmrStartXTimer(PXTIMERSET pSet,
+                               HWND hwnd,
+                               USHORT usTimerID,
+                               ULONG ulTimeout)
 {
     USHORT  usrc = 0;
-    BOOL    fLocked = FALSE;
 
-    if ((hwnd) && (ulTimeout))
+    // _Pmpf((__FUNCTION__ ": entering"));
+
+    if (pSet && pSet->pvllXTimers)
     {
-        ULONG ulNesting = 0;
-        DosEnterMustComplete(&ulNesting);
+        PLINKLIST pllXTimers = (PLINKLIST)pSet->pvllXTimers;
 
-        TRY_LOUD(excpt1)
+        if ((hwnd) && (ulTimeout))
         {
-            fLocked = LockTimers();
-            if (fLocked)
+            PXTIMER pTimer;
+
+            // check if this timer exists already
+            pTimer = FindTimer(pSet,
+                               hwnd,
+                               usTimerID);
+            if (pTimer)
             {
-                PXTIMER pTimer;
-
-                // if the timers thread is not yet running,
-                // start it now (i.e. this is the first timer)
-                if (!G_fTimersThreadRunning)
-                {
-                    // main timer not yet running:
-                    thrCreate(&G_tiTimers,
-                              fntTimersThread,
-                              &G_fTimersThreadRunning,
-                              THRF_WAIT,        // no msgq, but wait
-                              0);
-                    // raise priority
-                    DosSetPriority(PRTYS_THREAD,
-                                   PRTYC_REGULAR,  // 3
-                                   PRTYD_MAXIMUM,
-                                   G_tiTimers.tid);
-                }
-
-                // check if this timer exists already
-                pTimer = FindTimer(hwnd,
-                                   usTimerID);
+                // exists already: reset only
+                ULONG ulTimeNow;
+                DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
+                                &ulTimeNow, sizeof(ulTimeNow));
+                pTimer->ulNextFire = ulTimeNow + ulTimeout;
+                usrc = pTimer->usTimerID;
+                // _Pmpf(("  timer existed, reset"));
+            }
+            else
+            {
+                // new timer needed:
+                pTimer = (PXTIMER)malloc(sizeof(XTIMER));
                 if (pTimer)
                 {
-                    // exists already: reset only
                     ULONG ulTimeNow;
                     DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
                                     &ulTimeNow, sizeof(ulTimeNow));
+                    pTimer->usTimerID = usTimerID;
+                    pTimer->hwndTarget = hwnd;
+                    pTimer->ulTimeout = ulTimeout;
                     pTimer->ulNextFire = ulTimeNow + ulTimeout;
-                    usrc = pTimer->usTimerID;
-                }
-                else
-                {
-                    // new timer needed:
-                    pTimer = (PXTIMER)malloc(sizeof(XTIMER));
-                    if (pTimer)
-                    {
-                        ULONG ulTimeNow;
-                        DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
-                                        &ulTimeNow, sizeof(ulTimeNow));
-                        pTimer->usTimerID = usTimerID;
-                        pTimer->hwndTarget = hwnd;
-                        pTimer->ulTimeout = ulTimeout;
-                        pTimer->ulNextFire = ulTimeNow + ulTimeout;
 
-                        lstAppendItem(&G_llTimers,
-                                      pTimer);
-                        usrc = pTimer->usTimerID;
-                    }
+                    lstAppendItem(pllXTimers,
+                                  pTimer);
+                    usrc = pTimer->usTimerID;
+
+                    // _Pmpf(("  new timer created"));
                 }
             }
-        }
-        CATCH(excpt1) { } END_CATCH();
 
-        // unlock the sems outside the exception handler
-        if (fLocked)
-        {
-            UnlockTimers();
-            fLocked = FALSE;
-        }
+            if (usrc)
+            {
+                // timer created or reset:
+                // start main PM timer
+                pSet->idPMTimerRunning = WinStartTimer(pSet->hab,
+                                                       pSet->hwndOwner,
+                                                       pSet->idPMTimer,
+                                                       100);
+                // _Pmpf(("  started PM timer %d", pSet->idPMTimerRunning));
+            }
+        } // if ((hwnd) && (ulTimeout))
+    }
 
-        DosExitMustComplete(&ulNesting);
-    } // if ((hwnd) && (ulTimeout))
+    // _Pmpf((__FUNCTION__ ": leaving, returning %d", usrc));
 
     return (usrc);
 }
 
 /*
- *@@ tmrStopTimer:
+ *@@ tmrStopXTimer:
  *      similar to WinStopTimer, this stops the
  *      specified timer (which must have been
  *      started with the same hwnd and usTimerID
- *      using tmrStartTimer).
+ *      using tmrStartXTimer).
  *
  *      Returns TRUE if the timer was stopped.
  */
 
-BOOL APIENTRY tmrStopTimer(HWND hwnd,
-                           USHORT usTimerID)
+BOOL XWPENTRY tmrStopXTimer(PXTIMERSET pSet,
+                            HWND hwnd,
+                            USHORT usTimerID)
 {
     BOOL brc = FALSE;
-    BOOL fLocked = FALSE;
-
-    ULONG ulNesting = 0;
-    DosEnterMustComplete(&ulNesting);
-
-    TRY_LOUD(excpt1)
+    if (pSet && pSet->pvllXTimers)
     {
-        fLocked = LockTimers();
-        if (fLocked)
+        PLINKLIST pllXTimers = (PLINKLIST)pSet->pvllXTimers;
+        BOOL fLocked = FALSE;
+
+        PXTIMER pTimer = FindTimer(pSet,
+                                   hwnd,
+                                   usTimerID);
+        if (pTimer)
         {
-            PXTIMER pTimer = FindTimer(hwnd,
-                                       usTimerID);
-            if (pTimer)
-            {
-                RemoveTimer(pTimer);
-                brc = TRUE;
-            }
+            RemoveTimer(pSet, pTimer);
+            brc = TRUE;
         }
     }
-    CATCH(excpt1) { } END_CATCH();
-
-    // unlock the sems outside the exception handler
-    if (fLocked)
-    {
-        UnlockTimers();
-        fLocked = FALSE;
-    }
-
-    DosExitMustComplete(&ulNesting);
 
     return (brc);
-}
-
-/*
- *@@ tmrStopAllTimers:
- *      stops all timers which are running for the
- *      specified window. This is a useful helper
- *      that you should call during WM_DESTROY of
- *      a window that has started timers.
- */
-
-VOID tmrStopAllTimers(HWND hwnd)
-{
-    BOOL fLocked = FALSE;
-
-    ULONG ulNesting = 0;
-    DosEnterMustComplete(&ulNesting);
-
-    TRY_LOUD(excpt1)
-    {
-        fLocked = LockTimers();
-        if (fLocked)
-        {
-            PLISTNODE pTimerNode = lstQueryFirstNode(&G_llTimers);
-            while (pTimerNode)
-            {
-                PXTIMER pTimer = (PXTIMER)pTimerNode->pItemData;
-                if (pTimer->hwndTarget == hwnd)
-                {
-                    RemoveTimer(pTimer);
-                    // start over
-                    pTimerNode = lstQueryFirstNode(&G_llTimers);
-                }
-                else
-                    pTimerNode = pTimerNode->pNext;
-            }
-        }
-    }
-    CATCH(excpt1) { } END_CATCH();
-
-    // unlock the sems outside the exception handler
-    if (fLocked)
-    {
-        UnlockTimers();
-        fLocked = FALSE;
-    }
-
-    DosExitMustComplete(&ulNesting);
 }
 
 

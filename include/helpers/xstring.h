@@ -160,6 +160,14 @@ extern "C" {
                                             const char *pcszReplace);
     typedef XSTRFINDREPLACEC *PXSTRFINDREPLACEC;
 
+    ULONG XWPENTRY xstrEncode(PXSTRING pxstr, const char *pcszEncode);
+    typedef ULONG XWPENTRY XSTRENCODE(PXSTRING pxstr, const char *pcszEncode);
+    typedef XSTRENCODE *PXSTRENCODE;
+
+    ULONG XWPENTRY xstrDecode(PXSTRING pxstr);
+    typedef ULONG XWPENTRY XSTRDECODE(PXSTRING pxstr);
+    typedef XSTRDECODE *PXSTRDECODE;
+
     // V0.9.9 (2001-01-29) [lafaix]: constants added
     #define CRLF2LF TRUE
     #define LF2CRLF FALSE

@@ -105,6 +105,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "setup.h"                      // code generation and debugging options
 
@@ -1047,6 +1048,173 @@ ULONG xstrFindReplaceC(PXSTRING pxstr,              // in/out: string
     xstrInitSet(&xstrReplace, (PSZ)pcszReplace);
 
     return (xstrFindReplace(pxstr, pulOfs, &xstrFind, &xstrReplace, ShiftTable, &fRepeat));
+}
+
+/*
+ *@@ xstrEncode:
+ *      encodes characters in a string.
+ *
+ *      This searches pxstr for all occurences of the
+ *      characters in pcszEncode (which must be a
+ *      null-terminated list of characters to be
+ *      encoded). Each occurence that is found is
+ *      replaced with "%hh", with "hh" being the
+ *      two-digit hex number of the encoded character.
+ *
+ *      For example, to encode strings for the XCenter,
+ *      set pcszEncode to "%,();=".
+ *
+ *      Returns the no. of characters replaced.
+ *
+ *      NOTE: You must make sure that pcszEncode ALWAYS
+ *      contains the "%" character as well, which must
+ *      always be encoded (i.e. escaped) because it is
+ *      used for encoding the characters. Otherwise
+ *      you won't be able to decode the string again.
+ *
+ *      Example: To encode all occurences of
+ *      "a", "b", and "c" in a string, do this:
+ *
+ +          XSTRING str;
+ +          xstrInitCopy(&str, "Sample characters.";
+ +          xstrEncode(&str, "abc%";
+ *
+ *      would convert str to contain:
+ *
+ +          S%61mple %63hara%63ters.
+ *
+ *@@added V0.9.9 (2001-02-28) [umoeller]
+ */
+
+ULONG xstrEncode(PXSTRING pxstr,            // in/out: string to convert
+                 const char *pcszEncode)    // in: characters to encode (e.g. "%,();=")
+{
+    ULONG ulrc = 0,
+          ul;
+
+    // now encode the widget setup string...
+    for (ul = 0;
+         ul < strlen(pcszEncode);
+         ul++)
+    {
+        CHAR        szFind[3] = "?",
+                    szReplace[10] = "%xx";
+        XSTRING     strFind,
+                    strReplace;
+        size_t      ShiftTable[256];
+        BOOL        fRepeat = FALSE;
+        ULONG       ulOfs = 0;
+
+        // search string:
+        szFind[0] = pcszEncode[ul];
+        xstrInitSet(&strFind, szFind);
+
+        // replace string: ASCII encoding
+        sprintf(szReplace, "%%%lX", pcszEncode[ul]);
+        xstrInitSet(&strReplace, szReplace);
+
+        // replace all occurences
+        while (xstrFindReplace(pxstr,
+                               &ulOfs,
+                               &strFind,
+                               &strReplace,
+                               ShiftTable,
+                               &fRepeat))
+                ulrc++;
+
+    } // for ul; next encoding
+
+    return (ulrc);
+}
+
+/*
+ *@@ xstrDecode:
+ *      decodes a string previously encoded by xstrEncode.
+ *
+ *      This simply assumes that all '%' characters in
+ *      pxstr contain encodings and the next two characters
+ *      after '%' always are a hex character code. This
+ *      only recognizes hex in upper case.
+ *
+ *      Returns the no. of characters replaced.
+ *
+ *@@added V0.9.9 (2001-02-28) [umoeller]
+ */
+
+ULONG xstrDecode(PXSTRING pxstr)       // in/out: string to be decoded
+{
+    ULONG   ulrc = 0;
+
+    if (    (pxstr)
+         && (pxstr->ulLength)
+       )
+    {
+        ULONG   cbAllocated = pxstr->ulLength + 1;
+            // decoded string cannot be longer than source
+        PSZ     pszDest = (PSZ)malloc(cbAllocated);
+
+        if (pszDest)
+        {
+            const char  *pSource = pxstr->psz;
+            PSZ         pDest = pszDest;
+
+            CHAR    c;
+
+            while ((c = *pSource++))
+            {
+                // pSource points to next char now
+
+                if (c == '%')
+                {
+                    static char ach[] = "01234567989ABCDEF";
+
+                    // convert two chars after '%'
+                    CHAR        c2,         // first char after '%'
+                                c3;         // second char after '%'
+                    const char  *p2,        // for first char: points into ach or is NULL
+                                *p3;        // for second char: points into ach or is NULL
+                    if (    (c2 = *pSource)
+                         && (p2 = strchr(ach, c2))
+                         && (c3 = *(pSource + 1))
+                         && (p3 = strchr(ach, c3))
+                       )
+                    {
+                        // both chars after '%' were valid:
+                        *pDest++ =    (p2 - ach) // 0 for '0', 10 for 'A', ...
+                                    + ((p3 - ach) << 4);
+                        // go on after that
+                        pSource += 2;
+                        // raise return count
+                        ulrc++;
+                        // next in loop
+                        continue;
+                    }
+                }
+
+                // not encoding, or null after '%', or invalid encoding:
+                // just copy this
+                *pDest++ = c;
+            } // while ((ch = *pSource++))
+
+            if (ulrc)
+            {
+                // any encodings found:
+                // terminate target
+                *pDest = 0;
+
+                // replace source with target
+                free(pxstr->psz);
+                pxstr->psz = pszDest;
+                pxstr->cbAllocated = cbAllocated;
+                pxstr->ulLength = (pDest - pszDest);
+            }
+            else
+                // no encodings found:
+                free(pszDest);
+        }
+    }
+
+    return (ulrc);
 }
 
 /*

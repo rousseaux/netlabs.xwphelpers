@@ -1,4 +1,3 @@
-/* $Id$ */
 
 /*
  *      Copyright (C) 2000 Christoph Schulte M”nting.

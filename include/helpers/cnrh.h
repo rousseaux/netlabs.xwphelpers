@@ -1,5 +1,3 @@
-/* $Id$ */
-
 
 /*
  *@@sourcefile cnrh.h:

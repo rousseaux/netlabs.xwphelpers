@@ -42,24 +42,24 @@ extern "C" {
     typedef unsigned int       CARDINAL;     /* Use compiler default. */
 
     /* A BYTE is 8 bits of memory with no interpretation attached. */
-    typedef unsigned char BYTE;
+    // typedef unsigned char BYTE;
 
     /* A BOOLEAN variable is one which is either TRUE or FALSE. */
     typedef unsigned char  BOOLEAN;
-    #define TRUE  1
-    #define FALSE 0;
+    /* #define TRUE  1
+    #define FALSE 0; */
 
     /* An ADDRESS variable is one which holds the address of a location in memory. */
-    typedef void * ADDRESS;
+    // typedef void * ADDRESS;
 
     /* pSTRING is a pointer to an array of characters. */
     typedef char * pSTRING;
 
     /* 4 bytes */
-    typedef unsigned long DoubleWord;
+    // typedef unsigned long DoubleUSHORT;
 
     /* 2 bytes */
-    typedef short unsigned int Word;
+    // typedef short unsigned int USHORT;
 
     /* Define a Partition Sector Number.  A Partition Sector Number is relative to the start of a partition.
        The first sector in a partition is PSN 0. */
@@ -92,28 +92,28 @@ extern "C" {
     /* The following definitions define the format of a partition table and the Master Boot Record (MBR). */
     typedef struct _Partition_Record
     {
-        Byte       Boot_Indicator;    /* 80h = active partition. */
-        Byte       Starting_Head;
-        Byte       Starting_Sector;   /* Bits 0-5 are the sector.  Bits 6 and 7 are the high
+        BYTE       Boot_Indicator;    /* 80h = active partition. */
+        BYTE       Starting_Head;
+        BYTE       Starting_Sector;   /* Bits 0-5 are the sector.  Bits 6 and 7 are the high
                                          order bits of the starting cylinder. */
-        Byte       Starting_Cylinder; /* The cylinder number is a 10 bit value.  The high order
+        BYTE       Starting_Cylinder; /* The cylinder number is a 10 bit value.  The high order
                                          bits of the 10 bit value come from bits 6 & 7 of the
                                          Starting_Sector field.                                */
-        Byte       Format_Indicator;  /* An indicator of the format/operation system on this
+        BYTE       Format_Indicator;  /* An indicator of the format/operation system on this
                                          partition.                                            */
-        Byte       Ending_Head;
-        Byte       Ending_Sector;
-        Byte       Ending_Cylinder;
-        DoubleWord Sector_Offset;     /* The number of sectors on the disk which are prior to
+        BYTE       Ending_Head;
+        BYTE       Ending_Sector;
+        BYTE       Ending_Cylinder;
+        ULONG Sector_Offset;     /* The number of sectors on the disk which are prior to
                                          the start of this partition.                          */
-        DoubleWord Sector_Count;      /* The number of sectors in this partition. */
+        ULONG Sector_Count;      /* The number of sectors in this partition. */
     } Partition_Record;
 
     typedef struct _Master_Boot_Record
     {
-        Byte                Reserved[446];
+        BYTE                Reserved[446];
        Partition_Record    Partition_Table[4];
-       Word                Signature;            /* AA55h in this field indicates that this
+       USHORT                Signature;            /* AA55h in this field indicates that this
                                                     is a valid partition table/MBR.         */
     } Master_Boot_Record;
     typedef Master_Boot_Record  Extended_Boot_Record;
@@ -200,10 +200,10 @@ extern "C" {
     /* Define the structure of an entry in a DLAT. */
     typedef struct _DLA_Entry
     {
-        DoubleWord  Volume_Serial_Number;                /* The serial number of the volume
+        ULONG  Volume_Serial_Number;                /* The serial number of the volume
                                                             that this partition belongs to.         */
-        DoubleWord  Partition_Serial_Number;             /* The serial number of this partition.    */
-        DoubleWord  Partition_Size;                      /* The size of the partition, in sectors.  */
+        ULONG  Partition_Serial_Number;             /* The serial number of this partition.    */
+        ULONG  Partition_Size;                      /* The size of the partition, in sectors.  */
         LBA         Partition_Start;                     /* The starting sector of the partition.   */
         BOOLEAN     On_Boot_Manager_Menu;                /* Set to TRUE if this volume/partition
                                                             is on the Boot Manager Menu.            */
@@ -220,17 +220,17 @@ extern "C" {
     /* Define the contents of the sector used to hold a DLAT. */
     typedef struct _DLA_Table_Sector
     {
-        DoubleWord     DLA_Signature1;             /* The magic signature (part 1) of a
+        ULONG     DLA_Signature1;             /* The magic signature (part 1) of a
                                                       Drive Letter Assignment Table.               */
-        DoubleWord     DLA_Signature2;             /* The magic signature (part 2) of a
+        ULONG     DLA_Signature2;             /* The magic signature (part 2) of a
                                                       Drive Letter Assignment Table.               */
-        DoubleWord     DLA_CRC;                    /* The 32 bit CRC for this sector.
+        ULONG     DLA_CRC;                    /* The 32 bit CRC for this sector.
                                                       Calculated assuming that this
                                                       field and all unused space in
                                                       the sector is 0.                             */
-        DoubleWord     Disk_Serial_Number;         /* The serial number assigned to
+        ULONG     Disk_Serial_Number;         /* The serial number assigned to
                                                       this disk.                                   */
-        DoubleWord     Boot_Disk_Serial_Number;    /* The serial number of the disk used to
+        ULONG     Boot_Disk_Serial_Number;    /* The serial number of the disk used to
                                                       boot the system.  This is for conflict
                                                       resolution when multiple volumes want
                                                       the same drive letter.  Since LVM.EXE
@@ -297,17 +297,17 @@ extern "C" {
        specific data for LVM features. */
     typedef struct _LVM_Feature_Data
     {
-        DoubleWord     Feature_ID;                            /* The ID of the feature. */
+        ULONG     Feature_ID;                            /* The ID of the feature. */
         PSN            Location_Of_Primary_Feature_Data;      /* The PSN of the starting sector of
                                                                  the private data for this feature.*/
         PSN            Location_Of_Secondary_Feature_Data;    /* The PSN of the starting sector of
                                                                  the backup copy of the private
                                                                  data for this feature.            */
-        DoubleWord     Feature_Data_Size;                     /* The number of sectors used by this
+        ULONG     Feature_Data_Size;                     /* The number of sectors used by this
                                                                  feature for its private data.     */
-        Word           Feature_Major_Version_Number;          /* The integer portion of the version
+        USHORT           Feature_Major_Version_Number;          /* The integer portion of the version
                                                                  number of this feature.           */
-        Word           Feature_Minor_Version_Number;          /* The decimal portion of the version
+        USHORT           Feature_Minor_Version_Number;          /* The decimal portion of the version
                                                                  number of this feature.           */
         BOOLEAN        Feature_Active;                        /* TRUE if this feature is active on
                                                                  this partition/volume, FALSE
@@ -321,19 +321,19 @@ extern "C" {
        vital information about the version of LVM used to create the LVM volume
        that it is a part of, as well as which LVM features (BBR, drive linking,
        etc.) are active on the volume that this partition is a part of. */
-
+#if 0
     typedef struct _LVM_Signature_Sector
     {
-        DoubleWord        LVM_Signature1;                             /* The first part of the
+        ULONG        LVM_Signature1;                             /* The first part of the
                                                                          magic LVM signature. */
-        DoubleWord        LVM_Signature2;                             /* The second part of
+        ULONG        LVM_Signature2;                             /* The second part of
                                                                          the magic LVM
                                                                          signature.           */
-        DoubleWord        Signature_Sector_CRC;                       /* 32 bit CRC for this
+        ULONG        Signature_Sector_CRC;                       /* 32 bit CRC for this
                                                                          sector.  Calculated
                                                                          using 0 for this
                                                                          field.               */
-        DoubleWord        Partition_Serial_Number;                    /* The LVM assigned
+        ULONG        Partition_Serial_Number;                    /* The LVM assigned
                                                                          serial number for this
                                                                          partition.           */
         LBA               Partition_Start;                            /* LBA of the first
@@ -341,12 +341,12 @@ extern "C" {
                                                                          partition.           */
         LBA               Partition_End;                              /* LBA of the last sector
                                                                          of this partition.   */
-        DoubleWord        Partition_Sector_Count;                     /* The number of sectors
+        ULONG        Partition_Sector_Count;                     /* The number of sectors
                                                                          in this partition.   */
-        DoubleWord        LVM_Reserved_Sector_Count;                  /* The number of sectors
+        ULONG        LVM_Reserved_Sector_Count;                  /* The number of sectors
                                                                          reserved for use by
                                                                          LVM.                 */
-        DoubleWord        Partition_Size_To_Report_To_User;           /* The size of the
+        ULONG        Partition_Size_To_Report_To_User;           /* The size of the
                                                                          partition as the user
                                                                          sees it - i.e. (the
                                                                          actual size of the
@@ -354,7 +354,7 @@ extern "C" {
                                                                          reserved sectors)
                                                                          rounded to a track
                                                                          boundary.            */
-        DoubleWord        Boot_Disk_Serial_Number;                    /* The serial number of
+        ULONG        Boot_Disk_Serial_Number;                    /* The serial number of
                                                                          the boot disk for the
                                                                          system.  If the system
                                                                          contains Boot Manager,
@@ -363,17 +363,17 @@ extern "C" {
                                                                          disk containing the
                                                                          active copy of Boot
                                                                          Manager.             */
-        DoubleWord        Volume_Serial_Number;                       /* The serial number of
+        ULONG        Volume_Serial_Number;                       /* The serial number of
                                                                          the volume that this
                                                                          partition belongs to.*/
         CARDINAL32        Fake_EBR_Location;                          /* The location, on disk,
                                                                          of a Fake EBR, if one
                                                                          has been allocated.  */
-        Word              LVM_Major_Version_Number;                   /* Major version number
+        USHORT              LVM_Major_Version_Number;                   /* Major version number
                                                                          of the LVM that
                                                                          created this
                                                                          partition.           */
-        Word              LVM_Minor_Version_Number;                   /* Minor version number
+        USHORT              LVM_Minor_Version_Number;                   /* Minor version number
                                                                          of the LVM that
                                                                          created this
                                                                          partition.           */
@@ -400,6 +400,7 @@ extern "C" {
         /* The remainder of the sector is reserved for future use and should be all zero or
            else the CRC will not come out correctly.                                          */
     } LVM_Signature_Sector;
+#endif
 
     /* ******************************************************************
      *
@@ -526,9 +527,9 @@ extern "C" {
     {
         CARDINAL32   Drive_Number;        /* OS/2 Drive Number for this drive. */
         CARDINAL32   Drive_Size;          /* The total number of sectors on the drive. */
-        DoubleWord   Drive_Serial_Number; /* The serial number assigned to this drive.
+        ULONG   Drive_Serial_Number; /* The serial number assigned to this drive.
                                              For info. purposes only. */
-        ADDRESS      Drive_Handle;        /* Handle used for operations on the disk that
+        PVOID      Drive_Handle;        /* Handle used for operations on the disk that
                                              this record corresponds to. */
         CARDINAL32   Cylinder_Count;      /* The number of cylinders on the drive. */
         CARDINAL32   Heads_Per_Cylinder;  /* The number of heads per cylinder for this drive. */
@@ -569,17 +570,17 @@ extern "C" {
 
     typedef struct _Partition_Information_Record
     {
-        ADDRESS      Partition_Handle;                      /* The handle used to perform
+        PVOID      Partition_Handle;                      /* The handle used to perform
                                                                operations on this partition. */
-        ADDRESS      Volume_Handle;                         /* If this partition is part
+        PVOID      Volume_Handle;                         /* If this partition is part
                                                                of a volume, this will be the
                                                                handle of the volume.  If
                                                                this partition is NOT
                                                                part of a volume, then
                                                                this handle will be 0.        */
-        ADDRESS      Drive_Handle;                          /* The handle for the drive
+        PVOID      Drive_Handle;                          /* The handle for the drive
                                                                this partition resides on. */
-        DoubleWord   Partition_Serial_Number;               /* The serial number assigned
+        ULONG   Partition_Serial_Number;               /* The serial number assigned
                                                                to this partition.         */
         CARDINAL32   Partition_Start;                       /* The LBA of the first
                                                                sector of the partition. */
@@ -702,8 +703,8 @@ extern "C" {
     /* The following items are invariant for a volume. */
     typedef struct _Volume_Control_Record
     {
-        DoubleWord Volume_Serial_Number;            /* The serial number assigned to this volume. */
-        ADDRESS    Volume_Handle;                   /* The handle used to perform operations on this volume. */
+        ULONG Volume_Serial_Number;            /* The serial number assigned to this volume. */
+        PVOID    Volume_Handle;                   /* The handle used to perform operations on this volume. */
         BOOLEAN    Compatibility_Volume;            /* TRUE indicates that this volume is compatible with older versions of OS/2.
                                                        FALSE indicates that this is an LVM specific volume and can not be used without OS2LVM.DMD. */
         BOOLEAN    On_PRM;                          /* Set to TRUE if this volume resides on a PRM.  Set to FALSE otherwise. */
@@ -745,7 +746,7 @@ extern "C" {
     /* The following structure defines an item on the Boot Manager Menu. */
     typedef struct _Boot_Manager_Menu_Item
     {
-        ADDRESS     Handle;            /* A Volume or Partition handle. */
+        PVOID     Handle;            /* A Volume or Partition handle. */
         BOOLEAN     Volume;            /* If TRUE, then Handle is the handle of a Volume.  Otherwise, Handle is the handle of a partition. */
     } Boot_Manager_Menu_Item;
 
@@ -996,7 +997,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      -- ADDRESS Drive_Handle: The handle of the drive to use.
+     *      -- PVOID Drive_Handle: The handle of the drive to use.
      *                    Drive handles are obtained through the
      *                    Get_Drive_Control_Data function.
      *
@@ -1012,7 +1013,7 @@ extern "C" {
      *      If an error occurs, then *Error_Code will be non-zero.
      */
 
-    Drive_Information_Record _System Get_Drive_Status( ADDRESS Drive_Handle, CARDINAL32 * Error_Code );
+    Drive_Information_Record _System Get_Drive_Status( PVOID Drive_Handle, CARDINAL32 * Error_Code );
 
     /* ******************************************************************
      *
@@ -1027,7 +1028,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      -- ADDRESS Handle: This is the handle of a drive or volume.
+     *      -- PVOID Handle: This is the handle of a drive or volume.
      *             Drive handles are obtained through the
      *             Get_Drive_Control_Data function.  Volume
      *             handles are obtained through the
@@ -1072,7 +1073,7 @@ extern "C" {
      *      are done using it.
      */
 
-    Partition_Information_Array _System Get_Partitions( ADDRESS Handle, CARDINAL32 * Error_Code );
+    Partition_Information_Array _System Get_Partitions( PVOID Handle, CARDINAL32 * Error_Code );
 
     /*
      *@@ Get_Partition_Handle:
@@ -1099,7 +1100,7 @@ extern "C" {
      *      code.
      */
 
-    ADDRESS _System Get_Partition_Handle( CARDINAL32 Serial_Number, CARDINAL32 * Error_Code );
+    PVOID _System Get_Partition_Handle( CARDINAL32 Serial_Number, CARDINAL32 * Error_Code );
 
     /*
      *@@ Get_Partition_Information:
@@ -1108,7 +1109,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      -- ADDRESS Partition_Handle:
+     *      -- PVOID Partition_Handle:
      *          The handle associated with the partition for which the
      *          Partition_Information_Record is desired.
      *
@@ -1123,7 +1124,7 @@ extern "C" {
      *      a partition, an error code will be returned in *Error_Code.
      */
 
-    Partition_Information_Record  _System Get_Partition_Information( ADDRESS Partition_Handle, CARDINAL32 * Error_Code );
+    Partition_Information_Record  _System Get_Partition_Information( PVOID Partition_Handle, CARDINAL32 * Error_Code );
 
     /*
      *@@ Create_Partition:
@@ -1131,7 +1132,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      --  ADDRESS Handle: The handle of a disk drive or a block
+     *      --  PVOID Handle: The handle of a disk drive or a block
      *          of free space.
      *
      *      --  CARDINAL32 Size: The size, in sectors, of the
@@ -1183,7 +1184,7 @@ extern "C" {
      *      A partition may be created on a disk drive.
      */
 
-    ADDRESS _System Create_Partition( ADDRESS               Handle,
+    PVOID _System Create_Partition( PVOID               Handle,
                                       CARDINAL32            Size,
                                       char                  Name[ PARTITION_NAME_SIZE ],
                                       Allocation_Algorithm  algorithm,
@@ -1199,7 +1200,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      --  ADDRESS Partition_Handle: The handle associated with the*
+     *      --  PVOID Partition_Handle: The handle associated with the*
      *          partition to be deleted.
      *
      *      Output:
@@ -1221,7 +1222,7 @@ extern "C" {
      *      volume!
      */
 
-    void _System Delete_Partition( ADDRESS Partition_Handle, CARDINAL32 * Error_Code );
+    void _System Delete_Partition( PVOID Partition_Handle, CARDINAL32 * Error_Code );
 
     /*
      *@@ Set_Active_Flag:
@@ -1229,7 +1230,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      --  ADDRESS Partition_Handle: The handle of the partition
+     *      --  PVOID Partition_Handle: The handle of the partition
      *          whose Active Flag is to be set.
      *
      *      --  BYTE Active_Flag: The new value for the Active Flag.
@@ -1256,7 +1257,7 @@ extern "C" {
      *      The Active Flag for a partition may be modified.
      */
 
-    void _System Set_Active_Flag ( ADDRESS      Partition_Handle,
+    void _System Set_Active_Flag ( PVOID      Partition_Handle,
                                    BYTE         Active_Flag,
                                    CARDINAL32 * Error_Code
                                  );
@@ -1270,7 +1271,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      --  ADDRESS Partition_Handle: The handle of the partition
+     *      --  PVOID Partition_Handle: The handle of the partition
      *          whose Active Flag is to be set.
      *      --  BYTE OS_Flag - The new value for the OS Flag.
      *
@@ -1297,7 +1298,7 @@ extern "C" {
      *      The OS Flag for a partition may be modified.
      */
 
-    void _System Set_OS_Flag ( ADDRESS      Partition_Handle,
+    void _System Set_OS_Flag ( PVOID      Partition_Handle,
                                BYTE         OS_Flag,
                                CARDINAL32 * Error_Code
                              );
@@ -1356,7 +1357,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      --  ADDRESS Volume_Handle: The handle of the volume about
+     *      --  PVOID Volume_Handle: The handle of the volume about
      *          which information is desired.
      *
      *      Output: This function returns a Volume_Information_Record.
@@ -1372,7 +1373,7 @@ extern "C" {
      *      will be > 0.
      */
 
-    Volume_Information_Record _System Get_Volume_Information( ADDRESS Volume_Handle, CARDINAL32 * Error_Code );
+    Volume_Information_Record _System Get_Volume_Information( PVOID Volume_Handle, CARDINAL32 * Error_Code );
 
     /*
      *@@ Create_Volume:
@@ -1397,7 +1398,7 @@ extern "C" {
      *      --  CARDINAL32 Partition_Count: The number of partitions to
      *          link together to form the volume being created.
      *
-     *      --  ADDRESS Partition_Handles[]: An array of partition handles
+     *      --  PVOID Partition_Handles[]: An array of partition handles
      *          with one entry for each partition that is to become part
      *          of the volume being created.
      *
@@ -1429,7 +1430,7 @@ extern "C" {
                                 char         Drive_Letter_Preference,
                                 CARDINAL32   FeaturesToUse,
                                 CARDINAL32   Partition_Count,
-                                ADDRESS      Partition_Handles[],
+                                PVOID      Partition_Handles[],
                                 CARDINAL32 * Error_Code
                               );
 
@@ -1439,7 +1440,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      -- ADDRESS Volume_Handle: The handle of the volume to
+     *      -- PVOID Volume_Handle: The handle of the volume to
      *                         delete.  All partitions which are
      *                         part of the specified volume will
      *                         be deleted also.
@@ -1469,7 +1470,7 @@ extern "C" {
      *      deleted volume are no longer required.
      */
 
-    void _System Delete_Volume( ADDRESS Volume_Handle, CARDINAL32 * Error_Code );
+    void _System Delete_Volume( PVOID Volume_Handle, CARDINAL32 * Error_Code );
 
     /*
      *@@ Hide_Volume:
@@ -1479,7 +1480,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      -- ADDRESS Volume_Handle: The handle of the volume to hide.
+     *      -- PVOID Volume_Handle: The handle of the volume to hide.
      *
      *      Output:
      *
@@ -1497,7 +1498,7 @@ extern "C" {
      *      function will abort and set *Error_Code to a non-zero value.
      */
 
-    void _System Hide_Volume( ADDRESS Volume_Handle, CARDINAL32 * Error_Code );
+    void _System Hide_Volume( PVOID Volume_Handle, CARDINAL32 * Error_Code );
 
     /*
      *@@ Expand_Volume:
@@ -1505,13 +1506,13 @@ extern "C" {
      *
      *      Input:
      *
-     *      --  ADDRESS Volume_Handle: The handle of the volume to be
+     *      --  PVOID Volume_Handle: The handle of the volume to be
      *          expanded.
      *
      *      --  CARDINAL32 Partition_Count - The number of partitions or
      *          volumes to be added to the volume being expanded.
      *
-     *      -- ADDRESS Partition_Handles[] - An array of handles.  Each
+     *      -- PVOID Partition_Handles[] - An array of handles.  Each
      *          handle in the array is the handle of a partition which
      *          is to be added to the volume being expanded.
      *
@@ -1548,9 +1549,9 @@ extern "C" {
      *      volume will be lost.
      */
 
-    void _System Expand_Volume ( ADDRESS         Volume_Handle,
+    void _System Expand_Volume ( PVOID         Volume_Handle,
                                  CARDINAL32      Partition_Count,
-                                 ADDRESS         Partition_Handles[],
+                                 PVOID         Partition_Handles[],
                                  CARDINAL32 *    Error_Code
                                );
 
@@ -1560,7 +1561,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      --  ADDRESS Volume_Handle: The handle of the volume which
+     *      --  PVOID Volume_Handle: The handle of the volume which
      *          is to have its assigned drive letter changed.
      *
      *      --  char New_Drive_Preference: The new drive letter to
@@ -1590,7 +1591,7 @@ extern "C" {
      *      drive assignment will NOT be made.
      */
 
-    void _System Assign_Drive_Letter( ADDRESS      Volume_Handle,
+    void _System Assign_Drive_Letter( PVOID      Volume_Handle,
                                       char         New_Drive_Preference,
                                       CARDINAL32 * Error_Code
                                     );
@@ -1601,7 +1602,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      --  ADDRESS Volume_Handle: The handle of the volume to which
+     *      --  PVOID Volume_Handle: The handle of the volume to which
      *          OS/2 should be installed.
      *
      *      Output:
@@ -1621,7 +1622,7 @@ extern "C" {
      *      The specified volume may be marked as installable.
      */
 
-    void _System Set_Installable ( ADDRESS Volume_Handle, CARDINAL32 * Error_Code );
+    void _System Set_Installable ( PVOID Volume_Handle, CARDINAL32 * Error_Code );
 
     /*
      *@@ Get_Installable_Volume:
@@ -1649,7 +1650,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      --  ADDRESS Handle: The handle of the drive, partition, or
+     *      --  PVOID Handle: The handle of the drive, partition, or
      *          volume which is to have its name set.
      *
      *      --  char New_Name[]: The new name for the drive/partition/volume.
@@ -1669,7 +1670,7 @@ extern "C" {
      *
      */
 
-    void _System Set_Name ( ADDRESS      Handle,
+    void _System Set_Name ( PVOID      Handle,
                             char         New_Name[],
                             CARDINAL32 * Error_Code
                           );
@@ -1684,7 +1685,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      --  ADDRESS Handle: The handle of the partition or volume
+     *      --  PVOID Handle: The handle of the partition or volume
      *          which is to be set startable.
      *
      *      Output:
@@ -1706,7 +1707,7 @@ extern "C" {
      *      will have its startable flag cleared.
      */
 
-    void _System Set_Startable ( ADDRESS      Handle,
+    void _System Set_Startable ( PVOID      Handle,
                                  CARDINAL32 * Error_Code
                                );
 
@@ -1721,7 +1722,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      --  ADDRESS Handle: This is any valid drive, volume, or
+     *      --  PVOID Handle: This is any valid drive, volume, or
      *          partition handle.
      *
      *      Output:
@@ -1744,7 +1745,7 @@ extern "C" {
      *      definitions.
      */
 
-    CARDINAL32 _System Get_Valid_Options( ADDRESS Handle, CARDINAL32 * Error_Code );
+    CARDINAL32 _System Get_Valid_Options( PVOID Handle, CARDINAL32 * Error_Code );
 
     /* ******************************************************************
      *
@@ -1774,7 +1775,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      --  ADDRESS Handle: The handle of a partition or volume that
+     *      --  PVOID Handle: The handle of a partition or volume that
      *          is to be added to the Boot Manager menu.
      *
      *      Output:
@@ -1799,7 +1800,7 @@ extern "C" {
      *      The Boot Manager menu may be altered.
      */
 
-    void _System Add_To_Boot_Manager ( ADDRESS Handle, CARDINAL32 * Error_Code );
+    void _System Add_To_Boot_Manager ( PVOID Handle, CARDINAL32 * Error_Code );
 
     /*
      *@@ Remove_From_Boot_Manager:
@@ -1826,7 +1827,7 @@ extern "C" {
      *      The Boot Manager menu may be altered.
      */
 
-    void _System Remove_From_Boot_Manager ( ADDRESS Handle, CARDINAL32 * Error_Code );
+    void _System Remove_From_Boot_Manager ( PVOID Handle, CARDINAL32 * Error_Code );
 
     /*
      *@@ Get_Boot_Manager_Menu:
@@ -1915,7 +1916,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      --  ADDRESS Handle - The handle of the partition or volume
+     *      --  PVOID Handle - The handle of the partition or volume
      *          to boot if the time-out timer is active and the time-out
      *          value is reached.
      *
@@ -1944,7 +1945,7 @@ extern "C" {
      *      Boot Manager may be modified.
      */
 
-    void _System Set_Boot_Manager_Options( ADDRESS      Handle,
+    void _System Set_Boot_Manager_Options( PVOID      Handle,
                                            BOOLEAN      Timer_Active,
                                            CARDINAL32   Time_Out_Value,
                                            BOOLEAN      Advanced_Mode,
@@ -1958,7 +1959,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      --  ADDRESS * Handle - The handle for the default boot
+     *      --  PVOID * Handle - The handle for the default boot
      *          volume or partition.
      *
      *      --  BOOLEAN * Handle_Is_Volume - If TRUE, then Handle
@@ -1991,7 +1992,7 @@ extern "C" {
      *      If Boot Manager is not installed, then *Error_Code will be > 0.
      */
 
-    void _System Get_Boot_Manager_Options( ADDRESS    *  Handle,
+    void _System Get_Boot_Manager_Options( PVOID    *  Handle,
                                            BOOLEAN    *  Handle_Is_Volume,
                                            BOOLEAN    *  Timer_Active,
                                            CARDINAL32 *  Time_Out_Value,
@@ -2012,7 +2013,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      --  ADDRESS Object: The address of the memory object to
+     *      --  PVOID Object: The address of the memory object to
      *          free.  This could be the Drive_Control_Data field of
      *          a Drive_Control_Record, the Partition_Array field of
      *          a Partition_Information_Array structure, or any other
@@ -2025,7 +2026,7 @@ extern "C" {
      *      into this function.
      */
 
-    void _System Free_Engine_Memory( ADDRESS Object );
+    void _System Free_Engine_Memory( PVOID Object );
 
     /*
      *@@ New_MBR:
@@ -2033,7 +2034,7 @@ extern "C" {
      *
      *      Input:
      *
-     *      --  ADDRESS Drive_Handle - The handle of the drive on which
+     *      --  PVOID Drive_Handle - The handle of the drive on which
      *          the new MBR is to be placed.
      *
      *      Output:
@@ -2053,7 +2054,7 @@ extern "C" {
      *      A new MBR may be placed on the specified drive.
      */
 
-    void _System New_MBR( ADDRESS Drive_Handle, CARDINAL32 * Error_Code );
+    void _System New_MBR( PVOID Drive_Handle, CARDINAL32 * Error_Code );
 
     /*
      *@@ Get_Available_Drive_Letters:
@@ -2251,7 +2252,7 @@ extern "C" {
      *      --  CARDINAL32 Sectors_To_Read : The number of sectors to
      *          read into memory.
      *
-     *      --  ADDRESS Buffer : The location to put the data read into.
+     *      --  PVOID Buffer : The location to put the data read into.
      *
      *      Output:
      *
@@ -2273,7 +2274,7 @@ extern "C" {
     void _System Read_Sectors ( CARDINAL32          Drive_Number,
                                 LBA                 Starting_Sector,
                                 CARDINAL32          Sectors_To_Read,
-                                ADDRESS             Buffer,
+                                PVOID             Buffer,
                                 CARDINAL32 *        Error);
 
     /*
@@ -2292,7 +2293,7 @@ extern "C" {
      *      --  CARDINAL32 Sectors_To_Read : The number of sectors to
      *          be written.
      *
-     *      --  ADDRESS Buffer : The location of the data to be written
+     *      --  PVOID Buffer : The location of the data to be written
      *          to disk.
      *
      *      Output:
@@ -2315,7 +2316,7 @@ extern "C" {
     void _System Write_Sectors ( CARDINAL32          Drive_Number,
                                  LBA                 Starting_Sector,
                                  CARDINAL32          Sectors_To_Write,
-                                 ADDRESS             Buffer,
+                                 PVOID             Buffer,
                                  CARDINAL32 *        Error);
 
     /*

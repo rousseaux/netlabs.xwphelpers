@@ -1,5 +1,3 @@
-/* $Id$ */
-
 /*---------------------------------------------------------------------------+
 |
 |     (C)opyright Dennis Bareis (developed at home, in own time) 1996 - ALL RIGHTS RESERVED
