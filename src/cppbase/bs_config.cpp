@@ -784,7 +784,7 @@ int BSConfigSys::Flush(string *pstrBackup,          // in/out: create backup?
         if (arc)
         {
             if (pLogFile)
-                pLogFile->Write("Error %d occured writing CONFIG.SYS back to disk",
+                pLogFile->Write("Error %d occurred writing CONFIG.SYS back to disk",
                                 arc);
 
             throw BSConfigExcpt(CFGEXCPT_WRITE, arc);
@@ -1075,7 +1075,7 @@ int BSDeregisterClass::Deregister(BSUniCodec &codecProcess, // in: codec for pro
     if (!WinDeregisterObjectClass(pcszClassName))
     {
         if (pLogFile)
-            pLogFile->Write("An error occured deregistering WPS class \"%s\"",
+            pLogFile->Write("An error occurred deregistering WPS class \"%s\"",
                             pcszClassName);
 
         throw BSConfigExcpt(REGEXCPT_DEREGISTER, _ustrClassName);
@@ -1266,7 +1266,7 @@ int BSReplaceClass::Replace(BSUniCodec &codecProcess, // in: codec for process c
     if (!brc)
     {
         if (pLogFile)
-            pLogFile->Write("An error occured replacing WPS class \"%s\" with \"%s\"",
+            pLogFile->Write("An error occurred replacing WPS class \"%s\" with \"%s\"",
                             pcszOldClassName,
                             pcszNewClassName);
 
