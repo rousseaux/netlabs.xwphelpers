@@ -46,6 +46,8 @@ extern "C" {
 
     PSZ doshQuerySysErrorMsg(APIRET arc);
 
+    ULONG doshQuerySysUptime(VOID);
+
     /* ******************************************************************
      *
      *   Memory helpers
@@ -764,10 +766,26 @@ extern "C" {
         /* The following fields are only set after
            an extra call to doshExecQueryBldLevel. */
 
-        PSZ                 pszDescription;     // whole string (first non-res name tbl entry)
-        PSZ                 pszVendor;          // vendor substring (if IBM BLDLEVEL format)
-        PSZ                 pszVersion;         // version substring (if IBM BLDLEVEL format)
-        PSZ                 pszInfo;            // module info substring (if IBM BLDLEVEL format)
+        PSZ                 pszDescription;
+                // whole string (first non-res name tbl entry)
+        PSZ                 pszVendor;
+                // vendor substring (if IBM BLDLEVEL format)
+        PSZ                 pszVersion;
+                // version substring (if IBM BLDLEVEL format)
+
+        PSZ                 pszInfo;
+                // module info substring (if IBM BLDLEVEL format)
+
+        // if pszInfo is extended DESCRIPTION field, the following
+        // are set as well:
+        PSZ                 pszBuildDateTime,
+                            pszBuildMachine,
+                            pszASD,
+                            pszLanguage,
+                            pszCountry,
+                            pszRevision,
+                            pszUnknown,
+                            pszFixpak;
 
     } EXECUTABLE, *PEXECUTABLE;
 

@@ -232,6 +232,24 @@ PSZ doshQuerySysErrorMsg(APIRET arc)    // in: DOS error code
 }
 
 /*
+ *@@ doshQuerySysUptime:
+ *      returns the system uptime in milliseconds.
+ *      This can be used for time comparisons.
+ *
+ *@@added V0.9.12 (2001-05-18) [umoeller]
+ */
+
+ULONG doshQuerySysUptime(VOID)
+{
+    ULONG ulms;
+    DosQuerySysInfo(QSV_MS_COUNT,
+                    QSV_MS_COUNT,
+                    &ulms,
+                    sizeof(ulms));
+    return (ulms);
+}
+
+/*
  *@@category: Helpers\Control program helpers\Shared memory management
  *      helpers for allocating and requesting shared memory.
  */

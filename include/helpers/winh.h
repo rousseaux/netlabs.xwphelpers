@@ -3,6 +3,13 @@
  *@@sourcefile winh.h:
  *      header file for winh.c (PM helper funcs). See remarks there.
  *
+ *      Special #define's which this thing reacts to:
+ *
+ *      --  If WINH_STANDARDWRAPPERS is defined to anything, this include
+ *          file maps a number of freqently API calls (such as WinSendMsg)
+ *          to winh* equivalents to reduce the amount of fixup records
+ *          in the final executable.
+ *
  *      Note: Version numbering in this file relates to XWorkplace version
  *            numbering.
  */
@@ -65,6 +72,32 @@ extern "C" {
 
     /* ******************************************************************
      *
+     *   Wrappers
+     *
+     ********************************************************************/
+
+    // if WINH_STANDARDWRAPPERS is #define'd before including winh.h,
+    // all the following Win* API calls are redirected to the winh*
+    // counterparts
+
+    #ifdef WINH_STANDARDWRAPPERS
+
+        MRESULT _Optlink winhSendMsg(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2);
+        #define WinSendMsg(a,b,c,d) winhSendMsg((a),(b),(c),(d))
+
+        BOOL _Optlink winhPostMsg(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2);
+        #define WinPostMsg(a,b,c,d) winhPostMsg((a),(b),(c),(d))
+
+        HWND _Optlink winhWindowFromID(HWND hwnd, ULONG id);
+        #define WinWindowFromID(a,b) winhWindowFromID((a),(b))
+
+        HWND _Optlink winhQueryWindow(HWND hwnd, LONG lCode);
+        #define WinQueryWindow(a,b) winhQueryWindow((a),(b))
+
+    #endif
+
+    /* ******************************************************************
+     *
      *   Macros
      *
      ********************************************************************/
@@ -80,11 +113,12 @@ extern "C" {
     #define winhYesNoBox(title, text) \
     WinMessageBox(HWND_DESKTOP, HWND_DESKTOP, ((PSZ)text), ((PSZ)title), 0, MB_YESNO | MB_ICONQUESTION | MB_MOVEABLE)
 
-    #define winhSetDlgItemChecked(hwnd, id, bCheck) \
+    // made these functions V0.9.12 (2001-05-18) [umoeller]
+    /* #define winhSetDlgItemChecked(hwnd, id, bCheck) \
             WinSendDlgItemMsg((hwnd), (id), BM_SETCHECK, MPFROMSHORT(bCheck), MPNULL)
-
     #define winhIsDlgItemChecked(hwnd, id) \
             (SHORT1FROMMR(WinSendDlgItemMsg((hwnd), (id), BM_QUERYCHECK, MPNULL, MPNULL)))
+       */
 
     #define winhSetMenuItemChecked(hwndMenu, usId, bCheck) \
             WinSendMsg(hwndMenu, MM_SETITEMATTR, MPFROM2SHORT(usId, TRUE), \
@@ -93,11 +127,12 @@ extern "C" {
     #define winhShowDlgItem(hwnd, id, show) \
             WinShowWindow(WinWindowFromID(hwnd, id), show)
 
-    #define winhEnableDlgItem(hwndDlg, ulId, Enable) \
+    // made these functions V0.9.12 (2001-05-18) [umoeller]
+    /* #define winhEnableDlgItem(hwndDlg, ulId, Enable) \
             WinEnableWindow(WinWindowFromID(hwndDlg, ulId), Enable)
-
     #define winhIsDlgItemEnabled(hwndDlg, ulId) \
             WinIsWindowEnabled(WinWindowFromID(hwndDlg, ulId))
+        */
 
     #define winhSetDlgItemFocus(hwndDlg, ulId) \
             WinSetFocus(HWND_DESKTOP, WinWindowFromID(hwndDlg, ulId))
@@ -112,9 +147,30 @@ extern "C" {
 
     /* ******************************************************************
      *
+     *   Generics
+     *
+     ********************************************************************/
+
+    BOOL XWPENTRY winhSetDlgItemChecked(HWND hwnd, SHORT id, SHORT bCheck);
+
+    SHORT XWPENTRY winhIsDlgItemChecked(HWND hwnd, SHORT id);
+
+    BOOL XWPENTRY winhEnableDlgItem(HWND hwndDlg, SHORT id, BOOL fEnable);
+
+    BOOL XWPENTRY winhIsDlgItemEnabled(HWND hwndDlg, SHORT id);
+
+    /* ******************************************************************
+     *
      *   Menu helpers
      *
      ********************************************************************/
+
+    #ifdef INCL_WINMENUS
+        BOOL XWPENTRY winhQueryMenuItem(HWND hwndMenu,
+                                        USHORT usItemID,
+                                        BOOL fSearchSubmenus,
+                                        PMENUITEM pmi);
+    #endif
 
     /*
      * winhCreateEmptyMenu:
@@ -771,6 +827,7 @@ extern "C" {
     BOOL XWPENTRY winhIsClassRegistered(const char *pcszClass);
 
     ULONG XWPENTRY winhResetWPS(HAB hab);
+
 #endif
 
 #if __cplusplus

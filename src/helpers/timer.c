@@ -442,7 +442,9 @@ VOID tmrTimerTick(PXTIMERSET pSet)      // in: timer set (from tmrCreateSet)
                 {
                     PXTIMER pTimer = (PXTIMER)pTimerNode->pItemData;
 
-                    if (pTimer->ulNextFire < ulTimeNow)
+                    if (    (pTimer)
+                         && (pTimer->ulNextFire < ulTimeNow)
+                       )
                     {
                         // this timer has elapsed:
                         // fire!

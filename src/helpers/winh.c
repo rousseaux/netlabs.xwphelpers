@@ -56,6 +56,7 @@
 #define INCL_WINHELP
 #define INCL_WINPROGRAMLIST
 #define INCL_WINSWITCHLIST
+#define INCL_WINBUTTONS
 #define INCL_WINMENUS
 #define INCL_WINSCROLLBARS
 #define INCL_WINLISTBOXES
@@ -85,6 +86,82 @@
 #include "helpers\stringh.h"
 #include "helpers\undoc.h"
 #include "helpers\xstring.h"            // extended string helpers
+
+/*
+ *@@category: Helpers\PM helpers\Wrappers
+ */
+
+/* ******************************************************************
+ *
+ *   Wrappers
+ *
+ ********************************************************************/
+
+#ifdef WINH_STANDARDWRAPPERS
+
+    /*
+     *@@ winhSendMsg:
+     *      wrapper for WinSendMsg.
+     *
+     *      If WINH_STANDARDWRAPPERS is #defined before
+     *      including win.h, all WinSendMsg calls are
+     *      redefined to use this wrapper instead. This
+     *      reduces the amount of external fixups required
+     *      for loading the module.
+     *
+     *@@added V0.9.12 (2001-05-18) [umoeller]
+     */
+
+    MRESULT winhSendMsg(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
+    {
+        // put the call in brackets so the macro won't apply here
+        return ((WinSendMsg)(hwnd, msg, mp1, mp2));
+    }
+
+    /*
+     *@@ winhPostMsg:
+     *      wrapper for WinPostMsg.
+     *
+     *      If WINH_STANDARDWRAPPERS is #defined before
+     *      including win.h, all WinSendMsg calls are
+     *      redefined to use this wrapper instead. This
+     *      reduces the amount of external fixups required
+     *      for loading the module.
+     *
+     *@@added V0.9.12 (2001-05-18) [umoeller]
+     */
+
+    BOOL winhPostMsg(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
+    {
+        // put the call in brackets so the macro won't apply here
+        return ((WinPostMsg)(hwnd, msg, mp1, mp2));
+    }
+
+    /*
+     *@@ winhWindowFromID:
+     *
+     *@@added V0.9.12 (2001-05-18) [umoeller]
+     */
+
+    HWND winhWindowFromID(HWND hwnd, ULONG id)
+    {
+        // put the call in brackets so the macro won't apply here
+        return ((WinWindowFromID)(hwnd, id));
+    }
+
+    /*
+     *@@ winhQueryWindow:
+     *
+     *@@added V0.9.12 (2001-05-18) [umoeller]
+     */
+
+    HWND winhQueryWindow(HWND hwnd, LONG lCode)
+    {
+        // put the call in brackets so the macro won't apply here
+        return ((WinQueryWindow)(hwnd, lCode));
+    }
+
+#endif // WINH_STANDARDWRAPPERS
 
 /*
  *@@category: Helpers\PM helpers\Rectangle helpers
@@ -118,6 +195,84 @@ VOID winhOffsetRect(PRECTL prcl,
 }
 
 /*
+ *@@category: Helpers\PM helpers\Generics
+ */
+
+/* ******************************************************************
+ *
+ *   Generics
+ *
+ ********************************************************************/
+
+/*
+ *@@ winhSetDlgItemChecked:
+ *      checks a check box.
+ *
+ *      This has been turned into a real function
+ *      because this is used hundreds of times in
+ *      XWP, and each WinSendDlgItemMsg in each
+ *      macro produced a fixup relocation record.
+ *
+ *@@added V0.9.12 (2001-05-18) [umoeller]
+ */
+
+BOOL winhSetDlgItemChecked(HWND hwnd,       // in: dialog
+                           SHORT id,        // in: dialog item ID
+                           SHORT bCheck)    // in: 0, 1, or (for tri-state) 2
+{
+    return ((BOOL)WinSendDlgItemMsg(hwnd,
+                                    id,
+                                    BM_SETCHECK,
+                                    MPFROMSHORT(bCheck),
+                                    MPNULL));
+}
+
+/*
+ *@@ winhIsDlgItemChecked:
+ *      returns the current check state of the
+ *      specified check box, which can be 0, 1,
+ *      or (for tri-state checkboxes) 2.
+ *
+ *@@added V0.9.12 (2001-05-18) [umoeller]
+ */
+
+SHORT winhIsDlgItemChecked(HWND hwnd,       // in: dialog
+                           SHORT id)        // in: dialog item ID
+{
+    return (SHORT1FROMMR(WinSendDlgItemMsg(hwnd,
+                                           id,
+                                           BM_QUERYCHECK,
+                                           MPNULL,
+                                           MPNULL)));
+}
+
+/*
+ *@@ winhEnableDlgItem:
+ *
+ *@@added V0.9.12 (2001-05-18) [umoeller]
+ */
+
+BOOL winhEnableDlgItem(HWND hwndDlg,
+                       SHORT id,
+                       BOOL fEnable)
+{
+    return (WinEnableWindow(WinWindowFromID(hwndDlg, id), fEnable));
+}
+
+/*
+ *@@ winhIsDlgItemEnabled:
+ *
+ *@@added V0.9.12 (2001-05-18) [umoeller]
+ */
+
+BOOL winhIsDlgItemEnabled(HWND hwndDlg,
+                          SHORT id)
+{
+    return (WinIsWindowEnabled(WinWindowFromID(hwndDlg, id)));
+}
+
+
+/*
  *@@category: Helpers\PM helpers\Menu helpers
  */
 
@@ -126,6 +281,24 @@ VOID winhOffsetRect(PRECTL prcl,
  *   Menu helpers
  *
  ********************************************************************/
+
+/*
+ *@@ winhQueryMenuItem:
+ *      wrapper around MM_QUERYITEM.
+ *
+ *@@added V0.9.12 (2001-05-18) [umoeller]
+ */
+
+BOOL winhQueryMenuItem(HWND hwndMenu,
+                       USHORT usItemID,
+                       BOOL fSearchSubmenus,
+                       PMENUITEM pmi)           // out: MENUITEM data
+{
+    return ((BOOL)WinSendMsg(hwndMenu,
+                             MM_QUERYITEM,
+                             MPFROM2SHORT(usItemID, fSearchSubmenus),
+                             (MPARAM)pmi));
+}
 
 /*
  *@@ winhInsertMenuItem:
@@ -1524,7 +1697,7 @@ BOOL winhHandleScrollMsg(HWND hwnd2Scroll,          // in: client window to scro
                                                     // this is passed to WinScrollWindow,
                                                     // which considers this inclusive!
                          LONG ulViewportPels,       // in: total viewport dimension,
-                                                    // into which *plCurPelsOfs is an offset
+                                                    // into which *pulCurPelsOfs is an offset
                          USHORT usLineStepPels,     // in: pixels to scroll line-wise
                                                     // (scroll bar buttons pressed)
                          ULONG msg,                 // in: either WM_VSCROLL or WM_HSCROLL
@@ -1601,7 +1774,6 @@ BOOL winhHandleScrollMsg(HWND hwnd2Scroll,          // in: client window to scro
         *plCurPelsOfs = 0; */       // checked above
     if (*pulCurPelsOfs > (lMaxAllowedUnitOfs * usScrollUnitPels))
     {
-        // _Pmpf(("        !!! limiting 2: %d to %d", *plCurUnitOfs, lMaxAllowedUnitOfs));
         *pulCurPelsOfs = (lMaxAllowedUnitOfs * usScrollUnitPels);
     }
     if (    (*pulCurPelsOfs != ulOldPelsOfs)

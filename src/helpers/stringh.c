@@ -1114,22 +1114,31 @@ PSZ strhFindNextLine(PSZ pszSearchIn, PULONG pulOffset)
 /*
  *@@ strhBeautifyTitle:
  *      replaces all line breaks (0xd, 0xa) with spaces.
+ *
+ *@@changed V0.9.12 (2001-05-17) [pr]: multiple line break chars. end up as only 1 space
  */
 
 BOOL strhBeautifyTitle(PSZ psz)
 {
     BOOL rc = FALSE;
-    CHAR *p;
-    while ((p = strchr(psz, 0xa)))
-    {
-        *p = ' ';
-        rc = TRUE;
-    }
-    while ((p = strchr(psz, 0xd)))
-    {
-        *p = ' ';
-        rc = TRUE;
-    }
+    CHAR *p = psz;
+
+    while(*p)
+        if (   (*p == '\r')
+            || (*p == '\n')
+           )
+        {
+            rc = TRUE;
+            if (   (p != psz)
+                && (p[-1] == ' ')
+               )
+                memmove(p, p + 1, strlen(p));
+            else
+                *p++ = ' ';
+        }
+        else
+            p++;
+
     return (rc);
 }
 

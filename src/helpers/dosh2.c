@@ -1114,6 +1114,184 @@ APIRET doshExecClose(PEXECUTABLE pExec)
 }
 
 /*
+ *@@ ParseBldLevel:
+ *      called from doshExecQueryBldLevel to parse
+ *      the BLDLEVEL string.
+ *
+ *      On entry, caller has copied the string into
+ *      pExec->pszDescription. The string is
+ *      null-terminated.
+ *
+ *      The BLDLEVEL string comes in two flavors.
+ *
+ *      --  The standard format is:
+ *
+ +              @#VENDOR:VERSION#@DESCRIPTION
+ *
+ *          DESCRIPTION can have leading spaces, but
+ *          need to have them.
+ *
+ *      --  However, there is an extended version
+ *          in that the DESCRIPTION field is split
+ *          up even more. The marker for this seems
+ *          to be that the description starts out
+ *          with "##1##".
+ *
+ +              ##1## DATETIME BUILDMACHINE:ASD:LANG:CTRY:REVISION:UNKNOWN:FIXPAK@@DESCRIPTION
+ *
+ *          The problem is that the DATETIME field comes
+ *          in several flavors. IBM uses things like
+ *
+ +              "Thu Nov 30 15:30:37 2000 BWBLD228"
+ *
+ *          while DANIS506.ADD has
+ *
+ +              "15.12.2000 18:22:57      Nachtigall"
+ *
+ *          Looks like the date/time string is standardized
+ *          to have 24 characters then.
+ *
+ *@@added V0.9.12 (2001-05-18) [umoeller]
+ *@@changed V0.9.12 (2001-05-19) [umoeller]: added extended BLDLEVEL support
+ */
+
+VOID ParseBldLevel(PEXECUTABLE pExec)
+{
+    const char  *pStartOfAuthor = 0,
+                *pStartOfVendor = 0;
+
+    // @#VENDOR:VERSION#@ DESCRIPTION
+    // but skip the first byte, which has the string length
+    pStartOfVendor = strstr(pExec->pszDescription,
+                            "@#");
+    if (pStartOfVendor)
+    {
+        const char *pStartOfInfo = strstr(pStartOfVendor + 2,
+                                          "#@");
+        if (pStartOfInfo)
+        {
+            const char *pEndOfVendor = strchr(pStartOfVendor + 2,
+                                              ':');
+            if (pEndOfVendor)
+            {
+                pExec->pszVendor = strhSubstr(pStartOfVendor + 2,
+                                              pEndOfVendor);
+                pExec->pszVersion = strhSubstr(pEndOfVendor + 1,
+                                               pStartOfInfo);
+                // skip "@#" in DESCRIPTION string
+                pStartOfInfo += 2;
+
+                // now check if we have extended DESCRIPTION V0.9.12 (2001-05-19) [umoeller]
+                if (    (strlen(pStartOfInfo) > 6)
+                     && (!memcmp(pStartOfInfo, "##1##", 5))
+                   )
+                {
+                    // yes: parse that beast
+                    const char *p = pStartOfInfo + 5;
+
+                    // get build date/time
+                    if (strlen(p) > 24)
+                    {
+                        // date/time seems to be fixed 24 chars in length
+                        pExec->pszBuildDateTime = (PSZ)malloc(25);
+                        if (pExec->pszBuildDateTime)
+                        {
+                            memcpy(pExec->pszBuildDateTime,
+                                   p,
+                                   24);
+                            pExec->pszBuildDateTime[24] = '\0';
+
+                            p += 24;
+
+                            // now we're at the colon-separated
+                            // strings, first of which is the
+                            // build machine;
+                            // skip leading spaces
+                            while (*p == ' ')
+                                p++;
+
+                            if (*p)
+                            {
+                                char **papsz[] =
+                                    {
+                                        &pExec->pszBuildMachine,
+                                        &pExec->pszASD,
+                                        &pExec->pszLanguage,
+                                        &pExec->pszCountry,
+                                        &pExec->pszRevision,
+                                        &pExec->pszUnknown,
+                                        &pExec->pszFixpak
+                                    };
+                                ULONG ul;
+
+                                for (ul = 0;
+                                     ul < sizeof(papsz) / sizeof(papsz[0]);
+                                     ul++)
+                                {
+                                    BOOL fStop = FALSE;
+                                    const char *pNextColon = strchr(p, ':'),
+                                               *pDoubleAt = strstr(p, "@@");
+                                    if (!pNextColon)
+                                    {
+                                        // last item:
+                                        if (pDoubleAt)
+                                            pNextColon = pDoubleAt;
+                                        else
+                                            pNextColon = p + strlen(p);
+
+                                        fStop = TRUE;
+                                    }
+
+                                    if (    (fStop)
+                                         || (    (pNextColon)
+                                              && (    (!pDoubleAt)
+                                                   || (pNextColon < pDoubleAt)
+                                                 )
+                                            )
+                                       )
+                                    {
+                                        if (pNextColon > p + 1)
+                                            *(papsz[ul]) = strhSubstr(p, pNextColon);
+                                    }
+                                    else
+                                        break;
+
+                                    if (fStop)
+                                        break;
+
+                                    p = pNextColon + 1;
+                                }
+                            }
+                        }
+                    }
+
+                    pStartOfInfo = strstr(p,
+                                          "@@");
+                    if (pStartOfInfo)
+                        pStartOfInfo += 2;
+                }
+
+                // -- if we had no extended DESCRIPTION,
+                //    pStartOfInfo points to regular description now
+                // -- if we parse the extended DESCRIPTION above,
+                //    pStartOfInfo points to after @@ now
+                // -- if we had an error, pStartOfInfo is NULL
+                if (pStartOfInfo)
+                {
+                    // add the regular DESCRIPTION then
+                    // skip leading spaces in info string
+                    while (*pStartOfInfo == ' ')
+                        pStartOfInfo++;
+                    if (*pStartOfInfo)  // V0.9.9 (2001-04-04) [umoeller]
+                        // and copy until end of string
+                        pExec->pszInfo = strdup(pStartOfInfo);
+                }
+            }
+        }
+    }
+}
+
+/*
  *@@ doshExecQueryBldLevel:
  *      this retrieves buildlevel information for an
  *      LX or NE executable previously opened with
@@ -1167,6 +1345,7 @@ APIRET doshExecClose(PEXECUTABLE pExec)
  *@@changed V0.9.0 (99-10-22) [umoeller]: NE format now supported
  *@@changed V0.9.1 (99-12-06): fixed memory leak
  *@@changed V0.9.9 (2001-04-04) [umoeller]: added more error checking
+ *@@changed V0.9.12 (2001-05-18) [umoeller]: extracted ParseBldLevel
  */
 
 APIRET doshExecQueryBldLevel(PEXECUTABLE pExec)
@@ -1242,45 +1421,13 @@ APIRET doshExecQueryBldLevel(PEXECUTABLE pExec)
                                 arc = ERROR_NOT_ENOUGH_MEMORY;
                             else
                             {
-                                const char  *pStartOfAuthor = 0,
-                                            *pStartOfVendor = 0;
-
                                 memcpy(pExec->pszDescription,
                                        pszNameTable + 1,        // skip length byte
                                        *pszNameTable);          // length byte
                                 // terminate string
                                 *(pExec->pszDescription + (*pszNameTable)) = 0;
 
-                                // now parse the damn thing:
-                                // @#VENDOR:VERSION#@ DESCRIPTION
-                                // but skip the first byte, which has the string length
-                                pStartOfVendor = strstr(pExec->pszDescription,
-                                                        "@#");
-                                if (pStartOfVendor)
-                                {
-                                    const char *pStartOfInfo = strstr(pStartOfVendor + 2,
-                                                                      "#@");
-                                    if (pStartOfInfo)
-                                    {
-                                        PSZ pEndOfVendor = strchr(pStartOfVendor + 2,
-                                                                  ':');
-                                        if (pEndOfVendor)
-                                        {
-                                            pExec->pszVendor = strhSubstr(pStartOfVendor + 2,
-                                                                          pEndOfVendor);
-                                            pExec->pszVersion = strhSubstr(pEndOfVendor + 1,
-                                                                           pStartOfInfo);
-                                            // skip "@#" in info string
-                                            pStartOfInfo += 2;
-                                            // skip leading spaces in info string
-                                            while (*pStartOfInfo == ' ')
-                                                pStartOfInfo++;
-                                            if (*pStartOfInfo)  // V0.9.9 (2001-04-04) [umoeller]
-                                                // and copy until end of string
-                                                pExec->pszInfo = strdup(pStartOfInfo);
-                                        }
-                                    }
-                                }
+                                ParseBldLevel(pExec);
                             }
                         }
                     }
