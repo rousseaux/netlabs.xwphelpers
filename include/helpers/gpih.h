@@ -1,5 +1,3 @@
-/* $Id$ */
-
 
 /*
  *@@sourcefile gpih.h:
@@ -67,11 +65,11 @@ extern "C" {
     #define RGBCOL_DARKYELLOW       0x00808000
     #define RGBCOL_DARKGRAY         0x00808080
 
-    VOID gpihManipulateRGB(PLONG plColor,
-                           BYTE bMultiplier,
-                           BYTE bDivisor);
+    VOID XWPENTRY gpihManipulateRGB(PLONG plColor, BYTE bMultiplier, BYTE bDivisor);
+    typedef VOID XWPENTRY GPIHMANIPULATERGB(PLONG plColor, BYTE bMultiplier, BYTE bDivisor);
+    typedef GPIHMANIPULATERGB *PGPIHMANIPULATERGB;
 
-    BOOL gpihSwitchToRGB(HPS hps);
+    BOOL XWPENTRY gpihSwitchToRGB(HPS hps);
     typedef BOOL XWPENTRY GPIHSWITCHTORGB(HPS hps);
     typedef GPIHSWITCHTORGB *PGPIHSWITCHTORGB;
 
@@ -81,20 +79,21 @@ extern "C" {
      *
      ********************************************************************/
 
-    VOID gpihDrawRect(HPS hps, PRECTL prcl);
+    VOID XWPENTRY gpihDrawRect(HPS hps, PRECTL prcl);
+    typedef VOID XWPENTRY GPIHDRAWRECT(HPS hps, PRECTL prcl);
+    typedef GPIHDRAWRECT *PGPIHDRAWRECT;
 
-    VOID gpihBox(HPS hps,
-                 LONG lControl,
-                 PRECTL prcl);
+    VOID XWPENTRY gpihBox(HPS hps, LONG lControl, PRECTL prcl);
+    typedef VOID XWPENTRY GPIHBOX(HPS hps, LONG lControl, PRECTL prcl);
+    typedef GPIHBOX *PGPIHBOX;
 
-    VOID gpihMarker(HPS hps,
-                    LONG x,
-                    LONG y,
-                    ULONG ulWidth);
+    VOID XWPENTRY gpihMarker(HPS hps, LONG x, LONG y, ULONG ulWidth);
+    typedef VOID XWPENTRY GPIHMARKER(HPS hps, LONG x, LONG y, ULONG ulWidth);
+    typedef GPIHMARKER *PGPIHMARKER;
 
-    VOID gpihDrawThickFrame(HPS hps,
-                            PRECTL prcl,
-                            ULONG ulWidth);
+    VOID XWPENTRY gpihDrawThickFrame(HPS hps, PRECTL prcl, ULONG ulWidth);
+    typedef VOID XWPENTRY GPIHDRAWTHICKFRAME(HPS hps, PRECTL prcl, ULONG ulWidth);
+    typedef GPIHDRAWTHICKFRAME *PGPIHDRAWTHICKFRAME;
 
     VOID XWPENTRY gpihDraw3DFrame(HPS hps,
                                   PRECTL prcl,
@@ -108,12 +107,19 @@ extern "C" {
                                           LONG lColorRight);
     typedef GPIHDRAW3DFRAME *PGPIHDRAW3DFRAME;
 
-    LONG gpihCharStringPosAt(HPS hps,
-                             PPOINTL pptlStart,
-                             PRECTL prclRect,
-                             ULONG flOptions,
-                             LONG lCount,
-                             PCH pchString);
+    LONG XWPENTRY gpihCharStringPosAt(HPS hps,
+                                      PPOINTL pptlStart,
+                                      PRECTL prclRect,
+                                      ULONG flOptions,
+                                      LONG lCount,
+                                      PCH pchString);
+    typedef LONG XWPENTRY GPIHCHARSTRINGPOSAT(HPS hps,
+                                              PPOINTL pptlStart,
+                                              PRECTL prclRect,
+                                              ULONG flOptions,
+                                              LONG lCount,
+                                              PCH pchString);
+    typedef GPIHCHARSTRINGPOSAT *PGPIHCHARSTRINGPOSAT;
 
     /* ******************************************************************
      *
@@ -121,28 +127,49 @@ extern "C" {
      *
      ********************************************************************/
 
-    BOOL gpihSplitPresFont(PSZ pszFontNameSize,
-                           PULONG pulSize,
-                           PSZ *ppszFaceName);
+    BOOL XWPENTRY gpihSplitPresFont(PSZ pszFontNameSize,
+                                    PULONG pulSize,
+                                    PSZ *ppszFaceName);
+    typedef BOOL XWPENTRY GPIHSPLITPRESFONT(PSZ pszFontNameSize,
+                                            PULONG pulSize,
+                                            PSZ *ppszFaceName);
+    typedef GPIHSPLITPRESFONT *PGPIHSPLITPRESFONT;
 
-    LONG gpihFindFont(HPS hps,
-                      LONG lSize,
-                      BOOL fFamily,
-                      PSZ pszName,
-                      USHORT usFormat,
-                      PFONTMETRICS pFontMetrics);
+    LONG XWPENTRY gpihFindFont(HPS hps,
+                               LONG lSize,
+                               BOOL fFamily,
+                               PSZ pszName,
+                               USHORT usFormat,
+                               PFONTMETRICS pFontMetrics);
+    typedef LONG XWPENTRY GPIHFINDFONT(HPS hps,
+                                       LONG lSize,
+                                       BOOL fFamily,
+                                       PSZ pszName,
+                                       USHORT usFormat,
+                                       PFONTMETRICS pFontMetrics);
+    typedef GPIHFINDFONT *PGPIHFINDFONT;
 
-    LONG gpihFindPresFont(HWND hwnd,
-                          BOOL fInherit,
-                          HPS hps,
-                          PSZ pszDefaultFont,
-                          PFONTMETRICS pFontMetrics,
-                          PLONG plSize);
+    LONG XWPENTRY gpihFindPresFont(HWND hwnd,
+                                   BOOL fInherit,
+                                   HPS hps,
+                                   PSZ pszDefaultFont,
+                                   PFONTMETRICS pFontMetrics,
+                                   PLONG plSize);
+    typedef LONG XWPENTRY GPIHFINDPRESFONT(HWND hwnd,
+                                           BOOL fInherit,
+                                           HPS hps,
+                                           PSZ pszDefaultFont,
+                                           PFONTMETRICS pFontMetrics,
+                                           PLONG plSize);
+    typedef GPIHFINDPRESFONT *PGPIHFINDPRESFONT;
 
-    BOOL gpihSetPointSize(HPS hps,
-                          LONG lPointSize);
+    BOOL XWPENTRY gpihSetPointSize(HPS hps, LONG lPointSize);
+    typedef BOOL XWPENTRY GPIHSETPOINTSIZE(HPS hps, LONG lPointSize);
+    typedef GPIHSETPOINTSIZE *PGPIHSETPOINTSIZE;
 
-    LONG gpihQueryLineSpacing(HPS hps);
+    LONG XWPENTRY gpihQueryLineSpacing(HPS hps);
+    typedef LONG XWPENTRY GPIHQUERYLINESPACING(HPS hps);
+    typedef GPIHQUERYLINESPACING *PGPIHQUERYLINESPACING;
 
     /* ******************************************************************
      *
@@ -150,37 +177,41 @@ extern "C" {
      *
      ********************************************************************/
 
-    BOOL gpihCreateMemPS(HAB hab,
-                         PSIZEL psizlPage,
-                         HDC *hdcMem,
-                         HPS *hpsMem);
+    BOOL XWPENTRY gpihCreateMemPS(HAB hab, PSIZEL psizlPage, HDC *hdcMem, HPS *hpsMem);
+    typedef BOOL XWPENTRY GPIHCREATEMEMPS(HAB hab, PSIZEL psizlPage, HDC *hdcMem, HPS *hpsMem);
+    typedef GPIHCREATEMEMPS *PGPIHCREATEMEMPS;
 
-    HBITMAP gpihCreateBitmap(HPS hpsMem,
-                             ULONG  cx,
-                             ULONG  cy);
+    HBITMAP XWPENTRY gpihCreateBitmap(HPS hpsMem, ULONG  cx, ULONG  cy);
+    typedef HBITMAP XWPENTRY GPIHCREATEBITMAP(HPS hpsMem, ULONG  cx, ULONG  cy);
+    typedef GPIHCREATEBITMAP *PGPIHCREATEBITMAP;
 
-    HBITMAP gpihCreateBmpFromPS(HAB hab,
-                                HPS hpsScreen,
-                                PRECTL prcl);
+    HBITMAP XWPENTRY gpihCreateBmpFromPS(HAB hab, HPS hpsScreen, PRECTL prcl);
+    typedef HBITMAP XWPENTRY GPIHCREATEBMPFROMPS(HAB hab, HPS hpsScreen, PRECTL prcl);
+    typedef GPIHCREATEBMPFROMPS *PGPIHCREATEBMPFROMPS;
 
-    HBITMAP gpihCreateHalftonedBitmap(HAB       hab,
-                                      HBITMAP   hbmSource,
-                                      LONG      lColorGray);
+    HBITMAP XWPENTRY gpihCreateHalftonedBitmap(HAB hab, HBITMAP hbmSource, LONG lColorGray);
+    typedef HBITMAP XWPENTRY GPIHCREATEHALFTONEDBITMAP(HAB hab, HBITMAP hbmSource, LONG lColorGray);
+    typedef GPIHCREATEHALFTONEDBITMAP *PGPIHCREATEHALFTONEDBITMAP;
 
-    HBITMAP gpihLoadBitmapFile(HPS hps,
-                               PSZ pszBmpFile,
-                               PULONG pulError);
+    HBITMAP XWPENTRY gpihLoadBitmapFile(HPS hps, PSZ pszBmpFile, PULONG pulError);
+    typedef HBITMAP XWPENTRY GPIHLOADBITMAPFILE(HPS hps, PSZ pszBmpFile, PULONG pulError);
+    typedef GPIHLOADBITMAPFILE *PGPIHLOADBITMAPFILE;
 
-    LONG gpihStretchBitmap(HPS hpsTarget,
-                           HBITMAP hbmSource,
-                           PRECTL prclSource,
-                           PRECTL prclTarget,
-                           BOOL fProportional);
+    LONG XWPENTRY gpihStretchBitmap(HPS hpsTarget,
+                                    HBITMAP hbmSource,
+                                    PRECTL prclSource,
+                                    PRECTL prclTarget,
+                                    BOOL fProportional);
+    typedef LONG XWPENTRY GPIHSTRETCHBITMAP(HPS hpsTarget,
+                                            HBITMAP hbmSource,
+                                            PRECTL prclSource,
+                                            PRECTL prclTarget,
+                                            BOOL fProportional);
+    typedef GPIHSTRETCHBITMAP *PGPIHSTRETCHBITMAP;
 
-    BOOL gpihIcon2Bitmap(HPS hpsMem,
-                         HPOINTER hptr,
-                         LONG lBkgndColor,
-                         ULONG ulIconSize);
+    BOOL XWPENTRY gpihIcon2Bitmap(HPS hpsMem, HPOINTER hptr, LONG lBkgndColor, ULONG ulIconSize);
+    typedef BOOL XWPENTRY GPIHICON2BITMAP(HPS hpsMem, HPOINTER hptr, LONG lBkgndColor, ULONG ulIconSize);
+    typedef GPIHICON2BITMAP *PGPIHICON2BITMAP;
 
 #endif
 
