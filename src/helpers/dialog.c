@@ -236,9 +236,11 @@ typedef struct _TABLEDEF
 
     LINKLIST    llRows;             // contains ROWDEF structs, no auto-free
 
-    PCONTROLDEF pCtlDef;            // if != NULL, we create a PM control around the table
+    const CONTROLDEF *pCtlDef;      // if != NULL, we create a PM control around the table
 
     CONTROLPOS  cpTable;
+
+    ULONG       flTable;            // copied from DLGHITEM
 
 } TABLEDEF;
 
@@ -273,7 +275,7 @@ static APIRET ProcessTable(PTABLEDEF pTableDef,
  *@@added V0.9.16 (2001-10-11) [umoeller]
  */
 
-static VOID SetDlgFont(PCONTROLDEF pControlDef,
+static VOID SetDlgFont(const CONTROLDEF *pControlDef,
                        PDLGPRIVATE pDlgData)
 {
     LONG lPointSize = 0;
@@ -339,7 +341,7 @@ static VOID SetDlgFont(PCONTROLDEF pControlDef,
  *@@changed V0.9.16 (2002-02-02) [umoeller]: added ulWidth
  */
 
-static APIRET CalcAutoSizeText(PCONTROLDEF pControlDef,
+static APIRET CalcAutoSizeText(const CONTROLDEF *pControlDef,
                                BOOL fMultiLine,          // in: if TRUE, multiple lines
                                ULONG ulWidth,            // in: proposed width of control
                                PSIZEL pszlAuto,          // out: computed size
@@ -406,7 +408,7 @@ static APIRET CalcAutoSizeText(PCONTROLDEF pControlDef,
  *@@changed V0.9.16 (2001-10-15) [umoeller]: added APIRET
  */
 
-static APIRET CalcAutoSize(PCONTROLDEF pControlDef,
+static APIRET CalcAutoSize(const CONTROLDEF *pControlDef,
                            ULONG ulWidth,            // in: proposed width of control
                            PSIZEL pszlAuto,          // out: computed size
                            PDLGPRIVATE pDlgData)
@@ -518,7 +520,7 @@ static APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
                               PDLGPRIVATE pDlgData)
 {
     APIRET      arc = NO_ERROR;
-    PCONTROLDEF pControlDef = NULL;
+    const CONTROLDEF *pControlDef = NULL;
     ULONG       xExtraColumn = 0,
                 yExtraColumn = 0;
 
@@ -573,7 +575,7 @@ static APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
         // no nested table, but control:
         SIZEL       szlAuto;
 
-        pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
+        pControlDef = (const CONTROLDEF *)pColumnDef->pvDefinition;
 
         // do auto-size calculations only on the first loop
         // V0.9.16 (2002-02-02) [umoeller]
@@ -741,7 +743,7 @@ static APIRET ColumnCalcPositions(PCOLUMNDEF pColumnDef,
     else
     {
         // no nested table, but control:
-        PCONTROLDEF pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
+        const CONTROLDEF *pControlDef = (const CONTROLDEF *)pColumnDef->pvDefinition;
         xSpacingControl = pControlDef->duSpacing * FACTOR_X;
         ySpacingControl = pControlDef->duSpacing * FACTOR_Y;
     }
@@ -787,7 +789,7 @@ static APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
 {
     APIRET      arc = NO_ERROR;
 
-    PCONTROLDEF pControlDef = NULL;
+    const CONTROLDEF *pControlDef = NULL;
 
     PCSZ        pcszClass = NULL;
     PCSZ        pcszTitle = NULL;
@@ -876,7 +878,7 @@ static APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
     else
     {
         // no nested table, but control:
-        pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
+        pControlDef = (const CONTROLDEF *)pColumnDef->pvDefinition;
         // pcp = &pColumnDef->cpControl;
         pcszClass = pControlDef->pcszClass;
         pcszTitle = pControlDef->pcszText;
@@ -1112,6 +1114,7 @@ static APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
  *
  *@@changed V0.9.12 (2001-05-31) [umoeller]: added control data
  *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed font problems
+ *@@changed V0.9.20 (2002-08-08) [umoeller]: added support for aligning columns horizontally
  */
 
 static APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
@@ -1155,7 +1158,7 @@ static APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
             else
             {
                 // no nested table, but control:
-                PCONTROLDEF pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
+                const CONTROLDEF *pControlDef = (const CONTROLDEF *)pColumnDef->pvDefinition;
 
                 if (    (pControlDef->szlDlgUnits.cx < -1)
                      && (pControlDef->szlDlgUnits.cx >= -100)
@@ -1224,11 +1227,46 @@ static APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
          */
 
         case PROCESS_3_CALC_FINAL_TABLE_SIZES:
+        {
+            PTABLEDEF pOwningTable;
             // re-run calc sizes since we now know all
             // the auto-size items
             arc = ColumnCalcSizes(pColumnDef,
                                   ProcessMode,
                                   pDlgData);
+
+
+            // now check if the table has TABLE_ALIGN_COLUMNS enabled
+            // (START_TABLE_ALIGN or START_GROUP_TABLE_ALIGN macros)
+            // and, if so, align the colums horizontally by making all
+            // columns as wide as the widest column in the table
+            // V0.9.20 (2002-08-08) [umoeller]
+            if (    (pOwningRow)
+                 && (pOwningTable = pOwningRow->pOwningTable)
+                 && (pOwningTable->flTable & TABLE_ALIGN_COLUMNS)
+               )
+            {
+                // determine the index of this column in the current row
+                ULONG ulMyIndex = lstIndexFromItem(&pOwningRow->llColumns,
+                                                   pColumnDef);
+                if (ulMyIndex == -1)
+                    arc = DLGERR_INTEGRITY_BAD_COLUMN_INDEX;
+                else
+                {
+                    // find the widest column with this index in the table
+                    PLISTNODE pRowNode;
+                    FOR_ALL_NODES(&pOwningTable->llRows, pRowNode)
+                    {
+                        PROWDEF     pRowThis = (PROWDEF)pRowNode->pItemData;
+                        PCOLUMNDEF  pCorrespondingColumn;
+                        if (    (pCorrespondingColumn = lstItemFromIndex(&pRowThis->llColumns, ulMyIndex))
+                             && (pCorrespondingColumn->cpColumn.cx > pColumnDef->cpColumn.cx)
+                           )
+                            pColumnDef->cpColumn.cx = pCorrespondingColumn->cpColumn.cx;
+                    }
+                }
+            }
+        }
         break;
 
         /*
@@ -1278,25 +1316,26 @@ static APIRET ProcessRow(PROWDEF pRowDef,
 
     pRowDef->pOwningTable = pOwningTable;
 
-    if (    (ProcessMode == PROCESS_1_CALC_SIZES)
-         || (ProcessMode == PROCESS_3_CALC_FINAL_TABLE_SIZES)
-       )
+    switch (ProcessMode)
     {
-        pRowDef->cpRow.cx = 0;
-        pRowDef->cpRow.cy = 0;
-    }
-    else if (ProcessMode == PROCESS_4_CALC_POSITIONS)
-    {
-        // set up x and y so that the columns can
-        // base on that
-        pRowDef->cpRow.x = pOwningTable->cpTable.x;
-        // decrease y by row height
-        *plY -= pRowDef->cpRow.cy;
-        // and use that for our bottom position
-        pRowDef->cpRow.y = *plY;
+        case PROCESS_1_CALC_SIZES:
+        case PROCESS_3_CALC_FINAL_TABLE_SIZES:
+            pRowDef->cpRow.cx = 0;
+            pRowDef->cpRow.cy = 0;
+        break;
 
-        // set lX to left of row; used by column calls below
-        lX = pRowDef->cpRow.x;
+        case PROCESS_4_CALC_POSITIONS:
+            // set up x and y so that the columns can
+            // base on that
+            pRowDef->cpRow.x = pOwningTable->cpTable.x;
+            // decrease y by row height
+            *plY -= pRowDef->cpRow.cy;
+            // and use that for our bottom position
+            pRowDef->cpRow.y = *plY;
+
+            // set lX to left of row; used by column calls below
+            lX = pRowDef->cpRow.x;
+        break;
     }
 
     FOR_ALL_NODES(&pRowDef->llColumns, pNode)
@@ -1355,6 +1394,10 @@ static APIRET ProcessTable(PTABLEDEF pTableDef,
     switch (ProcessMode)
     {
         case PROCESS_1_CALC_SIZES:
+            pTableDef->cpTable.cx = 0;
+            pTableDef->cpTable.cy = 0;
+        break;
+
         case PROCESS_3_CALC_FINAL_TABLE_SIZES:
             pTableDef->cpTable.cx = 0;
             pTableDef->cpTable.cy = 0;
@@ -1403,7 +1446,7 @@ static APIRET ProcessTable(PTABLEDEF pTableDef,
  *      the row).
  *
  *      The first trick to formatting is that ProcessAll will
- *      get three times, thus going down the entire tree three
+ *      get FIVE times, thus going down the entire tree FIVE
  *      times, with ProcessMode being set to one of the
  *      following for each call (in this order):
  *
@@ -1509,8 +1552,8 @@ static APIRET CreateColumn(PROWDEF pCurrentRow,
         else
         {
             // create column and store ctl def
-            PCOLUMNDEF pColumnDef = NEW(COLUMNDEF);
-            if (!pColumnDef)
+            PCOLUMNDEF pColumnDef;
+            if (!(pColumnDef = NEW(COLUMNDEF)))
                 arc = ERROR_NOT_ENOUGH_MEMORY;
             else
             {
@@ -1705,9 +1748,10 @@ static APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
 
                     lstInit(&pCurrentTable->llRows, FALSE);
 
-                    if (pItemThis->ulData)
-                        // control specified: store it (this will become a PM group)
-                        pCurrentTable->pCtlDef = (PCONTROLDEF)pItemThis->ulData;
+                    // if control specified: store it (this will become a PM group)
+                    pCurrentTable->pCtlDef = pItemThis->pCtlDef;        // can be NULL for plain table
+
+                    pCurrentTable->flTable = pItemThis->fl;         // V0.9.20 (2002-08-08) [umoeller]
 
                     if (fIsRoot)
                         // root table:
@@ -1755,7 +1799,7 @@ static APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
                         pCurrentRow->pOwningTable = pCurrentTable;
                         lstInit(&pCurrentRow->llColumns, FALSE);
 
-                        pCurrentRow->flRowFormat = pItemThis->ulData;
+                        pCurrentRow->flRowFormat = pItemThis->fl;
 
                         lstAppendItem(&pCurrentTable->llRows, pCurrentRow);
                     }
@@ -1773,7 +1817,7 @@ static APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
                 PCOLUMNDEF pColumnDef;
                 if (!(arc = CreateColumn(pCurrentRow,
                                          FALSE,        // no nested table
-                                         (PVOID)pItemThis->ulData,
+                                         (PVOID)pItemThis->pCtlDef,
                                          &pColumnDef)))
                     lstAppendItem(&pCurrentRow->llColumns,
                                   pColumnDef);
@@ -1960,8 +2004,8 @@ static VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *      the control _sizes_, and all positions are computed
  *      automatically here. Even better, for many controls,
  *      auto-sizing is supported according to the control's
- *      text (e.g. for statics and checkboxes). In a way,
- *      this is a bit similar to HTML tables.
+ *      text (e.g. for statics and checkboxes). This is
+ *      quite similar to HTML tables.
  *
  *      A regular standard dialog would use something like
  *
@@ -2005,6 +2049,11 @@ static VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *      --  START_TABLE starts a new table. The tables may nest,
  *          but must each be properly terminated with END_TABLE.
  *
+ *          Note that as opposed to HTML tables, the columns
+ *          in the rows of the table are NOT aligned under each
+ *          other. If that is what you want, use START_TABLE_ALIGN
+ *          instead.
+ *
  *      --  START_GROUP_TABLE(pDef) starts a group. This
  *          behaves exacly like START_TABLE, but in addition,
  *          it produces a static group control around the table.
@@ -2015,6 +2064,10 @@ static VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *
  *          As with START_TABLE, START_GROUP_TABLE must be
  *          terminated with END_TABLE.
+ *
+ *          As with START_TABLE, columns in the rows of the table
+ *          are NOT aligned under each other. If that is what you
+ *          want, use START_GROUP_TABLE_ALIGN instead.
  *
  *      --  START_ROW(fl) starts a new row in a table (regular
  *          or group). This must also be the first item after
@@ -2043,6 +2096,10 @@ static VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *          Unless separated with START_ROW items, subsequent
  *          control items will be considered to be in the same
  *          row (== positioned next to each other).
+ *
+ *          Columns will only be aligned horizontally if the
+ *          container table was specified with START_TABLE_ALIGN
+ *          or START_GROUP_TABLE_ALIGN.
  *
  *      There are a few rules, whose violation will produce
  *      an error:
@@ -2162,11 +2219,12 @@ static VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *          appeared right after a table definition. You must
  *          specify a row first.
  *
- *      --  DLGERR_NULL_CTL_DEF: TYPE_END_TABLE was specified,
- *          but the CONTROLDEF ptr was NULL.
+ *      --  DLGERR_NULL_CTL_DEF: A required CONTROLDEF ptr
+ *          was NULL.
  *
  *      --  DLGERR_CANNOT_CREATE_FRAME: unable to create the
- *          WC_FRAME window. Maybe an invalid owner was specified.
+ *          WC_FRAME window. Typically an invalid owner was
+ *          specified.
  *
  *      --  DLGERR_INVALID_CODE: invalid "Type" field in
  *          DLGHITEM.

@@ -54,8 +54,9 @@ extern "C" {
     #define DLGERR_ARRAY_TOO_SMALL              (ERROR_DLG_FIRST + 8)
     #define DLGERR_INVALID_CONTROL_TITLE        (ERROR_DLG_FIRST + 9)
     #define DLGERR_INVALID_STATIC_BITMAP        (ERROR_DLG_FIRST + 10)
+    #define DLGERR_INTEGRITY_BAD_COLUMN_INDEX   (ERROR_DLG_FIRST + 11)
 
-    #define ERROR_DLG_LAST                      (ERROR_DLG_FIRST + 10)
+    #define ERROR_DLG_LAST                      (ERROR_DLG_FIRST + 11)
 
     /* ******************************************************************
      *
@@ -66,11 +67,6 @@ extern "C" {
     #define SZL_AUTOSIZE                (-1)
 
     #define CTL_COMMON_FONT             ((PCSZ)-1)
-
-    #define ROW_VALIGN_MASK             0x0003
-    #define ROW_VALIGN_BOTTOM           0x0000
-    #define ROW_VALIGN_CENTER           0x0001
-    #define ROW_VALIGN_TOP              0x0002
 
     /*
      *@@ CONTROLDEF:
@@ -161,22 +157,6 @@ extern "C" {
         TYPE_END_TABLE              // end of a table
     } DLGHITEMTYPE;
 
-    // a few handy macros for defining templates
-
-    #define START_TABLE         { TYPE_START_NEW_TABLE, 0 }
-
-    // this macro is slightly insane, but performs type checking
-    // in case the user gives a pointer which is not of CONTROLDEF
-    #define START_GROUP_TABLE(pDef)   { TYPE_START_NEW_TABLE, \
-                (   (ULONG)(&(pDef)->pcszClass)   ) }
-
-    #define END_TABLE           { TYPE_END_TABLE, 0 }
-
-    #define START_ROW(fl)       { TYPE_START_NEW_ROW, fl }
-
-    #define CONTROL_DEF(pDef)   { TYPE_CONTROL_DEF, \
-                (   (ULONG)(&(pDef)->pcszClass)   ) }
-
     /*
      *@@ DLGHITEM:
      *      dialog format array item.
@@ -196,7 +176,7 @@ extern "C" {
                 // TYPE_CONTROL_DEF             // control definition
                 // TYPE_END_TABLE               // end of table
 
-        ULONG           ulData;
+        const CONTROLDEF *pCtlDef;
                 // -- with TYPE_START_NEW_TABLE: if NULL, this starts
                 //          an invisible table (for formatting only).
                 //          Otherwise a _CONTROLDEF pointer to specify
@@ -204,11 +184,38 @@ extern "C" {
                 //          For example, you can specify a WC_STATIC
                 //          with SS_GROUPBOX to create a group around
                 //          the table.
+
+        ULONG           fl;
+                // -- with TYPE_START_NEW_TABLE. TABLE_* formatting flags.
+                        #define TABLE_ALIGN_COLUMNS         0x0100
+
                 // -- with TYPE_START_NEW_ROW: ROW_* formatting flags.
-                // -- with TYPE_CONTROL_DEF: _CONTROLDEF pointer to a control definition
+                        #define ROW_VALIGN_MASK             0x0003
+                        #define ROW_VALIGN_BOTTOM           0x0000
+                        #define ROW_VALIGN_CENTER           0x0001
+                        #define ROW_VALIGN_TOP              0x0002
+
     } DLGHITEM, *PDLGHITEM;
 
     typedef const struct _DLGHITEM *PCDLGHITEM;
+
+    // a few handy macros for defining templates
+
+    #define START_TABLE                     { TYPE_START_NEW_TABLE, NULL, 0 }
+
+    #define START_TABLE_ALIGN               { TYPE_START_NEW_TABLE, NULL, TABLE_ALIGN_COLUMNS }
+                // added V0.9.20 (2002-08-08) [umoeller]
+
+    #define START_GROUP_TABLE(pDef)         { TYPE_START_NEW_TABLE, pDef, 0 }
+
+    #define START_GROUP_TABLE_ALIGN(pDef)   { TYPE_START_NEW_TABLE, pDef, TABLE_ALIGN_COLUMNS }
+                // added V0.9.20 (2002-08-08) [umoeller]
+
+    #define END_TABLE                       { TYPE_END_TABLE, NULL, 0 }
+
+    #define START_ROW(fl)                   { TYPE_START_NEW_ROW, NULL, fl }
+
+    #define CONTROL_DEF(pDef)               { TYPE_CONTROL_DEF, pDef, 0 }
 
     /* ******************************************************************
      *
