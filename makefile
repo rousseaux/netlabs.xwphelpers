@@ -12,7 +12,11 @@ INCLUDE = $(PROJECT_BASE_DIR)\include\helpers;$(INCLUDE)
 
 all:
     @cd src\helpers
-    nmake -nologo "MAINMAKERUNNING=YES"
+    nmake -nologo
     @cd ..\..
 
+dep:
+    cd src\helpers
+    nmake -nologo dep "SUBTARGET=dep" "RUNDEPONLY=1"
+    cd ..\..
 

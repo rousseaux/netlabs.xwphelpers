@@ -153,24 +153,29 @@ Last updated Feb 03, 2002 Ulrich M”ller
     result, I had to used environment variables in order to pass
     parameters to the makefiles.
 
-    The most important environment variable is PROJECT_BASE_DIR.
-    This should point to the root directory of your own project.
-    In this directory, src\helpers\makefile expects a file called
-    "setup.in" which sets up more environment variables. You can
-    take the one from the XWPHelpers makefile as a template.
+    --  The most important environment variable is PROJECT_BASE_DIR.
+        This should point to the root directory of your own project.
 
-    Here's an example: Say you have a CVS root directory of
-    "C:\cvs" on your system. The XWPHelpers reside in
-    "C:\cvs\xwphelpers". Your own project resides in
-    "C:\cvs\myproject" (plus subdirectories). So set
-    PROJECT_BASE_DIR to "C:\cvs\myproject" and put setup.in
-    in that directory.
+    --  In the "make" subdirectory of that directory, the helpers
+        makefiles expect a file called "setup.in" which sets up more
+        environment variables. You can take the ones from XWorkplace
+        or WarpIN as a template. Those setup.in files in turn expect
+        a config.in in PROJECT_BASE_DIR itself, but that is no
+        precondition required by the helpers makefiles themselves.
 
-    Note that the XWPHelpers also expect a "setup.h" header
-    file to be somewhere on your INCLUDE path. See remarks
-    below.
+        Here's an example: Say you have a CVS root directory of
+        "C:\cvs" on your system. The XWPHelpers reside in
+        "C:\cvs\xwphelpers". Your own project resides in
+        "C:\cvs\myproject" (plus subdirectories). So set
+        PROJECT_BASE_DIR to "C:\cvs\myproject", create
+        "C:\cvs\myproject\make", and put setup.in in there.
 
-    See the top of src\helpers\makefile for additional variables.
+    --  OUTPUTDIR_HELPERS must point to the directory where the
+        output .obj and .lib files should be created.
+
+    --  Note that the XWPHelpers also expect a "setup.h" header
+        file to be somewhere on your INCLUDE path. See remarks
+        below.
 
     Of course, nothing stops you from writing your own makefile
     if you find all this too complicated. However, if you choose
@@ -179,7 +184,7 @@ Last updated Feb 03, 2002 Ulrich M”ller
     second nmake from your own makefile like this:
 
         @cd xxx\src\helpers
-        nmake -nologo "PROJECT_BASE_DIR=C:\myproject" "MAINMAKERUNNING=YES"
+        nmake -nologo "PROJECT_BASE_DIR=C:\myproject" "OUTPUTDIR_HELPERS=C:\myproject\bin" "MAINMAKERUNNING=YES"
         @cd olddir
 
 
