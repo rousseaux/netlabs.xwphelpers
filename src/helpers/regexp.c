@@ -2523,13 +2523,13 @@ int rxpMatch(const ERE * ere,
  *      This can speed up matching.
  */
 
-BOOLEAN rxpMatch_fwd(const ERE * ere,
-                     int eremf,
+BOOLEAN rxpMatch_fwd(const ERE *ere,        // in: compiled ERE (from rxpCompile)
+                     int eremf,             // in: EREMF_* flags
                      const char *str,       // in: string to test
                      int pos,               // in: start position
                      int *pos_match,        // out: position of match
                      int *len_match,        // out: length of match
-                     ERE_MATCHINFO * mi)
+                     ERE_MATCHINFO *mi)     // out: match info (for rxpSubsWith)
 {
     int len = pos + strlen(str + pos);
     int i;
@@ -2576,11 +2576,13 @@ BOOLEAN rxpMatch_fwd(const ERE * ere,
  *      This can speed up matching.
  */
 
-BOOLEAN rxpMatch_bwd(const ERE * ere,
-                     int eremf,
-                     const char *str, int pos,
-                     int *pos_match, int *len_match,
-                     ERE_MATCHINFO * mi)
+BOOLEAN rxpMatch_bwd(const ERE *ere,        // in: compiled ERE (from rxpCompile)
+                     int eremf,             // in: EREMF_* flags
+                     const char *str,       // in: string to test
+                     int pos,               // in: start position
+                     int *pos_match,        // out: position of match
+                     int *len_match,        // out: length of match
+                     ERE_MATCHINFO * mi)    // out: match info (for rxpSubsWith)
 {
     int i;
     int delta = (eremf & EREMF_SHORTEST) ? 0 : 1;
@@ -2629,16 +2631,17 @@ void rxpFree(ERE * ere)
 /*
  *@@ rxpSubsWith:
  *      perform a substitution based upon an earlier found match.
+ *      This allows for implementing a "find and replace" function.
  */
 
-BOOLEAN rxpSubsWith(const char *str,    // Original string searched
-                    int pos, int len,   // Span of the entire match
-                    ERE_MATCHINFO * mi,     // Details of sub-spans of match
-                    const char *with,   // Specification of replacement
-                    char *out,  // Substituted string buffer
-                    int len_out,    // How much room in output buffer
-                    int *rc     // Error, if FALSE returned
-)
+BOOLEAN rxpSubsWith(const char *str,    // in: original string searched (same as str given to rxpMatch_fwd)
+                    int pos,            // in: span of the entire match (pos_match from rxpMatch_fwd)
+                    int len,            // in: span of the entire match (len_match from rxpMatch_fwd)
+                    ERE_MATCHINFO *mi,  // in: details of match sub-spans (as from rxpMatch_fwd)
+                    const char *with,   // in: replacement string with \1 etc.
+                    char *out,          // out: buffer for string substitutions
+                    int len_out,        // in: sizeof *out
+                    int *rc)            // out: error, if FALSE returned
 {
     int i = 0;
     int j;

@@ -1746,7 +1746,6 @@ HBITMAP gpihCreateHalftonedBitmap(HAB hab,              // in: anchor block
     HDC     hdcMem;
     HPS     hpsMem;
     BITMAPINFOHEADER2 bmi;
-    // RECTL   rclSource;
 
     if (hbmSource)
     {
@@ -2341,7 +2340,7 @@ LONG gpihStretchBitmap(HPS hpsTarget,       // in: memory PS to copy bitmap to
 }
 
 /*
- *@@ gpihIcon2Bitmap:
+ * gpihIcon2Bitmap:
  *      this paints the given icon/pointer into
  *      a bitmap. Note that if the bitmap is
  *      larget than the system icon size, only
@@ -2350,11 +2349,14 @@ LONG gpihStretchBitmap(HPS hpsTarget,       // in: memory PS to copy bitmap to
  *
  *      Returns FALSE upon errors.
  *
- *@@added V0.9.0 [umoeller]
- *@@changed V0.9.16 (2001-10-15) [umoeller]: added pptlLowerLeft
- *@@changed V0.9.16 (2001-10-15) [umoeller]: fixed inclusive/exclusive confusion (sigh...)
- *@@changed V0.9.19 (2002-06-13) [umoeller]: fixed funny colors when scaling
+ *added V0.9.0 [umoeller]
+ *changed V0.9.16 (2001-10-15) [umoeller]: added pptlLowerLeft
+ *changed V0.9.16 (2001-10-15) [umoeller]: fixed inclusive/exclusive confusion (sigh...)
+ *changed V0.9.19 (2002-06-13) [umoeller]: fixed funny colors when scaling
+ *removed V0.9.19 (2002-06-18) [umoeller]
  */
+
+#if 0
 
 BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap selected into it
                      HPOINTER hptr,      // in: source icon
@@ -2446,6 +2448,263 @@ BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap sel
     }
 
     return brc;
+}
+
+#endif
+
+/*
+ *@@ gpihDrawPointer:
+ *      replacement for WinDrawPointer that can do clipping.
+ *
+ *      To do clipping with WinDrawPointer, one has to
+ *      limit the clip rectangle for the current HPS,
+ *      which is quite an overhead. This function instead
+ *      allows for specifying a clip rectangle directly.
+ *      Besides, since it uses GpiWCBitBlt, it should
+ *      probably work with all types of device contexts.
+ *
+ *      This also replaces gpihIcon2Bitmap, which wasn't quite
+ *      working in the first place and couldn't to clipping
+ *      either.
+ *
+ *      If you don't need clipping and are drawing to the
+ *      screen only, this function has no advantage over
+ *      WinDrawPointer because it's presumably slower.
+ *
+ *      Flags presently supported in fl:
+ *
+ *      --  DP_MINI (not DP_MINIICON, as stated in PMREF):
+ *          use mini-icon.
+ *
+ *      Preconditions:
+ *
+ *      --  The hps is assumed to be in RGB mode.
+ *
+ *      Post conditions:
+ *
+ *      --  This uses GpiSet(Back)Color, so the foreground
+ *          and background colors are undefined after the
+ *          call.
+ *
+ *@@added V0.9.19 (2002-06-18) [umoeller]
+ */
+
+BOOL gpihDrawPointer(HPS hps,           // in: target presentation space
+                     LONG x,            // in: lower left target position of icon
+                     LONG y,            // in: lower left target position of icon
+                     HPOINTER hptr,     // in: icon to be drawn
+                     PSIZEL pszlIcon,   // in: icon size (req., should be sysvalues SV_CXICON, SV_CYICON always)
+                     PRECTL prclClip,   // in: clip rectangle (inclusive!) or NULL
+                     ULONG fl)          // in: DP_* flags
+{
+    POINTERINFO pi;
+
+    if (    (pszlIcon)
+         && (hptr)
+         && (WinQueryPointerInfo(hptr, &pi))
+       )
+    {
+        POINTL  aptl[4];
+        HBITMAP hbmThis;
+        BITMAPINFOHEADER2 bmi;
+
+        // A HPOINTER really consists of two bitmaps,
+        // one monochrome bitmap that has twice the icon
+        // height and contains an AND mask in the upper
+        // half and an XOR mask in the lower half, and
+        // a (probably color) bitmap with the regular
+        // icon height.
+
+        // Drawing the icon means (1) blitting the AND
+        // mask with ROP_SRCAND, (2) blitting the color
+        // bitmap with ROP_SRCPAINT, (3) blitting the
+        // XOR mask with ROP_SRCINVERT. Hence the slightly
+        // complicated code that follows.
+
+        /*
+         * 0)   preparations
+         */
+
+        // set up a bunch of variables that are used
+        // by the below calculations. We use cx|yIcon
+        // to quickly get the system icon dimensions
+        // and set up the clip offsets here too,
+        // if a clip rectangle is specified.
+
+        LONG    cxIcon = pszlIcon->cx,
+                cyIcon = pszlIcon->cy,
+                cySrc,
+                xRight,
+                yTop,
+        // clip "rectangle"... this is not really a
+        // recangle because it specifies _offsets_
+        // towards the center of the icon to be
+        // clipped
+                lClipLeft = 0,
+                lClipBottom = 0,
+                lClipRight = 0,
+                lClipTop = 0;
+
+        BOOL    fMini;
+
+        if (fMini = !!(fl & DP_MINI))
+        {
+            cxIcon /= 2;
+            cyIcon /= 2;
+        }
+
+        // target top right (inclusive)
+        xRight = x + cxIcon - 1;
+        yTop = y + cyIcon - 1;
+
+        if (prclClip)
+        {
+            // we have a clip rectangle:
+            // set up the clip offsets that are used
+            // in both the target and source coordinates
+            // for blitting
+            if (x < prclClip->xLeft)
+                lClipLeft = prclClip->xLeft - x;
+            if (xRight > prclClip->xRight)
+                lClipRight = xRight - prclClip->xRight;
+            if (y < prclClip->yBottom)
+                lClipBottom = prclClip->yBottom - y;
+            if (yTop > prclClip->yTop)
+                lClipTop = yTop - prclClip->yTop;
+        }
+
+        // set up target coordinates that are constant
+        // for all the three blits
+
+        // aptl[0]: target bottom-left
+        aptl[0].x = x + lClipLeft;
+        aptl[0].y = y + lClipBottom;
+
+        // aptl[1]: target top-right (inclusive!)
+        aptl[1].x = xRight - lClipRight;
+        aptl[1].y = yTop - lClipTop;
+
+        if (    (aptl[0].x < aptl[1].x)
+             && (aptl[0].y < aptl[1].y)
+           )
+        {
+            // colors are constant too
+            GpiSetColor(hps, RGBCOL_WHITE);
+            GpiSetBackColor(hps, RGBCOL_BLACK);
+
+            /*
+             * 1)   work on the AND image
+             *      (upper part of the monochrome image)
+             */
+
+            if (    (    (fMini)
+                      && (hbmThis = pi.hbmMiniPointer)
+                    )
+                 || (hbmThis = pi.hbmPointer)
+               )
+            {
+                bmi.cbFix = sizeof(bmi);
+                GpiQueryBitmapInfoHeader(hbmThis, &bmi);
+
+                // use only half the bitmap height
+                cySrc = bmi.cy / 2;
+
+                // aptl[2]: source bottom-left
+                aptl[2].x =   0
+                            + lClipLeft   * bmi.cx / cxIcon;
+                aptl[2].y =   cySrc
+                            + lClipBottom * cySrc / cyIcon;
+
+                // aptl[3]: source top-right (exclusive!)
+                aptl[3].x =   bmi.cx
+                            - lClipRight  * bmi.cx / cxIcon;
+                aptl[3].y =   bmi.cy
+                            - lClipTop    * cySrc / cyIcon;
+
+                GpiWCBitBlt(hps,        // target
+                            hbmThis,    // src bmp
+                            4L,         // must always be 4
+                            aptl,       // point array
+                            ROP_SRCAND,   // source AND target
+                            BBO_IGNORE);
+            }
+
+            /*
+             * 2)   paint the color image; the parts that
+             *      are to be transparent are black
+             */
+
+            if (    (    (fMini)
+                      && (hbmThis = pi.hbmMiniColor)
+                    )
+                 || (hbmThis = pi.hbmColor)
+               )
+            {
+                bmi.cbFix = sizeof(bmi);
+                GpiQueryBitmapInfoHeader(hbmThis, &bmi);
+
+                // aptl[2]: source bottom-left
+                aptl[2].x =   0
+                            + lClipLeft   * bmi.cx / cxIcon;
+                aptl[2].y =   0
+                            + lClipBottom * bmi.cy / cyIcon;
+
+                // aptl[3]: source top-right (exclusive!)
+                aptl[3].x =   bmi.cx
+                            - lClipRight  * bmi.cx / cxIcon;
+                aptl[3].y =   bmi.cy
+                            - lClipTop    * bmi.cy / cyIcon;
+
+                GpiWCBitBlt(hps,        // target
+                            hbmThis,    // src bmp
+                            4L,         // must always be 4
+                            aptl,       // point array
+                            ROP_SRCPAINT,
+                            BBO_IGNORE);
+            }
+
+            /*
+             *  3)  work on the XOR image:
+             *      (lower part of monochrome bitmap)
+             */
+
+            if (    (    (fMini)
+                      && (hbmThis = pi.hbmMiniPointer)
+                    )
+                 || (hbmThis = pi.hbmPointer)
+               )
+            {
+                bmi.cbFix = sizeof(bmi);
+                GpiQueryBitmapInfoHeader(hbmThis, &bmi);
+
+                // use only half the bitmap height
+                cySrc = bmi.cy / 2;
+
+                // aptl[2]: source bottom-left
+                aptl[2].x =   0
+                            + lClipLeft   * bmi.cx / cxIcon;
+                aptl[2].y =   0
+                            + lClipBottom * cySrc / cyIcon;
+
+                // aptl[3]: source top-right (exclusive!)
+                aptl[3].x =   bmi.cx
+                            - lClipRight  * bmi.cx / cxIcon;
+                aptl[3].y =   cySrc
+                            - lClipTop    * cySrc / cyIcon;
+
+                GpiWCBitBlt(hps,        // target
+                            hbmThis,    // src bmp
+                            4L,         // must always be 4
+                            aptl,       // point array
+                            ROP_SRCINVERT,   // source XOR target
+                            BBO_IGNORE);
+            }
+
+            return TRUE;
+        }
+    }
+
+    return FALSE;
 }
 
 /*

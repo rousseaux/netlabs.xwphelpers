@@ -1055,23 +1055,26 @@ PSZ strhFindNextLine(PSZ pszSearchIn, PULONG pulOffset)
 /*
  *@@ strhBeautifyTitle:
  *      replaces all line breaks (0xd, 0xa) with spaces.
+ *      Returns the new length of the string or 0 on
+ *      errors.
  *
  *@@changed V0.9.12 (2001-05-17) [pr]: multiple line break chars. end up as only 1 space
+ *@@changed V0.9.19 (2002-06-18) [umoeller]: now returning length
  */
 
-BOOL strhBeautifyTitle(PSZ psz)
+ULONG strhBeautifyTitle(PSZ psz)
 {
-    BOOL rc = FALSE;
-    CHAR *p = psz;
+    ULONG   ulrc;
+    PSZ     p = psz;
 
-    while(*p)
+    while (*p)
+    {
         if (    (*p == '\r')
              || (*p == '\n')
            )
         {
-            rc = TRUE;
-            if (   (p != psz)
-                && (p[-1] == ' ')
+            if (    (p != psz)
+                 && (p[-1] == ' ')
                )
                 memmove(p, p + 1, strlen(p));
             else
@@ -1079,8 +1082,51 @@ BOOL strhBeautifyTitle(PSZ psz)
         }
         else
             p++;
+    }
 
-    return rc;
+    return (p - psz);
+}
+
+/*
+ *@@ strhBeautifyTitle:
+ *      like strhBeautifyTitle, but copies into
+ *      a new buffer. More efficient.
+ *
+ *@@added V0.9.19 (2002-06-18) [umoeller]
+ */
+
+ULONG strhBeautifyTitle2(PSZ pszTarget,     // out: beautified string
+                         PCSZ pcszSource)   // in: string to be beautified (can be NULL)
+{
+    ULONG   ulrc;
+    PCSZ    pSource = pcszSource;
+    PSZ     pTarget = pszTarget;
+    CHAR    c;
+    if (!pcszSource)
+    {
+        *pszTarget = '\0';
+        return 0;
+    }
+
+    while (c = *pSource++)
+    {
+        if (    (c == '\r')
+             || (c == '\n')
+           )
+        {
+            if (    (pTarget == pszTarget)
+                 || (pTarget[-1] != ' ')
+               )
+                *pTarget++ = ' ';
+        }
+        else
+            *pTarget++ = c;
+    }
+
+    // null-terminate
+    *pTarget = '\0';
+
+    return (pTarget - pszTarget);
 }
 
 /*

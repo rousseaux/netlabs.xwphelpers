@@ -337,11 +337,19 @@ extern "C" {
                                             BOOL fProportional);
     typedef GPIHSTRETCHBITMAP *PGPIHSTRETCHBITMAP;
 
-    BOOL XWPENTRY gpihIcon2Bitmap(HPS hpsMem,
+    /* BOOL XWPENTRY gpihIcon2Bitmap(HPS hpsMem,
                                   HPOINTER hptr,
                                   LONG lBkgndColor,
                                   PPOINTL pptlLowerLeft,
-                                  ULONG ulIconSize);
+                                  ULONG ulIconSize); */
+
+    BOOL gpihDrawPointer(HPS hps,
+                         LONG x,
+                         LONG y,
+                         HPOINTER hptr,
+                         PSIZEL pszlIcon,
+                         PRECTL prclClip,
+                         ULONG fl);
 
     /* ******************************************************************
      *

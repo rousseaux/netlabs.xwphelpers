@@ -559,7 +559,8 @@ extern "C" {
      *      before subclassing the static control
      *
      *@@changed V0.9.0: added fields for bitmap support
-     *@@changed V0.9.16 (2001-10-15) [umoeller]: added ulIconSize
+     *@@changed V0.9.16 (2001-10-15) [umoeller]: added lIconSize
+     *@@changed V0.9.19 (2002-06-18) [umoeller]: added szlIcon
      */
 
     typedef struct _ANIMATIONDATA
@@ -572,7 +573,7 @@ extern "C" {
                 // -- ANF_ICON:   display icons
                 // -- ANF_BITMAP: display bitmaps
                 // -- ANF_BITMAP | ANF_PROPORTIONAL: display bitmaps, but preserve proportions
-        LONG        lIconSize;         // system icon size V0.9.16 (2001-10-15) [umoeller]
+        SIZEL       szlIcon;            // system icon size V0.9.19 (2002-06-18) [umoeller]
         RECTL       rclIcon;            // size of static control
         PFNWP       OldStaticProc;      // original WC_STATIC wnd proc
 

@@ -132,7 +132,10 @@ extern "C" {
 
     PSZ XWPENTRY strhFindNextLine(PSZ pszSearchIn, PULONG pulOffset);
 
-    BOOL XWPENTRY strhBeautifyTitle(PSZ psz);
+    ULONG XWPENTRY strhBeautifyTitle(PSZ psz);
+
+    ULONG strhBeautifyTitle2(PSZ pszTarget,
+                             PCSZ pcszSource);
 
     PSZ XWPENTRY strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib);
 

@@ -260,6 +260,8 @@ extern "C" {
 
     #define DEFAULT_TABLE_WIDTH             150
 
+    #define MSGBOX_TEXTWIDTH                200
+
     // the following require INCL_WINSTATICS
 
     #define CONTROLDEF_GROUP(pcsz, id, cx, cy) { WC_STATIC, pcsz, \

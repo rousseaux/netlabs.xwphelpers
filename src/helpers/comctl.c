@@ -822,20 +822,19 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
                             {
                                 // center the icon in the bitmap
                                 // V0.9.16 (2001-10-15) [umoeller]
-                                POINTL ptlOfs;
-                                ptlOfs.x = (   (pa->rclIcon.xRight - pa->rclIcon.xLeft)
-                                             - pa->lIconSize
-                                           ) / 2;
-                                ptlOfs.y = (   (pa->rclIcon.yTop - pa->rclIcon.yBottom)
-                                             - pa->lIconSize
-                                           ) / 2;
 
-                                // paint icon into bitmap
-                                gpihIcon2Bitmap(hpsMem,
+                                // replaced call V0.9.19 (2002-06-18) [umoeller]
+                                gpihDrawPointer(hpsMem,
+                                                (   (pa->rclIcon.xRight - pa->rclIcon.xLeft)
+                                                  - pa->szlIcon.cx
+                                                ) / 2,
+                                                (   (pa->rclIcon.yTop - pa->rclIcon.yBottom)
+                                                  - pa->szlIcon.cy
+                                                ) / 2,
                                                 pa->hptr,
-                                                lBkgndColor,
-                                                &ptlOfs,
-                                                pa->lIconSize);
+                                                &pa->szlIcon,
+                                                NULL,       // no clipping
+                                                0);         // no mini
                             }
 
                         } // end if (pa->ulFlags & ANF_ICON)
@@ -1000,7 +999,8 @@ static PANIMATIONDATA CreateAnimationData(HAB hab,
             pa->hab = hab;
             WinQueryWindowRect(hwndStatic, &pa->rclIcon);
             pa->OldStaticProc = WinSubclassWindow(hwndStatic, ctl_fnwpBitmapStatic);
-            pa->lIconSize = WinQuerySysValue(HWND_DESKTOP, SV_CXICON);
+            pa->szlIcon.cx = WinQuerySysValue(HWND_DESKTOP, SV_CXICON);
+            pa->szlIcon.cy = WinQuerySysValue(HWND_DESKTOP, SV_CYICON);
         }
     }
 
