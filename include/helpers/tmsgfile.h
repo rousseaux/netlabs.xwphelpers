@@ -31,6 +31,8 @@ extern "C" {
 
     /*
      *@@ TMFMSGFILE:
+     *      representation of a text message file opened by
+     *      tmfOpenMessageFile.
      *
      *@@added V0.9.16 (2001-10-08) [umoeller]
      */
@@ -38,8 +40,6 @@ extern "C" {
     typedef struct _TMFMSGFILE
     {
         PSZ     pszFilename;            // copy of .TMF file name
-
-        XSTRING strContent;             // file's full contents (converted to C LF format)
 
         TREE    *IDsTreeRoot;           // root of tree with MSGENTRY's (a TREE* really)
         ULONG   cIDs;                   // count of entries in the tree
@@ -57,23 +57,6 @@ extern "C" {
                          PXSTRING pstr,
                          PCSZ *pTable,
                          ULONG cTableEntries);
-
-    /* APIRET tmfGetMessage(PCHAR *pTable,
-                         ULONG cTable,
-                         PBYTE pbBuffer,
-                         ULONG cbBuffer,
-                         PCSZ pszMessageName,
-                         PCSZ pszFile,
-                         PULONG pcbMsg);
-
-    APIRET tmfGetMessageExt(PCHAR* pTable,
-                            ULONG cTable,
-                            PBYTE pbBuffer,
-                            ULONG cbBuffer,
-                            PCSZ pszMessageName,
-                            PCSZ pszFile,
-                            PULONG pcbMsg);
-       */
 
 #endif // TMSGFILE_HEADER_INCLUDED
 

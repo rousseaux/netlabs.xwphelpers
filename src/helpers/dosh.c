@@ -2853,6 +2853,65 @@ APIRET doshClose(PXFILE *ppFile)
 }
 
 /*
+ *@@ doshReadText:
+ *      reads all the contents of the given XFILE into
+ *      a newly allocated buffer. Handles Ctrl-Z properly.
+ *
+ *      Implementation for doshLoadTextFile, but can
+ *      be called separately now.
+ *
+ *@@added V0.9.20 (2002-07-19) [umoeller]
+ */
+
+APIRET doshReadText(PXFILE pFile,
+                    PSZ* ppszContent,   // out: newly allocated buffer with file's content
+                    PULONG pcbRead)     // out: size of that buffer including null byte (ptr can be NULL)
+{
+    APIRET  arc;
+    PSZ     pszContent;
+
+    if (!(pszContent = (PSZ)malloc(pFile->cbCurrent + 1)))
+        arc = ERROR_NOT_ENOUGH_MEMORY;
+    else
+    {
+        ULONG cbRead = 0;
+        if (!(arc = DosRead(pFile->hf,
+                            pszContent,
+                            pFile->cbCurrent,
+                            &cbRead)))
+        {
+            if (cbRead != pFile->cbCurrent)
+                arc = ERROR_NO_DATA;
+            else
+            {
+                PSZ p;
+                pszContent[cbRead] = '\0';
+
+                // check if we have a ctrl-z (EOF) marker
+                // this is present, for example, in config.sys
+                // after install, and stupid E.EXE writes this
+                // all the time when saving a file
+                // V0.9.18 (2002-03-08) [umoeller]
+                if (p = strchr(pszContent, '\26'))
+                {
+                    *p = '\0';
+                    cbRead = p - pszContent;
+                }
+
+                *ppszContent = pszContent;
+                if (pcbRead)
+                    *pcbRead = cbRead + 1;
+            }
+        }
+
+        if (arc)
+            free(pszContent);
+    }
+
+    return arc;
+}
+
+/*
  *@@ doshLoadTextFile:
  *      reads a text file from disk, allocates memory
  *      via malloc() and sets a pointer to this
@@ -2891,44 +2950,9 @@ APIRET doshLoadTextFile(PCSZ pcszFile,      // in: file name to read
                          &cbFile,
                          &pFile)))
     {
-        PSZ pszContent;
-        if (!(pszContent = (PSZ)malloc(cbFile + 1)))
-            arc = ERROR_NOT_ENOUGH_MEMORY;
-        else
-        {
-            ULONG cbRead = 0;
-            if (!(arc = DosRead(pFile->hf,
-                                pszContent,
-                                cbFile,
-                                &cbRead)))
-            {
-                if (cbRead != cbFile)
-                    arc = ERROR_NO_DATA;
-                else
-                {
-                    PSZ p;
-                    pszContent[cbRead] = '\0';
-
-                    // check if we have a ctrl-z (EOF) marker
-                    // this is present, for example, in config.sys
-                    // after install
-                    // V0.9.18 (2002-03-08) [umoeller]
-                    if (p = strchr(pszContent, '\26'))
-                    {
-                        *p = '\0';
-                        cbRead = p - pszContent;
-                    }
-
-                    *ppszContent = pszContent;
-                    if (pcbRead)
-                        *pcbRead = cbRead + 1;
-                }
-            }
-
-            if (arc)
-                free(pszContent);
-        }
-
+        doshReadText(pFile,
+                     ppszContent,
+                     pcbRead);
         doshClose(&pFile);
     }
 

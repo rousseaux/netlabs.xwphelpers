@@ -321,6 +321,11 @@ extern "C" {
     typedef HBITMAP XWPENTRY GPIHCREATEHALFTONEDBITMAP(HAB hab, HBITMAP hbmSource, LONG lColorGray);
     typedef GPIHCREATEHALFTONEDBITMAP *PGPIHCREATEHALFTONEDBITMAP;
 
+    APIRET gpihLoadBitmap(HBITMAP *phbm,
+                          HPS hps,
+                          HMODULE hmodResource,
+                          ULONG idBitmap);
+
     APIRET XWPENTRY gpihLoadBitmapFile(HBITMAP *phbm, HPS hps, PCSZ pcszBmpFile);
     typedef APIRET XWPENTRY GPIHLOADBITMAPFILE(HBITMAP *phbm, HPS hps, PCSZ pcszBmpFile);
     typedef GPIHLOADBITMAPFILE *PGPIHLOADBITMAPFILE;

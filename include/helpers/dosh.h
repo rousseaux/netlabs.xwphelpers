@@ -606,6 +606,10 @@ extern "C" {
 
     APIRET doshClose(PXFILE *ppFile);
 
+    APIRET doshReadText(PXFILE pFile,
+                        PSZ* ppszContent,
+                        PULONG pcbRead);
+
     APIRET doshLoadTextFile(PCSZ pcszFile,
                             PSZ* ppszContent,
                             PULONG pcbRead);

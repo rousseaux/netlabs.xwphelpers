@@ -197,17 +197,50 @@ ULONG nlsQueryDBCSChar(PCSZ pcszString,
  *      this calls plain strchr automatically.
  *
  *@@added V0.9.19 (2002-06-13) [umoeller]
+ *@@changed V0.9.20 (2002-07-22) [umoeller]: optimized
+ *@@changed V0.9.20 (2002-07-22) [lafaix]: optimized
  */
 
 PSZ nlschr(PCSZ p, char c)
 {
     PCSZ    p2;
-    ULONG   ulDBCS;
+    ULONG   ulDBCSType = TYPE_SBCS;
 
     if (!nlsDBCS())
         // not DBCS:
         return strchr(p, c);
 
+    // we're on DBCS:
+
+    // we can't find c if it is a leading byte
+    if (G_afLeadByte[c] != TYPE_SBCS)
+        return NULL;
+
+    for (p2 = p;
+         *p2;
+         ++p2)
+    {
+        // check _previous_ DBCS type and refresh
+        // DBCS type accordingly
+        switch (ulDBCSType)
+        {
+            case TYPE_SBCS:
+            case TYPE_DBCS_2ND:
+                ulDBCSType = G_afLeadByte[*p2];
+                // we can safely do the test here (and skip rechecking
+                // the type) because c can't possibly be a leading byte
+                // V0.9.20 (2002-07-22) [lafaix]
+                if (*p2 == c)
+                    return (PSZ)p2;
+            break;
+
+            case TYPE_DBCS_1ST :
+                ulDBCSType = TYPE_DBCS_2ND;
+            break;
+        }
+    }
+
+    /*  old code V0.9.20 (2002-07-22) [umoeller]
     // we're on DBCS:
     for (p2 = p;
          *p2;
@@ -227,6 +260,7 @@ PSZ nlschr(PCSZ p, char c)
             }
         }
     }
+    */
 
     return NULL;
 }
@@ -239,19 +273,50 @@ PSZ nlschr(PCSZ p, char c)
  *      this calls plain strrchr automatically.
  *
  *@@added V0.9.19 (2002-06-13) [umoeller]
+ *@@changed V0.9.20 (2002-07-22) [lafaix]: optimized
  */
 
 PSZ nlsrchr(PCSZ p, char c)
 {
-    PCSZ    p2;
-    ULONG   ulDBCS,
-            ulLength;
+    PCSZ    p2,
+            pLast = NULL;
+    ULONG   ulDBCSType = TYPE_SBCS;
 
     if (!nlsDBCS())
         // not DBCS:
         return strrchr(p, c);
 
     // we're on DBCS:
+
+    // we can't find c if it is a leading byte
+    if (G_afLeadByte[c] != TYPE_SBCS)
+        return NULL;
+
+    for (p2 = p;
+         *p2;
+         ++p2)
+    {
+        // check _previous_ DBCS type and refresh
+        // DBCS type accordingly
+        switch (ulDBCSType)
+        {
+            case TYPE_SBCS:
+            case TYPE_DBCS_2ND:
+                ulDBCSType = G_afLeadByte[*p2];
+                if (*p2 == c)
+                    pLast = p2;
+            break;
+
+            case TYPE_DBCS_1ST :
+                ulDBCSType = TYPE_DBCS_2ND;
+            break;
+        }
+    }
+
+    return (PSZ)pLast;
+
+    // old code V0.9.20 (2002-07-22) [lafaix]
+    /*
     ulLength = strlen(p);
     for (p2 = p + ulLength - 1;
          p2 >= p;
@@ -273,6 +338,7 @@ PSZ nlsrchr(PCSZ p, char c)
     }
 
     return NULL;
+    */
 }
 
 /* ******************************************************************
