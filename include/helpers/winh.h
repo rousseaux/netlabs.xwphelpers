@@ -644,6 +644,10 @@ extern "C" {
     typedef VOID XWPENTRY WINHFREE(PVOID p);
     typedef WINHFREE *PWINHFREE;
 
+    HAB XWPENTRY winhMyAnchorBlock(VOID);
+    typedef HAB XWPENTRY WINHMYANCHORBLOCK(VOID);
+    typedef WINHMYANCHORBLOCK *PWINHMYANCHORBLOCK;
+
     VOID XWPENTRY winhSleep(ULONG ulSleep);
 
     #define WINH_FOD_SAVEDLG        0x0001

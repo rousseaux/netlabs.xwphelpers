@@ -3256,6 +3256,39 @@ HSWITCH winhAddToTasklist(HWND hwnd,       // in: window to add
  ********************************************************************/
 
 /*
+ *@@ winhMyAnchorBlock:
+ *      returns the proper anchor block (HAB)
+ *      for the calling thread.
+ *
+ *      Many Win* functions require an HAB to be
+ *      passed in. While many of them will work
+ *      when passing in NULLHANDLE, some (such as
+ *      WinGetMsg) won't. If you don't know the
+ *      anchor block of the calling thread, use
+ *      this function.
+ *
+ *      This creates a temporary object window to
+ *      find out the anchor block. This is quite
+ *      expensive so only use this if there's no
+ *      other way to find out.
+ *
+ *@@added V0.9.11 (2001-04-20) [umoeller]
+ */
+
+HAB winhMyAnchorBlock(VOID)
+{
+    HAB hab = NULLHANDLE;
+    HWND hwnd = winhCreateObjectWindow(WC_BUTTON, NULL);
+    if (hwnd)
+    {
+        hab = WinQueryAnchorBlock(hwnd);
+        WinDestroyWindow(hwnd);
+    }
+
+    return (hab);
+}
+
+/*
  *@@ winhFree:
  *      frees a block of memory allocated by the
  *      winh* functions.
