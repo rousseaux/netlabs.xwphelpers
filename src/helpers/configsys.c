@@ -90,10 +90,8 @@ APIRET csysLoadConfigSys(const char *pcszFile,     // in: CONFIG.SYS filename or
         pcszFile = szFile;
     }
 
-    arc = doshLoadTextFile(pcszFile,
-                           ppszContents);
-
-    if (arc == NO_ERROR)
+    if (!(arc = doshLoadTextFile(pcszFile,
+                                 ppszContents)))
     {
         // convert all \r\n to \n
         XSTRING     strBuf;
@@ -315,18 +313,18 @@ PSZ csysGetParameter(const char *pcszSearchIn,  // in: text buffer to search
                      PSZ pszCopyTo,             // out: key value
                      ULONG cbCopyTo)            // out: sizeof(*pszCopyTo)
 {
-    PSZ     p = csysFindKey(pcszSearchIn, pcszKey, NULL, NULL),
+    PSZ     p,
             prc = NULL;
 
-    if (p)
+    if (p = csysFindKey(pcszSearchIn, pcszKey, NULL, NULL))
     {
         prc = p + strlen(pcszKey);
         if (pszCopyTo)
         {
             // copy to pszCopyTo
             ULONG cb;
-            PSZ pEOL = strhFindEOL(prc, &cb);
-            if (pEOL)
+            PSZ pEOL;
+            if (pEOL = strhFindEOL(prc, &cb))
             {
                 if (cb > cbCopyTo)
                     cb = cbCopyTo-1;
@@ -369,30 +367,30 @@ PSZ csysSetParameter(PSZ* ppszBuf,          // in: text buffer to search
                              // lower case if you use this.
 {
     BOOL    fIsAllUpperCase = FALSE;
-    PSZ     pKey = csysFindKey(*ppszBuf,
-                               pcszKey,
-                               NULL,
-                               &fIsAllUpperCase),
+    PSZ     pKey,
             pReturn = NULL;
-    if (pKey)
+    if (pKey = csysFindKey(*ppszBuf,
+                           pcszKey,
+                           NULL,
+                           &fIsAllUpperCase))
     {
         // key found in file:
         // ULONG   ulOfs;
 
         // replace existing parameter
-        PSZ pOldParam = pKey + strlen(pcszKey);
-        // pOldParam now has the old parameter, which we
-        // will overwrite now; pOldParam points into *ppszBuf
-
-        if (pOldParam)
+        PSZ pOldParam;
+        if (pOldParam = pKey + strlen(pcszKey))
         {
+            // pOldParam now has the old parameter, which we
+            // will overwrite now; pOldParam points into *ppszBuf
+
             ULONG   ulOldParamOfs = pOldParam - *ppszBuf;
 
-            PSZ pEOL = strhFindEOL(pOldParam, NULL);
-            // pEOL now has first end-of-line after the parameter
-
-            if (pEOL)
+            PSZ pEOL;
+            if (pEOL = strhFindEOL(pOldParam, NULL))
             {
+                // pEOL now has first end-of-line after the parameter
+
                 // char count to replace
                 ULONG   ulToReplace = pEOL - pOldParam;
 
@@ -476,18 +474,18 @@ BOOL csysDeleteLine(PSZ pszSearchIn,        // in: buffer to search
 {
     BOOL    fIsAllUpperCase = FALSE;
     PSZ     pStartOfLine = NULL;
-    PSZ     pKey = csysFindKey(pszSearchIn,
-                               pszKey,
-                               &pStartOfLine,
-                               &fIsAllUpperCase);
+    PSZ     pKey;
     BOOL    brc = FALSE;
 
-    if (pKey)
+    if (pKey = csysFindKey(pszSearchIn,
+                           pszKey,
+                           &pStartOfLine,
+                           &fIsAllUpperCase))
     {
-        PSZ pEOL = strhFindEOL(pKey, NULL);
-        // pEOL now has first end-of-line after the key
-        if (pEOL)
+        PSZ pEOL;
+        if (pEOL = strhFindEOL(pKey, NULL))
         {
+            // pEOL now has first end-of-line after the key;
             // go to first character after EOL
             while (    (*pEOL)
                     && (   (*pEOL == '\n')
@@ -603,8 +601,8 @@ APIRET csysManipulate(PSZ *ppszContents,        // in/out: CONFIG.SYS text (real
      */
 
     // First, check if the new-line string has a "=" char
-    PSZ pSep = strchr(pManip->pszNewLine, '=');
-    if (pSep)
+    PSZ pSep;
+    if (pSep = strchr(pManip->pszNewLine, '='))
     {
         // yes: separate in two strings
         pszCommand = strhSubstr(pManip->pszNewLine, pSep);
@@ -750,9 +748,9 @@ APIRET csysManipulate(PSZ *ppszContents,        // in/out: CONFIG.SYS text (real
             {
                 // Manip.pszSearchString has the search string
                 // before whose line we must insert
-                PSZ pFound = strhistr(*ppszContents,
-                                      pManip->pszVerticalSearchString);
-                if (pFound)
+                PSZ pFound;
+                if (pFound = strhistr(*ppszContents,
+                                      pManip->pszVerticalSearchString))
                 {
                     // search string found:
                     // find beginning of line
@@ -776,8 +774,9 @@ APIRET csysManipulate(PSZ *ppszContents,        // in/out: CONFIG.SYS text (real
             {
                 // Manip.pszSearchString has the search string
                 // after whose line we must insert
-                PSZ pFound = strhistr(*ppszContents, pManip->pszVerticalSearchString);
-                if (pFound)
+                PSZ pFound;
+                if (pFound = strhistr(*ppszContents,
+                                      pManip->pszVerticalSearchString))
                 {
                     // search string found:
                     // find end of line

@@ -512,44 +512,91 @@ APIRET appFreeEnvironment(PDOSENVIRONMENT pEnv)
  *
  *      --  PROG_WINDOWABLEVIO
  *
+ *      --  PROG_DEFAULT
+ *
  *@@added V0.9.9 (2001-03-07) [umoeller]
  *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from winh.c to apps.c
  *@@changed V0.9.14 (2001-08-07) [pr]: use FAPPTYP_* constants
+ *@@changed V0.9.16 (2001-12-08) [umoeller]: added checks for batch files, other optimizations
  */
 
 APIRET appQueryAppType(const char *pcszExecutable,
-                        PULONG pulDosAppType,
-                        PULONG pulWinAppType)
+                       PULONG pulDosAppType,
+                       PULONG pulWinAppType)
 {
-    APIRET arc = DosQueryAppType((PSZ)pcszExecutable, pulDosAppType);
-    if (arc == NO_ERROR)
-    {
-        ULONG _ulDosAppType = *pulDosAppType;
+    APIRET arc;
 
-        if (_ulDosAppType == 0)
-            *pulWinAppType = PROG_FULLSCREEN;
-        else if (_ulDosAppType & FAPPTYP_PHYSDRV)       // 0x40
-            *pulWinAppType = PROG_PDD;
-        else if (_ulDosAppType & FAPPTYP_VIRTDRV)       // 0x80)
-            *pulWinAppType = PROG_VDD;
-        else if ((_ulDosAppType & 0xF0) == FAPPTYP_DLL) // 0x10)
+/*
+   #define FAPPTYP_NOTSPEC         0x0000
+   #define FAPPTYP_NOTWINDOWCOMPAT 0x0001
+   #define FAPPTYP_WINDOWCOMPAT    0x0002
+   #define FAPPTYP_WINDOWAPI       0x0003
+   #define FAPPTYP_BOUND           0x0008
+   #define FAPPTYP_DLL             0x0010
+   #define FAPPTYP_DOS             0x0020
+   #define FAPPTYP_PHYSDRV         0x0040  // physical device driver
+   #define FAPPTYP_VIRTDRV         0x0080  // virtual device driver
+   #define FAPPTYP_PROTDLL         0x0100  // 'protected memory' dll
+   #define FAPPTYP_WINDOWSREAL     0x0200  // Windows real mode app
+   #define FAPPTYP_WINDOWSPROT     0x0400  // Windows protect mode app
+   #define FAPPTYP_WINDOWSPROT31   0x1000  // Windows 3.1 protect mode app
+   #define FAPPTYP_32BIT           0x4000
+*/
+
+    ULONG   ulWinAppType = PROG_DEFAULT;
+
+    if (!(arc = DosQueryAppType((PSZ)pcszExecutable, pulDosAppType)))
+    {
+        // clear the 32-bit flag
+        // V0.9.16 (2001-12-08) [umoeller]
+        ULONG ulDosAppType = (*pulDosAppType) & ~FAPPTYP_32BIT,
+              ulLoAppType = ulDosAppType & 0xFFFF;
+
+        if (ulDosAppType & FAPPTYP_PHYSDRV)            // 0x40
+            ulWinAppType = PROG_PDD;
+        else if (ulDosAppType & FAPPTYP_VIRTDRV)       // 0x80
+            ulWinAppType = PROG_VDD;
+        else if ((ulDosAppType & 0xF0) == FAPPTYP_DLL) // 0x10
             // DLL bit set
-            *pulWinAppType = PROG_DLL;
-        else if (_ulDosAppType & FAPPTYP_DOS)           // 0x20)
+            ulWinAppType = PROG_DLL;
+        else if (ulDosAppType & FAPPTYP_DOS)           // 0x20
             // DOS bit set?
-            *pulWinAppType = PROG_WINDOWEDVDM;
-        else if ((_ulDosAppType & FAPPTYP_WINDOWAPI) == FAPPTYP_WINDOWAPI) // 0x0003) // "Window-API" == PM
-            *pulWinAppType = PROG_PM;
-        else if (   ((_ulDosAppType & 0xFFFF) == FAPPTYP_WINDOWSPROT31) // 0x1000) // windows program (?!?)
-                 || ((_ulDosAppType & 0xFFFF) == FAPPTYP_WINDOWSPROT) // ) // windows program (?!?)
+            ulWinAppType = PROG_WINDOWEDVDM;
+        else if ((ulDosAppType & FAPPTYP_WINDOWAPI) == FAPPTYP_WINDOWAPI) // 0x0003)
+            // "Window-API" == PM
+            ulWinAppType = PROG_PM;
+        else if (ulLoAppType == FAPPTYP_WINDOWSREAL)
+            ulWinAppType = PROG_31_ENHSEAMLESSCOMMON;  // @@todo really?
+        else if (   (ulLoAppType == FAPPTYP_WINDOWSPROT31) // 0x1000) // windows program (?!?)
+                 || (ulLoAppType == FAPPTYP_WINDOWSPROT) // ) // windows program (?!?)
                 )
-            *pulWinAppType = PROG_31_ENHSEAMLESSCOMMON;  // PROG_31_ENH;
-            // *pulWinAppType = PROG_31_ENHSEAMLESSVDM;
-        else if ((_ulDosAppType & FAPPTYP_WINDOWAPI /* 0x03 */ ) == FAPPTYP_WINDOWCOMPAT) // 0x02)
-            *pulWinAppType = PROG_WINDOWABLEVIO;
-        else if ((_ulDosAppType & FAPPTYP_WINDOWAPI /* 0x03 */ ) == FAPPTYP_NOTWINDOWCOMPAT) // 0x01)
-            *pulWinAppType = PROG_FULLSCREEN;
+            ulWinAppType = PROG_31_ENHSEAMLESSCOMMON;  // PROG_31_ENH;
+        else if ((ulDosAppType & FAPPTYP_WINDOWAPI /* 0x03 */ ) == FAPPTYP_WINDOWCOMPAT) // 0x02)
+            ulWinAppType = PROG_WINDOWABLEVIO;
+        else if ((ulDosAppType & FAPPTYP_WINDOWAPI /* 0x03 */ ) == FAPPTYP_NOTWINDOWCOMPAT) // 0x01)
+            ulWinAppType = PROG_FULLSCREEN;
     }
+
+    if (ulWinAppType == PROG_DEFAULT)
+    {
+        // added checks for batch files V0.9.16 (2001-12-08) [umoeller]
+        PCSZ pcszExt;
+        if (pcszExt = doshGetExtension(pcszExecutable))
+        {
+            if (!stricmp(pcszExt, "BAT"))
+            {
+                ulWinAppType = PROG_WINDOWEDVDM;
+                arc = NO_ERROR;
+            }
+            else if (!stricmp(pcszExt, "CMD"))
+            {
+                ulWinAppType = PROG_WINDOWABLEVIO;
+                arc = NO_ERROR;
+            }
+        }
+    }
+
+    *pulWinAppType = ulWinAppType;
 
     return (arc);
 }
@@ -607,6 +654,9 @@ PCSZ appDescribeAppType(PROGCATEGORY progc)        // in: from PROGDETAILS.progc
         case PROG_DOS_GAME: return "PROG_DOS_GAME";
         case PROG_WIN_GAME: return "PROG_WIN_GAME";
         case PROG_DOS_MODE: return "PROG_DOS_MODE";
+
+        // added this V0.9.16 (2001-12-08) [umoeller]
+        case PROG_WIN32: return "PROG_WIN32";
     }
 
     return NULL;

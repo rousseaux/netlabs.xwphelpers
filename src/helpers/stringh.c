@@ -41,6 +41,7 @@
     // as unsigned char
 
 #define INCL_WINSHELLDATA
+#define INCL_DOSERRORS
 #include <os2.h>
 
 #include <stdlib.h>
@@ -67,6 +68,53 @@
  *      See stringh.c.
  */
 
+#ifdef __DEBUG_MALLOC_ENABLED__
+
+/*
+ *@@ strhStoreDebug:
+ *      memory debug version of strhStore.
+ *
+ *@@added V0.9.16 (2001-12-08) [umoeller]
+ */
+
+APIRET strhStoreDebug(PSZ *ppszTarget,
+                      PCSZ pcszSource,
+                      PULONG pulLength,        // out: length of new string (ptr can be NULL)
+                      const char *pcszSourceFile,
+                      unsigned long ulLine,
+                      const char *pcszFunction)
+{
+    ULONG ulLength = 0;
+
+    if (ppszTarget)
+    {
+        if (*ppszTarget)
+            free(*ppszTarget);
+
+        if (    (pcszSource)
+             && (ulLength = strlen(pcszSource))
+           )
+        {
+            if (*ppszTarget = (PSZ)memdMalloc(ulLength + 1,
+                                              pcszSourceFile,
+                                              ulLine,
+                                              pcszFunction))
+                memcpy(*ppszTarget, pcszSource, ulLength + 1);
+            else
+                return (ERROR_NOT_ENOUGH_MEMORY);
+        }
+        else
+            *ppszTarget = NULL;
+    }
+
+    if (pulLength)
+        *pulLength = ulLength;
+
+    return (NO_ERROR);
+}
+
+#endif
+
 /*
  *@@ strhStore:
  *      stores a copy of the given string in the specified
@@ -80,9 +128,9 @@
  *@@added V0.9.16 (2001-12-06) [umoeller]
  */
 
-VOID strhStore(PSZ *ppszTarget,
-               PCSZ pcszSource,
-               PULONG pulLength)        // out: length of new string (ptr can be NULL)
+APIRET strhStore(PSZ *ppszTarget,
+                 PCSZ pcszSource,
+                 PULONG pulLength)        // out: length of new string (ptr can be NULL)
 {
     ULONG ulLength = 0;
 
@@ -97,6 +145,8 @@ VOID strhStore(PSZ *ppszTarget,
         {
             if (*ppszTarget = (PSZ)malloc(ulLength + 1))
                 memcpy(*ppszTarget, pcszSource, ulLength + 1);
+            else
+                return (ERROR_NOT_ENOUGH_MEMORY);
         }
         else
             *ppszTarget = NULL;
@@ -104,6 +154,8 @@ VOID strhStore(PSZ *ppszTarget,
 
     if (pulLength)
         *pulLength = ulLength;
+
+    return (NO_ERROR);
 }
 
 /*
@@ -126,13 +178,13 @@ PSZ strhcpy(PSZ string1, const char *string2)
 #ifdef __DEBUG_MALLOC_ENABLED__
 
 /*
- *@@ strhdup:
+ *@@ strhdupDebug:
  *      memory debug version of strhdup.
  *
  *@@added V0.9.0 [umoeller]
  */
 
-PSZ strhdupDebug(const char *pszSource,
+PSZ strhdupDebug(const char *pcszSource,
                  unsigned long *pulLength,
                  const char *pcszSourceFile,
                  unsigned long ulLine,
@@ -146,7 +198,7 @@ PSZ strhdupDebug(const char *pszSource,
        )
     {
         if (pszReturn = (PSZ)memdMalloc(ulLength + 1,
-                                        pcszSourceFile,
+                                        pcszSourceFile,     // fixed V0.9.16 (2001-12-08) [umoeller]
                                         ulLine,
                                         pcszFunction))
             memcpy(pszReturn, pcszSource, ulLength + 1);

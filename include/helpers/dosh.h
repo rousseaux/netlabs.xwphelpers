@@ -57,6 +57,11 @@ extern "C" {
     PVOID doshMalloc(ULONG cb,
                      APIRET *parc);
 
+    APIRET doshAllocArray(ULONG c,
+                          ULONG cbArrayItem,
+                          PBYTE *ppv,
+                          PULONG pcbAllocated);
+
     PVOID doshAllocSharedMem(ULONG ulSize,
                              const char* pcszName);
 
@@ -352,7 +357,7 @@ extern "C" {
     APIRET doshReadAt(HFILE hf,
                       LONG lOffset,
                       ULONG ulMethod,
-                      ULONG cb,
+                      PULONG pcb,
                       PBYTE pbData);
 
     /*
@@ -463,6 +468,8 @@ extern "C" {
      *
      ********************************************************************/
 
+    #pragma pack(1)
+
     /*
      *@@ DOSEXEHEADER:
      *      old DOS EXE header at offset 0
@@ -472,7 +479,6 @@ extern "C" {
      *@@changed V0.9.9 (2001-04-06) [lafaix]: additional fields defined
      */
 
-    #pragma pack(1)
     typedef struct _DOSEXEHEADER
     {
          USHORT usDosExeID;             // 00: DOS exeid (0x5a4d)
@@ -531,6 +537,24 @@ extern "C" {
         USHORT    usEntryTblLen;        // 06: length of entrytable
         ULONG     ulChecksum;           // 08: MS: reserved, OS/2: checksum
         USHORT    usFlags;              // 0c: flags
+                           /*
+                              #define NENOTP          0x8000          // Not a process == library
+                              #define NENOTMPSAFE     0x4000          // Process is not multi-processor safe
+                              #define NEIERR          0x2000          // Errors in image
+                              #define NEBOUND         0x0800          // Bound Family/API
+                              #define NEAPPTYP        0x0700          // Application type mask
+                              #define NENOTWINCOMPAT  0x0100          // Not compatible with P.M. Windowing
+                              #define NEWINCOMPAT     0x0200          // Compatible with P.M. Windowing
+                              #define NEWINAPI        0x0300          // Uses P.M. Windowing API
+                              #define NEFLTP          0x0080          // Floating-point instructions
+                              #define NEI386          0x0040          // 386 instructions
+                              #define NEI286          0x0020          // 286 instructions
+                              #define NEI086          0x0010          // 8086 instructions
+                              #define NEPROT          0x0008          // Runs in protected mode only
+                              #define NEPPLI          0x0004          // Per-Process Library Initialization
+                              #define NEINST          0x0002          // Instance data
+                              #define NESOLO          0x0001          // Solo data (single data)
+                           */
         USHORT    usAutoDataSegNo;      // 0e: auto-data seg no.
         USHORT    usInitlHeapSize;      // 10: initl. heap size
         USHORT    usInitlStackSize;     // 12: initl. stack size
@@ -580,6 +604,18 @@ extern "C" {
         USHORT    usTargetOS;           // 0a: OS type (NEOS_* flags)
         ULONG     ulModuleVersion;      // 0c: module version
         ULONG     ulFlags;              // 10: module flags
+                          /* #define E32NOTP          0x8000L        // Library Module - used as NENOTP
+                             #define E32NOLOAD        0x2000L        // Module not Loadable
+                             #define E32PMAPI         0x0300L        // Uses PM Windowing API
+                             #define E32PMW           0x0200L        // Compatible with PM Windowing
+                             #define E32NOPMW         0x0100L        // Incompatible with PM Windowing
+                             #define E32NOEXTFIX      0x0020L        // NO External Fixups in .EXE
+                             #define E32NOINTFIX      0x0010L        // NO Internal Fixups in .EXE
+                             #define E32SYSDLL        0x0008L        // System DLL, Internal Fixups discarded
+                             #define E32LIBINIT       0x0004L        // Per-Process Library Initialization
+                             #define E32LIBTERM       0x40000000L    // Per-Process Library Termination
+                             #define E32APPMASK       0x0300L        // Application Type Mask
+                          */
         ULONG     ulPageCount;          // 14: no. of pages in module
         ULONG     ulEIPRelObj;          // 18: object to which EIP is relative
         ULONG     ulEIPEntryAddr;       // 1c: EIP entry addr
@@ -679,45 +715,71 @@ extern "C" {
         ULONG     aulRVASize[1];        // 78: array of RVA/Size entries
     } PEHEADER, *PPEHEADER;
 
+    // additional LX structures
+
+    /*
+     *@@ RESOURCETABLEENTRY:
+     *     LX resource table entry.
+     *
+     *@@added V0.9.16 (2001-12-08) [umoeller]
+     */
+
+    typedef struct _RESOURCETABLEENTRY     // rsrc32
+    {
+        unsigned short  type;   // Resource type
+        unsigned short  name;   // Resource name
+        unsigned long   cb;     // Resource size
+        unsigned short  obj;    // Object number
+        unsigned long   offset; // Offset within object
+    } RESOURCETABLEENTRY;
+
+    /*
+     *@@ OBJECTTABLEENTRY:
+     *     LX object table entry.
+     *
+     *@@added V0.9.16 (2001-12-08) [umoeller]
+     */
+
+    typedef struct _OBJECTTABLEENTRY       // o32_obj
+    {
+        unsigned long   o32_size;     // Object virtual size
+        unsigned long   o32_base;     // Object base virtual address
+        unsigned long   o32_flags;    // Attribute flags
+        unsigned long   o32_pagemap;  // Object page map index
+        unsigned long   o32_mapsize;  // Number of entries in object page map
+        unsigned long   o32_reserved; // Reserved
+    } OBJECTTABLEENTRY;
+
+    /*
+     *@@ OBJECTPAGETABLEENTRY:
+     *     LX object _page_ table entry, sometimes
+     *     referred to as map entry.
+     *
+     *@@added V0.9.16 (2001-12-08) [umoeller]
+     */
+
+    typedef struct _OBJECTPAGETABLEENTRY   // o32_map
+    {
+        unsigned long   o32_pagedataoffset;     // file offset of page
+        unsigned short  o32_pagesize;           // # of real bytes of page data
+        unsigned short  o32_pageflags;          // Per-Page attributes
+    } OBJECTPAGETABLEENTRY;
+
+    /*
+     *@@ LXITER:
+     *      iteration Record format for 'EXEPACK'ed pages.
+     *
+     *@@added V0.9.16 (2001-12-08) [umoeller]
+     */
+
+    typedef struct _LXITER
+    {
+        unsigned short LX_nIter;            // number of iterations
+        unsigned short LX_nBytes;           // number of bytes
+        unsigned char  LX_Iterdata;         // iterated data byte(s)
+    } LXITER, *PLXITER;
+
     #pragma pack()
-
-    /*
-     *@@ FSYSMODULE:
-     *
-     *@@added V0.9.9 (2001-03-11) [lafaix]
-     */
-
-    typedef struct _FSYSMODULE
-    {
-        CHAR achModuleName[256];
-    } FSYSMODULE, *PFSYSMODULE;
-
-    /*
-     *@@ FSYSFUNCTION:
-     *
-     *@@added V0.9.9 (2001-03-11) [lafaix]
-     */
-
-    typedef struct _FSYSFUNCTION
-    {
-        ULONG ulOrdinal;
-        ULONG ulType;
-        CHAR achFunctionName[256];
-    } FSYSFUNCTION, *PFSYSFUNCTION;
-
-    /*
-     *@@ FSYSRESOURCE:
-     *
-     *@@added V0.9.7 (2000-12-18) [lafaix]
-     */
-
-    typedef struct _FSYSRESOURCE
-    {
-        ULONG ulID;                     // resource ID
-        ULONG ulType;                   // resource type
-        ULONG ulSize;                   // resource size in bytes
-        ULONG ulFlag;                   // resource flags
-    } FSYSRESOURCE, *PFSYSRESOURCE;
 
     // object/segment flags (in NE and LX)
     #define OBJWRITE         0x0002L    // Writeable Object
@@ -821,6 +883,7 @@ extern "C" {
         PSZ                 pszInfo;
                 // module info substring (if IBM BLDLEVEL format)
 
+#ifndef __STRIP_DOWN_EXECUTABLE__       // for mini stubs in warpin, to reduce code size
         // if pszInfo is extended DESCRIPTION field, the following
         // are set as well:
         PSZ                 pszBuildDateTime,
@@ -832,14 +895,30 @@ extern "C" {
                             pszUnknown,
                             pszFixpak;
 
+        // the following fields are set after doshLoadLXMaps
+        BOOL                    fLXMapsLoaded;      // TRUE after doshLoadLXMaps
+        RESOURCETABLEENTRY      *pRsTbl;        // pLXHeader->ulResTblCnt
+        OBJECTTABLEENTRY        *pObjTbl;       // pLXHeader->ulObjCount
+        OBJECTPAGETABLEENTRY    *pObjPageTbl;   // pLXHeader->ulPageCount
+
+#endif
     } EXECUTABLE, *PEXECUTABLE;
 
     APIRET doshExecOpen(const char* pcszExecutable,
                         PEXECUTABLE* ppExec);
 
-    APIRET doshExecClose(PEXECUTABLE pExec);
-
     APIRET doshExecQueryBldLevel(PEXECUTABLE pExec);
+
+    /*
+     *@@ FSYSMODULE:
+     *
+     *@@added V0.9.9 (2001-03-11) [lafaix]
+     */
+
+    typedef struct _FSYSMODULE
+    {
+        CHAR achModuleName[256];
+    } FSYSMODULE, *PFSYSMODULE;
 
     APIRET doshExecQueryImportedModules(PEXECUTABLE pExec,
                                         PFSYSMODULE *ppaModules,
@@ -847,17 +926,51 @@ extern "C" {
 
     APIRET doshExecFreeImportedModules(PFSYSMODULE paModules);
 
+    /*
+     *@@ FSYSFUNCTION:
+     *
+     *@@added V0.9.9 (2001-03-11) [lafaix]
+     */
+
+    typedef struct _FSYSFUNCTION
+    {
+        ULONG ulOrdinal;
+        ULONG ulType;
+        CHAR achFunctionName[256];
+    } FSYSFUNCTION, *PFSYSFUNCTION;
+
     APIRET doshExecQueryExportedFunctions(PEXECUTABLE pExec,
                                           PFSYSFUNCTION *ppaFunctions,
                                           PULONG pcFunctions);
 
     APIRET doshExecFreeExportedFunctions(PFSYSFUNCTION paFunctions);
 
+    /*
+     *@@ FSYSRESOURCE:
+     *
+     *@@added V0.9.7 (2000-12-18) [lafaix]
+     */
+
+    typedef struct _FSYSRESOURCE
+    {
+        ULONG ulID;                     // resource ID
+        ULONG ulType;                   // resource type
+        ULONG ulSize;                   // resource size in bytes
+        ULONG ulFlag;                   // resource flags
+
+    } FSYSRESOURCE, *PFSYSRESOURCE;
+
     APIRET doshExecQueryResources(PEXECUTABLE pExec,
                                   PFSYSRESOURCE *ppaResources,
                                   PULONG pcResources);
 
     APIRET doshExecFreeResources(PFSYSRESOURCE paResources);
+
+    APIRET doshLoadLXMaps(PEXECUTABLE pExec);
+
+    VOID doshFreeLXMaps(PEXECUTABLE pExec);
+
+    APIRET doshExecClose(PEXECUTABLE *ppExec);
 
     APIRET doshSearchPath(PCSZ pcszPath,
                           PCSZ pcszFile,

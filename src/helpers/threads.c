@@ -39,6 +39,7 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
+#define INCL_WINMESSAGEMGR
 #define INCL_DOSPROCESS
 #define INCL_DOSSEMAPHORES
 #define INCL_DOSERRORS
@@ -129,6 +130,8 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
 
     if (pti)
     {
+        HEV hevExitComplete;
+
         if (pti->flFlags & THRF_WAIT)
             // "Wait" flag set: thrCreate is then
             // waiting on the wait event sem posted...
@@ -167,9 +170,11 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
             UnlockThreadInfos();
         }
 
+        // copy event sem before freeing pti
+        hevExitComplete = pti->hevExitComplete;
+
         // set exit flags
         // V0.9.7 (2000-12-20) [umoeller]
-        pti->fExitComplete = TRUE;
         pti->tid = NULLHANDLE;
 
         if (pti->ptidRunning)
@@ -179,6 +184,11 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
         // (2000-12-18) [lafaix] clean up pti if thread is transient.
         if (pti->flFlags & THRF_TRANSIENT)
             free(pti);
+
+        if (hevExitComplete)
+            // caller wants notification:
+            DosPostEventSem(hevExitComplete);
+                    // V0.9.16 (2001-12-08) [umoeller]
     }
 
     // thread func exits
@@ -393,6 +403,7 @@ ULONG thrCreate(PTHREADINFO pti,     // out: THREADINFO data
  *
  *@@added V0.9.5 (2000-08-26) [umoeller]
  *@@changed V0.9.9 (2001-03-07) [umoeller]: added pcszThreadName
+ *@@changed V0.9.16 (2001-12-08) [umoeller]: fixed hang with thrWait
  */
 
 ULONG thrRunSync(HAB hab,               // in: anchor block of calling thread
@@ -416,13 +427,19 @@ ULONG thrRunSync(HAB hab,               // in: anchor block of calling thread
                                      NULL))
     {
         THREADINFO  ti = {0};
+        volatile unsigned long tidRunning = 0;
         thrCreate(&ti,
                   pfn,
-                  NULL,
+                  &tidRunning,
                   pcszThreadName,
                   THRF_PMMSGQUEUE,
                   ulData);
         ti.hwndNotify = hwndNotify;
+        // create event sem to wait on V0.9.16 (2001-12-08) [umoeller]
+        DosCreateEventSem(NULL,
+                          &ti.hevExitComplete,
+                          0,
+                          FALSE);       // not posted
 
         while (WinGetMsg(hab,
                          &qmsg, 0, 0, 0))
@@ -444,7 +461,10 @@ ULONG thrRunSync(HAB hab,               // in: anchor block of calling thread
         // we must wait for the thread to finish, or
         // otherwise THREADINFO is deleted from the stack
         // before the thread exits... will crash!
-        thrWait(&ti);
+        // thrWait(&ti);
+        // now using event sem V0.9.16 (2001-12-08) [umoeller]
+        WinWaitEventSem(ti.hevExitComplete, 5000);
+        DosCloseEventSem(ti.hevExitComplete);
 
         WinDestroyWindow(hwndNotify);
     }
@@ -480,7 +500,6 @@ PTHREADINFO thrListThreads(PULONG pcThreads)
         PTHREADINFO pThis;
         PLISTNODE pNode;
         *pcThreads = lstCountItems(&G_llThreadInfos);
-        _Pmpf((__FUNCTION__ ": got %d threads", *pcThreads));
         pArray = (PTHREADINFO)malloc(*pcThreads * sizeof(THREADINFO));
         pThis = pArray;
 
@@ -560,6 +579,9 @@ BOOL thrClose(PTHREADINFO pti)
  *      thread, so only use this function when you're sure
  *      the thread will actually terminate.
  *
+ *      Update V0.9.16: Do not use this with PM theads at
+ *      all. DosWaitThread can hang the system then.
+ *
  *      Returns FALSE if the thread wasn't running or TRUE
  *      if it was and has terminated.
  *
@@ -630,8 +652,7 @@ BOOL thrKill(PTHREADINFO pti)
 TID thrQueryID(const THREADINFO* pti)
 {
     if (pti)
-        if (!(pti->fExitComplete))
-            return (pti->tid);
+        return (pti->tid);
 
     return (NULLHANDLE);
 }

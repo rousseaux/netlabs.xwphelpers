@@ -75,6 +75,8 @@ extern "C" {
                     // removed, PROG_DLL exists already
                     // V0.9.16 (2001-10-06)
 
+        #define PROG_WIN32              990     // added V0.9.16 (2001-12-08) [umoeller]
+
         APIRET appQueryAppType(const char *pcszExecutable,
                                 PULONG pulDosAppType,
                                 PULONG pulWinAppType);

@@ -677,44 +677,51 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
         y = pcp->y + pDlgData->ptlTotalOfs.y;
         cy = pcp->cy;
 
-        // change the title if this is a static with SS_BITMAP;
-        // we have used a HBITMAP in there!
-        if (    ((ULONG)pControlDef->pcszClass == 0xffff0005L) // WC_STATIC:
-             && (    ((flStyle & 0x0F) == SS_BITMAP)
-                  || ((flStyle & 0x0F) == SS_ICON)
-                )
-           )
+        // now implement hacks for certain controls
+        switch ((ULONG)pControlDef->pcszClass)
         {
-            // change style flag to not use SS_BITMAP nor SS_ICON;
-            // control creation fails otherwise (stupid, stupid PM)
-            flOld = flStyle;
-            flStyle = ((flStyle & ~0x0F) | SS_FGNDFRAME);
-            pcszTitle = "";
-            lHandleSet = (LHANDLE)pControlDef->pcszText;
-        }
-        // hack the stupid drop-down combobox which doesn't
-        // expand otherwise (the size of the drop-down is
-        // the full size of the control... duh)
-        else if (    ((ULONG)pControlDef->pcszClass == 0xffff0002L)
-                  && (flStyle & (CBS_DROPDOWN | CBS_DROPDOWNLIST))
-                )
-        {
-            y -= 100;
-            cy += 100;
-        }
-        // the stupid entry field resizes itself if it has
-        // the ES_MARGIN style, so correlate that too... dammit
-        // V0.9.16 (2001-12-08) [umoeller]
-        else if (    ((ULONG)pControlDef->pcszClass == 0xffff0006L)
-                  && (flStyle & ES_MARGIN)
-                )
-        {
-            LONG cxMargin = 3 * WinQuerySysValue(HWND_DESKTOP, SV_CXBORDER);
-            LONG cyMargin = 3 * WinQuerySysValue(HWND_DESKTOP, SV_CYBORDER);
+            case 0xffff0005L: // WC_STATIC:
+                // change the title if this is a static with SS_BITMAP;
+                // we have used a HBITMAP in there!
+                if (    (    ((flStyle & 0x0F) == SS_BITMAP)
+                          || ((flStyle & 0x0F) == SS_ICON)
+                        )
+                   )
+                {
+                    // change style flag to not use SS_BITMAP nor SS_ICON;
+                    // control creation fails otherwise (stupid, stupid PM)
+                    flOld = flStyle;
+                    flStyle = ((flStyle & ~0x0F) | SS_FGNDFRAME);
+                    pcszTitle = "";
+                    lHandleSet = (LHANDLE)pControlDef->pcszText;
+                }
+            break;
 
-            x += cxMargin;
-            y += cxMargin;
-        }
+            case 0xffff0002L:   // combobox
+                // hack the stupid drop-down combobox which doesn't
+                // expand otherwise (the size of the drop-down is
+                // the full size of the control... duh)
+                if (flStyle & (CBS_DROPDOWN | CBS_DROPDOWNLIST))
+                {
+                    y -= 100;
+                    cy += 100;
+                }
+            break;
+
+            case 0xffff0006L:   // entry field
+                // the stupid entry field resizes itself if it has
+                // the ES_MARGIN style, so correlate that too... dammit
+                // V0.9.16 (2001-12-08) [umoeller]
+                if (flStyle & ES_MARGIN)
+                {
+                    LONG cxMargin = 3 * WinQuerySysValue(HWND_DESKTOP, SV_CXBORDER);
+                    LONG cyMargin = 3 * WinQuerySysValue(HWND_DESKTOP, SV_CYBORDER);
+
+                    x += cxMargin;
+                    y += cxMargin;
+                }
+            break;
+        } // end switch ((ULONG)pControlDef->pcszClass)
     }
 
     if (pcp && pControlDef)

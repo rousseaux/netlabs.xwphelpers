@@ -126,19 +126,18 @@ BOOL doshQueryShiftState(VOID)
     HFILE           hfKbd;
     ULONG           ulAction;
 
-    arc = DosOpen("KBD$", &hfKbd, &ulAction, 0,
-                  FILE_NORMAL, FILE_OPEN,
-                  OPEN_ACCESS_READONLY | OPEN_SHARE_DENYWRITE,
-                  (PEAOP2)NULL);
-    if (arc == NO_ERROR)
+    if (!(arc = DosOpen("KBD$", &hfKbd, &ulAction, 0,
+                        FILE_NORMAL,
+                        FILE_OPEN,
+                        OPEN_ACCESS_READONLY | OPEN_SHARE_DENYWRITE,
+                        (PEAOP2)NULL)))
     {
         SHIFTSTATE      ShiftState;
         ULONG           cbDataLen = sizeof(ShiftState);
 
-        arc = DosDevIOCtl(hfKbd, IOCTL_KEYBOARD, KBD_GETSHIFTSTATE,
-                          NULL, 0, NULL,      // no parameters
-                          &ShiftState, cbDataLen, &cbDataLen);
-        if (arc == NO_ERROR)
+        if (!(arc = DosDevIOCtl(hfKbd, IOCTL_KEYBOARD, KBD_GETSHIFTSTATE,
+                                NULL, 0, NULL,      // no parameters
+                                &ShiftState, cbDataLen, &cbDataLen)))
             brc = ((ShiftState.fsState & 3) != 0);
 
         DosClose(hfKbd);
@@ -307,6 +306,37 @@ PVOID doshMalloc(ULONG cb,
         *parc = ERROR_NOT_ENOUGH_MEMORY;
 
     return (pv);
+}
+
+/*
+ *@@ doshAllocArray:
+ *      allocates c * cbArrayItem bytes.
+ *      Similar to calloc(), but returns
+ *      error codes:
+ *
+ *      --  NO_ERROR: *ppv and *pcbAllocated were set.
+ *
+ *      --  ERROR_NO_DATA: either c or cbArrayItem are
+ *          zero.
+ *
+ *      --  ERROR_NOT_ENOUGH_MEMORY: malloc() failed.
+ *
+ *@@added V0.9.16 (2001-12-08) [umoeller]
+ */
+
+APIRET doshAllocArray(ULONG c,              // in: array item count
+                      ULONG cbArrayItem,    // in: size of one array item
+                      PBYTE *ppv,           // out: memory ptr if NO_ERROR is returned
+                      PULONG pcbAllocated)  // out: # of bytes allocated
+{
+    if (!c || !cbArrayItem)
+        return ERROR_NO_DATA;
+
+    *pcbAllocated = c * cbArrayItem;
+    if (!(*ppv = malloc(*pcbAllocated)))
+        return ERROR_NOT_ENOUGH_MEMORY;
+
+    return NO_ERROR;
 }
 
 /*
@@ -1332,6 +1362,10 @@ APIRET doshGetDriveSpec(PCSZ pcszFullFile,      // in: fully q'fied file spec
  *      Returns NULL if not found (e.g. if the filename
  *      has no dot in it).
  *
+ *      In the pathological case of a dot in the path
+ *      but not in the filename itself, this correctly
+ *      returns NULL.
+ *
  *@@added V0.9.6 (2000-10-16) [umoeller]
  *@@changed V0.9.7 (2000-12-10) [umoeller]: fixed "F:filename.ext" case
  */
@@ -1343,12 +1377,12 @@ PSZ doshGetExtension(PCSZ pcszFilename)
     if (pcszFilename)
     {
         // find filename
-        PCSZ    p2 = strrchr(pcszFilename + 2, '\\'),
-                            // works on "C:\blah" or "\\unc\blah"
+        PCSZ    p2,
                 pStartOfName = NULL,
                 pExtension = NULL;
 
-        if (p2)
+        if (p2 = strrchr(pcszFilename + 2, '\\'))
+                            // works on "C:\blah" or "\\unc\blah"
             pStartOfName = p2 + 1;
         else
         {
@@ -1364,8 +1398,7 @@ PSZ doshGetExtension(PCSZ pcszFilename)
         }
 
         // find last dot in filename
-        pExtension = strrchr(pStartOfName, '.');
-        if (pExtension)
+        if (pExtension = strrchr(pStartOfName, '.'))
             pReturn = (PSZ)pExtension + 1;
     }
 
@@ -1417,10 +1450,9 @@ BOOL doshIsFileOnFAT(const char* pcszFileName)
         // structure are stored at the offset of fsqBuffer.szName.
         // Each data field following fsqBuffer.szName begins
         // immediately after the previous item.
-        if (strncmp((PSZ)&(pfsqBuffer->szName) + pfsqBuffer->cbName + 1,
-                    "FAT",
-                    3)
-               == 0)
+        if (!strncmp((PSZ)&(pfsqBuffer->szName) + pfsqBuffer->cbName + 1,
+                     "FAT",
+                     3))
             brc = TRUE;
     }
 
@@ -1437,13 +1469,14 @@ BOOL doshIsFileOnFAT(const char* pcszFileName)
  *@@changed V0.9.16 (2001-10-19) [umoeller]: now returning APIRET
  */
 
-APIRET doshQueryFileSize(HFILE hFile,
-                         PULONG pulSize)
+APIRET doshQueryFileSize(HFILE hFile,       // in: file handle
+                         PULONG pulSize)    // out: file size (ptr can be NULL)
 {
     APIRET arc;
     FILESTATUS3 fs3;
     if (!(arc = DosQueryFileInfo(hFile, FIL_STANDARD, &fs3, sizeof(fs3))))
-        *pulSize = fs3.cbFile;
+        if (pulSize)
+            *pulSize = fs3.cbFile;
     return (arc);
 }
 
@@ -1452,19 +1485,36 @@ APIRET doshQueryFileSize(HFILE hFile,
  *      returns the size of any file,
  *      or 0 if the file could not be
  *      found.
+ *
  *      Use doshQueryFileSize instead to query the
  *      size if you have a HFILE.
+ *
+ *      Otherwise this returns:
+ *
+ *      --  ERROR_FILE_NOT_FOUND
+ *      --  ERROR_PATH_NOT_FOUND
+ *      --  ERROR_SHARING_VIOLATION
+ *      --  ERROR_FILENAME_EXCED_RANGE
+ *      --  ERROR_INVALID_PARAMETER
  *
  *@@changed V0.9.16 (2001-10-19) [umoeller]: now returning APIRET
  */
 
-APIRET doshQueryPathSize(PCSZ pcszFile,
-                         PULONG pulSize)
+APIRET doshQueryPathSize(PCSZ pcszFile,         // in: filename
+                         PULONG pulSize)        // out: file size (ptr can be NULL)
 {
     APIRET arc;
-    FILESTATUS3 fs3;
-    if (!(arc = DosQueryPathInfo((PSZ)pcszFile, FIL_STANDARD, &fs3, sizeof(fs3))))
-        *pulSize = fs3.cbFile;
+
+    if (pcszFile)      // V0.9.16 (2001-12-08) [umoeller]
+    {
+        FILESTATUS3 fs3;
+        if (!(arc = DosQueryPathInfo((PSZ)pcszFile, FIL_STANDARD, &fs3, sizeof(fs3))))
+            if (pulSize)
+                *pulSize = fs3.cbFile;
+    }
+    else
+        arc = ERROR_INVALID_PARAMETER;
+
     return (arc);
 }
 
@@ -1487,18 +1537,26 @@ APIRET doshQueryPathSize(PCSZ pcszFile,
  *      *pulAttr is only valid if NO_ERROR is
  *      returned.
  *
+ *      Otherwise this returns:
+ *
+ *      --  ERROR_FILE_NOT_FOUND
+ *      --  ERROR_PATH_NOT_FOUND
+ *      --  ERROR_SHARING_VIOLATION
+ *      --  ERROR_FILENAME_EXCED_RANGE
+ *
  *@@added V0.9.0 [umoeller]
  */
 
 APIRET doshQueryPathAttr(const char* pcszFile,      // in: file or directory name
-                         PULONG pulAttr)            // out: attributes
+                         PULONG pulAttr)            // out: attributes (ptr can be NULL)
 {
     FILESTATUS3 fs3;
-    APIRET arc = DosQueryPathInfo((PSZ)pcszFile,
+    APIRET arc;
+
+    if (!(arc = DosQueryPathInfo((PSZ)pcszFile,
                                   FIL_STANDARD,
                                   &fs3,
-                                  sizeof(fs3));
-    if (arc == NO_ERROR)
+                                  sizeof(fs3))))
     {
         if (pulAttr)
             *pulAttr = fs3.attrFile;
@@ -1531,22 +1589,28 @@ APIRET doshQueryPathAttr(const char* pcszFile,      // in: file or directory nam
 APIRET doshSetPathAttr(const char* pcszFile,    // in: file or directory name
                        ULONG ulAttr)            // in: new attributes
 {
-    FILESTATUS3 fs3;
-    APIRET rc = DosQueryPathInfo((PSZ)pcszFile,
+    APIRET arc;
+
+    if (pcszFile)
+    {
+        FILESTATUS3 fs3;
+        if (!(arc = DosQueryPathInfo((PSZ)pcszFile,
+                                      FIL_STANDARD,
+                                      &fs3,
+                                      sizeof(fs3))))
+        {
+            fs3.attrFile = ulAttr;
+            arc = DosSetPathInfo((PSZ)pcszFile,
                                  FIL_STANDARD,
                                  &fs3,
-                                 sizeof(fs3));
-
-    if (rc == NO_ERROR)
-    {
-        fs3.attrFile = ulAttr;
-        rc = DosSetPathInfo((PSZ)pcszFile,
-                            FIL_STANDARD,
-                            &fs3,
-                            sizeof(fs3),
-                            DSPI_WRTTHRU);
+                                 sizeof(fs3),
+                                 DSPI_WRTTHRU);
+        }
     }
-    return (rc);
+    else
+        arc = ERROR_INVALID_PARAMETER;
+
+    return (arc);
 }
 
 /*
@@ -1639,19 +1703,26 @@ APIRET doshWriteAt(HFILE hf,        // in: OS/2 file handle
 APIRET doshReadAt(HFILE hf,        // in: OS/2 file handle
                   LONG lOffset,    // in: offset to write at (depends on ulMethod)
                   ULONG ulMethod,  // in: one of FILE_BEGIN, FILE_CURRENT, FILE_END
-                  ULONG cb,        // in: bytes to write
+                  PULONG pcb,      // in: bytes to read, out: bytes read
                   PBYTE pbData)    // out: read buffer (must be cb bytes)
 {
     APIRET arc;
+    ULONG cb = *pcb;
     ULONG ulDummy;
+
+    *pcb = 0;
+
     if (!(arc = DosSetFilePtr(hf,
                               lOffset,
                               ulMethod,
                               &ulDummy)))
-        arc = DosRead(hf,
-                      pbData,
-                      cb,
-                      &ulDummy);
+    {
+        if (!(arc = DosRead(hf,
+                            pbData,
+                            cb,
+                            &ulDummy)))
+            *pcb = ulDummy;     // bytes read
+    }
 
     return (arc);
 }
@@ -1662,21 +1733,25 @@ APIRET doshReadAt(HFILE hf,        // in: OS/2 file handle
  *      of files.
  *
  *      ulOpenMode determines the mode to open the
- *      file in:
+ *      file in (fptr specifies the position after
+ *      the open):
  *
- +      +-------------------------+------+-----------+-----------+
- +      |                         |      |           |           |
- +      |  ulOpenMode             | mode | if exists | if new    |
- +      +-------------------------+------+-----------+-----------+
- +      |  XOPEN_READ_EXISTING    | read | opens     | fails     |
- +      +-------------------------+------+-----------+-----------+
- +      |  XOPEN_READWRITE_APPEND | r/w  | opens,    | creates   |
- +      |                         |      | appends   |           |
- +      +-------------------------+------+-----------+-----------+
- +      |  XOPEN_READWRITE_NEW    | r/w  | replaces  | creates   |
- +      +-------------------------+------+-----------+-----------+
+ +      +-------------------------+------+------------+-----------+
+ +      |  ulOpenMode             | mode | if exists  | if new    |
+ +      +-------------------------+------+------------+-----------+
+ +      |  XOPEN_READ_EXISTING    | read | opens      | fails     |
+ +      |                         |      | fptr = 0   |           |
+ +      +-------------------------+------+------------+-----------+
+ +      |  XOPEN_READWRITE_APPEND | r/w  | opens,     | creates   |
+ +      |                         |      | appends    |           |
+ +      |                         |      | fptr = end | fptr = 0  |
+ +      +-------------------------+------+------------+-----------+
+ +      |  XOPEN_READWRITE_NEW    | r/w  | replaces   | creates   |
+ +      |                         |      | fptr = 0   | fptr = 0  |
+ +      +-------------------------+------+------------+-----------+
  *
- *      In addition, you can specify the XOPEN_BINARY flag:
+ *      In addition, you can OR one of the above values with
+ *      the XOPEN_BINARY flag:
  *
  *      --  If XOPEN_BINARY is set, no conversion is performed
  *          on read and write.
@@ -1686,6 +1761,21 @@ APIRET doshReadAt(HFILE hf,        // in: OS/2 file handle
  *
  *      *ppFile receives a new XFILE structure describing
  *      the open file, if NO_ERROR is returned.
+ *
+ *      The file pointer is then set to the beginning of the
+ *      file _unless_ XOPEN_READWRITE_APPEND was specified;
+ *      in that case only, the file pointer is set to the
+ *      end of the file so data can be appended (see above).
+ *
+ *      Otherwise this returns:
+ *
+ *      --  ERROR_FILE_NOT_FOUND
+ *      --  ERROR_PATH_NOT_FOUND
+ *      --  ERROR_SHARING_VIOLATION
+ *      --  ERROR_FILENAME_EXCED_RANGE
+ *
+ *      --  ERROR_NOT_ENOUGH_MEMORY
+ *      --  ERROR_INVALID_PARAMETER
  *
  *@@added V0.9.16 (2001-10-19) [umoeller]
  */
@@ -1698,93 +1788,98 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
 {
     APIRET arc = NO_ERROR;
 
-    ULONG   fsOpenFlags = 0,
-            fsOpenMode =    OPEN_FLAGS_FAIL_ON_ERROR
-                          | OPEN_FLAGS_NO_LOCALITY
-                          | OPEN_FLAGS_NOINHERIT;
-
-    switch (flOpenMode & XOPEN_ACCESS_MASK)
+    // run this first, because if the file doesn't
+    // exists, DosOpen only returns ERROR_OPEN_FAILED,
+    // which isn't that meaningful
+    // V0.9.16 (2001-12-08) [umoeller]
+    if (!(arc = doshQueryPathSize(pcszFilename,
+                                  pcbFile)))
     {
-        case XOPEN_READ_EXISTING:
-            fsOpenFlags =   OPEN_ACTION_FAIL_IF_NEW
-                          | OPEN_ACTION_OPEN_IF_EXISTS;
-            fsOpenMode |=   OPEN_SHARE_DENYWRITE
-                          | OPEN_ACCESS_READONLY;
-            // _Pmpf((__FUNCTION__ ": opening XOPEN_READ_EXISTING"));
-        break;
+        ULONG   fsOpenFlags = 0,
+                fsOpenMode =    OPEN_FLAGS_FAIL_ON_ERROR
+                              | OPEN_FLAGS_NO_LOCALITY
+                              | OPEN_FLAGS_NOINHERIT;
 
-        case XOPEN_READWRITE_APPEND:
-            fsOpenFlags =   OPEN_ACTION_CREATE_IF_NEW
-                          | OPEN_ACTION_OPEN_IF_EXISTS;
-            fsOpenMode |=   OPEN_SHARE_DENYREADWRITE
-                          | OPEN_ACCESS_READWRITE;
-            // _Pmpf((__FUNCTION__ ": opening XOPEN_READWRITE_APPEND"));
-        break;
-
-        case XOPEN_READWRITE_NEW:
-            fsOpenFlags =   OPEN_ACTION_CREATE_IF_NEW
-                          | OPEN_ACTION_REPLACE_IF_EXISTS;
-            fsOpenMode |=   OPEN_SHARE_DENYREADWRITE
-                          | OPEN_ACCESS_READWRITE;
-            // _Pmpf((__FUNCTION__ ": opening XOPEN_READWRITE_NEW"));
-        break;
-
-        default:
-            arc = ERROR_INVALID_PARAMETER;
-    }
-
-    if ((!arc) && pcszFilename && fsOpenFlags && pcbFile && ppFile)
-    {
-        PXFILE pFile;
-        if (pFile = NEW(XFILE))
+        switch (flOpenMode & XOPEN_ACCESS_MASK)
         {
-            ULONG ulAction;
+            case XOPEN_READ_EXISTING:
+                fsOpenFlags =   OPEN_ACTION_FAIL_IF_NEW
+                              | OPEN_ACTION_OPEN_IF_EXISTS;
+                fsOpenMode |=   OPEN_SHARE_DENYWRITE
+                              | OPEN_ACCESS_READONLY;
+                // _Pmpf((__FUNCTION__ ": opening XOPEN_READ_EXISTING"));
+            break;
 
-            ZERO(pFile);
+            case XOPEN_READWRITE_APPEND:
+                fsOpenFlags =   OPEN_ACTION_CREATE_IF_NEW
+                              | OPEN_ACTION_OPEN_IF_EXISTS;
+                fsOpenMode |=   OPEN_SHARE_DENYREADWRITE
+                              | OPEN_ACCESS_READWRITE;
+                // _Pmpf((__FUNCTION__ ": opening XOPEN_READWRITE_APPEND"));
+            break;
 
-            // copy open flags
-            pFile->flOpenMode = flOpenMode;
+            case XOPEN_READWRITE_NEW:
+                fsOpenFlags =   OPEN_ACTION_CREATE_IF_NEW
+                              | OPEN_ACTION_REPLACE_IF_EXISTS;
+                fsOpenMode |=   OPEN_SHARE_DENYREADWRITE
+                              | OPEN_ACCESS_READWRITE;
+                // _Pmpf((__FUNCTION__ ": opening XOPEN_READWRITE_NEW"));
+            break;
+        }
 
-            if (!(arc = DosOpen((PSZ)pcszFilename,
-                                &pFile->hf,
-                                &ulAction,
-                                *pcbFile,
-                                FILE_ARCHIVED,
-                                fsOpenFlags,
-                                fsOpenMode,
-                                NULL)))       // EAs
+        if ((!arc) && fsOpenFlags && pcbFile && ppFile)
+        {
+            PXFILE pFile;
+            if (pFile = NEW(XFILE))
             {
-                // alright, got the file:
+                ULONG ulAction;
 
-                if (    (ulAction == FILE_EXISTED)
-                     && ((flOpenMode & XOPEN_ACCESS_MASK) == XOPEN_READWRITE_APPEND)
-                   )
-                    // get its size and set ptr to end for append
-                    arc = DosSetFilePtr(pFile->hf,
-                                        0,
-                                        FILE_END,
-                                        pcbFile);
-                else
-                    arc = doshQueryFileSize(pFile->hf,
+                ZERO(pFile);
+
+                // copy open flags
+                pFile->flOpenMode = flOpenMode;
+
+                if (!(arc = DosOpen((PSZ)pcszFilename,
+                                    &pFile->hf,
+                                    &ulAction,
+                                    *pcbFile,
+                                    FILE_ARCHIVED,
+                                    fsOpenFlags,
+                                    fsOpenMode,
+                                    NULL)))       // EAs
+                {
+                    // alright, got the file:
+
+                    if (    (ulAction == FILE_EXISTED)
+                         && ((flOpenMode & XOPEN_ACCESS_MASK) == XOPEN_READWRITE_APPEND)
+                       )
+                        // get its size and set ptr to end for append
+                        arc = DosSetFilePtr(pFile->hf,
+                                            0,
+                                            FILE_END,
                                             pcbFile);
-                    // file ptr is at beginning
+                    else
+                        arc = doshQueryFileSize(pFile->hf,
+                                                pcbFile);
+                        // file ptr is at beginning
 
-                // store file size
-                pFile->cbInitial
-                = pFile->cbCurrent
-                = *pcbFile;
+                    // store file size
+                    pFile->cbInitial
+                    = pFile->cbCurrent
+                    = *pcbFile;
+                }
+
+                if (arc)
+                    doshClose(&pFile);
+                else
+                    *ppFile = pFile;
             }
-
-            if (arc)
-                doshClose(&pFile);
             else
-                *ppFile = pFile;
+                arc = ERROR_NOT_ENOUGH_MEMORY;
         }
         else
-            arc = ERROR_NOT_ENOUGH_MEMORY;
+            arc = ERROR_INVALID_PARAMETER;
     }
-    else
-        arc = ERROR_INVALID_PARAMETER;
 
     return (arc);
 }
@@ -2198,8 +2293,7 @@ APIRET doshCreateTempFileName(PSZ pszTempFileName,        // out: fully q'fied t
 
         if (!pcszTemp)
         {
-            pcszTemp = getenv("TEMP");
-            if (!pcszTemp)
+            if (!(pcszTemp = getenv("TEMP")))
                 pcszTemp = getenv("TMP");
         }
 
@@ -2384,17 +2478,18 @@ APIRET doshWriteTextFile(const char* pszFile,        // in: file name
 /*
  *@@ doshQueryDirExist:
  *      returns TRUE if the given directory
- *      exists.
+ *      exists and really is a directory.
  */
 
 BOOL doshQueryDirExist(PCSZ pcszDir)
 {
     FILESTATUS3 fs3;
-    APIRET arc = DosQueryPathInfo((PSZ)pcszDir,
-                                  FIL_STANDARD,
-                                  &fs3,
-                                  sizeof(fs3));
-    if (arc == NO_ERROR)
+    APIRET arc;
+
+    if (!(arc = DosQueryPathInfo((PSZ)pcszDir,
+                                 FIL_STANDARD,
+                                 &fs3,
+                                 sizeof(fs3))))
         // file found:
         return ((fs3.attrFile & FILE_DIRECTORY) != 0);
     else
@@ -2640,29 +2735,29 @@ APIRET doshResolveImports(PSZ pszModuleName,    // in: DLL to load
                           ULONG cResolves)      // in: array item count (not array size!)
 {
     CHAR    szName[CCHMAXPATH];
-    APIRET arc = DosLoadModule(szName,
-                               sizeof(szName),
-                               pszModuleName,
-                               phmod);
-    if (arc == NO_ERROR)
+    APIRET  arc;
+
+    if (!(arc = DosLoadModule(szName,
+                              sizeof(szName),
+                              pszModuleName,
+                              phmod)))
     {
         ULONG  ul;
         for (ul = 0;
              ul < cResolves;
              ul++)
         {
-            arc = DosQueryProcAddr(*phmod,
-                                   0,               // ordinal, ignored
-                                   (PSZ)paResolves[ul].pcszFunctionName,
-                                   paResolves[ul].ppFuncAddress);
-
-            /* _Pmpf(("Resolved %s to 0x%lX, rc: %d",
-                    paResolves[ul].pcszFunctionName,
-                    *paResolves[ul].ppFuncAddress,
-                    arc)); */
-            if (arc != NO_ERROR)
+            if (arc = DosQueryProcAddr(*phmod,
+                                       0,               // ordinal, ignored
+                                       (PSZ)paResolves[ul].pcszFunctionName,
+                                       paResolves[ul].ppFuncAddress))
+                // error:
                 break;
         }
+
+        if (arc)
+            // V0.9.16 (2001-12-08) [umoeller]
+            DosFreeModule(*phmod);
     }
 
     return (arc);

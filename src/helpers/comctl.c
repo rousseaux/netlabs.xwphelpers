@@ -509,7 +509,6 @@ MRESULT EXPENTRY ctl_fnwpSubclassedMenuButton(HWND hwndButton, ULONG msg, MPARAM
          */
 
         case WM_MENUEND:
-        {
             if ((HWND)mp2 == pmbd->hwndMenu) // V0.9.14 (2001-07-31) [umoeller]
             {
                 BOOL fUnHilite = TRUE;
@@ -547,7 +546,7 @@ MRESULT EXPENTRY ctl_fnwpSubclassedMenuButton(HWND hwndButton, ULONG msg, MPARAM
                 }
                 pmbd->hwndMenu = NULLHANDLE;
             } // end if ((HWND)mp1 == pmbd->pmbd->hwndMenu) // V0.9.14 (2001-07-31) [umoeller]
-        break; }
+        break;
 
         /*
          * WM_COMMAND:
@@ -568,12 +567,12 @@ MRESULT EXPENTRY ctl_fnwpSubclassedMenuButton(HWND hwndButton, ULONG msg, MPARAM
          */
 
         case WM_DESTROY:
-            mrc = (*(pmbd->pfnwpButtonOriginal))(hwndButton, msg, mp1, mp2);
+            mrc = pmbd->pfnwpButtonOriginal(hwndButton, msg, mp1, mp2);
             free(pmbd);
         break;
 
         default:
-            mrc = (*(pmbd->pfnwpButtonOriginal))(hwndButton, msg, mp1, mp2);
+            mrc = pmbd->pfnwpButtonOriginal(hwndButton, msg, mp1, mp2);
     }
 
     return (mrc);
@@ -616,13 +615,12 @@ BOOL ctlMakeMenuButton(HWND hwndButton,      // in: button to subclass
                        ULONG idMenu)         // in: resource menu ID (or 0)
 {
     BOOL brc = FALSE;
-    PMENUBUTTONDATA pmbd = (PMENUBUTTONDATA)malloc(sizeof(MENUBUTTONDATA));
-    if (pmbd)
+    PMENUBUTTONDATA pmbd;
+    if (pmbd = (PMENUBUTTONDATA)malloc(sizeof(MENUBUTTONDATA)))
     {
         memset(pmbd, 0, sizeof(MENUBUTTONDATA));
-        pmbd->pfnwpButtonOriginal = WinSubclassWindow(hwndButton,
-                                                      ctl_fnwpSubclassedMenuButton);
-        if (pmbd->pfnwpButtonOriginal)
+        if (pmbd->pfnwpButtonOriginal = WinSubclassWindow(hwndButton,
+                                                          ctl_fnwpSubclassedMenuButton))
         {
             pmbd->hmodMenu = hmodMenu;
             pmbd->idMenu = idMenu;
@@ -729,7 +727,6 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
              */
 
             case WM_TIMER:
-            {
                 pa->usAniCurrent++;
                 if (pa->usAniCurrent >= pa->usAniCount)
                     pa->usAniCurrent = 0;
@@ -738,7 +735,7 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
                            SM_SETHANDLE,
                            (MPARAM)pa->ahptrAniIcons[pa->usAniCurrent],
                            (MPARAM)NULL);
-            break; }
+            break;
 
             /*
              * SM_SETHANDLE:
@@ -792,80 +789,77 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
 
                     // create a suitable bitmap w/ the size of the
                     // static control
-                    if ((pa->hbm = gpihCreateBitmap(hpsMem,
-                                                    szlPage.cx,
-                                                    szlPage.cy)))
+                    if (    ((pa->hbm = gpihCreateBitmap(hpsMem,
+                                                         szlPage.cx,
+                                                         szlPage.cy)))
+                            // associate the bit map with the memory PS
+                         && (GpiSetBitmap(hpsMem, pa->hbm) != HBM_ERROR)
+                       )
                     {
-                        // associate the bit map with the memory PS
-                        if (GpiSetBitmap(hpsMem, pa->hbm) != HBM_ERROR)
+                        // fill the bitmap with the current static
+                        // background color
+                        POINTL ptl = {0, 0};
+                        GpiMove(hpsMem, &ptl);
+                        ptl.x = pa->rclIcon.xRight;
+                        ptl.y = pa->rclIcon.yTop;
+                        GpiSetColor(hpsMem,
+                                    lBkgndColor);
+                        GpiBox(hpsMem,
+                               DRO_FILL, // interior only
+                               &ptl,
+                               0, 0);    // no corner rounding
+
+                        /*
+                         * ANF_ICON:
+                         *
+                         */
+
+                        if (pa->ulFlags & ANF_ICON)
                         {
-                            // fill the bitmap with the current static
-                            // background color
-                            POINTL ptl = {0, 0};
-                            GpiMove(hpsMem, &ptl);
-                            ptl.x = pa->rclIcon.xRight;
-                            ptl.y = pa->rclIcon.yTop;
-                            GpiSetColor(hpsMem,
-                                        lBkgndColor);
-                            GpiBox(hpsMem,
-                                   DRO_FILL, // interior only
-                                   &ptl,
-                                   0, 0);    // no corner rounding
-
-                            /*
-                             * ANF_ICON:
-                             *
-                             */
-
-                            if (pa->ulFlags & ANF_ICON)
+                            // store new icon in our own structure
+                            if (pa->hptr = (HPOINTER)mp1)
                             {
-                                // store new icon in our own structure
-                                pa->hptr = (HPOINTER)mp1;
+                                // center the icon in the bitmap
+                                // V0.9.16 (2001-10-15) [umoeller]
+                                POINTL ptlOfs;
+                                ptlOfs.x = (   (pa->rclIcon.xRight - pa->rclIcon.xLeft)
+                                             - pa->lIconSize
+                                           ) / 2;
+                                ptlOfs.y = (   (pa->rclIcon.yTop - pa->rclIcon.yBottom)
+                                             - pa->lIconSize
+                                           ) / 2;
 
-                                if (pa->hptr)
-                                {
-                                    // center the icon in the bitmap
-                                    // V0.9.16 (2001-10-15) [umoeller]
-                                    POINTL ptlOfs;
-                                    ptlOfs.x = (   (pa->rclIcon.xRight - pa->rclIcon.xLeft)
-                                                 - pa->lIconSize
-                                               ) / 2;
-                                    ptlOfs.y = (   (pa->rclIcon.yTop - pa->rclIcon.yBottom)
-                                                 - pa->lIconSize
-                                               ) / 2;
+                                // paint icon into bitmap
+                                gpihIcon2Bitmap(hpsMem,
+                                                pa->hptr,
+                                                lBkgndColor,
+                                                &ptlOfs,
+                                                pa->lIconSize);
+                            }
 
-                                    // paint icon into bitmap
-                                    gpihIcon2Bitmap(hpsMem,
-                                                    pa->hptr,
-                                                    lBkgndColor,
-                                                    &ptlOfs,
-                                                    pa->lIconSize);
-                                }
+                        } // end if (pa->ulFlags & ANF_ICON)
 
-                            } // end if (pa->ulFlags & ANF_ICON)
+                        /*
+                         * ANF_BITMAP:
+                         *
+                         */
 
-                            /*
-                             * ANF_BITMAP:
-                             *
-                             */
+                        else if (pa->ulFlags & ANF_BITMAP)
+                        {
+                            // store passed bitmap
+                            HBITMAP     hbmSource;
+                            if (hbmSource = (HBITMAP)mp1)
+                                gpihStretchBitmap(hpsMem,       // target
+                                                  hbmSource,    // source
+                                                  NULL,     // use size of bitmap
+                                                  &pa->rclIcon,
+                                                  ((pa->ulFlags & ANF_PROPORTIONAL)
+                                                        != 0));
 
-                            else if (pa->ulFlags & ANF_BITMAP)
-                            {
-                                // store passed bitmap
-                                HBITMAP     hbmSource = (HBITMAP)mp1;
+                        } // end if (pa->ulFlags & ANF_BITMAP)
 
-                                if (hbmSource)
-                                    gpihStretchBitmap(hpsMem,       // target
-                                                      hbmSource,    // source
-                                                      NULL,     // use size of bitmap
-                                                      &pa->rclIcon,
-                                                      ((pa->ulFlags & ANF_PROPORTIONAL)
-                                                            != 0));
-
-                            } // end if (pa->ulFlags & ANF_BITMAP)
-
-                        } // end if (GpiSetBitmap(...
-                    } // if (pa->hbm = gpihCreateBitmap(hpsMem, &(pa->rclIcon)))
+                    } // end if (GpiSetBitmap(...
+                      // && (pa->hbm = gpihCreateBitmap(hpsMem, &(pa->rclIcon)))
 
                     // in any case, clean up now
                     GpiDestroyPS(hpsMem);
@@ -876,8 +870,8 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
 
                 // enforce WM_PAINT
                 WinInvalidateRect(hwndStatic, NULL, FALSE);
-
-            break; }
+            }
+            break;
 
             /*
              * WM_PAINT:
@@ -939,7 +933,8 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
                 }
 
                 WinEndPaint(hps);
-            break; }
+            }
+            break;
 
             /*
              * WM_DESTROY:
@@ -947,7 +942,6 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
              */
 
             case WM_DESTROY:
-            {
                 // undo subclassing in case more WM_TIMERs come in
                 WinSubclassWindow(hwndStatic, OldStaticProc);
 
@@ -961,7 +955,7 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
                 free(pa);
 
                 mrc = OldStaticProc(hwndStatic, msg, mp1, mp2);
-            break; }
+            break;
 
             default:
                 mrc = OldStaticProc(hwndStatic, msg, mp1, mp2);
@@ -1116,8 +1110,8 @@ BOOL ctlPrepareAnimation(HWND hwndStatic,   // icon hwnd
                          ULONG ulDelay,              // delay per anim step (in ms)
                          BOOL fStartAnimation)       // TRUE: start animation now
 {
-    PANIMATIONDATA paNew = ctlPrepareStaticIcon(hwndStatic, usAnimCount);
-    if (paNew)
+    PANIMATIONDATA paNew;
+    if (paNew = ctlPrepareStaticIcon(hwndStatic, usAnimCount))
     {
         paNew->ulDelay = ulDelay;
         // paNew->OldStaticProc already set
@@ -1131,9 +1125,11 @@ BOOL ctlPrepareAnimation(HWND hwndStatic,   // icon hwnd
 
         if (fStartAnimation)
         {
-            WinStartTimer(WinQueryAnchorBlock(hwndStatic), hwndStatic,
-                    1, ulDelay);
-            WinPostMsg(hwndStatic, WM_TIMER, NULL, NULL);
+            WinStartTimer(paNew->hab,
+                          hwndStatic,
+                          1,
+                          ulDelay);
+            WinPostMsg(hwndStatic, WM_TIMER, (MPARAM)1, NULL);
         }
     }
     return (paNew != NULL);
@@ -1149,14 +1145,18 @@ BOOL ctlPrepareAnimation(HWND hwndStatic,   // icon hwnd
 BOOL ctlStartAnimation(HWND hwndStatic)
 {
     BOOL brc = FALSE;
-    PANIMATIONDATA pa = (PANIMATIONDATA)WinQueryWindowULong(hwndStatic, QWL_USER);
-    if (pa)
-        if (WinStartTimer(WinQueryAnchorBlock(hwndStatic), hwndStatic,
-                        1, pa->ulDelay))
-        {
-            brc = TRUE;
-            WinPostMsg(hwndStatic, WM_TIMER, NULL, NULL);
-        }
+    PANIMATIONDATA pa;
+    if (    (pa = (PANIMATIONDATA)WinQueryWindowULong(hwndStatic, QWL_USER))
+         && (WinStartTimer(pa->hab,
+                           hwndStatic,
+                           1,
+                           pa->ulDelay))
+       )
+    {
+        brc = TRUE;
+        WinPostMsg(hwndStatic, WM_TIMER, (MPARAM)1, NULL);
+    }
+
     return (brc);
 }
 
@@ -1344,7 +1344,7 @@ MRESULT EXPENTRY ctl_fnwpObjectHotkeyEntryField(HWND hwndEdit, ULONG msg, MPARAM
                     ((usFlags & KC_KEYUP) == 0)
                     // check flags:
                     // filter out those ugly composite key (accents etc.)
-               &&   ((usFlags & (KC_DEADKEY | KC_COMPOSITE | KC_INVALIDCOMP)) == 0)
+                 && ((usFlags & (KC_DEADKEY | KC_COMPOSITE | KC_INVALIDCOMP)) == 0)
                )
             {
                 HOTKEYNOTIFY    hkn;
@@ -1366,11 +1366,11 @@ MRESULT EXPENTRY ctl_fnwpObjectHotkeyEntryField(HWND hwndEdit, ULONG msg, MPARAM
                 hkn.szDescription[0] = 0;
 
                 flReturned = (ULONG)WinSendMsg(hwndOwner,
-                                          WM_CONTROL,
-                                          MPFROM2SHORT(WinQueryWindowUShort(hwndEdit,
-                                                                            QWS_ID),
-                                                       EN_HOTKEY),  // new notification code
-                                          (MPARAM)&hkn);
+                                               WM_CONTROL,
+                                               MPFROM2SHORT(WinQueryWindowUShort(hwndEdit,
+                                                                                 QWS_ID),
+                                                            EN_HOTKEY),  // new notification code
+                                               (MPARAM)&hkn);
                 if (flReturned & HEFL_SETTEXT)
                     WinSetWindowText(hwndEdit, hkn.szDescription);
                 else if (flReturned & HEFL_FORWARD2OWNER)
@@ -1382,10 +1382,10 @@ MRESULT EXPENTRY ctl_fnwpObjectHotkeyEntryField(HWND hwndEdit, ULONG msg, MPARAM
                     // do not clear the entry field if we had HEFL_FORWARD2OWNER
                     WinSetWindowText(hwndEdit, "");
 
-
                 mrc = (MPARAM)TRUE; // WM_CHAR processed flag;
             }
-        break; }
+        }
+        break;
 
         default:
             mrc = pfnwpOrig(hwndEdit, msg, mp1, mp2);

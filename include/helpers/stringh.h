@@ -31,7 +31,17 @@ extern "C" {
 #ifndef STRINGH_HEADER_INCLUDED
     #define STRINGH_HEADER_INCLUDED
 
-    VOID XWPENTRY strhStore(PSZ *ppszTarget, PCSZ pcszSource, PULONG pulLength);
+    #if defined(__DEBUG_MALLOC_ENABLED__) && !defined(DONT_REPLACE_STRINGH_MALLOC) // setup.h, helpers\memdebug.c
+        APIRET XWPENTRY strhStoreDebug(PSZ *ppszTarget,
+                                       PCSZ pcszSource,
+                                       PULONG pulLength,
+                                       const char *pcszSourceFile,
+                                       unsigned long ulLine,
+                                       const char *pcszFunction);
+        #define strhStore(a, b, c) strhStoreDebug((a), (b), (c), __FILE__, __LINE__, __FUNCTION__)
+    #else
+        APIRET XWPENTRY strhStore(PSZ *ppszTarget, PCSZ pcszSource, PULONG pulLength);
+    #endif
 
     PSZ XWPENTRY strhcpy(PSZ string1, const char *string2);
 

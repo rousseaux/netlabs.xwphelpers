@@ -1864,8 +1864,8 @@ PDRAGINFO cnrhInitDrag(HWND hwndCnr,
     PDRAGINFO    pdrgInfo = NULL;
 
     memset(&drgImage, 0, sizeof(drgImage));
-    pdrgInfo = DrgAllocDraginfo(1); // one item only
-    if (pdrgInfo)
+
+    if (pdrgInfo = DrgAllocDraginfo(1)) // one item only
     {
         DRAGITEM drgItem;
         memset(&drgItem, 0, sizeof(drgItem));

@@ -46,6 +46,8 @@
 // #include <malloc.h>
 #include <setjmp.h>
 
+#include "helpers\tree.h"
+
 #define DONT_REPLACE_MALLOC             // never do debug memory for this
 #define MEMDEBUG_PRIVATE
 #include "setup.h"
@@ -55,6 +57,7 @@
 #include "helpers\cnrh.h"
 #include "helpers\except.h"
 // #include "helpers\memdebug.h"        // included by setup.h already
+#include "helpers\nls.h"
 #include "helpers\stringh.h"
 #include "helpers\winh.h"
 
@@ -277,120 +280,128 @@ VOID memdCreateRecords(HWND hwndCnr,
                        PULONG pulFreedBytes)
 {
     // count heap items
-    ULONG       ulHeapItemsCount1 = 0;
+    // ULONG       ulHeapItemsCount1 = 0;
     PMEMRECORD  pMemRecordFirst;
 
-    if (memdLock())
+    ULONG       cHeapItems = 0;
+    BOOL        fLocked = FALSE;
+
+    TRY_LOUD(excpt1)
     {
-        PHEAPITEM pHeapItem = G_pHeapItemsRoot;
-
-        *pulTotalItems = 0;
-        *pulAllocatedItems = 0;
-        *pulFreedItems = 0;
-
-        *pulTotalBytes = 0;
-        *pulAllocatedBytes = 0;
-        *pulFreedBytes = 0;
-
-        while (pHeapItem)
+        if (fLocked = memdLock())
         {
-            ulHeapItemsCount1++;
-            if (pHeapItem->fFreed)
+            PHEAPITEM pHeapItem = (PHEAPITEM)treeFirst(G_pHeapItemsRoot);
+
+            *pulTotalItems = 0;
+            *pulAllocatedItems = 0;
+            *pulFreedItems = 0;
+
+            *pulTotalBytes = 0;
+            *pulAllocatedBytes = 0;
+            *pulFreedBytes = 0;
+
+            *pulTotalItems = G_cHeapItems;
+
+            if (pMemRecordFirst = (PMEMRECORD)cnrhAllocRecords(hwndCnr,
+                                                               sizeof(MEMRECORD),
+                                                               G_cHeapItems))
             {
-                (*pulFreedItems)++;
-                (*pulFreedBytes) += pHeapItem->ulSize;
-            }
-            else
-            {
-                (*pulAllocatedItems)++;
-                (*pulAllocatedBytes) += pHeapItem->ulSize;
-            }
+                PMEMRECORD  pMemRecordThis = pMemRecordFirst;
+                pHeapItem = (PHEAPITEM)treeFirst(G_pHeapItemsRoot);
 
-            (*pulTotalBytes) += pHeapItem->ulSize;
-
-            pHeapItem = pHeapItem->pNext;
-        }
-
-        *pulTotalItems = ulHeapItemsCount1;
-
-        pMemRecordFirst = (PMEMRECORD)cnrhAllocRecords(hwndCnr,
-                                                       sizeof(MEMRECORD),
-                                                       ulHeapItemsCount1);
-        if (pMemRecordFirst)
-        {
-            ULONG       ulHeapItemsCount2 = 0;
-            PMEMRECORD  pMemRecordThis = pMemRecordFirst;
-            pHeapItem = G_pHeapItemsRoot;
-            // PLISTNODE   pMemNode = lstQueryFirstNode(&G_llHeapItems);
-
-            while ((pMemRecordThis) && (pHeapItem))
-            {
-                // PHEAPITEM pHeapItem = (PHEAPITEM)pMemNode->pItemData;
-
-                pMemRecordThis->ulIndex = ulHeapItemsCount2++;
-
-                cnrhDateTimeDos2Win(&pHeapItem->dtAllocated,
-                                    &pMemRecordThis->cdateAllocated,
-                                    &pMemRecordThis->ctimeAllocated);
-
-                if (pHeapItem->fFreed)
-                    pMemRecordThis->pszFreed = "yes";
-
-                pMemRecordThis->ulTID = pHeapItem->ulTID;
-
-                strhcpy(pMemRecordThis->szSource, pHeapItem->pcszSourceFile);
-                pMemRecordThis->pszSource = pMemRecordThis->szSource;
-
-                pMemRecordThis->ulLine = pHeapItem->ulLine;
-
-                strhcpy(pMemRecordThis->szFunction, pHeapItem->pcszFunction);
-                pMemRecordThis->pszFunction = pMemRecordThis->szFunction;
-
-                pMemRecordThis->ulAddress = (ULONG)pHeapItem->pAfterMagic;
-
-                sprintf(pMemRecordThis->szAddress,
-                        "0x%lX",
-                        pHeapItem->pAfterMagic);
-                pMemRecordThis->pszAddress = pMemRecordThis->szAddress;
-
-                pMemRecordThis->ulSize = pHeapItem->ulSize;
-
-
-                /* switch (pMemRecordThis->useflag)
+                while ((pMemRecordThis) && (pHeapItem))
                 {
-                    case _USEDENTRY: pMemRecordThis->pszUseFlag = "Used"; break;
-                    case _FREEENTRY: pMemRecordThis->pszUseFlag = "Freed"; break;
+                    if (pHeapItem->fFreed)
+                    {
+                        (*pulFreedItems)++;
+                        (*pulFreedBytes) += pHeapItem->ulSize;
+                    }
+                    else
+                    {
+                        (*pulAllocatedItems)++;
+                        (*pulAllocatedBytes) += pHeapItem->ulSize;
+                    }
+
+                    (*pulTotalBytes) += pHeapItem->ulSize;
+
+                    pMemRecordThis->ulIndex = cHeapItems++;
+
+                    cnrhDateTimeDos2Win(&pHeapItem->dtAllocated,
+                                        &pMemRecordThis->cdateAllocated,
+                                        &pMemRecordThis->ctimeAllocated);
+
+                    if (pHeapItem->fFreed)
+                        pMemRecordThis->pszFreed = "yes";
+
+                    pMemRecordThis->ulTID = pHeapItem->ulTID;
+
+                    strhcpy(pMemRecordThis->szSource, pHeapItem->pcszSourceFile);
+                    pMemRecordThis->pszSource = pMemRecordThis->szSource;
+
+                    pMemRecordThis->ulLine = pHeapItem->ulLine;
+
+                    strhcpy(pMemRecordThis->szFunction, pHeapItem->pcszFunction);
+                    pMemRecordThis->pszFunction = pMemRecordThis->szFunction;
+
+                    pMemRecordThis->ulAddress = pHeapItem->Tree.ulKey;
+
+                    sprintf(pMemRecordThis->szAddress,
+                            "0x%lX",
+                            pHeapItem->Tree.ulKey);
+                    pMemRecordThis->pszAddress = pMemRecordThis->szAddress;
+
+                    pMemRecordThis->ulSize = pHeapItem->ulSize;
+
+
+                    /* switch (pMemRecordThis->useflag)
+                    {
+                        case _USEDENTRY: pMemRecordThis->pszUseFlag = "Used"; break;
+                        case _FREEENTRY: pMemRecordThis->pszUseFlag = "Freed"; break;
+                    }
+
+                    switch (pMemRecordThis->status)
+                    {
+                        case _HEAPBADBEGIN: pMemRecordThis->pszStatus = "heap bad begin"; break;
+                        case _HEAPBADNODE: pMemRecordThis->pszStatus = "heap bad node"; break;
+                        case _HEAPEMPTY: pMemRecordThis->pszStatus = "heap empty"; break;
+                        case _HEAPOK: pMemRecordThis->pszStatus = "OK"; break;
+                    }
+
+                    sprintf(pMemRecordThis->szAddress, "0x%lX", pMemRecordThis->pObject);
+                    strhcpy(pMemRecordThis->szSource,
+                            (pMemRecordThis->filename)
+                                ? pMemRecordThis->filename
+                                : "?"); */
+
+                    pMemRecordThis = (PMEMRECORD)pMemRecordThis->recc.preccNextRecord;
+                    pHeapItem = (PHEAPITEM)treeNext((TREE*)pHeapItem);
                 }
 
-                switch (pMemRecordThis->status)
-                {
-                    case _HEAPBADBEGIN: pMemRecordThis->pszStatus = "heap bad begin"; break;
-                    case _HEAPBADNODE: pMemRecordThis->pszStatus = "heap bad node"; break;
-                    case _HEAPEMPTY: pMemRecordThis->pszStatus = "heap empty"; break;
-                    case _HEAPOK: pMemRecordThis->pszStatus = "OK"; break;
-                }
-
-                sprintf(pMemRecordThis->szAddress, "0x%lX", pMemRecordThis->pObject);
-                strhcpy(pMemRecordThis->szSource,
-                        (pMemRecordThis->filename)
-                            ? pMemRecordThis->filename
-                            : "?"); */
-
-                pMemRecordThis = (PMEMRECORD)pMemRecordThis->recc.preccNextRecord;
-                pHeapItem = pHeapItem->pNext;
+                cnrhInsertRecords(hwndCnr,
+                                  NULL,         // parent
+                                  (PRECORDCORE)pMemRecordFirst,
+                                  TRUE,
+                                  NULL,
+                                  CRA_RECORDREADONLY,
+                                  cHeapItems);
             }
-
-            cnrhInsertRecords(hwndCnr,
-                              NULL,         // parent
-                              (PRECORDCORE)pMemRecordFirst,
-                              TRUE,
-                              NULL,
-                              CRA_RECORDREADONLY,
-                              ulHeapItemsCount2);
         }
-
-        memdUnlock();
     }
+    CATCH(excpt1)
+    {
+        if (G_pMemdLogFunc)
+        {
+            CHAR        szMsg[1000];
+            sprintf(szMsg,
+                    "Crash occured at object #%d out of %d",
+                    cHeapItems,
+                    G_cHeapItems);
+            G_pMemdLogFunc(szMsg);
+        }
+    } END_CATCH();
+
+    if (fLocked)
+        memdUnlock();
 }
 
 /*
@@ -624,28 +635,28 @@ MRESULT EXPENTRY memd_fnwpMemDebug(HWND hwndClient, ULONG msg, MPARAM mp1, MPARA
                                 "    Total memory logs allocated: %s items = %s bytes\n"
                                 "    Total memory logs freed: %s items = %s bytes\n"
                                 "Total memory logs freed and discarded: %s items = %s bytes",
-                                strhThousandsDouble(szTotalItems,
+                                nlsThousandsDouble(szTotalItems,
                                                     ulTotalItems,
                                                     '.'),
-                                strhThousandsDouble(szTotalBytes,
+                                nlsThousandsDouble(szTotalBytes,
                                                     ulTotalBytes,
                                                     '.'),
-                                strhThousandsDouble(szAllocatedItems,
+                                nlsThousandsDouble(szAllocatedItems,
                                                     ulAllocatedItems,
                                                     '.'),
-                                strhThousandsDouble(szAllocatedBytes,
+                                nlsThousandsDouble(szAllocatedBytes,
                                                     ulAllocatedBytes,
                                                     '.'),
-                                strhThousandsDouble(szFreedItems,
+                                nlsThousandsDouble(szFreedItems,
                                                     ulFreedItems,
                                                     '.'),
-                                strhThousandsDouble(szFreedBytes,
+                                nlsThousandsDouble(szFreedBytes,
                                                     ulFreedBytes,
                                                     '.'),
-                                strhThousandsDouble(szReleasedItems,
+                                nlsThousandsDouble(szReleasedItems,
                                                     G_ulItemsReleased,
                                                     '.'),
-                                strhThousandsDouble(szReleasedBytes,
+                                nlsThousandsDouble(szReleasedBytes,
                                                     G_ulBytesReleased,
                                                     '.'));
                         G_pszMemCnrTitle = strdup(szCnrTitle);

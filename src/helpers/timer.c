@@ -539,17 +539,28 @@ VOID tmrTimerTick(PXTIMERSET pSet)      // in: timer set (from tmrCreateSet)
                             {
                                 // window still valid:
                                 // get the window's window proc
-                                PFNWP pfnwp = (PFNWP)WinQueryWindowPtr(pTimer->hwndTarget,
-                                                                       QWP_PFNWP);
+                                QMSG qmsg;
+                                /* PFNWP pfnwp = (PFNWP)WinQueryWindowPtr(pTimer->hwndTarget,
+                                                                       QWP_PFNWP); */
 
                                 // moved this up V0.9.14 (2001-08-01) [umoeller]
                                 pTimer->ulNextFire = ulTimeNow + pTimer->ulTimeout;
 
                                 // call the window proc DIRECTLY
-                                pfnwp(pTimer->hwndTarget,
+                                qmsg.hwnd = pTimer->hwndTarget;
+                                qmsg.msg = WM_TIMER;
+                                qmsg.mp1 = (MPARAM)pTimer->usTimerID;
+                                qmsg.mp2 = (MPARAM)0;
+                                qmsg.time = 0;
+                                qmsg.ptl.x = 0;
+                                qmsg.ptl.y = 0;
+                                qmsg.reserved = 0;
+                                WinDispatchMsg(pSet->hab,
+                                               &qmsg);
+                                /* pfnwp(pTimer->hwndTarget,
                                       WM_TIMER,
                                       (MPARAM)pTimer->usTimerID,
-                                      0);
+                                      0); */
                                     // V0.9.12 (2001-05-24) [umoeller]
                                     // if the winproc chooses to start or
                                     // stop a timer, pNext still points

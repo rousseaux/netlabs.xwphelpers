@@ -62,6 +62,27 @@
     #define ZERO(ptr) memset(ptr, 0, sizeof(*ptr))
 
     /*
+     *@@ FREE:
+     *      wrapper around the typical free() sequence.
+     *
+     *      Usage:
+     *
+     +          FREE(p)
+     *
+     *      This expands to:
+     *
+     +          if (p)
+     +          {
+     +              free(p);
+     +              p = NULL;
+     +          }
+     *
+     *@@added V0.9.16 (2001-12-08) [umoeller]
+     */
+
+    #define FREE(ptr) if ((ptr)) { free(ptr); ptr = NULL; }
+
+    /*
      *@@ ARRAYITEMCOUNT:
      *      helpful macro to count the count of items
      *      in an array. Use this to avoid typos when

@@ -79,10 +79,19 @@ extern "C" {
 
         typedef struct _HEAPITEM
         {
-            struct _HEAPITEM    *pNext;     // next item in linked list or NULL if last
+            // struct _HEAPITEM    *pNext;     // next item in linked list or NULL if last
 
-            void                *pAfterMagic; // memory pointer returned by memdMalloc;
-                                            // this points to after the magic string
+            TREE                Tree;           // tree node for tree.* functions;
+                                                // ulKey has the pointer that is returned
+                                                // by memdMalloc and points to after the
+                                                // magic string (in the buffer that was
+                                                // really allocated). Using this as the
+                                                // tree sort key allows us to do fast
+                                                // searches in memdFree.
+
+            // void                *pAfterMagic; // memory pointer returned by memdMalloc;
+                                              // this points to after the magic string
+
             unsigned long       ulSize;     // requested size (without magic head and tail)
 
             const char          *pcszSourceFile;    // as passed to memdMalloc
@@ -96,7 +105,8 @@ extern "C" {
             BOOL                fFreed;     // TRUE only after item has been freed by memdFree
         } HEAPITEM, *PHEAPITEM;
 
-        extern PHEAPITEM    G_pHeapItemsRoot;
+        extern TREE         *G_pHeapItemsRoot;
+        extern LONG         G_cHeapItems;
         extern ULONG        G_ulItemsReleased;
         extern ULONG        G_ulBytesReleased;
 

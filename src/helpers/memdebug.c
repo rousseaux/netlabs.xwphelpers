@@ -31,12 +31,16 @@
  *         screen or a file). WARNING: While that error function
  *         is executed, the system might be in a global memory
  *         lock, so DON'T display a message box while in that
- *         function.
+ *         function, and DO NOT call malloc() or other memory
+ *         functions in there.
  *
  *         These debug functions have been added with V0.9.3
  *         and should now be compiler-independent.
  *
  *         V0.9.6 added realloc() support and fixed a few bugs.
+ *
+ *         With V0.9.16, most of this was rewritten to be much
+ *         faster. This no longer slows down the system enormously.
  *
  *      -- A PM heap debugging window which shows the status
  *         of the heap logging list. See memdCreateMemDebugWindow
@@ -48,26 +52,27 @@
  *      1) Include at least <stdlib.h> and <string.h>.
  *
  *      2) Include memdebug.h AFTER those two. This will remap
- *         the malloc() etc. calls.
+ *         the malloc() etc. calls to the debug functions in
+ *         this file by defining macros for them.
  *
  *         If you don't want those replaced, add
  +              #define DONT_REPLACE_MALLOC
  *         before including memdebug.h.
+ *
+ *         To avoid calling a debug function for a single call,
+ *         place the malloc call (or whatever) in brackets.
  *
  *      That's all. XWorkplace's setup.h does this automatically
  *      if XWorkplace is compiled with debug code.
  *
  *      A couple of WARNINGS:
  *
- *      1)  Memory debugging can greatly slow down the system
- *          after a while. When free() is invoked, the memory
- *          that was allocated is freed, but not the memory
- *          log entry (the HEAPITEM) to allow tracing what was
- *          freed. As a result, the linked list of memory items
- *          keeps growing longer, and free() becomes terribly
- *          slow after a while because it must traverse the
- *          entire list for each free() call. Use memdReleaseFreed
- *          from time to time.
+ *      1)  When free() is invoked, the memory that was allocated
+ *          is freed, but not the memory log entry (the HEAPITEM)
+ *          to allow tracing what was freed. As a result, the tree
+ *          of memory items keeps growing longer. Do not expect
+ *          this to work forever, even though things have greatly
+ *          improved with V0.9.16.
  *
  *      2)  The replacement functions in this file allocate
  *          extra memory for the magic strings. For example, if
@@ -75,6 +80,8 @@
  *          to allow for storing the magic strings to detect
  *          memory overwrites. Two magic strings are allocated,
  *          one before the actual buffer, and one behind it.
+ *          The pointer returned is _not_ identical to the one
+ *          that was internally allocated.
  *
  *          As a result, YOU MUST NOT confuse the replacement
  *          memory functions with the original ones. If you
@@ -118,13 +125,17 @@
 #include <string.h>
 #include <setjmp.h>
 
+#include "helpers\tree.h"
+
 #define DONT_REPLACE_MALLOC             // never do debug memory for this
 #define MEMDEBUG_PRIVATE
 #include "setup.h"
 
 #ifdef __XWPMEMDEBUG__
 
+#include "helpers\dosh.h"
 #include "helpers\except.h"
+
 #include "helpers\memdebug.h"        // included by setup.h already
 #include "helpers\stringh.h"
 
@@ -145,15 +156,15 @@
             // V0.9.3 (2000-04-17) [umoeller]
 #define MEMBLOCKMAGIC_TAIL     "\250\210&%/dfjsk%#,dlhf\223"
 
-HMTX            G_hmtxMallocList = NULLHANDLE;
+HMTX                G_hmtxMallocList = NULLHANDLE;
 
-extern PHEAPITEM G_pHeapItemsRoot = NULL;
-PHEAPITEM       G_pHeapItemsLast = NULL;
+extern TREE         *G_pHeapItemsRoot = NULL;
+extern LONG         G_cHeapItems = 0;
 
-PFNCBMEMDLOG    G_pMemdLogFunc = NULL;
+PFNCBMEMDLOG        G_pMemdLogFunc = NULL;
 
-extern ULONG    G_ulItemsReleased = 0;
-extern ULONG    G_ulBytesReleased = 0;
+extern ULONG        G_ulItemsReleased = 0;
+extern ULONG        G_ulBytesReleased = 0;
 
 /* ******************************************************************
  *
@@ -174,18 +185,23 @@ extern ULONG    G_ulBytesReleased = 0;
 
 BOOL memdLock(VOID)
 {
-    APIRET arc = NO_ERROR;
-    if (G_hmtxMallocList == NULLHANDLE)
+    if (!G_hmtxMallocList)
+    {
         // first call:
-        arc = DosCreateMutexSem(NULL,
-                                &G_hmtxMallocList,
-                                0,          // unshared
-                                TRUE);      // request now!
+        if (!DosCreateMutexSem(NULL,
+                               &G_hmtxMallocList,
+                               0,          // unshared
+                               TRUE))      // request now!
+        {
+            treeInit(&G_pHeapItemsRoot, &G_cHeapItems);
+            return TRUE;
+        }
+    }
     else
-        arc = DosRequestMutexSem(G_hmtxMallocList,
-                                 SEM_INDEFINITE_WAIT);
+        return (!DosRequestMutexSem(G_hmtxMallocList,
+                                    SEM_INDEFINITE_WAIT));
 
-    return (arc == NO_ERROR);
+    return (FALSE);
 }
 
 /*
@@ -198,6 +214,113 @@ BOOL memdLock(VOID)
 VOID memdUnlock(VOID)
 {
     DosReleaseMutexSem(G_hmtxMallocList);
+}
+
+/*
+ *@@ LogError:
+ *
+ *@@added V0.9.16 (2001-12-08) [umoeller]
+ */
+
+VOID LogError(const char *pcszFormat,     // in: format string (like with printf)
+              ...)                        // in: additional stuff (like with printf)
+{
+    if (G_pMemdLogFunc)
+    {
+        CHAR        szMsg[1000];
+        va_list     args;
+
+        va_start(args, pcszFormat);
+        vsprintf(szMsg, pcszFormat, args);
+        va_end(args);
+        G_pMemdLogFunc(szMsg);
+    }
+}
+
+/*
+ *@@ FindHeapItem:
+ *
+ *@@added V0.9.16 (2001-12-08) [umoeller]
+ */
+
+PHEAPITEM FindHeapItem(void *p)
+{
+    return ((PHEAPITEM)treeFind(G_pHeapItemsRoot,
+                                (ULONG)p,
+                                treeCompareKeys));
+}
+
+/*
+ *@@ FillHeapItem:
+ *
+ *@@added V0.9.16 (2001-12-08) [umoeller]
+ */
+
+VOID FillHeapItem(PHEAPITEM pHeapItem,
+                  void *prc,
+                  size_t stSize,
+                  const char *pcszSourceFile, // in: source file name
+                  unsigned long ulLine,       // in: source line
+                  const char *pcszFunction)   // in: function name
+{
+    pHeapItem->ulSize = stSize;
+
+    pHeapItem->pcszSourceFile = pcszSourceFile;
+    pHeapItem->ulLine = ulLine;
+    pHeapItem->pcszFunction = pcszFunction;
+
+    DosGetDateTime(&pHeapItem->dtAllocated);
+
+    pHeapItem->ulTID = doshMyTID();
+
+    pHeapItem->fFreed = FALSE;
+
+    // use the return pointer as the tree sort key
+    // V0.9.16 (2001-12-08) [umoeller]
+    pHeapItem->Tree.ulKey = (ULONG)prc;
+}
+
+/*
+ *@@ CheckMagics:
+ *
+ *@@added V0.9.16 (2001-12-08) [umoeller]
+ */
+
+VOID CheckMagics(const char *pcszParentFunc,
+                 PHEAPITEM pHeapItem,
+                 PBYTE p,
+                 const char *pcszSourceFile, // in: source file name
+                 unsigned long ulLine,       // in: source line
+                 const char *pcszFunction)   // in: function name
+{
+    void    *pBeforeMagic = ((PBYTE)p) - sizeof(MEMBLOCKMAGIC_HEAD);
+    ULONG   ulError = 0;
+
+    // check magic string
+    if (memcmp(pBeforeMagic,
+               MEMBLOCKMAGIC_HEAD,
+               sizeof(MEMBLOCKMAGIC_HEAD)))
+        ulError = 1;
+    else if (memcmp(((PBYTE)p) + pHeapItem->ulSize,
+                    MEMBLOCKMAGIC_TAIL,
+                    sizeof(MEMBLOCKMAGIC_TAIL)))
+        ulError = 2;
+
+    if (ulError)
+    {
+        LogError("%s: Magic string %s memory block at 0x%lX has been overwritten.\n"
+                 "This was detected by the free() call at %s (%s, line %d).\n"
+                 "The block was allocated by %s (%s, line %d).",
+                 pcszParentFunc,
+                 (ulError == 1) ? "before" : "after",
+                 p,
+                 pcszFunction,
+                     pcszSourceFile,
+                     ulLine, // free
+                 pHeapItem->pcszFunction,
+                     pHeapItem->pcszSourceFile,
+                     pHeapItem->ulLine);
+    }
 }
 
 /*
@@ -216,6 +339,7 @@ VOID memdUnlock(VOID)
  *      linked list.
  *
  *@@added V0.9.3 (2000-04-11) [umoeller]
+ *@@changed V0.9.16 (2001-12-08) [umoeller]: reworked to use trees now, much faster
  */
 
 void* memdMalloc(size_t stSize,
@@ -227,93 +351,70 @@ void* memdMalloc(size_t stSize,
 
     if (stSize == 0)
         // malloc(0) called: report error
-        if (G_pMemdLogFunc)
+        LogError(__FUNCTION__ ": Function %s (%s, line %d) called malloc(0).",
+                 pcszFunction,
+                     pcszSourceFile,
+                     ulLine);
+    else
+        if (memdLock())
         {
-            CHAR szMsg[1000];
-            sprintf(szMsg,
-                    "Function %s (%s, line %d) called malloc(0).",
-                    pcszFunction,
-                        pcszSourceFile,
-                        ulLine);
-            G_pMemdLogFunc(szMsg);
-        }
+            // call default malloc(), but with the additional
+            // size of our MEMBLOCKMAGIC strings; we'll return
+            // the first byte after the "front" string so we can
+            // check for string overwrites
+            void *pObj;
 
-    if (memdLock())
-    {
-        // call default malloc(), but with the additional
-        // size of our MEMBLOCKMAGIC strings; we'll return
-        // the first byte after the "front" string so we can
-        // check for string overwrites
-        void *pObj = malloc(stSize
-                            + sizeof(MEMBLOCKMAGIC_HEAD)
-                            + sizeof(MEMBLOCKMAGIC_TAIL));
-        if (pObj)
-        {
-            PHEAPITEM   pHeapItem = (PHEAPITEM)malloc(sizeof(HEAPITEM));
-
-            // store "front" magic string
-            memcpy(pObj,
-                   MEMBLOCKMAGIC_HEAD,
-                   sizeof(MEMBLOCKMAGIC_HEAD));
-            // return address: first byte after "front" magic string
-            prc = ((PBYTE)pObj) + sizeof(MEMBLOCKMAGIC_HEAD);
-            // store "tail" magic string to block which
-            // will be returned plus the size which was requested
-            memcpy(((PBYTE)prc) + stSize,
-                   MEMBLOCKMAGIC_TAIL,
-                   sizeof(MEMBLOCKMAGIC_TAIL));
-
-            if (pHeapItem)
+            if (pObj = malloc(   sizeof(MEMBLOCKMAGIC_HEAD)
+                               + stSize
+                               + sizeof(MEMBLOCKMAGIC_TAIL)))
             {
-                PTIB        ptib;
-                PPIB        ppib;
+                PHEAPITEM pHeapItem;
+                BOOL fInsert = TRUE;
 
-                pHeapItem->pNext = 0;
+                // store "front" magic string
+                memcpy(pObj,
+                       MEMBLOCKMAGIC_HEAD,
+                       sizeof(MEMBLOCKMAGIC_HEAD));
+                // return address: first byte after "front" magic string
+                prc = ((PBYTE)pObj) + sizeof(MEMBLOCKMAGIC_HEAD);
+                // store "tail" magic string to block which
+                // will be returned plus the size which was requested
+                memcpy(((PBYTE)prc) + stSize,
+                       MEMBLOCKMAGIC_TAIL,
+                       sizeof(MEMBLOCKMAGIC_TAIL));
 
-                pHeapItem->pAfterMagic = prc;
-                pHeapItem->ulSize = stSize;
-                pHeapItem->pcszSourceFile = pcszSourceFile;
-                pHeapItem->ulLine = ulLine;
-                pHeapItem->pcszFunction = pcszFunction;
-
-                DosGetDateTime(&pHeapItem->dtAllocated);
-
-                pHeapItem->ulTID = 0;
-
-                if (DosGetInfoBlocks(&ptib, &ppib) == NO_ERROR)
-                    if (ptib)
-                        if (ptib->tib_ptib2)
-                            pHeapItem->ulTID = ptib->tib_ptib2->tib2_ultid;
-
-                pHeapItem->fFreed = FALSE;
-
-                // append heap item to linked list
-                if (G_pHeapItemsRoot == NULL)
-                    // first item:
-                    G_pHeapItemsRoot = pHeapItem;
+                if (!(pHeapItem = FindHeapItem(prc)))
+                    // not re-using old address:
+                    // create a new heap item
+                    pHeapItem = (PHEAPITEM)malloc(sizeof(HEAPITEM));
                 else
-                    // we have items already:
-                    if (G_pHeapItemsLast)
-                    {
-                        // last item cached:
-                        G_pHeapItemsLast->pNext = pHeapItem;
-                        G_pHeapItemsLast = pHeapItem;
-                    }
-                    else
-                    {
-                        // not cached: find end of list
-                        PHEAPITEM phi = G_pHeapItemsRoot;
-                        while (phi->pNext)
-                            phi = phi->pNext;
+                    fInsert = FALSE;
 
-                        phi->pNext = pHeapItem;
-                        G_pHeapItemsLast = pHeapItem;
+                FillHeapItem(pHeapItem,
+                             prc,
+                             stSize,
+                             pcszSourceFile,
+                             ulLine,
+                             pcszFunction);
+
+                if (fInsert)
+                    // append heap item to linked list
+                    if (treeInsert(&G_pHeapItemsRoot,
+                                   &G_cHeapItems,
+                                   (TREE*)pHeapItem,
+                                   treeCompareKeys))
+                    {
+                        LogError(__FUNCTION__ ": treeInsert failed for memory block at 0x%lX.\n"
+                                 "The block was allocated by %s (%s, line %d).",
+                                 prc,
+                                 pcszFunction,
+                                     pcszSourceFile,
+                                     ulLine);
                     }
             }
-        }
 
-        memdUnlock();
-    }
+            memdUnlock();
+        }
 
     return (prc);
 }
@@ -360,6 +461,7 @@ void* memdCalloc(size_t num,
  *      So call memdReleaseFreed from time to time.
  *
  *@@added V0.9.3 (2000-04-10) [umoeller]
+ *@@changed V0.9.16 (2001-12-08) [umoeller]: reworked to use trees now, much faster
  */
 
 void memdFree(void *p,
@@ -367,88 +469,60 @@ void memdFree(void *p,
               unsigned long ulLine,
               const char *pcszFunction)
 {
-    BOOL fFound = FALSE;
     if (memdLock())
     {
-        // PLISTNODE   pNode = lstQueryFirstNode(&G_llHeapItems);
-        PHEAPITEM pHeapItem = G_pHeapItemsRoot;
+        PHEAPITEM pHeapItem;
 
         // search the list with the pointer which was
         // really returned by the original malloc(),
-        // that is, the byte before the magic string
-        void *pBeforeMagic = ((PBYTE)p) - sizeof(MEMBLOCKMAGIC_HEAD);
-
-        while (pHeapItem)
+        // that is, the byte after the magic string
+        if (pHeapItem = FindHeapItem(p))
         {
-            if (pHeapItem->pAfterMagic == p)
+            // the same address may be allocated and freed
+            // several times, so check
+            if (!pHeapItem->fFreed)
             {
-                // the same address may be allocated and freed
-                // several times, so if this address has been
-                // freed, search on
-                if (!pHeapItem->fFreed)
-                {
-                    // found:
-                    ULONG   ulError = 0;
-                    // check magic string
-                    if (memcmp(pBeforeMagic,
-                               MEMBLOCKMAGIC_HEAD,
-                               sizeof(MEMBLOCKMAGIC_HEAD))
-                            != 0)
-                        ulError = 1;
-                    else if (memcmp(((PBYTE)pHeapItem->pAfterMagic) + pHeapItem->ulSize,
-                                    MEMBLOCKMAGIC_TAIL,
-                                    sizeof(MEMBLOCKMAGIC_TAIL))
-                            != 0)
-                        ulError = 2;
+                // found:
+                void    *pBeforeMagic = ((PBYTE)p) - sizeof(MEMBLOCKMAGIC_HEAD);
 
-                    if (ulError)
-                    {
-                        // magic block has been overwritten:
-                        if (G_pMemdLogFunc)
-                        {
-                            CHAR szMsg[1000];
-                            sprintf(szMsg,
-                                    "Magic string %s memory block at 0x%lX has been overwritten.\n"
-                                    "This was detected by the free() call at %s (%s, line %d).\n"
-                                    "The block was allocated by %s (%s, line %d).",
-                                    (ulError == 1) ? "before" : "after",
-                                    p,
-                                    pcszFunction,
-                                        pcszSourceFile,
-                                        ulLine, // free
-                                    pHeapItem->pcszFunction,
-                                        pHeapItem->pcszSourceFile,
-                                        pHeapItem->ulLine);
-                            G_pMemdLogFunc(szMsg);
-                        }
-                    }
+                CheckMagics(__FUNCTION__,
+                            pHeapItem,
+                            p,
+                            pcszSourceFile,
+                            ulLine,
+                            pcszFunction);
 
-                    free(pBeforeMagic);
-                    pHeapItem->fFreed = TRUE;
+                // free the real memory item
+                free(pBeforeMagic);
 
-                    fFound = TRUE;
-                    break;
-                } // if (!pHeapItem->fFreed)
-            }
+                // mark the heap item as freed, but
+                // keep it in the list
+                pHeapItem->fFreed = TRUE;
 
-            pHeapItem = pHeapItem->pNext;
+            } // if (!pHeapItem->fFreed)
+            else
+                // memory block has been freed twice:
+                LogError(__FUNCTION__ ": Memory block at 0x%lX has been freed twice.\n"
+                         "This was detected by the free() call at %s (%s, line %d).\n"
+                         "The block was originally allocated by %s (%s, line %d).",
+                         p,
+                         pcszFunction,
+                             pcszSourceFile,
+                             ulLine, // free
+                         pHeapItem->pcszFunction,
+                             pHeapItem->pcszSourceFile,
+                             pHeapItem->ulLine);
         }
+        else
+            // not found:
+            LogError(__FUNCTION__ ": free() called with invalid object 0x%lX from %s (%s, line %d).",
+                     p,
+                     pcszFunction,
+                         pcszSourceFile,
+                         ulLine);
 
         memdUnlock();
     }
-
-    if (!fFound)
-        if (G_pMemdLogFunc)
-        {
-            CHAR szMsg[1000];
-            sprintf(szMsg,
-                    "free() called with invalid object from %s (%s, line %d) for object 0x%lX.",
-                    pcszFunction,
-                        pcszSourceFile,
-                        ulLine,
-                    p);
-            G_pMemdLogFunc(szMsg);
-        }
 }
 
 /*
@@ -458,6 +532,7 @@ void memdFree(void *p,
  *
  *@@added V0.9.6 (2000-11-12) [umoeller]
  *@@changed V0.9.12 (2001-05-21) [umoeller]: this reported errors on realloc(0), which is a valid call, fixed
+ *@@changed V0.9.16 (2001-12-08) [umoeller]: reworked to use trees now, much faster
  */
 
 void* memdRealloc(void *p,
@@ -467,7 +542,6 @@ void* memdRealloc(void *p,
                   const char *pcszFunction)   // in: function name
 {
     void *prc = NULL;
-    BOOL fFound = FALSE;
 
     if (!p)
         // p == NULL: this is valid, use malloc() instead
@@ -476,130 +550,119 @@ void* memdRealloc(void *p,
 
     if (memdLock())
     {
-        PHEAPITEM pHeapItem = G_pHeapItemsRoot;
-
         // search the list with the pointer which was
         // really returned by the original malloc(),
-        // that is, the byte before the magic string
-        void *pBeforeMagic = ((PBYTE)p) - sizeof(MEMBLOCKMAGIC_HEAD);
-
-        while (pHeapItem)
+        // that is, the byte after the magic string
+        PHEAPITEM pHeapItem, pExisting;
+        if (pHeapItem = FindHeapItem(p))
         {
-            if (pHeapItem->pAfterMagic == p)
-                // the same address may be allocated and freed
-                // several times, so if this address has been
-                // freed, search on
-                if (!pHeapItem->fFreed)
+            // found:
+            if (pHeapItem->fFreed)
+            {
+                LogError(__FUNCTION__ ": realloc() called with memory block at 0x%lX that was already freed.\n"
+                         "This was detected by the realloc() call at %s (%s, line %d).\n"
+                         "The block was originally allocated by %s (%s, line %d).",
+                         p,
+                         pcszFunction,
+                             pcszSourceFile,
+                             ulLine, // free
+                         pHeapItem->pcszFunction,
+                             pHeapItem->pcszSourceFile,
+                             pHeapItem->ulLine);
+            }
+            else
+            {
+                // block is valid:
+                void    *pBeforeMagic = ((PBYTE)p) - sizeof(MEMBLOCKMAGIC_HEAD);
+                PVOID   pObjNew = 0;
+                ULONG   ulError = 0;
+                ULONG   cbCopy = 0;
+
+                CheckMagics(__FUNCTION__,
+                            pHeapItem,
+                            p,
+                            pcszSourceFile,
+                            ulLine,
+                            pcszFunction);
+
+                // now reallocate!
+                pObjNew = malloc(   sizeof(MEMBLOCKMAGIC_HEAD)
+                                  + stSize   // new size
+                                  + sizeof(MEMBLOCKMAGIC_TAIL));
+
+                // store "front" magic string
+                memcpy(pObjNew,
+                       MEMBLOCKMAGIC_HEAD,
+                       sizeof(MEMBLOCKMAGIC_HEAD));
+                // return address: first byte after "front" magic string
+                prc = ((PBYTE)pObjNew) + sizeof(MEMBLOCKMAGIC_HEAD);
+
+                // bytes to copy: the smaller of the old and the new size
+                cbCopy = pHeapItem->ulSize;
+                if (stSize < pHeapItem->ulSize)
+                    cbCopy = stSize;
+
+                // copy buffer from old memory object
+                memcpy(prc,         // after "front" magic
+                       p,
+                       cbCopy);
+
+                // store "tail" magic string to block which
+                // will be returned plus the size which was requested
+                memcpy(((PBYTE)prc) + stSize,
+                       MEMBLOCKMAGIC_TAIL,
+                       sizeof(MEMBLOCKMAGIC_TAIL));
+
+                // free the old buffer
+                free(pBeforeMagic);
+
+                // update the tree, since prc has changed
+                treeDelete(&G_pHeapItemsRoot,
+                           &G_cHeapItems,
+                           (TREE*)pHeapItem);
+                // append heap item to linked list
+                if (pExisting = FindHeapItem(prc))
                 {
-                    // found:
-                    PVOID   pObjNew = 0;
-                    ULONG   ulError = 0;
-                    ULONG   cbCopy = 0;
-                    PTIB    ptib;
-                    PPIB    ppib;
+                    // a different heap item exists for this address:
+                    // delete this one and use that instead; there's
+                    // no need to re-insert either
+                    free(pHeapItem);
+                    pHeapItem = pExisting;
+                }
 
-                    // check magic string
-                    if (memcmp(pBeforeMagic,
-                               MEMBLOCKMAGIC_HEAD,
-                               sizeof(MEMBLOCKMAGIC_HEAD))
-                            != 0)
-                        ulError = 1;
-                    else if (memcmp(((PBYTE)pHeapItem->pAfterMagic) + pHeapItem->ulSize,
-                                    MEMBLOCKMAGIC_TAIL,
-                                    sizeof(MEMBLOCKMAGIC_TAIL))
-                            != 0)
-                        ulError = 2;
+                FillHeapItem(pHeapItem,
+                             prc,
+                             stSize,
+                             pcszSourceFile,
+                             ulLine,
+                             pcszFunction);
 
-                    if (ulError)
+                // insert only if we didn't use an existing item
+                if (!pExisting)
+                    if (treeInsert(&G_pHeapItemsRoot,
+                                   &G_cHeapItems,
+                                   (TREE*)pHeapItem,
+                                   treeCompareKeys))
                     {
-                        // magic block has been overwritten:
-                        if (G_pMemdLogFunc)
-                        {
-                            CHAR szMsg[1000];
-                            sprintf(szMsg,
-                                    "Magic string %s memory block at 0x%lX has been overwritten.\n"
-                                    "This was detected by the realloc() call at %s (%s, line %d).\n"
-                                    "The block was allocated by %s (%s, line %d).",
-                                    (ulError == 1) ? "before" : "after",
-                                    p,
-                                    pcszFunction,
-                                        pcszSourceFile,
-                                        ulLine, // free
-                                    pHeapItem->pcszFunction,
-                                        pHeapItem->pcszSourceFile,
-                                        pHeapItem->ulLine);
-                            G_pMemdLogFunc(szMsg);
-                        }
+                        LogError(__FUNCTION__ ": treeInsert failed for memory block at 0x%lX.\n"
+                                 "The block was allocated by %s (%s, line %d).",
+                                 prc,
+                                 pcszFunction,
+                                     pcszSourceFile,
+                                     ulLine);
                     }
 
-                    // now reallocate!
-                    pObjNew = malloc(stSize   // new size
-                                     + sizeof(MEMBLOCKMAGIC_HEAD)
-                                     + sizeof(MEMBLOCKMAGIC_TAIL));
-
-                    // store "front" magic string
-                    memcpy(pObjNew,
-                           MEMBLOCKMAGIC_HEAD,
-                           sizeof(MEMBLOCKMAGIC_HEAD));
-                    // return address: first byte after "front" magic string
-                    prc = ((PBYTE)pObjNew) + sizeof(MEMBLOCKMAGIC_HEAD);
-
-                    // bytes to copy: the smaller of the old and the new size
-                    cbCopy = pHeapItem->ulSize;
-                    if (stSize < pHeapItem->ulSize)
-                        cbCopy = stSize;
-
-                    // copy buffer from old memory object
-                    memcpy(prc,         // after "front" magic
-                           pHeapItem->pAfterMagic,
-                           cbCopy);
-
-                    // store "tail" magic string to block which
-                    // will be returned plus the size which was requested
-                    memcpy(((PBYTE)prc) + stSize,
-                           MEMBLOCKMAGIC_TAIL,
-                           sizeof(MEMBLOCKMAGIC_TAIL));
-
-                    // free the old buffer
-                    free(pBeforeMagic);
-
-                    // update the HEAPITEM
-                    pHeapItem->pAfterMagic = prc;       // new pointer!
-                    pHeapItem->ulSize = stSize;         // new size!
-                    pHeapItem->pcszSourceFile = pcszSourceFile;
-                    pHeapItem->ulLine = ulLine;
-                    pHeapItem->pcszFunction = pcszFunction;
-
-                    // update date, time, TID
-                    DosGetDateTime(&pHeapItem->dtAllocated);
-                    pHeapItem->ulTID = 0;
-                    if (DosGetInfoBlocks(&ptib, &ppib) == NO_ERROR)
-                        if (ptib)
-                            if (ptib->tib_ptib2)
-                                pHeapItem->ulTID = ptib->tib_ptib2->tib2_ultid;
-
-                    fFound = TRUE;
-                    break;
-                } // if (!pHeapItem->fFreed)
-
-            pHeapItem = pHeapItem->pNext;
+            } // if (!pHeapItem->fFreed)
         }
+        else
+            LogError(__FUNCTION__ ": realloc() called with invalid object from %s (%s, line %d) for object 0x%lX.",
+                     pcszFunction,
+                         pcszSourceFile,
+                         ulLine,
+                     p);
 
         memdUnlock();
     }
-
-    if (!fFound)
-        if (G_pMemdLogFunc)
-        {
-            CHAR szMsg[1000];
-            sprintf(szMsg,
-                    "realloc() called with invalid object from %s (%s, line %d) for object 0x%lX.",
-                    pcszFunction,
-                        pcszSourceFile,
-                        ulLine,
-                    p);
-            G_pMemdLogFunc(szMsg);
-        }
 
     return (prc);
 }
@@ -623,13 +686,12 @@ unsigned long memdReleaseFreed(void)
             ulBytesReleased = 0;
     if (memdLock())
     {
-        PHEAPITEM pHeapItem = G_pHeapItemsRoot,
-                  pPrevious = NULL;
+        /* PHEAPITEM pHeapItem = treeFirst(G_pHeapItemsRoot);
 
         while (pHeapItem)
         {
             // store next first, because we can change the "next" pointer
-            PHEAPITEM   pNext = pHeapItem->pNext;       // can be NULL
+            PHEAPITEM   pNext = treeNext(pHeapItem);
 
             if (pHeapItem->fFreed)
             {
@@ -657,7 +719,7 @@ unsigned long memdReleaseFreed(void)
 
             pHeapItem = pNext;
         }
-
+        */
         G_ulItemsReleased += ulItemsReleased;
         G_ulBytesReleased += ulBytesReleased;
 

@@ -59,7 +59,7 @@ extern "C" {
         // data maintained by thr_fntGeneric
         HAB     hab;            // for PM threads
         HMQ     hmq;            // for PM threads
-        BOOL    fExitComplete;
+        HEV     hevExitComplete;    // posted when thread exits V0.9.16 (2001-12-08) [umoeller]
 
         // data to be maintained by application
         BOOL    fExit;
