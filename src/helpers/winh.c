@@ -108,7 +108,7 @@ SHORT winhInsertMenuItem(HWND hwndMenu,     // in:  menu to insert item into
                          SHORT iPosition,   // in:  zero-based index of where to
                                             //      insert or MIT_END
                          SHORT sItemId,     // in:  ID of new menu item
-                         PSZ pszItemTitle,  // in:  title of new menu item
+                         const char *pcszItemTitle,  // in:  title of new menu item
                          SHORT afStyle,
                             // in:  MIS_* style flags.
                             // Valid menu item styles are:
@@ -167,7 +167,7 @@ SHORT winhInsertMenuItem(HWND hwndMenu,     // in:  menu to insert item into
     src = SHORT1FROMMR(WinSendMsg(hwndMenu,
                                   MM_INSERTITEM,
                                   (MPARAM)&mi,
-                                  (MPARAM)pszItemTitle));
+                                  (MPARAM)pcszItemTitle));
     return (src);
 }
 
@@ -185,12 +185,12 @@ SHORT winhInsertMenuItem(HWND hwndMenu,     // in:  menu to insert item into
 HWND winhInsertSubmenu(HWND hwndMenu,       // in: menu to add submenu to
                        ULONG iPosition,     // in: index where to add submenu or MIT_END
                        SHORT sMenuId,       // in: menu ID of new submenu
-                       PSZ pszSubmenuTitle, // in: title of new submenu
+                       const char *pcszSubmenuTitle, // in: title of new submenu
                        USHORT afMenuStyle,  // in: MIS* style flags for submenu;
                                             // MIS_SUBMENU will always be added
                        SHORT sItemId,       // in: ID of first item to add to submenu;
                                             // if 0, no first item is inserted
-                       PSZ pszItemTitle,    // in: title of this item
+                       const char *pcszItemTitle,    // in: title of this item
                                             // (if sItemID != 0)
                        USHORT afItemStyle,  // in: style flags for this item, e.g. MIS_TEXT
                                             // (this is ignored if sItemID == 0)
@@ -215,7 +215,7 @@ HWND winhInsertSubmenu(HWND hwndMenu,       // in: menu to add submenu to
         mi.id = sMenuId;
         mi.hwndSubMenu = hwndNewMenu;
         mi.hItem = 0;
-        src = SHORT1FROMMR(WinSendMsg(hwndMenu, MM_INSERTITEM, (MPARAM)&mi, (MPARAM)pszSubmenuTitle));
+        src = SHORT1FROMMR(WinSendMsg(hwndMenu, MM_INSERTITEM, (MPARAM)&mi, (MPARAM)pcszSubmenuTitle));
         if (    (src != MIT_MEMERROR)
             &&  (src != MIT_ERROR)
            )
@@ -236,7 +236,7 @@ HWND winhInsertSubmenu(HWND hwndMenu,       // in: menu to add submenu to
                 WinSendMsg(hwndNewMenu,
                            MM_INSERTITEM,
                            (MPARAM)&mi,
-                           (MPARAM)pszItemTitle);
+                           (MPARAM)pcszItemTitle);
             }
         }
     }
@@ -1058,6 +1058,9 @@ ULONG winhLboxSelectAll(HWND hwndListBox,   // in: list box
  *      values. This updates the scroll bar's thumb size,
  *      extension, and position, all in one shot.
  *
+ *      This function usually gets called when the window is
+ *      created and later when the window is resized.
+ *
  *      This simplifies the typical functionality of a scroll
  *      bar in a client window which is to be scrolled. I am
  *      wondering why IBM never included such a function, since
@@ -1067,27 +1070,35 @@ ULONG winhLboxSelectAll(HWND hwndListBox,   // in: list box
  *      Terminology:
  *
  *      -- "window": the actual window with scroll bars which displays
- *         a subrectangle of the available data.
+ *         a subrectangle of the available data. With a typical PM
+ *         application, this will be your client window.
+ *
  *         The width or height of this must be passed in ulWinPels.
  *
  *      -- "viewport": the entire data to be displayed, of which the
  *         "window" can only display a subrectangle, if the viewport
- *         is larger than the window. The width or height of this must be
- *         passed in ulViewportPels. This can be smaller than ulWinPels (if the
- *         window is larger than the data), the same or larger than ulWinPels
+ *         is larger than the window.
+ *
+ *         The width or height of this must be passed in ulViewportPels.
+ *         This can be smaller than ulWinPels (if the window is larger
+ *         than the data) or the same or larger than ulWinPels
  *         (if the window is too small to show all the data).
  *
  *      -- "window offset": the offset of the current window within
- *         the viewport. For horizontal scroll bars, this is
- *         the X coordinate, counting from the left of the window
- *         (0 means leftmost).
+ *         the viewport.
+ *
+ *         For horizontal scroll bars, this is the X coordinate,
+ *         counting from the left of the window (0 means leftmost).
+ *
  *         For vertical scroll bars, this is counted from the _top_
  *         of the viewport (0 means topmost, as opposed to OS/2
- *         window coordinates!).
- *         This is because for vertical scroll bars controls, higher
- *         values move the thumb _down_.
+ *         window coordinates!). This is because for vertical scroll
+ *         bars controls, higher values move the thumb _down_. Yes
+ *         indeed, this conflicts with PM's coordinate system.
  *
- *      The scroll bar is disabled if the entire viewport is visible,
+ *         The window offset is therefore always positive.
+ *
+ *      The scroll bar gets disabled if the entire viewport is visible,
  *      that is, if ulViewportPels <= ulWinPels. In that case
  *      FALSE is returned. If (fAutoHide == TRUE), the scroll
  *      bar is not only disabled, but also hidden from the display.
@@ -1098,7 +1109,9 @@ ULONG winhLboxSelectAll(HWND hwndListBox,   // in: list box
  *      to a value depending on the viewport size. For vertical scroll
  *      bars, 0 means topmost (which is kinda sick with the OS/2
  *      coordinate system), for horizontal scroll bars, 0 means leftmost.
- *      The maximum value of the scroll bar will be:
+ *
+ *      The maximum value of the scroll bar will be
+ *
  +          (ulViewportPels - ulWinPels) / usScrollUnitPels
  *
  *      The thumb size of the scroll bar will also be adjusted
@@ -1209,6 +1222,7 @@ BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or h
  *      This function assumes that the scrollbar operates
  *      on values starting from zero. The maximum value
  *      of the scroll bar is:
+ *
  +          ulViewportPels - (prcl2Scroll->yTop - prcl2Scroll->yBottom)
  *
  *      This function also automatically changes the scroll bar
@@ -1223,11 +1237,12 @@ BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or h
  *@@added V0.9.1 (2000-02-13) [umoeller]
  *@@changed V0.9.3 (2000-04-30) [umoeller]: changed prototype, fixed pels/unit confusion
  *@@changed V0.9.3 (2000-05-08) [umoeller]: now handling scroll units automatically
+ *@@changed V0.9.7 (2001-01-17) [umoeller]: changed PLONG to PULONG
  */
 
 BOOL winhHandleScrollMsg(HWND hwnd2Scroll,          // in: client window to scroll
                          HWND hwndScrollBar,        // in: vertical or horizontal scroll bar window
-                         PLONG plCurPelsOfs,        // in/out: current viewport offset;
+                         PULONG pulCurPelsOfs,      // in/out: current viewport offset;
                                                     // this is updated with the proper scroll units
                          PRECTL prcl2Scroll,        // in: hwnd2Scroll rectangle to scroll
                                                     // (in window coordinates);
@@ -1242,7 +1257,7 @@ BOOL winhHandleScrollMsg(HWND hwnd2Scroll,          // in: client window to scro
                                                     // this has two SHORT's (usPos and usCmd),
                                                     // see PMREF for details
 {
-    LONG    lOldPelsOfs = *plCurPelsOfs;
+    ULONG   ulOldPelsOfs = *pulCurPelsOfs;
     USHORT  usPosUnits = SHORT1FROMMP(mp2), // in scroll units
             usCmd = SHORT2FROMMP(mp2);
     LONG    lMaxAllowedUnitOfs;
@@ -1266,30 +1281,34 @@ BOOL winhHandleScrollMsg(HWND hwnd2Scroll,          // in: client window to scro
     switch (usCmd)
     {
         case SB_LINEUP:
-            // _Pmpf(("SB_LINEUP"));
-            *plCurPelsOfs -= usLineStepPels;  //  * usScrollUnitPels);
+            if (*pulCurPelsOfs > usLineStepPels)
+                *pulCurPelsOfs -= usLineStepPels;  //  * usScrollUnitPels);
+            else
+                *pulCurPelsOfs = 0;
         break;
 
         case SB_LINEDOWN:
-            // _Pmpf(("SB_LINEDOWN"));
-            *plCurPelsOfs += usLineStepPels;  //  * usScrollUnitPels);
+            *pulCurPelsOfs += usLineStepPels;  //  * usScrollUnitPels);
         break;
 
         case SB_PAGEUP:
-            *plCurPelsOfs -= ulWinPels; // convert to units
+            if (*pulCurPelsOfs > ulWinPels)
+                *pulCurPelsOfs -= ulWinPels; // convert to units
+            else
+                *pulCurPelsOfs = 0;
         break;
 
         case SB_PAGEDOWN:
-            *plCurPelsOfs += ulWinPels; // convert to units
+            *pulCurPelsOfs += ulWinPels; // convert to units
         break;
 
         case SB_SLIDERTRACK:
-            *plCurPelsOfs = (usPosUnits * usScrollUnitPels);
+            *pulCurPelsOfs = (usPosUnits * usScrollUnitPels);
             // _Pmpf(("    SB_SLIDERTRACK: usUnits = %d", usPosUnits));
         break;
 
         case SB_SLIDERPOSITION:
-            *plCurPelsOfs = (usPosUnits * usScrollUnitPels);
+            *pulCurPelsOfs = (usPosUnits * usScrollUnitPels);
         break;
     }
 
@@ -1303,16 +1322,16 @@ BOOL winhHandleScrollMsg(HWND hwnd2Scroll,          // in: client window to scro
         *plCurUnitOfs = lMaxUnitOfs;
     } */
 
-    if (*plCurPelsOfs < 0)
-        *plCurPelsOfs = 0;
-    if (*plCurPelsOfs > (lMaxAllowedUnitOfs * usScrollUnitPels))
+    /* if (*plCurPelsOfs < 0)
+        *plCurPelsOfs = 0; */       // checked above
+    if (*pulCurPelsOfs > (lMaxAllowedUnitOfs * usScrollUnitPels))
     {
         // _Pmpf(("        !!! limiting 2: %d to %d", *plCurUnitOfs, lMaxAllowedUnitOfs));
-        *plCurPelsOfs = (lMaxAllowedUnitOfs * usScrollUnitPels);
+        *pulCurPelsOfs = (lMaxAllowedUnitOfs * usScrollUnitPels);
     }
-    if (    (*plCurPelsOfs != lOldPelsOfs)
-         || (*plCurPelsOfs == 0)
-         || (*plCurPelsOfs == (lMaxAllowedUnitOfs * usScrollUnitPels))
+    if (    (*pulCurPelsOfs != ulOldPelsOfs)
+         || (*pulCurPelsOfs == 0)
+         || (*pulCurPelsOfs == (lMaxAllowedUnitOfs * usScrollUnitPels))
        )
     {
         RECTL   rcl2Scroll,
@@ -1321,7 +1340,7 @@ BOOL winhHandleScrollMsg(HWND hwnd2Scroll,          // in: client window to scro
         // changed:
         WinSendMsg(hwndScrollBar,
                    SBM_SETPOS,
-                   (MPARAM)(*plCurPelsOfs / usScrollUnitPels), //  / usScrollUnit),
+                   (MPARAM)(*pulCurPelsOfs / usScrollUnitPels), //  / usScrollUnit),
                    0);
         // scroll window rectangle:
         rcl2Scroll.xLeft =  prcl2Scroll->xLeft;
@@ -1332,7 +1351,7 @@ BOOL winhHandleScrollMsg(HWND hwnd2Scroll,          // in: client window to scro
         if (msg == WM_VSCROLL)
             WinScrollWindow(hwnd2Scroll,
                             0,
-                            (*plCurPelsOfs - lOldPelsOfs)  // scroll units changed
+                            (*pulCurPelsOfs - ulOldPelsOfs)  // scroll units changed
                             ,    // * usScrollUnitPels,     // convert to pels
                             &rcl2Scroll,  // rcl to scroll
                             prcl2Scroll, // clipping rect
@@ -1341,7 +1360,7 @@ BOOL winhHandleScrollMsg(HWND hwnd2Scroll,          // in: client window to scro
                             0);
         else
             WinScrollWindow(hwnd2Scroll,
-                            -(*plCurPelsOfs - lOldPelsOfs) // scroll units changed
+                            -(LONG)(*pulCurPelsOfs - ulOldPelsOfs) // scroll units changed
                             ,    // * usScrollUnitPels,
                             0,
                             &rcl2Scroll,  // rcl to scroll
@@ -1554,8 +1573,8 @@ BOOL winhProcessScrollChars(HWND hwndClient,    // in: client window
 
 BOOL winhSaveWindowPos(HWND hwnd,   // in: window to save
                        HINI hIni,   // in: INI file (or HINI_USER/SYSTEM)
-                       PSZ pszApp,  // in: INI application name
-                       PSZ pszKey)  // in: INI key name
+                       const char *pcszApp,  // in: INI application name
+                       const char *pcszKey)  // in: INI key name
 {
     BOOL brc = FALSE;
     SWP swp;
@@ -1571,7 +1590,7 @@ BOOL winhSaveWindowPos(HWND hwnd,   // in: window to save
             swp.cy = WinQueryWindowUShort(hwnd, QWS_CYRESTORE);
         }
 
-        brc = PrfWriteProfileData(hIni, pszApp, pszKey, &swp, sizeof(swp));
+        brc = PrfWriteProfileData(hIni, (PSZ)pcszApp, (PSZ)pcszKey, &swp, sizeof(swp));
     }
     return (brc);
 }
@@ -1613,8 +1632,8 @@ BOOL winhSaveWindowPos(HWND hwnd,   // in: window to save
 
 BOOL winhRestoreWindowPos(HWND hwnd,   // in: window to restore
                           HINI hIni,   // in: INI file (or HINI_USER/SYSTEM)
-                          PSZ pszApp,  // in: INI application name
-                          PSZ pszKey,  // in: INI key name
+                          const char *pcszApp,  // in: INI application name
+                          const char *pcszKey,  // in: INI key name
                           ULONG fl)    // in: "fl" parameter for WinSetWindowPos
 {
     BOOL    brc = FALSE;
@@ -1622,7 +1641,7 @@ BOOL winhRestoreWindowPos(HWND hwnd,   // in: window to restore
     ULONG   cbswp = sizeof(swp);
     ULONG   fl2 = (fl & ~SWP_ZORDER);
 
-    if (PrfQueryProfileData(hIni, pszApp, pszKey, &swp, &cbswp))
+    if (PrfQueryProfileData(hIni, (PSZ)pcszApp, (PSZ)pcszKey, &swp, &cbswp))
     {
         ULONG ulScreenCX = WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN);
         ULONG ulScreenCY = WinQuerySysValue(HWND_DESKTOP, SV_CYSCREEN);
@@ -2340,11 +2359,11 @@ LONG winhQueryPresColor(HWND    hwnd,       // in: window to query
  *@@added V0.9.4 (2000-07-03) [umoeller]
  */
 
-HWND winhCreateHelp(HWND    hwndFrame,      // in: app's frame window handle; can be NULLHANDLE
-                    PSZ     pszFileName,    // in: help file name or NULL
+HWND winhCreateHelp(HWND hwndFrame,      // in: app's frame window handle; can be NULLHANDLE
+                    const char *pcszFileName,    // in: help file name or NULL
                     HMODULE hmod,           // in: module with help table or NULLHANDLE (current)
                     PHELPTABLE pHelpTable,  // in: help table or resource ID
-                    PSZ     pszWindowTitle) // in: help window title or NULL
+                    const char *pcszWindowTitle) // in: help window title or NULL
 {
     PPIB     ppib;
     PTIB     ptib;
@@ -2353,7 +2372,7 @@ HWND winhCreateHelp(HWND    hwndFrame,      // in: app's frame window handle; ca
     CHAR     szName[ CCHMAXPATH ];
     HWND     hwndHelp;
 
-    if (     (pszFileName == NULL)
+    if (     (pcszFileName == NULL)
           // || (*pszFileName)
        )
     {
@@ -2367,7 +2386,7 @@ HWND winhCreateHelp(HWND    hwndFrame,      // in: app's frame window handle; ca
         else
             strcat(szName, ".hlp");
 
-        pszFileName = szName;
+        pcszFileName = szName;
     }
 
     hi.cb                       = sizeof(HELPINIT);
@@ -2378,9 +2397,9 @@ HWND winhCreateHelp(HWND    hwndFrame,      // in: app's frame window handle; ca
     hi.hmodAccelActionBarModule = NULLHANDLE;
     hi.idAccelTable             = 0;
     hi.idActionBar              = 0;
-    hi.pszHelpWindowTitle       = pszWindowTitle;
+    hi.pszHelpWindowTitle       = (PSZ)pcszWindowTitle;
     hi.fShowPanelId             = CMIC_HIDE_PANEL_ID;
-    hi.pszHelpLibraryName       = pszFileName;
+    hi.pszHelpLibraryName       = (PSZ)pcszFileName;
 
     hwndHelp = WinCreateHelpInstance(WinQueryAnchorBlock(hwndFrame),
                                      &hi);
@@ -2782,12 +2801,12 @@ HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as wit
  *@@added V0.9.0 (99-10-22) [umoeller]
  */
 
-BOOL winhAnotherInstance(PSZ pszSemName,    // in: semaphore ID
+BOOL winhAnotherInstance(const char *pcszSemName,    // in: semaphore ID
                          BOOL fSwitch)      // in: if TRUE, switch to first instance if running
 {
     HMTX hmtx;
 
-    if (DosCreateMutexSem(pszSemName,
+    if (DosCreateMutexSem((PSZ)pcszSemName,
                           &hmtx,
                           DC_SEM_SHARED,
                           TRUE)
@@ -2803,7 +2822,7 @@ BOOL winhAnotherInstance(PSZ pszSemName,    // in: semaphore ID
     if (fSwitch)
     {
         // yes: query mutex creator
-        if (DosOpenMutexSem(pszSemName,
+        if (DosOpenMutexSem((PSZ)pcszSemName,
                             &hmtx)
                     == NO_ERROR)
         {
@@ -2965,8 +2984,8 @@ BOOL winhFileDlg(HWND hwndOwner,    // in: owner for file dlg
                                     // -- WINH_FOD_INILOADDIR: load FOD path from INI
                                     // -- WINH_FOD_INISAVEDIR: store FOD path to INI on OK
                  HINI hini,         // in: INI file to load/store last path from (can be HINI_USER)
-                 PSZ pszApplication, // in: INI application to load/store last path from
-                 PSZ pszKey)        // in: INI key to load/store last path from
+                 const char *pcszApplication, // in: INI application to load/store last path from
+                 const char *pcszKey)        // in: INI key to load/store last path from
 {
     FILEDLG fd;
     memset(&fd, 0, sizeof(FILEDLG));
@@ -2985,8 +3004,8 @@ BOOL winhFileDlg(HWND hwndOwner,    // in: owner for file dlg
     {
         // overwrite with initial directory for FOD from OS2.INI
         if (PrfQueryProfileString(hini,
-                                  pszApplication,
-                                  pszKey,
+                                  (PSZ)pcszApplication,
+                                  (PSZ)pcszKey,
                                   "",      // default string
                                   fd.szFullFile,
                                   sizeof(fd.szFullFile)-10)
@@ -3019,8 +3038,8 @@ BOOL winhFileDlg(HWND hwndOwner,    // in: owner for file dlg
                 if (pszDir)
                 {
                     PrfWriteProfileString(hini,
-                                          pszApplication,
-                                          pszKey, // "XWPSound:LastDir"
+                                          (PSZ)pcszApplication,
+                                          (PSZ)pcszKey,
                                           pszDir);
                     free(pszDir);
                 }
@@ -3100,15 +3119,15 @@ PSZ winhQueryWindowText(HWND hwnd)
  */
 
 BOOL winhReplaceWindowText(HWND hwnd,           // in: window whose text is to be modified
-                           PSZ pszSearch,       // in: search string (e.g. "%1")
-                           PSZ pszReplaceWith)  // in: replacement string for pszSearch
+                           const char *pcszSearch,       // in: search string (e.g. "%1")
+                           const char *pcszReplaceWith)  // in: replacement string for pszSearch
 {
     BOOL    brc = FALSE;
     PSZ     pszText = winhQueryWindowText(hwnd);
     if (pszText)
     {
         ULONG ulOfs = 0;
-        if (strhFindReplace(&pszText, &ulOfs, pszSearch, pszReplaceWith) > 0)
+        if (strhFindReplace(&pszText, &ulOfs, pcszSearch, pcszReplaceWith) > 0)
         {
             WinSetWindowText(hwnd, pszText);
             brc = TRUE;
@@ -3196,9 +3215,9 @@ HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
                          PSWP pswpFrame,            // in: frame wnd pos
                          ULONG flFrameCreateFlags,  // in: FCF_* flags
                          ULONG ulFrameStyle,        // in: WS_* flags (e.g. WS_VISIBLE, WS_ANIMATE)
-                         PSZ pszFrameTitle,
+                         const char *pcszFrameTitle,
                          ULONG ulResourcesID,       // in: according to FCF_* flags
-                         PSZ pszClassClient,
+                         const char *pcszClassClient,
                          ULONG flStyleClient,
                          ULONG ulID,                // in: frame window ID
                          PVOID pClientCtlData,      // in: pCtlData structure pointer for client
@@ -3216,7 +3235,7 @@ HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
     /* Create the frame and client windows.  */
     hwndFrame = WinCreateWindow(hwndFrameParent,
                                 WC_FRAME,
-                                pszFrameTitle,
+                                (PSZ)pcszFrameTitle,
                                 ulFrameStyle,
                                 0,0,0,0,         // size and position = 0
                                 NULLHANDLE,      // no owner
@@ -3228,7 +3247,7 @@ HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
     if (hwndFrame)
     {
         *phwndClient = WinCreateWindow(hwndFrame,      // parent
-                                       pszClassClient, // class
+                                       (PSZ)pcszClassClient, // class
                                        NULL,           // no title
                                        flStyleClient,  // style
                                        0,0,0,0,        // size and position = 0
@@ -3272,6 +3291,35 @@ HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
         }
     }
     return (hwndFrame);
+}
+
+/*
+ *@@ winhCreateObjectWindow:
+ *      creates an object window of the specified
+ *      window class, which you should have registered
+ *      before calling this. pvCreateParam will be
+ *      given to the window on WM_CREATE.
+ *
+ *      Returns the HWND of the object window or
+ *      NULLHANDLE on errors.
+ *
+ *@@added V0.9.3 (2000-04-17) [umoeller]
+ *@@changed V0.9.7 (2001-01-17) [umoeller]: made this a function from a macro
+ */
+
+HWND winhCreateObjectWindow(const char *pcszWindowClass,    // in: PM window class name
+                            PVOID pvCreateParam)            // in: create param
+{
+    return (WinCreateWindow(HWND_OBJECT,
+                            (PSZ)pcszWindowClass,
+                            (PSZ)"",
+                            0,
+                            0,0,0,0,
+                            0,
+                            HWND_BOTTOM,
+                            0,
+                            pvCreateParam,
+                            NULL));
 }
 
 /*
@@ -3569,6 +3617,7 @@ BOOL winhAssertWarp4Notebook(HWND hwndDlg,
  *      flCmd parameter, which is like with WinDrawText.
  *
  *      After this function returns, *prcl is modified like this:
+ *
  *      -- yTop and yBottom contain the upper and lower boundaries
  *         which were needed to draw the text. This depends on
  *         whether DT_TOP etc. were specified.
@@ -3596,7 +3645,7 @@ ULONG winhDrawFormattedText(HPS hps,     // in: presentation space; its settings
                                          // are used, but not altered
                             PRECTL prcl, // in/out: rectangle to use for drawing
                                          // (modified)
-                            PSZ pszText, // in: text to draw (zero-terminated)
+                            const char *pcszText, // in: text to draw (zero-terminated)
                             ULONG flCmd) // in: flags like in WinDrawText; I have
                                          // only tested DT_TOP and DT_LEFT though.
                                          // DT_WORDBREAK | DT_TEXTATTRS are always
@@ -3604,12 +3653,12 @@ ULONG winhDrawFormattedText(HPS hps,     // in: presentation space; its settings
                                          // You can specify DT_QUERYEXTENT to only
                                          // have prcl calculated without drawing.
 {
-    PSZ     p = pszText;
+    PSZ     p = (PSZ)pcszText;
     LONG    lDrawn = 1,
             lTotalDrawn = 0,
             lLineCount = 0,
             lOrigYTop = prcl->yTop;
-    ULONG   ulTextLen = strlen(pszText),
+    ULONG   ulTextLen = strlen(pcszText),
             ulCharHeight,
             flCmd2,
             xLeftmost = prcl->xRight,

@@ -195,10 +195,10 @@ HBITMAP ctlCreateChartBitmap(HPS hpsMem,                // in: memory PS to use 
             gpihSwitchToRGB(hpsMem);
 
             // fill bitmap with static's background color
+            GpiSetColor(hpsMem, lBackgroundColor);
             gpihBox(hpsMem,
                     DRO_FILL,
-                    &rclWholeStatic,
-                    lBackgroundColor);
+                    &rclWholeStatic);
 
             // We'll paint into the bitmap in two loops:
             // +--  The outer "3D" loop is executed

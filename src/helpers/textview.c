@@ -1492,7 +1492,7 @@ BOOL txvPaintText(HAB hab,
                   PRECTL prcl2Paint,   // in: invalid rectangle to be drawn,
                                        // can be NULL to paint all
                   LONG lViewXOfs,      // in: x offset to paint; 0 means rightmost
-                  PLONG plViewYOfs,    // in: y offset to paint; 0 means _top_most;
+                  PULONG pulViewYOfs,  // in: y offset to paint; 0 means _top_most;
                                        // out: y offset which should be passed to next call
                                        // (if TRUE is returned and fPaintHalfLines == FALSE)
                   BOOL fPaintHalfLines, // in: if FALSE, lines which do not fully fit on
@@ -1504,7 +1504,7 @@ BOOL txvPaintText(HAB hab,
     BOOL    brc = FALSE,
             fAnyLinesPainted = FALSE;
     ULONG   ulCurrentLineIndex = *pulLineIndex;
-    // LONG    lViewYOfsSaved = *plViewYOfs;
+    // LONG    lViewYOfsSaved = *pulViewYOfs;
     PLISTNODE pRectNode = lstNodeFromIndex(&pxfd->llRectangles,
                                            ulCurrentLineIndex);
 
@@ -1520,8 +1520,8 @@ BOOL txvPaintText(HAB hab,
         RECTL           rclLine;
         rclLine.xLeft = pLineRcl->rcl.xLeft - lViewXOfs;
         rclLine.xRight = pLineRcl->rcl.xRight - lViewXOfs;
-        rclLine.yBottom = pLineRcl->rcl.yBottom + *plViewYOfs;
-        rclLine.yTop = pLineRcl->rcl.yTop + *plViewYOfs;
+        rclLine.yBottom = pLineRcl->rcl.yBottom + *pulViewYOfs;
+        rclLine.yTop = pLineRcl->rcl.yTop + *pulViewYOfs;
 
         /* if (pmpf)
         {
@@ -1681,10 +1681,10 @@ BOOL txvPaintText(HAB hab,
                     PTXVRECTANGLE   pLineRcl2 = (PTXVRECTANGLE)pRectNode->pNext->pItemData;
                     // return TRUE
                     brc = TRUE;
-                    // and set *plViewYOfs to the top of
+                    // and set *pulViewYOfs to the top of
                     // the next line, which wasn't visible
                     // on the page any more
-                    *plViewYOfs = pLineRcl2->rcl.yTop + *plViewYOfs;
+                    *pulViewYOfs = pLineRcl2->rcl.yTop + *pulViewYOfs;
                 }
                 break;
             }
@@ -1843,8 +1843,8 @@ typedef struct _TEXTVIEWWINDATA
             rclViewPaint,       // same as rclViewReal, but excluding scroll bars
             rclViewText;        // same as rclViewPaint, but excluding cdata borders
 
-    LONG    lViewXOfs,          // pixels that we have scrolled to the RIGHT; 0 means very left
-            lViewYOfs;          // pixels that we have scrolled to the BOTTOM; 0 means very top
+    ULONG   ulViewXOfs,         // pixels that we have scrolled to the RIGHT; 0 means very left
+            ulViewYOfs;         // pixels that we have scrolled to the BOTTOM; 0 means very top
 
     BOOL    fAcceptsPresParamsNow; // TRUE after first WM_PAINT
 
@@ -2008,10 +2008,10 @@ VOID FormatText2Screen(HWND hwndTextView,
 
     ulWinCY = (ptxvd->rclViewText.yTop - ptxvd->rclViewText.yBottom);
 
-    if (ptxvd->lViewYOfs < 0)
-        ptxvd->lViewYOfs = 0;
-    if (ptxvd->lViewYOfs > ((LONG)ptxvd->xfd.ulViewportCY - ulWinCY))
-        ptxvd->lViewYOfs = (LONG)ptxvd->xfd.ulViewportCY - ulWinCY;
+    if (ptxvd->ulViewYOfs < 0)
+        ptxvd->ulViewYOfs = 0;
+    if (ptxvd->ulViewYOfs > ((LONG)ptxvd->xfd.ulViewportCY - ulWinCY))
+        ptxvd->ulViewYOfs = (LONG)ptxvd->xfd.ulViewportCY - ulWinCY;
 
     // vertical scroll bar enabled at all?
     if (ptxvd->cdata.flStyle & XTXF_VSCROLL)
@@ -2019,7 +2019,7 @@ VOID FormatText2Screen(HWND hwndTextView,
         BOOL fEnabled = winhUpdateScrollBar(ptxvd->hwndVScroll,
                                             ulWinCY,
                                             ptxvd->xfd.ulViewportCY,
-                                            ptxvd->lViewYOfs,
+                                            ptxvd->ulViewYOfs,
                                             (ptxvd->cdata.flStyle & XTXF_AUTOVHIDE));
         // is auto-hide on?
         if (ptxvd->cdata.flStyle & XTXF_AUTOVHIDE)
@@ -2050,7 +2050,7 @@ VOID FormatText2Screen(HWND hwndTextView,
         BOOL fEnabled = winhUpdateScrollBar(ptxvd->hwndHScroll,
                                             ulWinCX,
                                             ptxvd->xfd.ulViewportCX,
-                                            ptxvd->lViewXOfs,
+                                            ptxvd->ulViewXOfs,
                                             (ptxvd->cdata.flStyle & XTXF_AUTOHHIDE));
         // is auto-hide on?
         if (ptxvd->cdata.flStyle & XTXF_AUTOHHIDE)
@@ -2083,13 +2083,13 @@ VOID PaintViewText2Screen(PTEXTVIEWWINDATA ptxvd,
                           PRECTL prcl2Paint)  // in: invalid rectangle, can be NULL == paint all
 {
     ULONG   ulLineIndex = 0;
-    LONG    lYOfs = ptxvd->lViewYOfs;
+    ULONG   ulYOfs = ptxvd->ulViewYOfs;
     txvPaintText(ptxvd->hab,
                  ptxvd->hps,        // paint PS: screen
                  &ptxvd->xfd,       // formatting data
                  prcl2Paint,        // update rectangle given to us
-                 ptxvd->lViewXOfs,  // current X scrolling offset
-                 &lYOfs,            // current Y scrolling offset
+                 ptxvd->ulViewXOfs,  // current X scrolling offset
+                 &ulYOfs,            // current Y scrolling offset
                  TRUE,              // draw even partly visible lines
                  &ulLineIndex);
 }
@@ -2139,16 +2139,16 @@ VOID RepaintWord(PTEXTVIEWWINDATA ptxvd,
     PTXVRECTANGLE pLineRcl = (PTXVRECTANGLE)pWordThis->pvRectangle;
 
     RECTL           rclLine;
-    rclLine.xLeft = pLineRcl->rcl.xLeft - ptxvd->lViewXOfs;
-    rclLine.xRight = pLineRcl->rcl.xRight - ptxvd->lViewXOfs;
-    rclLine.yBottom = pLineRcl->rcl.yBottom + ptxvd->lViewYOfs;
-    rclLine.yTop = pLineRcl->rcl.yTop + ptxvd->lViewYOfs;
+    rclLine.xLeft = pLineRcl->rcl.xLeft - ptxvd->ulViewXOfs;
+    rclLine.xRight = pLineRcl->rcl.xRight - ptxvd->ulViewXOfs;
+    rclLine.yBottom = pLineRcl->rcl.yBottom + ptxvd->ulViewYOfs;
+    rclLine.yTop = pLineRcl->rcl.yTop + ptxvd->ulViewYOfs;
 
     if (pWordThis->usAnchor)
         flOptions |= CHS_UNDERSCORE;
 
     // x start: this word's X coordinate
-    ptlStart.x = pWordThis->lX - ptxvd->lViewXOfs;
+    ptlStart.x = pWordThis->lX - ptxvd->ulViewXOfs;
     // y start: bottom line of rectangle plus highest
     // base line offset found in all words (format step 2)
     ptlStart.y = rclLine.yBottom + pLineRcl->ulMaxBaseLineOfs;
@@ -2174,7 +2174,7 @@ VOID RepaintWord(PTEXTVIEWWINDATA ptxvd,
         DrawListMarker(ptxvd->hps,
                        &rclLine,
                        pWordThis,
-                       ptxvd->lViewXOfs);
+                       ptxvd->ulViewXOfs);
 }
 
 /*
@@ -2398,8 +2398,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                     xstrcpy(&ptxvd->xfd.strViewText,
                             pwndParams->pszText,
                             0);
-                    ptxvd->lViewXOfs = 0;
-                    ptxvd->lViewYOfs = 0;
+                    ptxvd->ulViewXOfs = 0;
+                    ptxvd->ulViewYOfs = 0;
                     /* ptxvd->fVScrollVisible = FALSE;
                     ptxvd->fHScrollVisible = FALSE; */
                     AdjustViewRects(hwndTextView,
@@ -2580,7 +2580,7 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
             {
                 winhHandleScrollMsg(hwndTextView,
                                     ptxvd->hwndVScroll,
-                                    &ptxvd->lViewYOfs,
+                                    &ptxvd->ulViewYOfs,
                                     &ptxvd->rclViewText,
                                     ptxvd->xfd.ulViewportCY,
                                     ptxvd->cdata.ulVScrollLineUnit,
@@ -2600,7 +2600,7 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
             {
                 winhHandleScrollMsg(hwndTextView,
                                     ptxvd->hwndHScroll,
-                                    &ptxvd->lViewXOfs,
+                                    &ptxvd->ulViewXOfs,
                                     &ptxvd->rclViewText,
                                     ptxvd->xfd.ulViewportCX,
                                     ptxvd->cdata.ulHScrollLineUnit,
@@ -2656,8 +2656,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
             POINTL ptlPos;
             PLISTNODE pWordNodeClicked = NULL;
 
-            ptlPos.x = SHORT1FROMMP(mp1) + ptxvd->lViewXOfs;
-            ptlPos.y = SHORT2FROMMP(mp1) - ptxvd->lViewYOfs;
+            ptlPos.x = SHORT1FROMMP(mp1) + ptxvd->ulViewXOfs;
+            ptlPos.y = SHORT2FROMMP(mp1) - ptxvd->ulViewYOfs;
 
             if (hwndTextView != WinQueryFocus(HWND_DESKTOP))
                 WinSetFocus(HWND_DESKTOP, hwndTextView);
@@ -2720,8 +2720,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
             // PTXVWORD    pWordClicked = NULL;
             HWND        hwndOwner = NULLHANDLE;
 
-            ptlPos.x = SHORT1FROMMP(mp1) + ptxvd->lViewXOfs;
-            ptlPos.y = SHORT2FROMMP(mp1) - ptxvd->lViewYOfs;
+            ptlPos.x = SHORT1FROMMP(mp1) + ptxvd->ulViewXOfs;
+            ptlPos.y = SHORT2FROMMP(mp1) - ptxvd->ulViewYOfs;
             WinSetCapture(HWND_DESKTOP, NULLHANDLE);
 
             if (ptxvd->usLastAnchorClicked)
@@ -3036,12 +3036,12 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                         // Since rectangles start out with the height of the window (e.g. +768)
                         // and then have lower y coordinates down to way in the negatives,
                         // to get the y offset, we must...
-                        ptxvd->lViewYOfs = (-pRect->rcl.yTop) - ulWinCY;
+                        ptxvd->ulViewYOfs = (-pRect->rcl.yTop) - ulWinCY;
 
-                        if (ptxvd->lViewYOfs < 0)
-                            ptxvd->lViewYOfs = 0;
-                        if (ptxvd->lViewYOfs > ((LONG)ptxvd->xfd.ulViewportCY - ulWinCY))
-                            ptxvd->lViewYOfs = (LONG)ptxvd->xfd.ulViewportCY - ulWinCY;
+                        if (ptxvd->ulViewYOfs < 0)
+                            ptxvd->ulViewYOfs = 0;
+                        if (ptxvd->ulViewYOfs > ((LONG)ptxvd->xfd.ulViewportCY - ulWinCY))
+                            ptxvd->ulViewYOfs = (LONG)ptxvd->xfd.ulViewportCY - ulWinCY;
 
                         // vertical scroll bar enabled at all?
                         if (ptxvd->cdata.flStyle & XTXF_VSCROLL)
@@ -3049,7 +3049,7 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                             BOOL fEnabled = winhUpdateScrollBar(ptxvd->hwndVScroll,
                                                                 ulWinCY,
                                                                 ptxvd->xfd.ulViewportCY,
-                                                                ptxvd->lViewYOfs,
+                                                                ptxvd->ulViewYOfs,
                                                                 (ptxvd->cdata.flStyle & XTXF_AUTOVHIDE));
                             WinInvalidateRect(hwndTextView, NULL, FALSE);
                         }
@@ -3439,7 +3439,7 @@ BOOL txvPrint(HAB hab,
     BOOL        fAnotherPage = FALSE;
     ULONG       ulCurrentLineIndex = 0,
                 ulCurrentPage = 1;
-    LONG        lCurrentYOfs = 0;
+    ULONG       ulCurrentYOfs = 0;
 
     /* MATRIXLF    matlf;
     POINTL      ptlCenter;
@@ -3509,7 +3509,7 @@ BOOL txvPrint(HAB hab,
                                     &xfd,
                                     &rclPageWorld,
                                     0,
-                                    &lCurrentYOfs,
+                                    &ulCurrentYOfs,
                                     FALSE,      // draw only fully visible lines
                                     &ulCurrentLineIndex); // in/out: line to start with
         if (fAnotherPage)

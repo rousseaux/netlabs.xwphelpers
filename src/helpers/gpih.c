@@ -224,25 +224,25 @@ VOID gpihDrawRect(HPS hps,      // in: presentation space for output
  *      right corner specifies the top right pixel to be drawn.
  *      This is different from WinFillRect.
  *
+ *      If (lColor != -1), the HPS's current foreground color
+ *      is changed to that color.
+ *
  *      Changes to the HPS:
- *      --  the current (foreground) color is changed to
- *          lBackColor;
- *      --  the current area color is changed to lForeColor;
+ *
  *      --  the current position is moved to the lower left
  *          corner of *prcl.
  *
  *@@changed V0.9.0 [umoeller]: renamed from gpihFillRect
  *@@changed V0.9.0 [umoeller]: modified function prototype to support lControl
+ *@@changed V0.9.7 (2001-01-17) [umoeller]: removed lColor
  */
 
 VOID gpihBox(HPS hps,              // in: presentation space for output
              LONG lControl,        // in: one of DRO_OUTLINE, DRO_FILL, DRO_OUTLINEFILL
-             PRECTL prcl,          // in: rectangle to draw (exclusive)
-             LONG lColor)          // in: color for outline and/or fill
+             PRECTL prcl)          // in: rectangle to draw (exclusive)
 {
     POINTL      ptl;
 
-    GpiSetColor(hps, lColor);
     ptl.x = prcl->xLeft;
     ptl.y = prcl->yBottom;
     GpiMove(hps, &ptl);
@@ -262,16 +262,16 @@ VOID gpihBox(HPS hps,              // in: presentation space for output
  *      the specified point is in its center.
  *
  *      No PS data is changed.
+ *
+ *@@changed V0.9.7 (2001-01-17) [umoeller]: removed lColor
  */
 
 VOID gpihMarker(HPS hps,
                 LONG x,             // in: x-center of rectangle
                 LONG y,             // in: y-center of rectangle
-                ULONG ulWidth,      // in: rectangle width and height
-                LONG lColor)        // in: color
+                ULONG ulWidth)      // in: rectangle width and height
 {
     POINTL  ptlSave;
-    LONG    lColorSave;
     RECTL   rclTemp;
     ULONG   ulWidth2 = ulWidth / 2;
     rclTemp.xLeft = x - ulWidth2;
@@ -279,14 +279,11 @@ VOID gpihMarker(HPS hps,
     rclTemp.yBottom = y - ulWidth2;
     rclTemp.yTop    = y + ulWidth2;
 
-    lColorSave = GpiQueryColor(hps);
     GpiQueryCurrentPosition(hps, &ptlSave);
     gpihBox(hps,
             DRO_FILL,
-            &rclTemp,
-            lColor);
+            &rclTemp);
     GpiMove(hps, &ptlSave);
-    GpiSetColor(hps, lColorSave);
 }
 
 /*
@@ -745,6 +742,35 @@ LONG gpihQueryNextFontID(HPS hps)
  *          function which calls this function while a mutex
  *          semaphore is held by the wrapper. Then use only
  *          the wrapper in your code.
+ *
+ *      <B>Font metrics:</B>
+ *
+ *      The important values in the returned FONTMETRICS are
+ *      like this (according to PMREF):
+ *
+ +   …Õ ________________________________________________
+ +   ∫
+ +   ∫ lExternalLeading, according to font designer.
+ +   ∫  ________________________________________________  Õª
+ +   »Õ                                                    ∫
+ +                                  #       #              ∫
+ +                                  ##     ##              ∫ lMaxAscender (of entire;
+ +   …Õ _______________             # #   # #              ∫ font); this can be > capital
+ +   ∫                 ####         #  # #  #              ∫ letters because miniscules
+ +   ∫                #    #        #   #   #              ∫ can exceed that.
+ +   ∫  lXHeight      #    #        #       #              ∫
+ +   ∫                #    #        #       #              ∫
+ +   ∫                #    #        #       #              ∫
+ +   ∫  _______________#####________#_______#___ baseline Õª
+ +   »Õ                    #                               ∫
+ +                         #                               ∫ lMaxDescender
+ +      ______________ ####______________________________ Õº
+ +
+ *
+ *      In turn, lMaxBaselineExt is lMaxAscender + lMaxDescender.
+ *
+ *      Soooo... to find out about the optimal line spacing, GPIREF
+ *      recommends to use lMaxBaselineExt + lExternalLeading.
  *
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.3 (2000-05-06) [umoeller]: didn't work for more than one font; now using gpihQueryNextFontID

@@ -85,14 +85,12 @@ extern "C" {
 
     VOID gpihBox(HPS hps,
                  LONG lControl,
-                 PRECTL prcl,
-                 LONG lColor);
+                 PRECTL prcl);
 
     VOID gpihMarker(HPS hps,
                     LONG x,
                     LONG y,
-                    ULONG ulWidth,
-                    LONG lColor);
+                    ULONG ulWidth);
 
     VOID gpihDrawThickFrame(HPS hps,
                             PRECTL prcl,

@@ -128,17 +128,17 @@ extern "C" {
     SHORT XWPENTRY winhInsertMenuItem(HWND hwndMenu,
                                       SHORT iPosition,
                                       SHORT sItemId,
-                                      PSZ pszItemTitle,
+                                      const char *pcszItemTitle,
                                       SHORT afStyle,
                                       SHORT afAttr);
 
     HWND XWPENTRY winhInsertSubmenu(HWND hwndMenu,
                                     ULONG iPosition,
                                     SHORT sMenuId,
-                                    PSZ pszSubmenuTitle,
+                                    const char *pcszSubmenuTitle,
                                     USHORT afMenuStyle,
                                     SHORT sItemId,
-                                    PSZ pszItemTitle,
+                                    const char *pcszItemTitle,
                                     USHORT afItemStyle,
                                     USHORT afAttribute);
 
@@ -468,7 +468,7 @@ extern "C" {
 
     BOOL XWPENTRY winhHandleScrollMsg(HWND hwnd2Scroll,
                                       HWND hwndScrollBar,
-                                      PLONG plCurUnitOfs,
+                                      PULONG pulCurPelsOfs,
                                       PRECTL prcl2Scroll,
                                       LONG ulViewportPels,
                                       USHORT usLineStepUnits,
@@ -489,9 +489,9 @@ extern "C" {
      *
      ********************************************************************/
 
-    BOOL XWPENTRY winhSaveWindowPos(HWND hwnd, HINI hIni, PSZ pszApp, PSZ pszKey);
+    BOOL XWPENTRY winhSaveWindowPos(HWND hwnd, HINI hIni, const char *pcszApp, const char *pcszKey);
 
-    BOOL XWPENTRY winhRestoreWindowPos(HWND hwnd, HINI hIni, PSZ pszApp, PSZ pszKey, ULONG fl);
+    BOOL XWPENTRY winhRestoreWindowPos(HWND hwnd, HINI hIni, const char *pcszApp, const char *pcszKey, ULONG fl);
 
     #define XAC_MOVEX       0x0001
     #define XAC_MOVEY       0x0002
@@ -570,10 +570,10 @@ extern "C" {
 
     #ifdef INCL_WINHELP
         HWND XWPENTRY winhCreateHelp(HWND hwndFrame,
-                                     PSZ pszFileName,
+                                     const char *pcszFileName,
                                      HMODULE hmod,
                                      PHELPTABLE pHelpTable,
-                                     PSZ pszWindowTitle);
+                                     const char *pcszWindowTitle);
 
         void XWPENTRY winhDestroyHelp(HWND hwndHelp, HWND hwndFrame);
     #endif
@@ -588,7 +588,7 @@ extern "C" {
         HAPP XWPENTRY winhStartApp(HWND hwndNotify, const PROGDETAILS *pcProgDetails);
     #endif
 
-    BOOL XWPENTRY winhAnotherInstance(PSZ pszSemName, BOOL fSwitch);
+    BOOL XWPENTRY winhAnotherInstance(const char *pcszSemName, BOOL fSwitch);
 
     HSWITCH XWPENTRY winhAddToTasklist(HWND hwnd, HPOINTER hIcon);
 
@@ -612,8 +612,8 @@ extern "C" {
                               PSZ pszFile,
                               ULONG flFlags,
                               HINI hini,
-                              PSZ pszApplication,
-                              PSZ pszKey);
+                              const char *pcszApplication,
+                              const char *pcszKey);
 
     HPOINTER XWPENTRY winhSetWaitPointer(VOID);
 
@@ -628,8 +628,8 @@ extern "C" {
     #define winhQueryDlgItemText(hwnd, usItemID) winhQueryWindowText(WinWindowFromID(hwnd, usItemID))
 
     BOOL XWPENTRY winhReplaceWindowText(HWND hwnd,
-                                        PSZ pszSearch,
-                                        PSZ pszReplaceWith);
+                                        const char *pcszSearch,
+                                        const char *pcszReplaceWith);
 
     ULONG XWPENTRY winhCenteredDlgBox(HWND hwndParent, HWND hwndOwner,
                   PFNWP pfnDlgProc, HMODULE hmod, ULONG idDlg, PVOID pCreateParams);
@@ -646,30 +646,16 @@ extern "C" {
                                       PSWP pswpFrame,
                                       ULONG flFrameCreateFlags,
                                       ULONG ulFrameStyle,
-                                      PSZ pszFrameTitle,
+                                      const char *pcszFrameTitle,
                                       ULONG ulResourcesID,
-                                      PSZ pszClassClient,
+                                      const char *pcszClassClient,
                                       ULONG flStyleClient,
                                       ULONG ulID,
                                       PVOID pClientCtlData,
                                       PHWND phwndClient);
 
-    /*
-     *@@ winhCreateObjectWindow:
-     *      creates an object window of the specified
-     *      window class, which you should have registered
-     *      before calling this. pvCreateParam will be
-     *      given to the window on WM_CREATE.
-     *
-     *      Returns the HWND of the object window or
-     *      NULLHANDLE on errors.
-     *
-     *@@added V0.9.3 (2000-04-17) [umoeller]
-     */
-
-    #define winhCreateObjectWindow(pcszWindowClass, pvCreateParam) \
-                WinCreateWindow(HWND_OBJECT, pcszWindowClass,   \
-                    (PSZ)"", 0, 0,0,0,0, 0, HWND_BOTTOM, 0, pvCreateParam, NULL)
+    HWND winhCreateObjectWindow(const char *pcszWindowClass,
+                                PVOID pvCreateParam);
 
     VOID XWPENTRY winhRepaintWindows(HWND hwndParent);
 
@@ -683,7 +669,7 @@ extern "C" {
                                  USHORT usIdThreshold,
                                  ULONG ulDownUnits);
 
-    ULONG XWPENTRY winhDrawFormattedText(HPS hps, PRECTL prcl, PSZ pszText, ULONG flCmd);
+    ULONG XWPENTRY winhDrawFormattedText(HPS hps, PRECTL prcl, const char *pcszText, ULONG flCmd);
 
     #ifdef INCL_WINSWITCHLIST
         PSWBLOCK XWPENTRY winhQuerySwitchList(HAB hab);
