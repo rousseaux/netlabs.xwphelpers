@@ -428,6 +428,11 @@ extern "C" {
             WS_VISIBLE | WS_TABSTOP | ES_MARGIN | ES_AUTOSCROLL, \
             id, CTL_COMMON_FONT, { cx, cy }, COMMON_SPACING }
 
+        // CONTROLDEF_ENTRYFIELD_PASSWD added V1.0.1 (2003-01-05) [umoeller]
+    #define CONTROLDEF_ENTRYFIELD_PASSWD(pcsz, id, cx, cy) { WC_ENTRYFIELD, pcsz, \
+            WS_VISIBLE | WS_TABSTOP | ES_MARGIN | ES_AUTOSCROLL | ES_UNREADABLE, \
+            id, CTL_COMMON_FONT, { cx, cy }, COMMON_SPACING }
+
     #define CONTROLDEF_ENTRYFIELD_RO(pcsz, id, cx, cy) { WC_ENTRYFIELD, pcsz, \
             WS_VISIBLE | WS_TABSTOP | ES_MARGIN | ES_READONLY | ES_AUTOSCROLL, \
             id, CTL_COMMON_FONT, { cx, cy }, COMMON_SPACING }

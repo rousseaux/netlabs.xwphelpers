@@ -2968,6 +2968,29 @@ PCSZ winhQueryDefaultFont(VOID)
 }
 
 /*
+ *@@ winhQueryMenuSysFont:
+ *      returns the system menu font in a new buffer
+ *      to be free()'d by caller.
+ *
+ *@@added V1.0.1 (2003-01-05) [umoeller]
+ */
+
+PSZ winhQueryMenuSysFont(VOID)
+{
+    PSZ pszStdMenuFont;
+    if (!(pszStdMenuFont = prfhQueryProfileData(HINI_USER,
+                                                PMINIAPP_SYSTEMFONTS, // "PM_SystemFonts",
+                                                PMINIKEY_MENUSFONT, // "Menus",
+                                                NULL)))
+        pszStdMenuFont = prfhQueryProfileData(HINI_USER,
+                                              PMINIAPP_SYSTEMFONTS, // "PM_SystemFonts",
+                                              PMINIKEY_DEFAULTFONT, // "DefaultFont",
+                                              NULL);
+
+    return pszStdMenuFont;
+}
+
+/*
  *@@ winhSetWindowFont:
  *      this sets a window's font by invoking
  *      WinSetPresParam on it.
@@ -3824,27 +3847,78 @@ HPOINTER winhSetWaitPointer(VOID)
 }
 
 /*
+ *@@ winhQueryWindowText2:
+ *      this returns the window text of the specified
+ *      HWND in a newly allocated buffer.
+ *
+ *      If pulExtra is specified, *pulExtra bytes will
+ *      be allocated in addition to the window text
+ *      length. Useful if you plan to append something
+ *      to the string. On output, *pulExtra receives
+ *      the string length excluding the extra bytes
+ *      and the terminating null byte.
+ *
+ *      Returns NULL on error. Use free()
+ *      to free the return value.
+ *
+ *@@added V1.0.1 (2003-01-05) [umoeller]
+ */
+
+PSZ winhQueryWindowText2(HWND hwnd,         // in: window whose text to query
+                         PULONG pulExtra)   // in: extra bytes to allocate or NULL,
+                                            // out: size of allocated buffer (including null byte)
+{
+    PSZ     pszText = NULL;
+    ULONG   cbText;
+    if (cbText = WinQueryWindowTextLength(hwnd))
+    {
+        ULONG cbExtra = 1;      // additional null character
+        if (pulExtra)
+            cbExtra += *pulExtra;
+
+        if (pszText = (PSZ)malloc(cbText + cbExtra))
+        {
+            WinQueryWindowText(hwnd,
+                               cbText + 1,
+                               pszText);
+            if (pulExtra)
+                *pulExtra = cbText;
+        }
+    }
+
+    return pszText;
+}
+
+/*
  *@@ winhQueryWindowText:
  *      this returns the window text of the specified
  *      HWND in a newly allocated buffer.
  *
  *      Returns NULL on error. Use free()
  *      to free the return value.
+ *
+ *@@changed V1.0.1 (2003-01-05) [umoeller]: now using winhQueryWindowText2
  */
 
 PSZ winhQueryWindowText(HWND hwnd)
 {
-    PSZ     pszText = NULL;
-    ULONG   cbText;
-    if (cbText = WinQueryWindowTextLength(hwnd))
-    {
-        if (pszText = (PSZ)malloc(cbText + 1))  // additional null character
-            WinQueryWindowText(hwnd,
-                               cbText + 1,
-                               pszText);
-    }
+    return winhQueryWindowText2(hwnd, NULL);        // V1.0.1 (2003-01-05) [umoeller]
+}
 
-    return pszText;
+/*
+ *@@ winhQueryDlgItemText2:
+ *      shortcut around winhQueryWindowText2 to allow for
+ *      specifying a dialog item ID instead.
+ *
+ *@@added V1.0.1 (2003-01-05) [umoeller]
+ */
+
+PSZ winhQueryDlgItemText2(HWND hwnd,
+                          USHORT usItemID,
+                          PULONG pulExtra)
+{
+    return winhQueryWindowText2(WinWindowFromID(hwnd, usItemID),
+                                pulExtra);
 }
 
 /*
@@ -3871,6 +3945,41 @@ BOOL winhSetWindowText(HWND hwnd,
 
     return WinSetWindowText(hwnd,
                             szBuf);
+}
+
+/*
+ *@@ winhAppendWindowEllipseText:
+ *      appends three dots ("...") to the title
+ *      of the given window.
+ *
+ *@@added V1.0.1 (2003-01-05) [umoeller]
+ */
+
+BOOL winhAppendWindowEllipseText(HWND hwnd)
+{
+    ULONG cbExtra = 3;
+    PSZ psz;
+    BOOL brc = FALSE;
+    if (psz = winhQueryWindowText2(hwnd, &cbExtra))
+    {
+        memcpy(psz + cbExtra, "...", 4);
+        brc = WinSetWindowText(hwnd, psz);
+        free(psz);
+    }
+
+    return brc;
+}
+
+/*
+ *@@ winhAppendDlgItemEllipseText:
+ *
+ *@@added V1.0.1 (2003-01-05) [umoeller]
+ */
+
+BOOL winhAppendDlgItemEllipseText(HWND hwnd,
+                                  USHORT usItemID)
+{
+    return winhAppendWindowEllipseText(WinWindowFromID(hwnd, usItemID));
 }
 
 /*

@@ -223,13 +223,6 @@ extern "C" {
             // converts a flat 32bit pointer to its 16bit offset/selector form
         #endif
 
-        BOOL XWPENTRY winhQueryMenuItem(HWND hwndMenu,
-                                        USHORT usItemID,
-                                        BOOL fSearchSubmenus,
-                                        PMENUITEM pmi);
-
-        HWND XWPENTRY winhQuerySubmenu(HWND hMenu, SHORT sID);
-
         /*
          * winhCreateEmptyMenu:
          *      this macro creates an empty menu, which can
@@ -244,6 +237,13 @@ extern "C" {
         #define winhCreateEmptyMenu()                                   \
         WinCreateWindow(HWND_DESKTOP, WC_MENU, "", 0, 0, 0, 0, 0,       \
                         HWND_DESKTOP, HWND_TOP, 0, 0, 0)
+
+        BOOL XWPENTRY winhQueryMenuItem(HWND hwndMenu,
+                                        USHORT usItemID,
+                                        BOOL fSearchSubmenus,
+                                        PMENUITEM pmi);
+
+        HWND XWPENTRY winhQuerySubmenu(HWND hMenu, SHORT sID);
 
         SHORT XWPENTRY winhInsertMenuItem(HWND hwndMenu,
                                           SHORT iPosition,
@@ -752,6 +752,8 @@ extern "C" {
 
     PCSZ XWPENTRY winhQueryDefaultFont(VOID);
 
+    PSZ XWPENTRY winhQueryMenuSysFont(VOID);
+
     BOOL XWPENTRY winhSetWindowFont(HWND hwnd, const char *pcszFont);
     typedef BOOL XWPENTRY WINHSETWINDOWFONT(HWND hwnd, const char *pcszFont);
     typedef WINHSETWINDOWFONT *PWINHSETWINDOWFONT;
@@ -878,19 +880,33 @@ extern "C" {
 
     HPOINTER XWPENTRY winhSetWaitPointer(VOID);
 
+    PSZ XWPENTRY winhQueryWindowText2(HWND hwnd,
+                                      PULONG pulExtra);
+
     PSZ XWPENTRY winhQueryWindowText(HWND hwnd);
 
     BOOL XWPENTRY winhSetWindowText(HWND hwnd,
                                     const char *pcszFormat,
                                     ...);
 
+    PSZ XWPENTRY winhQueryDlgItemText2(HWND hwnd,
+                                       USHORT usItemID,
+                                       PULONG pulExtra);
+
     /*
      *@@ winhQueryDlgItemText:
      *      like winhQueryWindowText, but for the dialog item
      *      in hwnd which has the ID usItemID.
+     *
+     *@@changed V1.0.1 (2003-01-05) [umoeller]: now using winhQueryDlgItemText2
      */
 
-    #define winhQueryDlgItemText(hwnd, usItemID) winhQueryWindowText(WinWindowFromID(hwnd, usItemID))
+    #define winhQueryDlgItemText(hwnd, usItemID) winhQueryDlgItemText2(hwnd, usItemID, NULL)
+
+    BOOL XWPENTRY winhAppendWindowEllipseText(HWND hwnd);
+
+    BOOL XWPENTRY winhAppendDlgItemEllipseText(HWND hwnd,
+                                               USHORT usItemID);
 
     BOOL XWPENTRY winhReplaceWindowText(HWND hwnd,
                                         const char *pcszSearch,
