@@ -339,8 +339,7 @@ HBITMAP ctlCreateChartBitmap(HPS hpsMem,                // in: memory PS to use 
                         // darken the current fill color
                         // by halving each color component
                         gpihManipulateRGB(&ab.lColor,
-                                          1,        // multiplier
-                                          2);       // divisor
+                                          .5);       // factor
 
                     // set the area (fill) color
                     GpiSetAttrs(hpsMem,

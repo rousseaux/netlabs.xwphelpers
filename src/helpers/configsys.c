@@ -162,6 +162,7 @@ APIRET csysWriteConfigSys(const char *pcszFile,     // in: CONFIG.SYS filename o
  *@@changed V0.9.0 [umoeller]: fixed bug which could cause character before pszSearchIn to be examined
  *@@changed V0.9.7 (2001-01-15) [umoeller]: moved this here from stringh.c; renamed from strhFindKey
  *@@changed V0.9.7 (2001-01-15) [umoeller]: now checking for tabs too
+ *@@changed V0.9.11 (2001-04-25) [umoeller]: this never found lines which had leading spaces, fixed
  */
 
 PSZ csysFindKey(const char *pcszSearchIn,   // in: text buffer to search
@@ -179,17 +180,21 @@ PSZ csysFindKey(const char *pcszSearchIn,   // in: text buffer to search
     {
         p = strhistr(p, pcszKey);
 
-        if ((p) && (p >= pcszSearchIn))
+        if (    (p)
+             && (p >= pcszSearchIn)
+           )
         {
             // make sure the key is at the beginning of a line
             // by going backwards until we find a char != " "
             const char *pStartOfLine = p;
-            while (     (   (*pStartOfLine == ' ')
-                         || (*pStartOfLine == '\t')       // allow tabs too
-                        )
-                     && (pStartOfLine > pcszSearchIn)
+
+            // fixed this V0.9.11 (2001-04-25) [umoeller]
+            while (    (pStartOfLine > pcszSearchIn)
+                    && (    (*(pStartOfLine - 1) == ' ')
+                         || (*(pStartOfLine - 1) == '\t')       // allow tabs too
+                       )
                   )
-                pStartOfLine--;
+                --pStartOfLine;
 
             // if we're at the beginning of a line or
             // at the beginning of the buffer at all,
@@ -367,7 +372,8 @@ PSZ csysSetParameter(PSZ* ppszBuf,          // in: text buffer to search
                 xstrrpl(&strBuf,
                         ulOldParamOfs,
                         ulToReplace,
-                        &strReplaceWith);
+                        strReplaceWith.psz,
+                        strReplaceWith.ulLength);      // adjusted V0.9.11 (2001-04-22) [umoeller]
 
                 xstrClear(&strReplaceWith);
 
@@ -1005,4 +1011,21 @@ LABEL_CFGRPL_ADD:
     return (arc);
 }
 
+// testcase
 
+/* int main()
+{
+    PSZ pszContents = NULL;
+    if (0 == csysLoadConfigSys(NULL, &pszContents))
+    {
+        CHAR    szValue[1000];
+        PSZ pszValue = csysGetParameter(pszContents,
+                                        "IFS=",
+                                        szValue,
+                                        sizeof(szValue));
+        if (pszValue)
+            printf("Value: %s", szValue);
+    }
+
+    return (0);
+} */

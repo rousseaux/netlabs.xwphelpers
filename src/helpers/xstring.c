@@ -689,9 +689,9 @@ ULONG xstrcats(PXSTRING pxstr,
 
 /*
  *@@ xstrrpl:
- *      replaces cReplLen characters in pxstr, starting
- *      at the position ulFirstReplPos, with the string
- *      in pxstrReplaceWith.
+ *      replaces "cReplLen" characters in pxstr, starting
+ *      at the position "ulFirstReplPos", with the first
+ *      "cReplaceWithLen" characters from pcszReplaceWith.
  *
  *      Returns the new length of the string, excluding
  *      the null terminator, or 0 if the replacement failed
@@ -726,30 +726,29 @@ ULONG xstrcats(PXSTRING pxstr,
  *@@changed V0.9.9 (2001-01-29) [lafaix]: fixed unnecessary allocation when pxstr was big enough
  *@@changed V0.9.9 (2001-02-14) [umoeller]: fixed NULL target crash
  *@@changed V0.9.9 (2001-03-09) [umoeller]: now using xstrReserve
+ *@@changed V0.9.11 (2001-04-22) [umoeller]: replaced replacement XSTRING with PCSZ
  */
 
 ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
               ULONG ulFirstReplOfs,             // in: ofs of first char to replace
               ULONG cReplLen,                   // in: no. of chars to replace
-              const XSTRING *pstrReplaceWith)   // in: string to replace chars with
+              const char *pcszReplaceWith,      // in: string to replace chars with
+              ULONG cReplaceWithLen)            // in: length of replacement string
+                                                // (this MUST be specified; if 0, chars are removed only)
 {
     ULONG   ulrc = 0;
 
     // security checks...
     if (    (pxstr)         // V0.9.9 (2001-02-14) [umoeller]
          && (ulFirstReplOfs + cReplLen <= pxstr->ulLength)
-         && (pstrReplaceWith)
-         // && (pstrReplaceWith->ulLength)      no, this can be empty
+         && (pcszReplaceWith)
        )
     {
-        ULONG   cReplaceLen = pstrReplaceWith->ulLength;
-                    // can be 0!
-
         // size of new buffer:
-        ULONG   cbNeeded = pxstr->ulLength
-                         + cReplaceLen
-                         - cReplLen
-                         + 1;                  // null terminator
+        ULONG   cbNeeded = pxstr->ulLength      // existing
+                         + cReplaceWithLen      // plus replacement string length
+                         - cReplLen             // minus replaced characters
+                         + 1;                   // plus null terminator
         // offset where pszSearch was found
         PSZ     pFound = pxstr->psz + ulFirstReplOfs;
 
@@ -790,13 +789,23 @@ ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
                        pxstr->psz,
                        ulFirstReplOfs);     // up to "found"
 
-            if (cReplaceLen)
+            if (cReplaceWithLen)
             {
                 // we have a replacement:
                 // insert it next
-                memcpy(pszNew + ulFirstReplOfs,
+
+                /* memcpy(pszNew + ulFirstReplOfs,
                        pstrReplaceWith->psz,
-                       cReplaceLen + 1);        // include null terminator
+                       cReplaceWithLen + 1);        // include null terminator
+                */
+                // no, we no longer can be sure that pcszReplaceWith is
+                // null terminated, so terminate explicitly
+                // V0.9.11 (2001-04-22) [umoeller]
+
+                memcpy(pszNew + ulFirstReplOfs,
+                       pcszReplaceWith,
+                       cReplaceWithLen);
+                *(pszNew + ulFirstReplOfs + cReplaceWithLen) = '\0';
             }
 
             // copy rest:
@@ -809,7 +818,7 @@ ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
             //            ³    ÀÄ ulFirstReplOfs = 5
             //            ³            ³
             //            pxstr->ulLength = 14
-            memcpy(pszNew + ulFirstReplOfs + cReplaceLen,
+            memcpy(pszNew + ulFirstReplOfs + cReplaceWithLen,
                    pFound + cReplLen,
                    // remaining bytes:
                    pxstr->ulLength - ulFirstReplOfs - cReplLen // 9
@@ -832,16 +841,16 @@ ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
 
             // first, we move the end to its new location
             // (memmove handles overlap if needed)
-            memmove(pFound + cReplaceLen,
+            memmove(pFound + cReplaceWithLen,
                     pFound + cReplLen,
                     cTailLength + 1); // including null terminator
 
             // now overwrite "found" in the middle
-            if (cReplaceLen)
+            if (cReplaceWithLen)
             {
                 memcpy(pFound,
-                       pstrReplaceWith->psz,
-                       cReplaceLen);        // no null terminator
+                       pcszReplaceWith,
+                       cReplaceWithLen);        // no null terminator
             }
 
             // that's it; adjust the string length now
@@ -1031,7 +1040,8 @@ ULONG xstrFindReplace(PXSTRING pxstr,               // in/out: string
                 ulrc = xstrrpl(pxstr,
                                ulFirstReplOfs,              // where to start
                                cSearchLen,                  // chars to replace
-                               pstrReplace);
+                               pstrReplace->psz,
+                               pstrReplace->ulLength);      // adjusted V0.9.11 (2001-04-22) [umoeller]
 
                 // return new length
                 *pulOfs = ulFirstReplOfs + pstrReplace->ulLength;

@@ -36,6 +36,8 @@
 
 typedef struct _ENCODINGTABLE
 {
+    XWPENCODINGID   EncodingID;
+
     unsigned short  cEntries;
     unsigned short  ausEntries[1];        // variable size
 } ENCODINGTABLE, *PENCODINGTABLE;
@@ -68,7 +70,7 @@ typedef struct _ENCODINGTABLE
 
 long encRegisterEncoding(PXWPENCODINGMAP pEncodingMap,
                          unsigned long cArrayEntries,    // count of array items
-                         XWPENCODINGID EncodingID)
+                         XWPENCODINGID EncodingID)       // enum from encodings\base.h
 {
     long lrc = 0;
 

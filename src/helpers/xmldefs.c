@@ -875,8 +875,12 @@
  *
  +              <!DOCTYPE name SYSTEM "whatever.dtd">
  *
- *      or an internal subset in brackets, which contains the markup
- *      directly:
+ *      The SYSTEM identifier is required with XML, while a public
+ *      identifier is not. (In SGML, neither is required, but at
+ *      least one must be present.)
+ *
+ *      Alternatively,specify an internal subset in brackets, which
+ *      contains the markup directly:
  *
  +              <!DOCTYPE name [
  +                      <!ELEMENT greeting (#PCDATA)>

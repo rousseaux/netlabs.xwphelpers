@@ -195,32 +195,63 @@ ULONG gpihQueryDisplayCaps(ULONG ulIndex)
  ********************************************************************/
 
 /*
+ * HackColor:
+ *
+ */
+
+VOID HackColor(PBYTE pb, double dFactor)
+{
+    ULONG ul = (ULONG)((double)(*pb) * dFactor);
+    if (ul > 255)
+        *pb = 255;
+    else
+        *pb = (BYTE)ul;
+}
+
+/*
  *@@ gpihManipulateRGB:
  *      this changes an RGB color value
  *      by multiplying each color component
- *      (red, green, blue) with bMultiplier
- *      and dividing it by bDivisor afterwards.
+ *      (red, green, blue) with dFactor.
  *
  *      Each color component is treated separately,
- *      so if overflows occur (because bMultiplier
+ *      so if overflows occur (because dFactor
  *      is > 1), this does not affect the other
  *      components.
  *
- *      Example: if you pass a brigt red
- *      (0xFF0000) to this func, this will
- *      be 0x7F0000 if bMultiplier and
- *      bDivisor are 1 and 2.
+ *@@changed V0.9.11 (2001-04-25) [umoeller]: changed prototype to use a double now
  */
 
 VOID gpihManipulateRGB(PLONG plColor,       // in/out: RGB color
-                       BYTE bMultiplier,    // in: multiplier
-                       BYTE bDivisor)       // in: divisor
+                       double dFactor)      // in: factor (> 1 makes brigher, < 1 makes darker)
 {
     PBYTE   pb = (PBYTE)plColor;
+
     // in memory, the bytes are blue, green, red, unused
-    *pb++ = (BYTE)((LONG)(*pb) * bMultiplier / bDivisor); // blue
-    *pb++ = (BYTE)((LONG)(*pb) * bMultiplier / bDivisor); // green
-    *pb++ = (BYTE)((LONG)(*pb) * bMultiplier / bDivisor); // red
+
+    // blue
+    ULONG   ul = (ULONG)(   (double)(*pb) * dFactor
+                        );
+    if (ul > 255)
+        *pb = 255;
+    else
+        *pb = (BYTE)ul;
+
+    // green
+    ul = (ULONG)(   (double)(*(++pb)) * dFactor
+                );
+    if (ul > 255)
+        *pb = 255;
+    else
+        *pb = (BYTE)ul;
+
+    // red
+    ul = (ULONG)(   (double)(*(++pb)) * dFactor
+                );
+    if (ul > 255)
+        *pb = 255;
+    else
+        *pb = (BYTE)ul;
 }
 
 /*

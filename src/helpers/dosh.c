@@ -345,10 +345,10 @@ VOID doshEnumDrives(PSZ pszBuffer,      // out: drive letters
                     const char *pcszFileSystem,  // in: FS's to match or NULL
                     BOOL fSkipRemoveables) // in: if TRUE, only non-removeable disks will be returned
 {
-    CHAR szName[5] = "";
-    ULONG ulLogicalDrive = 1, // start with drive A:
-          ulFound = 0;        // found drives count
-    APIRET arc             = NO_ERROR; // return code
+    CHAR    szName[5] = "";
+    ULONG   ulLogicalDrive = 1, // start with drive A:
+            ulFound = 0;        // found drives count
+    APIRET  arc = NO_ERROR; // return code
 
     if (fSkipRemoveables)
         // start with drive C:
@@ -378,12 +378,6 @@ VOID doshEnumDrives(PSZ pszBuffer,      // out: drive letters
                           &nonRemovable,
                           1,
                           &dataLen);
-
-        /* _Pmpf(("  ul = %d, Drive %c: arc = %d nonRemoveable = %d",
-                    ulLogicalDrive,
-                    G_acDriveLetters[ulLogicalDrive],
-                    arc,
-                    nonRemovable)); */
 
         if (    // fixed disk and non-removeable
                 ((arc == NO_ERROR) && (nonRemovable))
@@ -470,6 +464,7 @@ CHAR doshQueryBootDrive(VOID)
  *@@changed V0.9.3 (2000-03-28) [umoeller]: added check for network drives, which weren't working
  *@@changed V0.9.4 (2000-08-03) [umoeller]: more network fixes
  *@@changed V0.9.9 (2001-03-19) [pr]: validate drive number
+ *@@changed V0.9.11 (2001-04-23) [umoeller]: added an extra check for floppies
  */
 
 APIRET doshAssertDrive(ULONG ulLogicalDrive) // in: 1 for A:, 2 for B:, 3 for C:, ...
@@ -516,17 +511,22 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive) // in: 1 for A:, 2 for B:, 3 for C:
             // this is returned by some other network types...
             // sigh...
         case ERROR_NOT_SUPPORTED: // 50
-        {
             // this is returned by file systems which don't
             // support DASD DosOpen;
             // use some other method then, this isn't likely
             // to fail -- V0.9.1 (2000-02-09) [umoeller]
-            FSALLOCATE  fsa;
-            arc = DosQueryFSInfo(ulLogicalDrive,
-                                 FSIL_ALLOC,
-                                 &fsa,
-                                 sizeof(fsa));
-        break; }
+
+            // but don't do this for floppies
+            // V0.9.11 (2001-04-23) [umoeller]
+            if (ulLogicalDrive > 2)
+            {
+                FSALLOCATE  fsa;
+                arc = DosQueryFSInfo(ulLogicalDrive,
+                                     FSIL_ALLOC,
+                                     &fsa,
+                                     sizeof(fsa));
+            }
+        break;
 
         case NO_ERROR:
             DosClose(hfDrive);
@@ -553,9 +553,9 @@ APIRET doshSetLogicalMap(ULONG ulLogicalDrive)
             action = 0,
             paramsize = 0,
             datasize = 0;
-    APIRET    rc = NO_ERROR;
-    USHORT    data,
-              param;
+    APIRET  rc = NO_ERROR;
+    USHORT  data,
+            param;
 
     name[0] = doshQueryBootDrive();
     rc = DosOpen(name,
@@ -801,6 +801,7 @@ APIRET doshQueryDiskParams(ULONG ulLogicalDrive,        // in:  1 for A:, 2 for 
  *      for details.
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.11 (2001-04-22) [umoeller]: this copied even with errors, fixed
  */
 
 APIRET doshQueryDiskLabel(ULONG ulLogicalDrive,         // in:  1 for A:, 2 for B:, 3 for C:, ...
@@ -819,11 +820,14 @@ APIRET doshQueryDiskLabel(ULONG ulLogicalDrive,         // in:  1 for A:, 2 for 
                          &FSInfoBuf,
                          sizeof(FSInfoBuf)); // depends
 
-    #ifdef __OS2V2X__
-        strcpy(pszVolumeLabel, FSInfoBuf.szVolLabel);
-    #else
-        strcpy(pszVolumeLabel, FSInfoBuf.vol.szVolLabel);
-    #endif
+    if (!arc)       // V0.9.11 (2001-04-22) [umoeller]
+    {
+        #ifdef __OS2V2X__
+            strcpy(pszVolumeLabel, FSInfoBuf.szVolLabel);
+        #else
+            strcpy(pszVolumeLabel, FSInfoBuf.vol.szVolLabel);
+        #endif
+    }
 
     return (arc);
 }
@@ -1022,7 +1026,7 @@ ULONG doshQueryPathSize(PSZ pszFile)
  *      --  FILE_SYSTEM
  *      --  FILE_HIDDEN
  *
- *      This returns the APIRET of DosQueryPathAttr.
+ *      This returns the APIRET of DosQueryPathInfo.
  *      *pulAttr is only valid if NO_ERROR is
  *      returned.
  *

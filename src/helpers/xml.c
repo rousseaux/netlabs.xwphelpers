@@ -141,7 +141,123 @@
 
 /* ******************************************************************
  *
- *   Generic methods
+ *   Error handling
+ *
+ ********************************************************************/
+
+/*
+ *@@ xmlDescribeError:
+ *      returns a string describing the error corresponding to code.
+ *      The code should be one of the enums that can be returned from
+ *      XML_GetErrorCode.
+ *
+ *@@changed V0.9.9 (2001-02-14) [umoeller]: adjusted for new error codes
+ *@@changed V0.9.9 (2001-02-16) [umoeller]: moved this here from xmlparse.c
+ */
+
+const char* xmlDescribeError(int code)
+{
+    static const char *message[] =
+    {
+        // start of expat (parser) errors
+        "Out of memory",
+        "Syntax error",
+        "No element found",
+        "Not well-formed (invalid token)",
+        "Unclosed token",
+        "Unclosed token",
+        "Mismatched tag",
+        "Duplicate attribute",
+        "Junk after root element",
+        "Illegal parameter entity reference",
+        "Undefined entity",
+        "Recursive entity reference",
+        "Asynchronous entity",
+        "Reference to invalid character number",
+        "Reference to binary entity",
+        "Reference to external entity in attribute",
+        "XML processing instruction not at start of external entity",
+        "Unknown encoding",
+        "Encoding specified in XML declaration is incorrect",
+        "Unclosed CDATA section",
+        "Error in processing external entity reference",
+        "Document is not standalone",
+        "Unexpected parser state - please send a bug report",
+        // end of expat (parser) errors
+
+        // start of validation errors
+        "Element has not been declared",
+        "Root element name does not match DOCTYPE name",
+        "Invalid or duplicate root element",
+        "Invalid sub-element in parent element",
+        "Duplicate element declaration",
+        "Duplicate attribute declaration",
+        "Undeclared attribute in element",
+        "Element cannot have content",
+        "Invalid attribute value",
+        "Required attribute is missing",
+        "Subelement in empty element",
+
+        "Parsing error",
+        "Validity error",
+
+        "DOM node type not supported",
+        "No DOM document",
+        "No DOM element",
+        "Duplicate doctype",
+        "Root element doesn't match doctype name",
+        "DOM integrity error",
+        "Duplicate attribute",
+
+        "Validation error: Undeclared element name",
+        "Element declaration outside doctype",
+        "Attlist declaration outside doctype"
+    };
+
+    int code2 = code - ERROR_XML_FIRST;
+
+    if (    code2 >= 0
+         && code2 < sizeof(message) / sizeof(message[0])
+       )
+        return message[code2];
+
+    return 0;
+}
+
+/*
+ *@@ xmlSetError:
+ *      sets the DOM's error state and stores error information
+ *      and parser position.
+ *
+ *@@added V0.9.9 (2001-02-16) [umoeller]
+ */
+
+VOID xmlSetError(PXMLDOM pDom,
+                 APIRET arc,
+                 const char *pcszFailing,
+                 BOOL fValidityError)   // in: if TRUE, this is a validation error;
+                                        // if FALSE, this is a parser error
+{
+    pDom->arcDOM = arc;
+    pDom->pcszErrorDescription = xmlDescribeError(pDom->arcDOM);
+    pDom->ulErrorLine = XML_GetCurrentLineNumber(pDom->pParser);
+    pDom->ulErrorColumn = XML_GetCurrentColumnNumber(pDom->pParser);
+
+    if (pcszFailing)
+    {
+        if (!pDom->pxstrFailingNode)
+            pDom->pxstrFailingNode = xstrCreate(0);
+
+        xstrcpy(pDom->pxstrFailingNode, pcszFailing, 0);
+    }
+
+    if (fValidityError)
+        pDom->fInvalid = TRUE;
+}
+
+/* ******************************************************************
+ *
+ *   Most basic node management
  *
  ********************************************************************/
 
@@ -496,140 +612,9 @@ APIRET xmlCreateDomNode(PDOMNODE pParentNode,        // in: parent node or NULL 
     return (arc);
 }
 
-/*
- *@@ xmlGetFirstChild:
- *      returns the first child node of pDomNode.
- *      See _DOMNODE for what a "child" can be for the
- *      various node types.
- *
- *@@added V0.9.9 (2001-02-14) [umoeller]
- */
-
-PDOMNODE xmlGetFirstChild(PDOMNODE pDomNode)
-{
-    PLISTNODE pListNode = lstQueryFirstNode(&pDomNode->llChildren);
-    if (pListNode)
-        return ((PDOMNODE)pListNode->pItemData);
-
-    return (0);
-}
-
-/*
- *@@ xmlGetLastChild:
- *      returns the last child node of pDomNode.
- *      See _DOMNODE for what a "child" can be for the
- *      various node types.
- *
- *@@added V0.9.9 (2001-02-14) [umoeller]
- */
-
-PDOMNODE xmlGetLastChild(PDOMNODE pDomNode)
-{
-    PLISTNODE pListNode = lstQueryLastNode(&pDomNode->llChildren);
-    if (pListNode)
-        return ((PDOMNODE)pListNode->pItemData);
-
-    return (0);
-}
-
-/*
- *@@ xmlDescribeError:
- *      returns a string describing the error corresponding to code.
- *      The code should be one of the enums that can be returned from
- *      XML_GetErrorCode.
- *
- *@@changed V0.9.9 (2001-02-14) [umoeller]: adjusted for new error codes
- *@@changed V0.9.9 (2001-02-16) [umoeller]: moved this here from xmlparse.c
- */
-
-const char* xmlDescribeError(int code)
-{
-    static const char *message[] =
-    {
-        // start of expat (parser) errors
-        "Out of memory",
-        "Syntax error",
-        "No element found",
-        "Not well-formed (invalid token)",
-        "Unclosed token",
-        "Unclosed token",
-        "Mismatched tag",
-        "Duplicate attribute",
-        "Junk after root element",
-        "Illegal parameter entity reference",
-        "Undefined entity",
-        "Recursive entity reference",
-        "Asynchronous entity",
-        "Reference to invalid character number",
-        "Reference to binary entity",
-        "Reference to external entity in attribute",
-        "XML processing instruction not at start of external entity",
-        "Unknown encoding",
-        "Encoding specified in XML declaration is incorrect",
-        "Unclosed CDATA section",
-        "Error in processing external entity reference",
-        "Document is not standalone",
-        "Unexpected parser state - please send a bug report",
-        // end of expat (parser) errors
-
-        // start of validation errors
-        "Element has not been declared",
-        "Root element name does not match DOCTYPE name",
-        "Invalid or duplicate root element",
-        "Invalid sub-element in parent element",
-        "Duplicate element declaration",
-        "Duplicate attribute declaration",
-        "Undeclared attribute in element",
-        "Element cannot have content",
-        "Invalid attribute value",
-        "Required attribute is missing",
-        "Subelement in empty element"
-    };
-
-    int code2 = code - ERROR_XML_FIRST;
-
-    if (    code2 >= 0
-         && code2 < sizeof(message) / sizeof(message[0])
-       )
-        return message[code2];
-
-    return 0;
-}
-
-/*
- *@@ xmlSetError:
- *      sets the DOM's error state and stores error information
- *      and parser position.
- *
- *@@added V0.9.9 (2001-02-16) [umoeller]
- */
-
-VOID xmlSetError(PXMLDOM pDom,
-                 APIRET arc,
-                 const char *pcszFailing,
-                 BOOL fValidityError)   // in: if TRUE, this is a validation error;
-                                        // if FALSE, this is a parser error
-{
-    pDom->arcDOM = arc;
-    pDom->pcszErrorDescription = xmlDescribeError(pDom->arcDOM);
-    pDom->ulErrorLine = XML_GetCurrentLineNumber(pDom->pParser);
-    pDom->ulErrorColumn = XML_GetCurrentColumnNumber(pDom->pParser);
-
-    if (pcszFailing)
-    {
-        if (!pDom->pxstrFailingNode)
-            pDom->pxstrFailingNode = xstrCreate(0);
-
-        xstrcpy(pDom->pxstrFailingNode, pcszFailing, 0);
-    }
-
-    if (fValidityError)
-        pDom->fInvalid = TRUE;
-}
-
 /* ******************************************************************
  *
- *   Specific DOM node methods
+ *   Specific DOM node constructors
  *
  ********************************************************************/
 
@@ -870,28 +855,9 @@ APIRET xmlCreateDocumentTypeNode(PDOMDOCUMENTNODE pDocumentNode,            // i
     return (arc);
 }
 
-/*
- *@@ xmlGetElementsByTagName:
- *      returns a linked list of @DOM_ELEMENT nodes which
- *      match the specified element name. The special name
- *      "*" matches all elements.
- *
- *      The caller must free the list by calling lstFree.
- *      Returns NULL if no such elements could be found.
- *
- *@@added V0.9.9 (2001-02-14) [umoeller]
- */
-
-PLINKLIST xmlGetElementsByTagName(const char *pcszName)
-{
-    APIRET arc = NO_ERROR;
-
-    return (0);
-}
-
 /* ******************************************************************
  *
- *   Content model methods
+ *   DOM level 3 content models
  *
  ********************************************************************/
 
@@ -1030,101 +996,6 @@ APIRET xmlCreateElementDecl(const char *pcszName,
 }
 
 /*
- *@@ xmlFindElementDecl:
- *      returns the _CMELEMENTDECLNODE for the element
- *      with the specified name or NULL if there's none.
- *
- *@@added V0.9.9 (2001-02-16) [umoeller]
- */
-
-PCMELEMENTDECLNODE xmlFindElementDecl(PXMLDOM pDom,
-                                      const XSTRING *pstrElementName)
-{
-    PCMELEMENTDECLNODE pElementDecl = NULL;
-
-    PDOMDOCTYPENODE pDocTypeNode = pDom->pDocTypeNode;
-    if (    (pDocTypeNode)
-         && (pstrElementName)
-         && (pstrElementName->ulLength)
-       )
-    {
-        pElementDecl = (PCMELEMENTDECLNODE)treeFindEQData(
-                                      &pDocTypeNode->ElementDeclsTree,
-                                      (void*)pstrElementName->psz,
-                                      CompareNodeBaseData);
-    }
-
-    return (pElementDecl);
-}
-
-/*
- *@@ xmlFindAttribDeclBase:
- *      returns the _CMATTRIBUTEDECLBASE for the specified
- *      element name, or NULL if none exists.
- *
- *      To find a specific attribute declaration from both
- *      an element and an attribute name, use xmlFindAttribDecl
- *      instead.
- *
- *@@added V0.9.9 (2001-02-16) [umoeller]
- */
-
-PCMATTRIBUTEDECLBASE xmlFindAttribDeclBase(PXMLDOM pDom,
-                                             const XSTRING *pstrElementName)
-{
-    PCMATTRIBUTEDECLBASE pAttribDeclBase = NULL;
-
-    PDOMDOCTYPENODE pDocTypeNode = pDom->pDocTypeNode;
-    if (    (pDocTypeNode)
-         && (pstrElementName)
-         && (pstrElementName->ulLength)
-       )
-    {
-        pAttribDeclBase = (PCMATTRIBUTEDECLBASE)treeFindEQData(
-                                        &pDocTypeNode->AttribDeclBasesTree,
-                                        (void*)pstrElementName->psz,
-                                        CompareNodeBaseData);
-    }
-
-    return (pAttribDeclBase);
-}
-
-/*
- *@@ xmlFindAttribDecl:
- *      returns the _CMATTRIBUTEDEDECL for the specified
- *      element and attribute name, or NULL if none exists.
- *
- *@@added V0.9.9 (2001-02-16) [umoeller]
- */
-
-PCMATTRIBUTEDECL xmlFindAttribDecl(PXMLDOM pDom,
-                                   const XSTRING *pstrElementName,
-                                   const XSTRING *pstrAttribName,
-                                   PCMATTRIBUTEDECLBASE *ppAttribDeclBase)
-                                            // in/out: attr decl base cache;
-                                            // the pointer pointed to by this
-                                            // must be NULL on the first call
-{
-    PCMATTRIBUTEDECL pAttribDecl = NULL;
-    if (pstrElementName && pstrAttribName)
-    {
-        if (!*ppAttribDeclBase)
-            // first call for this:
-            *ppAttribDeclBase = xmlFindAttribDeclBase(pDom,
-                                                      pstrElementName);
-        if (*ppAttribDeclBase)
-        {
-            pAttribDecl = (PCMATTRIBUTEDECL)treeFindEQData(
-                                         &((**ppAttribDeclBase).AttribDeclsTree),
-                                         (void*)pstrAttribName->psz,
-                                         CompareNodeBaseData);
-        }
-    }
-
-    return (pAttribDecl);
-}
-
-/*
  *@@ ValidateElementChildren
  *      validates the specified element against the document's @DTD,
  *      more specifically, against the element declaration of the
@@ -1175,7 +1046,10 @@ VOID ValidateElement(PXMLDOM pDom,
             if (pNewElement->pParentNode == (PDOMNODE)pDom->pDocumentNode)
                 return;     // that's OK
             else
-                pDom->arcDOM = ERROR_DOM_DOCTYPE_STRUCTURE;
+                xmlSetError(pDom,
+                            ERROR_DOM_VALIDATE_INVALID_ELEMENT,
+                            pNewElement->NodeBase.strNodeName.psz,
+                            TRUE);
         }
         else
         {
@@ -1825,22 +1699,9 @@ void EXPATENTRY EndDoctypeDeclHandler(void *pUserData)      // in: our PXMLDOM r
     PXMLDOM     pDom = (PXMLDOM)pUserData;
 
     // continue parsing only if we had no errors so far
-    /* if (!pDom->arcDOM)
+    if (!pDom->arcDOM)
     {
-        PLISTNODE pStackLN = NULL;
-        PDOMSTACKITEM pSI = PopElementStack(pDom,
-                                            &pStackLN);
-
-        if (pDom->arcDOM)
-            pDom->arcDOM = ERROR_DOM_DOCTYPE_STRUCTURE;
-        else
-        {
-            if (pSI->pDomNode->NodeBase.ulNodeType != DOMNODE_DOCUMENT_TYPE)
-                pDom->arcDOM = ERROR_DOM_DOCTYPE_STRUCTURE;
-
-            lstRemoveNode(&pDom->llElementStack, pStackLN); // auto-free
-        }
-    } */
+    }
 }
 
 /*
@@ -1884,7 +1745,8 @@ void EXPATENTRY NotationDeclHandler(void *pUserData,      // in: our PXMLDOM rea
  *      identifiers. It is set by XML_SetBase and may be null.
  *
  *      The pcszPublicId parameter is the public id given in the entity
- *      declaration and may be null.
+ *      declaration and may be null (since XML doesn't require public
+ *      identifiers).
  *
  *      The pcszSystemId is the system identifier specified in the
  *      entity declaration and is never null. This is an exact copy
@@ -1925,11 +1787,9 @@ int EXPATENTRY ExternalEntityRefHandler(XML_Parser parser,
                                         const XML_Char *pcszSystemId,
                                         const XML_Char *pcszPublicId)
 {
-    int i = 0;
+    int i = 1;
 
-    FILE *f = fopen("log", "w");
-    fprintf(f, "sysid: %s\n", pcszSystemId);
-    fclose(f);
+    // @@todo: allow caller to load external references some way
 
     /* PXMLDOM     pDom = (PXMLDOM)pUserData;
 
@@ -1969,7 +1829,10 @@ void EXPATENTRY ElementDeclHandler(void *pUserData,      // in: our PXMLDOM real
         // OK, we're in a DOCTYPE node:
         PDOMDOCTYPENODE pDocType = pDom->pDocTypeNode;
         if (!pDocType)
-            pDom->arcDOM = ERROR_DOM_DOCTYPE_STRUCTURE;
+            xmlSetError(pDom,
+                        ERROR_DOM_ELEMENT_DECL_OUTSIDE_DOCTYPE,
+                        pcszName,
+                        TRUE);
         else
         {
             // create an element declaration and push it unto the
@@ -2070,7 +1933,10 @@ void EXPATENTRY AttlistDeclHandler(void *pUserData,      // in: our PXMLDOM real
         // OK, we're in a DOCTYPE node:
         PDOMDOCTYPENODE pDocType = pDom->pDocTypeNode;
         if (!pDocType)
-            pDom->arcDOM = ERROR_DOM_DOCTYPE_STRUCTURE;
+            xmlSetError(pDom,
+                        ERROR_DOM_ATTLIST_DECL_OUTSIDE_DOCTYPE,
+                        pcszElementName,
+                        TRUE);
         else
         {
             PCMATTRIBUTEDECLBASE    pThis = NULL,
@@ -2252,7 +2118,7 @@ void EXPATENTRY EntityDeclHandler(void *pUserData,      // in: our PXMLDOM reall
 
 /* ******************************************************************
  *
- *   DOM APIs
+ *   DOM root APIs
  *
  ********************************************************************/
 
@@ -2270,14 +2136,18 @@ void EXPATENTRY EntityDeclHandler(void *pUserData,      // in: our PXMLDOM reall
  *          the DOM tree. Otherwise they are silently ignored.
  *
  *      --  DF_PARSEDTD: add the @DTD of the document into the DOM tree
- *          as well and validate the document.
+ *          as well and validate the document, if a DTD was found.
+ *          Otherwise just parse and do not validate.
+ *
+ *      --  DF_FAIL_IF_NO_DTD: fail if no @DTD was found. Useful
+ *          if you want to enforce validation. @@todo
  *
  *      Usage:
  *
  *      1) Create a DOM instance.
  *
  +          PXMLDOM pDom = NULL;
- +          APIRET arc = xmlCreateDom(flags, &pDom);
+ +          APIRET arc = xmlCreateDOM(flags, &pDom);
  +
  *      2) Give chunks of data (or an entire buffer)
  *         to the DOM instance for parsing.
@@ -2411,7 +2281,7 @@ APIRET xmlCreateDOM(ULONG flParserFlags,
  *         With this error code, you will find specific
  *         error information in the XMLDOM fields.
  *
- *      -- ERROR_DOM_PARSING: the document is not @valid.
+ *      -- ERROR_DOM_VALIDITY: the document is not @valid.
  *         This can only happen if @DTD parsing was enabled
  *         with xmlCreateDOM.
  *         With this error code, you will find specific
@@ -2508,4 +2378,268 @@ APIRET xmlFreeDOM(PXMLDOM pDom)
     }
 
     return (arc);
+}
+
+/* ******************************************************************
+ *
+ *   DOM lookup
+ *
+ ********************************************************************/
+
+/*
+ *@@ xmlFindElementDecl:
+ *      returns the _CMELEMENTDECLNODE for the element
+ *      with the specified name or NULL if there's none.
+ *
+ *@@added V0.9.9 (2001-02-16) [umoeller]
+ */
+
+PCMELEMENTDECLNODE xmlFindElementDecl(PXMLDOM pDom,
+                                      const XSTRING *pstrElementName)
+{
+    PCMELEMENTDECLNODE pElementDecl = NULL;
+
+    PDOMDOCTYPENODE pDocTypeNode = pDom->pDocTypeNode;
+    if (    (pDocTypeNode)
+         && (pstrElementName)
+         && (pstrElementName->ulLength)
+       )
+    {
+        pElementDecl = (PCMELEMENTDECLNODE)treeFindEQData(
+                                      &pDocTypeNode->ElementDeclsTree,
+                                      (void*)pstrElementName->psz,
+                                      CompareNodeBaseData);
+    }
+
+    return (pElementDecl);
+}
+
+/*
+ *@@ xmlFindAttribDeclBase:
+ *      returns the _CMATTRIBUTEDECLBASE for the specified
+ *      element name, or NULL if none exists.
+ *
+ *      To find a specific attribute declaration from both
+ *      an element and an attribute name, use xmlFindAttribDecl
+ *      instead.
+ *
+ *@@added V0.9.9 (2001-02-16) [umoeller]
+ */
+
+PCMATTRIBUTEDECLBASE xmlFindAttribDeclBase(PXMLDOM pDom,
+                                           const XSTRING *pstrElementName)
+{
+    PCMATTRIBUTEDECLBASE pAttribDeclBase = NULL;
+
+    PDOMDOCTYPENODE pDocTypeNode = pDom->pDocTypeNode;
+    if (    (pDocTypeNode)
+         && (pstrElementName)
+         && (pstrElementName->ulLength)
+       )
+    {
+        pAttribDeclBase = (PCMATTRIBUTEDECLBASE)treeFindEQData(
+                                        &pDocTypeNode->AttribDeclBasesTree,
+                                        (void*)pstrElementName->psz,
+                                        CompareNodeBaseData);
+    }
+
+    return (pAttribDeclBase);
+}
+
+/*
+ *@@ xmlFindAttribDecl:
+ *      returns the _CMATTRIBUTEDEDECL for the specified
+ *      element and attribute name, or NULL if none exists.
+ *
+ *@@added V0.9.9 (2001-02-16) [umoeller]
+ */
+
+PCMATTRIBUTEDECL xmlFindAttribDecl(PXMLDOM pDom,
+                                   const XSTRING *pstrElementName,
+                                   const XSTRING *pstrAttribName,
+                                   PCMATTRIBUTEDECLBASE *ppAttribDeclBase)
+                                            // in/out: attr decl base cache;
+                                            // the pointer pointed to by this
+                                            // must be NULL on the first call
+{
+    PCMATTRIBUTEDECL pAttribDecl = NULL;
+    if (pstrElementName && pstrAttribName)
+    {
+        if (!*ppAttribDeclBase)
+            // first call for this:
+            *ppAttribDeclBase = xmlFindAttribDeclBase(pDom,
+                                                      pstrElementName);
+        if (*ppAttribDeclBase)
+        {
+            pAttribDecl = (PCMATTRIBUTEDECL)treeFindEQData(
+                                         &((**ppAttribDeclBase).AttribDeclsTree),
+                                         (void*)pstrAttribName->psz,
+                                         CompareNodeBaseData);
+        }
+    }
+
+    return (pAttribDecl);
+}
+
+/*
+ *@@ xmlGetRootElement:
+ *      returns the root element node from the specified
+ *      DOM. Useful helper to start enumerating elements.
+ *
+ *@@added V0.9.11 (2001-04-22) [umoeller]
+ */
+
+PDOMNODE xmlGetRootElement(PXMLDOM pDom)
+{
+    PDOMDOCUMENTNODE    pDocumentNode;
+    PLISTNODE           pListNode;
+    if (    (pDom)
+         && (pDocumentNode = pDom->pDocumentNode)
+         && (pListNode = lstQueryFirstNode(&pDocumentNode->DomNode.llChildren))
+       )
+    {
+        return ((PDOMNODE)pListNode->pItemData);
+    }
+
+    return (NULL);
+}
+
+/*
+ *@@ xmlGetFirstChild:
+ *      returns the first child node of pDomNode.
+ *      See _DOMNODE for what a "child" can be for the
+ *      various node types.
+ *
+ *@@added V0.9.9 (2001-02-14) [umoeller]
+ */
+
+PDOMNODE xmlGetFirstChild(PDOMNODE pDomNode)
+{
+    PLISTNODE pListNode = lstQueryFirstNode(&pDomNode->llChildren);
+    if (pListNode)
+        return ((PDOMNODE)pListNode->pItemData);
+
+    return (0);
+}
+
+/*
+ *@@ xmlGetLastChild:
+ *      returns the last child node of pDomNode.
+ *      See _DOMNODE for what a "child" can be for the
+ *      various node types.
+ *
+ *@@added V0.9.9 (2001-02-14) [umoeller]
+ */
+
+PDOMNODE xmlGetLastChild(PDOMNODE pDomNode)
+{
+    PLISTNODE pListNode = lstQueryLastNode(&pDomNode->llChildren);
+    if (pListNode)
+        return ((PDOMNODE)pListNode->pItemData);
+
+    return (0);
+}
+
+/*
+ *@@ xmlGetFirstText:
+ *      returns the first text (character data) node
+ *      of pElement or NULL if there's none.
+ *
+ *@@added V0.9.11 (2001-04-22) [umoeller]
+ */
+
+PDOMNODE xmlGetFirstText(PDOMNODE pElement)
+{
+    PLISTNODE   pNode;
+    PDOMNODE    pDomNodeThis;
+
+    for (pNode = lstQueryFirstNode(&pElement->llChildren);
+         pNode;
+         pNode = pNode->pNext)
+    {
+        if (    (pDomNodeThis = (PDOMNODE)pNode->pItemData)
+             && (pDomNodeThis->NodeBase.ulNodeType == DOMNODE_TEXT)
+           )
+            return (pDomNodeThis);
+    }
+
+    return (NULL);
+}
+
+/*
+ *@@ xmlGetElementsByTagName:
+ *      returns a linked list of _DOMNODE nodes which
+ *      match the specified element name. The special name
+ *      "*" matches all elements.
+ *
+ *      pParent must be the parent element DOMNODE...
+ *      the only allowed exception is
+ *
+ *      The caller must free the list by calling lstFree.
+ *      Returns NULL if no such elements could be found.
+ *
+ *@@added V0.9.9 (2001-02-14) [umoeller]
+ */
+
+PLINKLIST xmlGetElementsByTagName(PDOMNODE pParent,
+                                  const char *pcszName)
+{
+    APIRET arc = NO_ERROR;
+
+    PLINKLIST pll = lstCreate(FALSE);       // no free
+    if (pll)
+    {
+        ULONG   cItems = 0;
+        BOOL    fFindAll = !strcmp(pcszName, "*");
+
+        PLISTNODE   pNode;
+        PDOMNODE    pDomNodeThis;
+
+        for (pNode = lstQueryFirstNode(&pParent->llChildren);
+             pNode;
+             pNode = pNode->pNext)
+        {
+            if (    (pDomNodeThis = (PDOMNODE)pNode->pItemData)
+                 && (pDomNodeThis->NodeBase.ulNodeType == DOMNODE_ELEMENT)
+                 && (   fFindAll
+                     || (!strcmp(pcszName, pDomNodeThis->NodeBase.strNodeName.psz))
+                   )
+               )
+            {
+                // element matches:
+                lstAppendItem(pll, pDomNodeThis);
+                cItems++;
+            }
+        }
+
+        if (cItems)
+            return (pll);
+        else
+            lstFree(pll);
+    }
+
+    return (0);
+}
+
+/*
+ *@@ xmlGetAttribute:
+ *      returns the value of pElement's attribute
+ *      with the given name or NULL.
+ *
+ *      This is a const pointer into the element's
+ *      attribute list.
+ *
+ *@@added V0.9.11 (2001-04-22) [umoeller]
+ */
+
+const XSTRING* xmlGetAttribute(PDOMNODE pElement,
+                               const char *pcszAttribName)
+{
+    PDOMNODE pAttrNode = (PDOMNODE)treeFindEQData(&pElement->AttributesMap,
+                                                  (void*)pcszAttribName,
+                                                  CompareNodeBaseData);
+    if (pAttrNode)
+        return (pAttrNode->pstrNodeValue);
+
+    return (NULL);
 }
