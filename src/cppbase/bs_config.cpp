@@ -2278,6 +2278,7 @@ ustring BSExecute::DescribeData()
  *
  *@@added V0.9.1 (2000-02-07) [umoeller]
  *@@changed V0.9.18 (2002-03-08) [umoeller]: added codec
+ *@@changed V1.0.5 (2005-01-25) [pr]: Change directory to that of executable
  */
 
 int BSExecute::Execute(BSUniCodec &codecProcess, // in: codec for process codepage,
@@ -2289,6 +2290,22 @@ int BSExecute::Execute(BSUniCodec &codecProcess, // in: codec for process codepa
     {
         strParams += " ";
         strParams.appendUtf8(&codecProcess, _ustrParams);
+    }
+
+    // V1.0.5 (2005-01-26) [pr]: Change directory to that of executable. @@fixes 626.
+    // We remove any leading quotes and just leave the directory name, excluding a
+    // trailing slash, unless it is a root directory.
+    string    strDir;
+    strDir.assignUtf8(&codecProcess, _ustrExecutable);
+    strDir = strDir.substr(strDir.find_first_not_of("\"'"));
+    size_type pos = strDir.rfind('\\', 0);
+    if (pos != string::npos)
+    {
+        strDir.erase(pos);
+        if (strDir.size() == 2 && strDir[1] == ':')
+            strDir += '\\';
+
+        doshSetCurrentDir(strDir.c_str());
     }
 
     ULONG       sid = 0;
