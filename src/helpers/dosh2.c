@@ -391,9 +391,15 @@ APIRET doshSetCurrentDir(const char *pcszDir)
  *
  *      -- ERROR_NOT_ENOUGH_MEMORY: malloc() failed.
  *
- *      -- ERROR_INVALID_EXE_SIGNATURE: unknown
- *          executable type... the given file probably
- *          isn't even an executable.
+ *      -- ERROR_INVALID_EXE_SIGNATURE (191): header is
+ *              neither plain DOS, nor NE, nor LX, nor PE.
+ *              The given file probably isn't even an
+ *              executable. This you will get if you
+ *              pass in COM, BAT, or CMD files.
+ *
+ *      -- ERROR_BAD_EXE_FORMAT (193): header was
+ *              recognized, but the header data was
+ *              not understood.
  *
  *      -- ERROR_INVALID_PARAMETER: ppExec is NULL.
  *
@@ -419,6 +425,12 @@ APIRET doshSetCurrentDir(const char *pcszDir)
  *      I am not sure whether PE supports such things
  *      as well... if so, it should be supported too.
  *
+ *      @@todo:
+ *
+ *          win95 \WINDOWS\extract.exe is NE with a non-standard format
+ *          win16 \WINDOWS\EXPAND.EXE
+ *          win16 \WINDOWS\MSD.EXE"
+ *
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.1 (2000-02-13) [umoeller]: fixed 32-bits flag
  *@@changed V0.9.7 (2000-12-20) [lafaix]: fixed ulNewHeaderOfs
@@ -427,6 +439,7 @@ APIRET doshSetCurrentDir(const char *pcszDir)
  *@@changed V0.9.12 (2001-05-03) [umoeller]: added support for NOSTUB newstyle executables
  *@@changed V0.9.16 (2001-12-08) [umoeller]: now using OPEN_SHARE_DENYWRITE
  *@@changed V0.9.16 (2001-12-08) [umoeller]: fLibrary was never set, works for LX and NE now
+ *@@changed V0.9.16 (2001-12-08) [umoeller]: some speed optimizations, changed some return codes
  */
 
 APIRET doshExecOpen(const char* pcszExecutable,
@@ -495,8 +508,7 @@ APIRET doshExecOpen(const char* pcszExecutable,
 
                     // remove the DOS header info, since we have none
                     // V0.9.12 (2001-05-03) [umoeller]
-                    free (pExec->pDosExeHeader);
-                    pExec->pDosExeHeader = 0;
+                    FREE(pExec->pDosExeHeader);
                 }
                 else
                 {
@@ -522,124 +534,120 @@ APIRET doshExecOpen(const char* pcszExecutable,
                     // ulNewHeaderOfs is now either 0 (if no DOS header
                     // was found) or pDosExeHeader->ulNewHeaderOfs
                     // V0.9.12 (2001-05-03) [umoeller]
-                    CHAR    achNewHeaderType[2] = "";
                     ULONG   cbRead;
+                    PBYTE   pbHeader;
 
-                    cbRead = sizeof(achNewHeaderType);
-                    if (!(arc = doshReadAt(hFile,
-                                           ulNewHeaderOfs,
-                                           FILE_BEGIN,
-                                           &cbRead,
-                                           achNewHeaderType)))
+                    // now, we used to read in the first two chars
+                    // to check out if we have PE or LX or NE and
+                    // then read the header accordingly... but
+                    // that wasn't terribly efficient. So load
+                    // a chunk of data and then do a realloc()
+                    // instead.
+
+                    // take the largest of LXHEADER and NEHEADER and PEHEADER
+                    cbRead = sizeof(LXHEADER);
+                    if (sizeof(NEHEADER) > cbRead)
+                        cbRead = sizeof(NEHEADER);
+                    if (sizeof(PEHEADER) > cbRead)
+                        cbRead = sizeof(PEHEADER);
+
+                    if (!(pbHeader = malloc(cbRead)))
+                        arc = ERROR_NOT_ENOUGH_MEMORY;
+                    else if (!(arc = doshReadAt(hFile,
+                                                ulNewHeaderOfs,
+                                                FILE_BEGIN,
+                                                &cbRead,
+                                                pbHeader)))
                     {
                         PBYTE   pbCheckOS = NULL;
 
-                        // reset file ptr
-                        /* DosSetFilePtr(hFile,
-                                      ulNewHeaderOfs,
-                                      FILE_BEGIN,
-                                      &ulLocal);
-                           */
+                        PSZ     achNewHeaderType = (PSZ)pbHeader;
 
                         if (!memcmp(achNewHeaderType, "NE", 2))
                         {
                             // New Executable:
                             pExec->ulExeFormat = EXEFORMAT_NE;
-                            // allocate NE header
-                            if (pExec->pNEHeader = (PNEHEADER)malloc(sizeof(NEHEADER)))
+
+                            if (cbRead < sizeof(NEHEADER))
                             {
-                                // read in NE header
-                                pExec->cbNEHeader = sizeof(NEHEADER);
-                                if (!(arc = doshReadAt(hFile,
-                                                       ulNewHeaderOfs,
-                                                       FILE_BEGIN,
-                                                       &pExec->cbNEHeader,
-                                                       (PBYTE)pExec->pNEHeader)))
-                                {
-                                    if (pExec->cbNEHeader == sizeof(NEHEADER))
-                                    {
-                                        pbCheckOS = &pExec->pNEHeader->bTargetOS;
-                                        // set library flag V0.9.16 (2001-12-08) [umoeller]
-                                        if (pExec->pNEHeader->usFlags & 0x8000)
-                                            // library:
-                                            pExec->fLibrary = TRUE;
-                                    }
-                                    else
-                                        // V0.9.16 (2001-12-08) [umoeller]
-                                        arc = ERROR_INVALID_EXE_SIGNATURE;
-                                }
+                                arc = ERROR_BAD_EXE_FORMAT;
+                                FREE(pbHeader);
                             }
                             else
-                                arc = ERROR_NOT_ENOUGH_MEMORY;
+                            {
+                                pExec->pNEHeader = (PNEHEADER)realloc(pbHeader,
+                                                                      sizeof(NEHEADER));
+                                pExec->cbNEHeader = sizeof(NEHEADER);
+                                pbCheckOS = &pExec->pNEHeader->bTargetOS;
+                                // set library flag V0.9.16 (2001-12-08) [umoeller]
+                                if (pExec->pNEHeader->usFlags & 0x8000)
+                                    // library:
+                                    pExec->fLibrary = TRUE;
+                            }
                         }
-                        else if (   (memcmp(achNewHeaderType, "LX", 2) == 0)
-                                 || (memcmp(achNewHeaderType, "LE", 2) == 0)
+                        else if (    (!memcmp(achNewHeaderType, "LX", 2))
+                                  || (!memcmp(achNewHeaderType, "LE", 2))
                                             // this is used by SMARTDRV.EXE
                                 )
                         {
                             // OS/2 Linear Executable:
                             pExec->ulExeFormat = EXEFORMAT_LX;
-                            // allocate LX header
-                            if (pExec->pLXHeader = (PLXHEADER)malloc(sizeof(LXHEADER)))
+
+                            if (cbRead < sizeof(LXHEADER))
                             {
-                                // read in LX header
-                                pExec->cbLXHeader = sizeof(LXHEADER);
-                                if (!(arc = doshReadAt(hFile,
-                                                       ulNewHeaderOfs,
-                                                       FILE_BEGIN,
-                                                       &pExec->cbLXHeader,
-                                                       (PBYTE)pExec->pLXHeader)))
-                                {
-                                    if (pExec->cbLXHeader == sizeof(LXHEADER))
-                                    {
-                                        pbCheckOS = (PBYTE)(&pExec->pLXHeader->usTargetOS);
-                                        // set library flag V0.9.16 (2001-12-08) [umoeller]
-                                        if (pExec->pLXHeader->ulFlags & 0x8000)
-                                            // library:
-                                            pExec->fLibrary = TRUE;
-                                    }
-                                    else
-                                        // V0.9.16 (2001-12-08) [umoeller]
-                                        arc = ERROR_INVALID_EXE_SIGNATURE;
-                                }
+                                arc = ERROR_BAD_EXE_FORMAT;
+                                FREE(pbHeader);
                             }
                             else
-                                arc = ERROR_NOT_ENOUGH_MEMORY;
-                        }
-                        else if (memcmp(achNewHeaderType, "PE", 2) == 0)
-                        {
-                            PEHEADER PEHeader = {0};
-
-                            pExec->ulExeFormat = EXEFORMAT_PE;
-                            pExec->ulOS = EXEOS_WIN32;
-                            pExec->f32Bits = TRUE;
-
-                            // V0.9.10 (2001-04-08) [lafaix]
-                            // read in standard PE header
-                            cbRead = 24;
-                            if (!(arc = doshReadAt(hFile,
-                                                   ulNewHeaderOfs,
-                                                   FILE_BEGIN,
-                                                   &cbRead,
-                                                   (PBYTE)&PEHeader)))
                             {
-                                // allocate PE header
-                                if (pExec->pPEHeader = (PPEHEADER)malloc(24 + PEHeader.usHeaderSize))
-                                {
-                                    // copy standard PE header
-                                    memcpy(pExec->pPEHeader,
-                                           &PEHeader,
-                                           24);
+                                pExec->pLXHeader = (PLXHEADER)realloc(pbHeader,
+                                                                      sizeof(LXHEADER));
+                                // read in LX header
+                                pExec->cbLXHeader = sizeof(LXHEADER);
+                                pbCheckOS = (PBYTE)(&pExec->pLXHeader->usTargetOS);
+                                // set library flag V0.9.16 (2001-12-08) [umoeller]
+                                if (pExec->pLXHeader->ulFlags & 0x8000)
+                                    // library:
+                                    pExec->fLibrary = TRUE;
+                            }
+                        }
+                        else if (!memcmp(achNewHeaderType, "PE", 2))
+                        {
+                            pExec->ulExeFormat = EXEFORMAT_PE;
 
-                                    // read in optional PE header
-                                    if (!(arc = DosRead(hFile,
-                                                        &pExec->pPEHeader->usReserved3,
-                                                        PEHeader.usHeaderSize,
-                                                        &pExec->cbPEHeader)))
-                                        pExec->cbPEHeader += 24;
+                            if (cbRead < sizeof(PEHEADER))
+                            {
+                                arc = ERROR_BAD_EXE_FORMAT;
+                                FREE(pbHeader);
+                            }
+                            else
+                            {
+                                // PE has a standard header of 24 bytes
+                                // plus an extended header, so check what
+                                // we've got
+                                ULONG cbPE =   24
+                                             + ((PPEHEADER)pbHeader)->usHeaderSize;
+                                pExec->pPEHeader = (PPEHEADER)realloc(pbHeader,
+                                                                      cbPE);
+
+                                pExec->cbPEHeader = cbPE;
+                                pExec->ulOS = EXEOS_WIN32;
+                                pExec->f32Bits = TRUE;
+
+                                // we have the first 24 bytes already, so
+                                // go for the next chunk
+                                if (cbRead = pExec->pPEHeader->usHeaderSize)
+                                {
+                                    if (!(arc = doshReadAt(hFile,
+                                                           ulNewHeaderOfs + 24,
+                                                           FILE_BEGIN,
+                                                           &cbRead,
+                                                           (PBYTE)pExec->pPEHeader + 24)))
+                                    {
+                                    }
+                                    else
+                                        arc = ERROR_BAD_EXE_FORMAT;
                                 }
-                                else
-                                    arc = ERROR_NOT_ENOUGH_MEMORY;
                             }
                         }
                         else
@@ -647,6 +655,7 @@ APIRET doshExecOpen(const char* pcszExecutable,
                             arc = ERROR_INVALID_EXE_SIGNATURE;
 
                         if (pbCheckOS)
+                        {
                             // BYTE to check for operating system
                             // (NE and LX):
                             switch (*pbCheckOS)
@@ -670,7 +679,8 @@ APIRET doshExecOpen(const char* pcszExecutable,
                                     pExec->f32Bits = TRUE;
                                 break;
                             }
-                    } // end if (!(arc = DosSetFilePtr(hFile,
+                        }
+                    }
                 }
             } // end if (!(arc = DosSetFilePtr(hFile,
         } // end if pExec->pDosExeHeader = (PDOSEXEHEADER)malloc(sizeof(DOSEXEHEADER));
@@ -1840,7 +1850,8 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
         if (pExec->ulExeFormat == EXEFORMAT_LX)
         {
             // 32-bit OS/2 executable:
-            if (cResources = pExec->pLXHeader->ulResTblCnt)
+            PLXHEADER pLXHeader = pExec->pLXHeader;
+            if (cResources = pLXHeader->ulResTblCnt)
             {
                 #pragma pack(1)     // V0.9.9 (2001-04-02) [umoeller]
                 struct rsrc32               // Resource Table Entry
@@ -1875,7 +1886,7 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
                 memset(paResources, 0, cb); // V0.9.9 (2001-04-03) [umoeller]
 
                 ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
-                                          pExec->pLXHeader->ulResTblOfs
+                                          pLXHeader->ulResTblOfs
                                             + ulNewHeaderOfs, // V0.9.12 (2001-05-03) [umoeller]
                                           FILE_BEGIN,
                                           &ulDummy));
@@ -1895,7 +1906,7 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
 
                 for (i = 0; i < cResources; i++)
                 {
-                    ULONG ulOfsThis =   pExec->pLXHeader->ulObjTblOfs
+                    ULONG ulOfsThis =   pLXHeader->ulObjTblOfs
                                       + ulNewHeaderOfs // V0.9.12 (2001-05-03) [umoeller]
                                       + (   sizeof(ot)
                                           * (paResources[i].ulFlag - 1));
@@ -1924,10 +1935,12 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
         } // end if (pExec->ulExeFormat == EXEFORMAT_LX)
         else if (pExec->ulExeFormat == EXEFORMAT_NE)
         {
+            PNEHEADER pNEHeader = pExec->pNEHeader;
+
             if (pExec->ulOS == EXEOS_OS2)
             {
                 // 16-bit OS/2 executable:
-                cResources = pExec->pNEHeader->usResSegmCount;
+                cResources = pNEHeader->usResSegmCount;
 
                 if (cResources)
                 {
@@ -1955,7 +1968,7 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
                     // we first read the resources IDs and types
 
                     ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
-                                              pExec->pNEHeader->usResTblOfs
+                                              pNEHeader->usResTblOfs
                                                 + ulNewHeaderOfs, // V0.9.12 (2001-05-03) [umoeller]
                                               FILE_BEGIN,
                                               &ulDummy));
@@ -1974,10 +1987,10 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
                     {
                         ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
                                                   ulNewHeaderOfs // V0.9.12 (2001-05-03) [umoeller]
-                                                    + pExec->pNEHeader->usSegTblOfs
+                                                    + pNEHeader->usSegTblOfs
                                                     + (sizeof(ns)
-                                                    * (  pExec->pNEHeader->usSegTblEntries
-                                                       - pExec->pNEHeader->usResSegmCount
+                                                    * (  pNEHeader->usSegTblEntries
+                                                       - pNEHeader->usResSegmCount
                                                        + i)),
                                                     FILE_BEGIN,
                                                     &ulDummy));
@@ -2000,7 +2013,7 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
                 ULONG  ulDummy;
 
                 ENSURE(DosSetFilePtr(pExec->hfExe,
-                                     pExec->pNEHeader->usResTblOfs
+                                     pNEHeader->usResTblOfs
                                        + ulNewHeaderOfs, // V0.9.12 (2001-05-03) [umoeller]
                                      FILE_BEGIN,
                                      &ulDummy));
@@ -2054,7 +2067,7 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
                     memset(paResources, 0, cb);
 
                     ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
-                                              pExec->pNEHeader->usResTblOfs
+                                              pNEHeader->usResTblOfs
                                                 + ulNewHeaderOfs,
                                               FILE_BEGIN,
                                               &ulDummy));
@@ -2207,16 +2220,19 @@ APIRET doshLoadLXMaps(PEXECUTABLE pExec)
 {
     APIRET arc;
 
+    PLXHEADER pLXHeader;
+
     if (!pExec)
         arc = ERROR_INVALID_PARAMETER;
-    else if (pExec->ulExeFormat != EXEFORMAT_LX)
-        arc = ERROR_INVALID_EXE_SIGNATURE;
     else if (pExec->fLXMapsLoaded)
         // already loaded:
         arc = NO_ERROR;
+    else if (    (pExec->ulExeFormat != EXEFORMAT_LX)
+              || (!(pLXHeader = pExec->pLXHeader))
+            )
+        arc = ERROR_INVALID_EXE_SIGNATURE;
     else
     {
-        PLXHEADER pLXHeader = pExec->pLXHeader;
         ULONG ulNewHeaderOfs = 0;
         ULONG cb;
 
@@ -2262,7 +2278,8 @@ APIRET doshLoadLXMaps(PEXECUTABLE pExec)
                                             &cb,
                                             (PBYTE)pExec->pObjPageTbl)))
                    )
-                  ;
+                {
+                }
             }
         }
 
@@ -2289,6 +2306,97 @@ VOID doshFreeLXMaps(PEXECUTABLE pExec)
     FREE(pExec->pObjTbl);
     FREE(pExec->pObjPageTbl);
     pExec->fLXMapsLoaded = FALSE;
+}
+
+/*
+ *@@ doshLoadOS2NEMaps:
+ *
+ *      This works only if
+ *
+ *      --  ulExeFormat == EXEFORMAT_NE and
+ *
+ *      --  ulOS == EXEOS_OS2,
+ *
+ *      but not with Win16 NE executables.
+ *
+ *@@added V0.9.16 (2001-12-08) [umoeller]
+ */
+
+APIRET doshLoadOS2NEMaps(PEXECUTABLE pExec)
+{
+    APIRET arc;
+
+    PNEHEADER pNEHeader;
+
+    if (!pExec)
+        arc = ERROR_INVALID_PARAMETER;
+    else if (pExec->fOS2NEMapsLoaded)
+        // already loaded:
+        arc = NO_ERROR;
+    else if (    (pExec->ulExeFormat != EXEFORMAT_NE)
+              || (pExec->ulOS != EXEOS_OS2)
+              || (!(pNEHeader = pExec->pNEHeader))
+            )
+        arc = ERROR_INVALID_EXE_SIGNATURE;
+    else
+    {
+        ULONG ulNewHeaderOfs = 0;
+        ULONG cb;
+
+        if (pExec->pDosExeHeader)
+            // executable has DOS stub: V0.9.12 (2001-05-03) [umoeller]
+            ulNewHeaderOfs = pExec->pDosExeHeader->ulNewHeaderOfs;
+
+        // resource table
+        if (    (!(arc = doshAllocArray(pNEHeader->usResSegmCount,
+                                        sizeof(OS2NERESTBLENTRY),
+                                        (PBYTE*)&pExec->paOS2NEResTblEntry,
+                                        &cb)))
+             && (!(arc = doshReadAt(pExec->hfExe,
+                                    pNEHeader->usResTblOfs
+                                      + ulNewHeaderOfs,
+                                    FILE_BEGIN,
+                                    &cb,
+                                    (PBYTE)pExec->paOS2NEResTblEntry)))
+            )
+        {
+            // resource segments
+            if (    (!(arc = doshAllocArray(pNEHeader->usResSegmCount,
+                                            sizeof(OS2NESEGMENT),
+                                            (PBYTE*)&pExec->paOS2NESegments,
+                                            &cb)))
+                 && (!(arc = doshReadAt(pExec->hfExe,
+                                        pNEHeader->usResTblOfs
+                                          + ulNewHeaderOfs
+                                          - cb, // pNEHeader->usResSegmCount * sizeof(struct new_seg)
+                                        FILE_BEGIN,
+                                        &cb,
+                                        (PBYTE)pExec->paOS2NESegments)))
+                )
+            {
+            }
+        }
+
+        if (!arc)
+            pExec->fOS2NEMapsLoaded = TRUE;
+        else
+            doshFreeNEMaps(pExec);
+    }
+
+    return (arc);
+}
+
+/*
+ *@@ doshFreeNEMaps:
+ *
+ *@@added V0.9.16 (2001-12-08) [umoeller]
+ */
+
+VOID doshFreeNEMaps(PEXECUTABLE pExec)
+{
+    FREE(pExec->paOS2NEResTblEntry);
+    FREE(pExec->paOS2NESegments);
+    pExec->fOS2NEMapsLoaded = FALSE;
 }
 
 /*
@@ -2336,6 +2444,7 @@ APIRET doshExecClose(PEXECUTABLE *ppExec)
         ULONG ul;
 
         doshFreeLXMaps(pExec);
+        doshFreeNEMaps(pExec);
 
         // fixed the memory leaks with the missing fields,
         // turned this into a loop

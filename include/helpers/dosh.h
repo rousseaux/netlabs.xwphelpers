@@ -530,50 +530,80 @@ extern "C" {
 
     typedef struct _NEHEADER
     {
-        CHAR      achNE[2];             // 00: "NE" magic
-        BYTE      bLinkerVersion;       // 02: linker version
-        BYTE      bLinkerRevision;      // 03: linker revision
-        USHORT    usEntryTblOfs;        // 04: ofs from this to entrytable
-        USHORT    usEntryTblLen;        // 06: length of entrytable
-        ULONG     ulChecksum;           // 08: MS: reserved, OS/2: checksum
-        USHORT    usFlags;              // 0c: flags
+        CHAR      achNE[2];             // 00: "NE" magic                       ne_magic
+        BYTE      bLinkerVersion;       // 02: linker version                   ne_ver
+        BYTE      bLinkerRevision;      // 03: linker revision                  ne_rev
+        USHORT    usEntryTblOfs;        // 04: ofs from this to entrytable      ne_enttab
+        USHORT    usEntryTblLen;        // 06: length of entrytable             ne_cbenttab
+        ULONG     ulChecksum;           // 08: MS: reserved, OS/2: checksum     ne_crc
+        USHORT    usFlags;              // 0c: flags                            ne_flags
                            /*
                               #define NENOTP          0x8000          // Not a process == library
                               #define NENOTMPSAFE     0x4000          // Process is not multi-processor safe
+                                                                      // (Win3.1 SDK: "reserved")
                               #define NEIERR          0x2000          // Errors in image
                               #define NEBOUND         0x0800          // Bound Family/API
+                                                                      // (Win3.1 SDK: "first segment contains code
+                                                                      // that loads the application")
                               #define NEAPPTYP        0x0700          // Application type mask
+                                                                      // (Win3.1 SDK: "reserved")
                               #define NENOTWINCOMPAT  0x0100          // Not compatible with P.M. Windowing
+                                                                      // (Win3.1 SDK: "reserved")
                               #define NEWINCOMPAT     0x0200          // Compatible with P.M. Windowing
+                                                                      // (Win3.1 SDK: "reserved")
                               #define NEWINAPI        0x0300          // Uses P.M. Windowing API
+                                                                      // (Win3.1 SDK: "reserved")
                               #define NEFLTP          0x0080          // Floating-point instructions
                               #define NEI386          0x0040          // 386 instructions
                               #define NEI286          0x0020          // 286 instructions
                               #define NEI086          0x0010          // 8086 instructions
                               #define NEPROT          0x0008          // Runs in protected mode only
+                                                                      // (Win3.1 SDK: "reserved")
                               #define NEPPLI          0x0004          // Per-Process Library Initialization
+                                                                      // (Win3.1 SDK: "reserved")
                               #define NEINST          0x0002          // Instance data
                               #define NESOLO          0x0001          // Solo data (single data)
                            */
-        USHORT    usAutoDataSegNo;      // 0e: auto-data seg no.
-        USHORT    usInitlHeapSize;      // 10: initl. heap size
-        USHORT    usInitlStackSize;     // 12: initl. stack size
-        ULONG     ulCSIP;               // 14: CS:IP
-        ULONG     ulSSSP;               // 18: SS:SP
-        USHORT    usSegTblEntries;      // 1c: segment tbl entry count
-        USHORT    usModuleTblEntries;   // 1e: module ref. table entry count
-        USHORT    usNonResdTblLen;      // 20: non-resd. name tbl length
-        USHORT    usSegTblOfs;          // 22: segment tbl ofs
-        USHORT    usResTblOfs;          // 24: resource tbl ofs
-        USHORT    usResdNameTblOfs;     // 26: resd. name tbl ofs
-        USHORT    usModRefTblOfs;       // 28: module ref. table ofs
-        USHORT    usImportTblOfs;       // 2a: import tbl ofs
-        ULONG     ulNonResdTblOfs;      // 2c: non-resd. name tbl ofs
-        USHORT    usMoveableEntries;    // 30: moveable entry pts. count
-        USHORT    usLogicalSectShift;   // 32: logcl. sector shift
-        USHORT    usResSegmCount;       // 34: resource segm. count
-        BYTE      bTargetOS;            // 36: target OS (NEOS_* flags)
-        BYTE      bFlags2;              // 37: addtl. flags
+        USHORT    usAutoDataSegNo;      // 0e: auto-data seg no.                ne_autodata
+                                        // (Win3.1 SDK: "0 if both NEINST and NESOLO are cleared")
+        USHORT    usInitlHeapSize;      // 10: initl. heap size                 ne_heap
+                                        // (Win3.1 SDK: "0 if no local allocation")
+        USHORT    usInitlStackSize;     // 12: initl. stack size                ne_stack
+                                        // (Win3.1 SDK: "0 if SS != DS")
+        ULONG     ulCSIP;               // 14: CS:IP                            ne_csip
+        ULONG     ulSSSP;               // 18: SS:SP                            ne_sssp
+        USHORT    usSegTblEntries;      // 1c: segment tbl entry count          ne_cseg
+        USHORT    usModuleTblEntries;   // 1e: module ref. table entry count    ne_cmod
+        USHORT    usNonResdTblLen;      // 20: non-resd. name tbl length        ne_cbnrestab
+        USHORT    usSegTblOfs;          // 22: segment tbl ofs                  ne_segtab
+                                        // (from start of NEHEADER)
+        USHORT    usResTblOfs;          // 24: resource tbl ofs                 ne_rsrctab
+                                        // (from start of NEHEADER)
+        USHORT    usResdNameTblOfs;     // 26: resd. name tbl ofs               ne_restab
+                                        // (from start of NEHEADER)
+        USHORT    usModRefTblOfs;       // 28: module ref. table ofs            ne_modtab
+                                        // (from start of NEHEADER)
+        USHORT    usImportTblOfs;       // 2a: import name tbl ofs              ne_imptab
+                                        // (from start of NEHEADER)
+        ULONG     ulNonResdTblOfs;      // 2c: non-resd. name tbl ofs           ne_nrestab
+                                        // (from start of EXE!)
+        USHORT    usMoveableEntries;    // 30: moveable entry points count      ne_cmovent
+        USHORT    usLogicalSectShift;   // 32: logcl. sector shift              ne_align
+                                        // (Win3.1 SDK: "typically 4, but default is 9")
+        USHORT    usResSegmCount;       // 34: resource segm. count             ne_cres
+        BYTE      bTargetOS;            // 36: target OS (NEOS_* flags)         ne_exetyp
+        BYTE      bFlags2;              // 37: addtl. flags                     ne_flagsothers
+                                        // Win3.1 SDK:
+                                        //      bit 1 --> Win2.x, but runs in Win3.x protected mode
+                                        //      bit 2 --> Win2.x that supports prop. fonts
+                                        //      bit 3 --> exec contains fastload area
+                                /*
+                                #define NELONGNAMES     0x01
+                                #define NEWINISPROT     0x02
+                                #define NEWINGETPROPFON 0x04
+                                #define NEWLOAPPL       0x80
+                                */
+        // the following are not listed in newexe.h, but are documented for Win3.x
         USHORT    usFastLoadOfs;        // 38: fast-load area ofs
         USHORT    usFastLoadLen;        // 3a: fast-load area length
         USHORT    usReserved;           // 3c: MS: 'reserved'
@@ -779,6 +809,34 @@ extern "C" {
         unsigned char  LX_Iterdata;         // iterated data byte(s)
     } LXITER, *PLXITER;
 
+    /*
+     *@@ OS2NERESTBLENTRY:
+     *      OS/2 NE resource table entry.
+     *
+     *@@added V0.9.16 (2001-12-08) [umoeller]
+     */
+
+    typedef struct _OS2NERESTBLENTRY
+    {
+        USHORT      usType;
+        USHORT      usID;
+    } OS2NERESTBLENTRY, *POS2NERESTBLENTRY;
+
+    /*
+     *@@ OS2NESEGMENT:
+     *      OS/2 NE segment definition.
+     *
+     *@@added V0.9.16 (2001-12-08) [umoeller]
+     */
+
+    typedef struct _OS2NESEGMENT       // New .EXE segment table entry
+    {
+        unsigned short      ns_sector;      // File sector of start of segment
+        unsigned short      ns_cbseg;       // Number of bytes in file
+        unsigned short      ns_flags;       // Attribute flags
+        unsigned short      ns_minalloc;    // Minimum allocation in bytes
+    } OS2NESEGMENT, *POS2NESEGMENT;
+
     #pragma pack()
 
     // object/segment flags (in NE and LX)
@@ -901,6 +959,11 @@ extern "C" {
         OBJECTTABLEENTRY        *pObjTbl;       // pLXHeader->ulObjCount
         OBJECTPAGETABLEENTRY    *pObjPageTbl;   // pLXHeader->ulPageCount
 
+        // the following fields are set after doshLoadOS2NEMaps
+        BOOL                    fOS2NEMapsLoaded;
+        POS2NERESTBLENTRY       paOS2NEResTblEntry;
+        POS2NESEGMENT           paOS2NESegments;
+
 #endif
     } EXECUTABLE, *PEXECUTABLE;
 
@@ -969,6 +1032,10 @@ extern "C" {
     APIRET doshLoadLXMaps(PEXECUTABLE pExec);
 
     VOID doshFreeLXMaps(PEXECUTABLE pExec);
+
+    APIRET doshLoadOS2NEMaps(PEXECUTABLE pExec);
+
+    VOID doshFreeNEMaps(PEXECUTABLE pExec);
 
     APIRET doshExecClose(PEXECUTABLE *ppExec);
 
