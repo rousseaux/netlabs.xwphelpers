@@ -304,6 +304,20 @@ extern "C" {
                          const char *pcszFont,
                          const MSGBOXSTRINGS *pStrings);
 
+    #define TEBF_REMOVETILDE            0x0001
+    #define TEBF_REMOVEELLIPSE          0x0002
+    #define TEBF_SELECTALL              0x0004
+
+    PSZ dlghTextEntryBox(HWND hwndOwner,
+                         const char *pcszTitle,
+                         const char *pcszDescription,
+                         const char *pcszDefault,
+                         const char *pcszOK,
+                         const char *pcszCancel,
+                         ULONG ulMaxLen,
+                         ULONG fl,
+                         const char *pcszFont);
+
     VOID dlghSetPrevFocus(PVOID pvllWindows);
 
     VOID dlghSetNextFocus(PVOID pvllWindows);

@@ -175,6 +175,9 @@ extern "C" {
                 usDriverVersion,
                 usLowestAPMVersion;
 
+        BOOL    fAlreadyRead;
+                    // TRUE after the first call to aphReadStatus
+
         // the following are valid after a call to
         // apmhReadStatus
         ULONG   ulBatteryStatus;
@@ -197,8 +200,8 @@ extern "C" {
     typedef APIRET APIENTRY APMHOPEN(PAPM *ppApm);
     typedef APMHOPEN *PAPMHOPEN;
 
-    APIRET APIENTRY apmhReadStatus(PAPM pApm);
-    typedef APIRET APIENTRY APMHREADSTATUS(PAPM pApm);
+    APIRET APIENTRY apmhReadStatus(PAPM pApm, PBOOL pfChanged);
+    typedef APIRET APIENTRY APMHREADSTATUS(PAPM pApm, PBOOL pfChanged);
     typedef APMHREADSTATUS *PAPMHREADSTATUS;
 
     VOID APIENTRY apmhClose(PAPM *ppApm);
