@@ -522,15 +522,8 @@ ULONG xstrcpys(PXSTRING pxstr,
  *
  *      If pxstr is empty, this behaves just like xstrcpy.
  *
- *      With ulSourceLength, specify the length of pcszSource.
- *      If you specify 0, this function will run strlen(pcszSource)
- *      itself.
- *
- *      If you already know the length of pcszSource, you can
- *      speed this function up a bit this way.
- *
- *      You are required to specify ulSourceLength if you only want
- *      to copy a substring, or pcszSource is not zero-terminated.
+ *      With ulSourceLength, specify the length of pcszSource
+ *      or 0 (see xstrcpy for details).
  *
  *      Returns the length of the new string (excluding the null
  *      terminator) if the string was changed, or 0 if nothing
@@ -589,7 +582,7 @@ ULONG xstrcat(PXSTRING pxstr,               // in/out: string
                 // 2) append source string:
                 memcpy(pxstr->psz + pxstr->ulLength,
                        pcszSource,
-                       ulSourceLength);     // null terminator
+                       ulSourceLength);
 
                 *(pxstr->psz + pxstr->ulLength + ulSourceLength) = '\0';
                         // V0.9.9 (2001-02-16) [umoeller]
@@ -628,7 +621,7 @@ ULONG xstrcat(PXSTRING pxstr,               // in/out: string
  *
  +          XSTRING str;
  +          xstrInit(&str, 0);
- +          xstrcpy(&str, "blu");
+ +          xstrcpy(&str, "blu", 0);
  +          xstrcatc(&str, 'p');
  *
  *      After this, str.psz points to a new string containing

@@ -95,7 +95,7 @@ LONG        G_cxScreen = 0,
 
 // linked list of all tools which were subclassed for tooltip
 HMTX        G_hmtxSubclassedTools = NULLHANDLE;
-PLINKLIST   G_pllSubclassedTools = NULL;      // linked list of SUBCLASSEDTOOL items
+LINKLIST    G_llSubclassedTools;        // linked list of SUBCLASSEDTOOL items
 
 /* ******************************************************************
  *
@@ -125,6 +125,50 @@ BOOL ctlRegisterTooltip(HAB hab)
                                     // one more for instance data
 }
 
+/* ******************************************************************
+ *
+ *   Subclassing
+ *
+ ********************************************************************/
+
+/*
+ *@@ LockSubclassedTools:
+ *      locks the global list of subclassed tools.
+ *
+ *@@added V0.9.12 (2001-04-28) [umoeller]
+ */
+
+BOOL LockSubclassedTools(VOID)
+{
+    if (!G_hmtxSubclassedTools)
+    {
+        // first call:
+
+        // initialize the list
+        lstInit(&G_llSubclassedTools,
+                TRUE);      // auto-free
+
+        // create mutex and request it right away
+        return (!DosCreateMutexSem(NULL,
+                                   &G_hmtxSubclassedTools,
+                                   0,
+                                   TRUE));      // request!
+    }
+
+    return (!WinRequestMutexSem(G_hmtxSubclassedTools, SEM_INDEFINITE_WAIT));
+}
+
+/*
+ *@@ UnlockSubclassedTools:
+ *      unlocks the global list of subclassed tools.
+ *
+ *@@added V0.9.12 (2001-04-28) [umoeller]
+ */
+
+VOID UnlockSubclassedTools(VOID)
+{
+}
+
 /*
  *@@ SUBCLASSEDTOOL:
  *      structure created for each control which is
@@ -142,107 +186,166 @@ typedef struct _SUBCLASSEDTOOL
 } SUBCLASSEDTOOL, *PSUBCLASSEDTOOL;
 
 /*
+ *@@ FindSubclassedTool:
+ *      returns the SUBCLASSEDTOOL struct from the
+ *      global list which matches hwndTool or NULL
+ *      if not found.
+ *
+ *      Preconditions: Caller must hold the subclassed
+ *      tools mutex.
+ *
+ *@@added V0.9.12 (2001-04-28) [umoeller]
+ */
+
+PSUBCLASSEDTOOL FindSubclassedTool(HWND hwndTool)
+{
+    PLISTNODE pNode = lstQueryFirstNode(&G_llSubclassedTools);
+    while (pNode)
+    {
+        PSUBCLASSEDTOOL pstThis = (PSUBCLASSEDTOOL)pNode->pItemData;
+        if (pstThis->hwndTool == hwndTool)
+        {
+            return (pstThis);
+        }
+        pNode = pNode->pNext;
+    }
+
+    return (NULL);
+}
+
+/*
  *@@ ctl_fnwpSubclassedTool:
  *      window procedure for tools which were subclassed
  *      to support tooltips.
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.12 (2001-04-28) [umoeller]: added mutex protection
  */
 
 MRESULT EXPENTRY ctl_fnwpSubclassedTool(HWND hwndTool, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT mrc = 0;
 
-    PSUBCLASSEDTOOL pst = NULL;
+    PFNWP           pfnwpOrig = NULL;
 
-    PLISTNODE pNode = lstQueryFirstNode(G_pllSubclassedTools);
-    while (pNode)
+    if (LockSubclassedTools())
     {
-        PSUBCLASSEDTOOL pstThis = (PSUBCLASSEDTOOL)pNode->pItemData;
-        if (pstThis->hwndTool == hwndTool)
-        {
-            pst = pstThis;
-            break;
-        }
-        pNode = pNode->pNext;
-    }
+        PSUBCLASSEDTOOL pst = FindSubclassedTool(hwndTool);
 
-    switch (msg)
-    {
-        case WM_MOUSEMOVE:
-        case WM_BUTTON1DOWN:
-        case WM_BUTTON1UP:
-        case WM_BUTTON2DOWN:
-        case WM_BUTTON2UP:
-        case WM_BUTTON3DOWN:
-        case WM_BUTTON3UP:
+        switch (msg)
         {
-            QMSG qmsg;
-            qmsg.hwnd = hwndTool;
-            qmsg.msg = msg;
-            qmsg.mp1 = mp1;
-            qmsg.mp2 = mp2;
-            // _Pmpf((__FUNCTION__ ": sending TTM_RELAYEVENT"));
-            WinSendMsg(pst->hwndTooltip,
-                       TTM_RELAYEVENT,
-                       (MPARAM)0,
-                       (MPARAM)&qmsg);
-            mrc = (pst->pfnwpOrig)(hwndTool, msg, mp1, mp2);
-        break; }
-
-        case WM_DESTROY:
-            lstRemoveItem(G_pllSubclassedTools, pst);         // this frees the item
-            if (lstCountItems(G_pllSubclassedTools) == 0)
+            case WM_MOUSEMOVE:
+            case WM_BUTTON1DOWN:
+            case WM_BUTTON1UP:
+            case WM_BUTTON2DOWN:
+            case WM_BUTTON2UP:
+            case WM_BUTTON3DOWN:
+            case WM_BUTTON3UP:
             {
-                // last item: destroy list
-                lstFree(G_pllSubclassedTools);
-                G_pllSubclassedTools = NULL;
-                // _Pmpf((__FUNCTION__ ": removed hwnd 0x%lX", hwndTool));
-            }
-            mrc = (pst->pfnwpOrig)(hwndTool, msg, mp1, mp2);
-        break;
+                QMSG qmsg;
+                qmsg.hwnd = hwndTool;
+                qmsg.msg = msg;
+                qmsg.mp1 = mp1;
+                qmsg.mp2 = mp2;
+                // _Pmpf((__FUNCTION__ ": sending TTM_RELAYEVENT"));
+                WinSendMsg(pst->hwndTooltip,
+                           TTM_RELAYEVENT,
+                           (MPARAM)0,
+                           (MPARAM)&qmsg);
+                pfnwpOrig = pst->pfnwpOrig;     // call default
+            break; }
 
-        default:
-            mrc = (pst->pfnwpOrig)(hwndTool, msg, mp1, mp2);
+            case WM_DESTROY:
+                lstRemoveItem(&G_llSubclassedTools, pst);         // this frees the item
+                pfnwpOrig = pst->pfnwpOrig;     // call default
+            break;
+
+            default:
+                pfnwpOrig = pst->pfnwpOrig;     // call default
+        }
+
+        UnlockSubclassedTools();
     }
+
+    if (pfnwpOrig)
+        mrc = (pfnwpOrig)(hwndTool, msg, mp1, mp2);
 
     return (mrc);
 }
 
 /*
- *@@ SubclassToolForToolinfo:
+ *@@ SubclassTool:
  *      this gets called from ctl_fnwpTooltip if a control
  *      is to be subclassed to support mouse messaging
  *      (TTF_SUBCLASS flag).
  *
+ *      Preconditions: Caller must hold the subclassed
+ *      tools mutex.
+ *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.12 (2001-04-28) [umoeller]: renamed from SubclassToolForToolInfo
  */
 
-BOOL SubclassToolForToolinfo(HWND hwndTooltip,
-                             HWND hwndTool)
+BOOL SubclassTool(HWND hwndTooltip,
+                  HWND hwndTool)
 {
     BOOL    brc = FALSE;
-    PFNWP   pfnwpOrig = WinSubclassWindow(hwndTool,
-                                          ctl_fnwpSubclassedTool);
-    if (pfnwpOrig)
+
+    // make sure the tool is not on the list yet
+    // V0.9.12 (2001-04-28) [umoeller]
+    if (!FindSubclassedTool(hwndTool))
     {
-        PSUBCLASSEDTOOL pst = (PSUBCLASSEDTOOL)malloc(sizeof(SUBCLASSEDTOOL));
-        if (pst)
+        PFNWP   pfnwpOrig = WinSubclassWindow(hwndTool,
+                                              ctl_fnwpSubclassedTool);
+        if (pfnwpOrig)
         {
-            pst->pfnwpOrig = pfnwpOrig;
-            pst->hwndTooltip = hwndTooltip;
-            pst->hwndTool = hwndTool;
-            pst->hab = WinQueryAnchorBlock(hwndTool);
+            PSUBCLASSEDTOOL pst = (PSUBCLASSEDTOOL)malloc(sizeof(SUBCLASSEDTOOL));
+            if (pst)
+            {
+                pst->pfnwpOrig = pfnwpOrig;
+                pst->hwndTooltip = hwndTooltip;
+                pst->hwndTool = hwndTool;
+                pst->hab = WinQueryAnchorBlock(hwndTool);
 
-            if (G_pllSubclassedTools == NULL)
-                G_pllSubclassedTools = lstCreate(TRUE);   // auto-free items
-
-            lstAppendItem(G_pllSubclassedTools, pst);
-            // _Pmpf((__FUNCTION__ ": subclassed hwnd 0x%lX", hwndTool));
+                brc = !!lstAppendItem(&G_llSubclassedTools, pst);
+            }
         }
     }
+
     return (brc);
 }
+
+/*
+ *@@ UnSubclassTool:
+ *      un-subclasses a tool previously subclassed by
+ *      SubclassToolForToolinfo.
+ *
+ *      Preconditions: Caller must hold the subclassed
+ *      tools mutex.
+ *
+ *@@added V0.9.12 (2001-04-28) [umoeller]
+ */
+
+BOOL UnSubclassTool(HWND hwndTool)
+{
+    PSUBCLASSEDTOOL pst = FindSubclassedTool(hwndTool);
+    if (pst)
+    {
+        WinSubclassWindow(hwndTool,
+                          pst->pfnwpOrig);
+                            // orig winproc == un-subclass
+        return (lstRemoveItem(&G_llSubclassedTools, pst));
+                    // this frees the item
+    }
+
+    return (FALSE);
+}
+
+/* ******************************************************************
+ *
+ *   Implementation
+ *
+ ********************************************************************/
 
 /*
  *@@ TOOLTIPDATA:
@@ -653,7 +756,7 @@ VOID TtmShowTooltip(HWND hwndTooltip,
  *      See the TTM_ADDTOOL message for details.
  *
  *      To clarify: There is usually one tooltip control, which is hidden
- *      most of the time, for many tools (parts of a visible window).
+ *      most of the time, for many "tools" (parts of a visible window).
  *      When the user puts the cursor on a tool and leaves it there for
  *      approximately one-half second, the tooltip control is set up for
  *      that tool and made visible. The tooltip control appears near the
@@ -727,6 +830,7 @@ VOID TtmShowTooltip(HWND hwndTooltip,
  *      and text on yellow background).
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.12 (2001-04-28) [umoeller]: various fixes WRT subclassing
  */
 
 MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM mp2)
@@ -825,7 +929,28 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
                                  pttd->idTimerAutopop);
                 if (pttd->pszPaintText)
                     free(pttd->pszPaintText);
+
+                // un-subclass all tools that we subclassed
+                // V0.9.12 (2001-04-28) [umoeller]
+                if (LockSubclassedTools())
+                {
+                    PLISTNODE pNode;
+                    PSUBCLASSEDTOOL pst;
+                    for (pNode = lstQueryFirstNode(&pttd->llTools);
+                         pNode;
+                         pNode = pNode->pNext)
+                    {
+                        PTOOLINFO pti = (PTOOLINFO)pNode->pItemData;
+                        if (pst = FindSubclassedTool(pti->hwndTool))
+                            UnSubclassTool(pti->hwndTool);
+                    }
+
+                    UnlockSubclassedTools();
+                }
+                // end V0.9.12 (2001-04-28) [umoeller]
+
                 lstClear(&pttd->llTools);
+
                 free(pttd);
 
                 mrc = (MPARAM)0;
@@ -962,15 +1087,16 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              *      (such as child windows or control windows) and as
              *      rectangular areas within a window's client area.
              *
-             *      --  When you add a tool implemented as a rectangular area, the
-             *          "hwndToolOwner" member of TOOLINFO must specify the handle
-             *          of the window that contains the area, and the "rect" member must
-             *          specify the client coordinates of the area's bounding
-             *          rectangle.
+             *      --  When you add a tool implemented as a rectangular
+             *          area, the "hwndToolOwner" member of TOOLINFO must
+             *          specify the handle of the window that contains the
+             *          area, and the "rect" member must specify the client
+             *          coordinates of the area's bounding rectangle.
              *
-             *      --  When you add a tool implemented as a window, the "hwndTool"
-             *          member of TOOLINFO must contain the window handle of the
-             *          tool. hwndToolOwner should be the owner of the tool.
+             *      --  When you add a tool implemented as a window, the
+             *          "hwndTool" member of TOOLINFO must contain the
+             *          window handle of the tool. hwndToolOwner should be
+             *          the owner of the tool.
              *
              *      When you add a tool to a tooltip control, the "pszText"
              *      member of the TOOLINFO structure must specify the string
@@ -1003,9 +1129,17 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
                         lstAppendItem(&pttd->llTools,
                                       ptiNew);
 
-                        if (ptiPassed->ulFlags & TTF_SUBCLASS)
-                            SubclassToolForToolinfo(hwndTooltip,
-                                                    ptiPassed->hwndTool);
+                        if (    (ptiPassed->ulFlags & TTF_SUBCLASS)
+                             && (LockSubclassedTools()) // V0.9.12 (2001-04-28) [umoeller]
+                           )
+                        {
+                            // caller wants this tool to be subclassed:
+                            // well, do it then
+                            SubclassTool(hwndTooltip,
+                                         ptiPassed->hwndTool);
+
+                            UnlockSubclassedTools();
+                        }
 
                         mrc = (MPARAM)TRUE;
                     }
@@ -1039,7 +1173,20 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
                            )
                         {
                             // found:
+
+                            // V0.9.12 (2001-04-28) [umoeller]
+                            // unsubclass if this was subclassed
+                            if (ptiThis->ulFlags & TTF_SUBCLASS)
+                            {
+                                if (LockSubclassedTools())
+                                {
+                                    UnSubclassTool(ptiSearch->hwndTool);
+                                }
+                            }
+
+                            // remove the tool from the list
                             lstRemoveNode(&pttd->llTools, pToolNode);
+
                             break;
                         }
                     }
@@ -1071,6 +1218,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              */
 
             case TTM_NEWTOOLRECT:
+
             break;
 
             /*
@@ -1208,6 +1356,40 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
             break; }
 
             /*
+             *@@ TTM_GETDELAYTIME:
+             *      returns the current value of the specified
+             *      timeout value. See TTM_SETDELAYTIME.
+             *
+             *      Parameters:
+             *
+             *      -- USHORT mp1: timer value to query. One of:
+             *              -- TTDT_AUTOPOP
+             *              -- TTDT_INITIAL
+             *              -- TTDT_RESHOW
+             *
+             *      Returns: ULONG timeout value.
+             *
+             *@@added V0.9.12 (2001-04-28) [umoeller]
+             */
+
+            case TTM_GETDELAYTIME:
+                switch ((USHORT)mp1)
+                {
+                    case TTDT_AUTOPOP:
+                        mrc = (MRESULT)pttd->ulTimeoutAutopop;
+                    break;
+
+                    case TTDT_INITIAL:
+                        mrc = (MRESULT)pttd->ulTimeoutInitial;
+                    break;
+
+                    case TTDT_RESHOW:
+                        mrc = (MRESULT)pttd->ulTimeoutReshow;
+                    break;
+                }
+            break;
+
+            /*
              *@@ TTM_SETDELAYTIME:
              *      overrides a few default timeout values for the
              *      tooltip control.
@@ -1231,7 +1413,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              *      Parameters:
              *      -- USHORT mp1: parameter selection. One of the following:
              *              -- TTDT_AUTOMATIC: automatically calculates the initial,
-             *                 reshow, and autopopup durations based on the value of iDelay.
+             *                 reshow, and autopopup durations based on the value of mp2.
              *              -- TTDT_AUTOPOP: sets the length of time before the tooltip
              *                  window is hidden if the cursor remains stationary
              *                  in the tool's bounding rectangle after the tooltip window
@@ -1278,17 +1460,17 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              *
              *      Parameters:
              *      -- mp1: always 0
-             *      -- PTOOLINFO mp2: pointer to a TOOLINFO structure. When sending the
-             *          message, the hwnd and uId members identify a tool. If the tooltip
-             *          control includes the tool, the lpszText member receives the pointer
-             *          to the string.
+             *      -- PTOOLINFO mp2: pointer to a TOOLINFO structure.
+             *         When sending the message, the hwnd and uId members
+             *         identify a tool. If the tooltip control includes
+             *         the tool, the lpszText member receives the pointer
+             *         to the string.
              *
              *      Return value: 0 always.
              *
              *      Additional note: On input, if TOOLINFO.lpszText == PSZ_TEXTCALLBACK,
              *      this sends the TTN_NEEDTEXT notification to TOOLINFO.hwnd.
              *
-             *@@todo add TTFMT_STRINGRES
              */
 
             case TTM_GETTEXT:       // done, I think
@@ -1321,7 +1503,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
                         break;
 
                         case TTFMT_STRINGRES:
-
+                                // @@todo
                         break;
                     }
                 }
@@ -1333,10 +1515,11 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              *
              *      Parameters:
              *      -- mp1: always 0.
-             *      -- PTOOLINFO mp2: pointer to a TOOLINFO structure. The "hinst"
-             *          and "lpszText" members must specify the instance handle and
-             *          the pointer to the text.
-             *          The "hwnd" and "uId" members identify the tool to update.
+             *      -- PTOOLINFO mp2: pointer to a TOOLINFO structure.
+             *         The "hinst" and "lpszText" members must specify
+             *         the instance handle and the pointer to the text.
+             *         The "hwnd" and "uId" members identify the tool
+             *         to update.
              */
 
             case TTM_UPDATETIPTEXT:

@@ -38,7 +38,7 @@
  *         Still, these functions are NOT thread-safe for the same profile.
  *         If you open the profile on one thread and write and read
  *         concurrently on two threads, there's no protection, and everything
- *         will blow up. The functions are reeantrant though, so for different
+ *         will blow up. The functions are reentrant though, so for different
  *         profiles there will be no problems.
  *
  *      -- All changes to the INI files using xprfWriteProfileData

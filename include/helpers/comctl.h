@@ -485,12 +485,11 @@ extern "C" {
                     //      the tool; cannot be used with TTF_POS_Y_ABOVE_TOOL
         HWND    hwndToolOwner;
                     // in: handle to the window that contains the tool. If
-                    // lpszText includes the PSZ_TEXTCALLBACK value, this
+                    // pszText includes the PSZ_TEXTCALLBACK value, this
                     // member identifies the window that receives TTN_NEEDTEXT
                     // notification messages.
         HWND    hwndTool;
                     // in: window handle of the tool.
-                    // ### simple rectangles of hwndToolOwner not yet supported
         PSZ     pszText;
                     // in: pointer to the buffer that contains the text for the
                     // tool (if the hiword is != NULL), or identifier of the string
@@ -499,6 +498,11 @@ extern "C" {
                     // the control sends the TTN_NEEDTEXT notification message to
                     // hwndToolOwner to retrieve the text.
     } TOOLINFO, *PTOOLINFO;
+
+    /*
+     *  tooltip messages
+     *
+     */
 
     #define TTM_FIRST                   (WM_USER + 1000)
 
@@ -518,7 +522,10 @@ extern "C" {
     #define TTDT_INITIAL                3
     #define TTDT_RESHOW                 4
 
-    #define TTM_SETDELAYTIME            (TTM_FIRST + 6)
+    #define TTM_GETDELAYTIME            (TTM_FIRST + 6)
+                // added V0.9.12 (2001-04-28) [umoeller]
+
+    #define TTM_SETDELAYTIME            (TTM_FIRST + 7)
 
     #define TTFMT_PSZ           0x01
     #define TTFMT_STRINGRES     0x02
@@ -555,9 +562,9 @@ extern "C" {
                     // out: with TTFMT_STRINGRES, the string resource ID.
     } TOOLTIPTEXT, *PTOOLTIPTEXT;
 
-    #define TTM_GETTEXT                 (TTM_FIRST + 7)
+    #define TTM_GETTEXT                 (TTM_FIRST + 8)
 
-    #define TTM_UPDATETIPTEXT           (TTM_FIRST + 8)
+    #define TTM_UPDATETIPTEXT           (TTM_FIRST + 9)
 
     /*
      *@@ TT_HITTESTINFO:
@@ -576,23 +583,28 @@ extern "C" {
         TOOLINFO ti;    // out:  receives information about the specified tool.
     } TTHITTESTINFO, *PHITTESTINFO;
 
-    #define TTM_HITTEST                 (TTM_FIRST + 9)
+    #define TTM_HITTEST                 (TTM_FIRST + 10)
 
-    #define TTM_WINDOWFROMPOINT         (TTM_FIRST + 10)
+    #define TTM_WINDOWFROMPOINT         (TTM_FIRST + 11)
 
-    #define TTM_ENUMTOOLS               (TTM_FIRST + 11)
+    #define TTM_ENUMTOOLS               (TTM_FIRST + 12)
 
-    #define TTM_GETCURRENTTOOL          (TTM_FIRST + 12)
+    #define TTM_GETCURRENTTOOL          (TTM_FIRST + 13)
 
-    #define TTM_GETTOOLCOUNT            (TTM_FIRST + 13)
+    #define TTM_GETTOOLCOUNT            (TTM_FIRST + 14)
 
-    #define TTM_GETTOOLINFO             (TTM_FIRST + 14)
+    #define TTM_GETTOOLINFO             (TTM_FIRST + 15)
 
-    #define TTM_SETTOOLINFO             (TTM_FIRST + 15)
+    #define TTM_SETTOOLINFO             (TTM_FIRST + 16)
 
     // non-Win95 messages
 
-    #define TTM_SHOWTOOLTIPNOW          (TTM_FIRST + 16)
+    #define TTM_SHOWTOOLTIPNOW          (TTM_FIRST + 17)
+
+    /*
+     *  tooltip notification codes (WM_CONTROL)
+     *
+     */
 
     /*
      *@@ TTN_NEEDTEXT:

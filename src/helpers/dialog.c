@@ -399,8 +399,8 @@ VOID CalcAutoSize(PCONTROLDEF pControlDef,
  */
 
 VOID ProcessColumn(PCOLUMNDEF pColumnDef,
-                   PROWDEF pOwningRow,
-                   PROCESSMODE ProcessMode,
+                   PROWDEF pOwningRow,          // in: current row from ProcessRow
+                   PROCESSMODE ProcessMode,     // in: processing mode (see ProcessAll)
                    PLONG plX,                   // in/out: PROCESS_CALC_POSITIONS only
                    PDLGPRIVATE pDlgData)
 {
@@ -672,13 +672,17 @@ VOID ProcessColumn(PCOLUMNDEF pColumnDef,
 
 /*
  *@@ ProcessRow:
+ *      level-3 procedure (called from ProcessTable),
+ *      which in turn calls ProcessColumn for each column
+ *      in the row.
  *
+ *      See ProcessAll for the meaning of ProcessMode.
  */
 
 VOID ProcessRow(PROWDEF pRowDef,
-                PTABLEDEF pOwningTable,
-                PROCESSMODE ProcessMode,
-                PLONG plY,
+                PTABLEDEF pOwningTable,     // in: current table from ProcessTable
+                PROCESSMODE ProcessMode,    // in: processing mode (see ProcessAll)
+                PLONG plY,                  // in/out: current y position (decremented)
                 PDLGPRIVATE pDlgData)
 {
     ULONG   ul;
@@ -726,10 +730,16 @@ VOID ProcessRow(PROWDEF pRowDef,
 
 /*
  *@@ ProcessTable:
+ *      level-2 procedure (called from ProcessAll),
+ *      which in turn calls ProcessRow for each row
+ *      in the table (which in turn calls ProcessColumn
+ *      for each column in the row).
  *
- *      This routine is a bit sick because it can be
- *      called recursively if a nested table is found
- *      in a COLUMNDEF.
+ *      See ProcessAll for the meaning of ProcessMode.
+ *
+ *      This routine is a bit sick because it can even be
+ *      called recursively from ProcessColumn (!) if a
+ *      nested table is found in a COLUMNDEF.
  *
  *      With PROCESS_CALC_POSITIONS, pptl must specify
  *      the lower left corner of the table. For the
@@ -741,7 +751,7 @@ VOID ProcessRow(PROWDEF pRowDef,
 
 VOID ProcessTable(PTABLEDEF pTableDef,
                   const CONTROLPOS *pcpTable,       // in: table position with PROCESS_CALC_POSITIONS
-                  PROCESSMODE ProcessMode,
+                  PROCESSMODE ProcessMode,          // in: processing mode (see ProcessAll)
                   PDLGPRIVATE pDlgData)
 {
     ULONG   ul;
@@ -782,9 +792,22 @@ VOID ProcessTable(PTABLEDEF pTableDef,
 
 /*
  *@@ ProcessAll:
+ *      level-1 procedure, which in turn calls ProcessTable
+ *      for each root-level table found (which in turn
+ *      calls ProcessRow for each row in the table, which
+ *      in turn calls ProcessColumn for each column in
+ *      the row).
+ *
+ *      The first trick to formatting is that ProcessAll will
+ *      get three times, thus going down the entire tree three
+ *      times, with ProcessMode being set to one of the
+ *      following for each call (in this order):
  *
  *      -- PROCESS_CALC_SIZES: calculates the sizes
  *         of all tables, rows, columns, and controls.
+ *
+ *         After this first call, we know all the sizes
+ *         only and then then calculate the positions.
  *
  *      -- PROCESS_CALC_POSITIONS: calculates the positions
  *         based on the sizes calculated before.
@@ -792,6 +815,12 @@ VOID ProcessTable(PTABLEDEF pTableDef,
  *      -- PROCESS_CREATE_CONTROLS: creates the controls with the
  *         positions and sizes calculated before.
  *
+ *      The second trick is the precondition that tables may
+ *      nest by allowing a table definition instead of a
+ *      control definition in a column. This way we can
+ *      recurse from columns back into tables and thus
+ *      know the size and position of a nested table column
+ *      just as if it were a regular control.
  */
 
 VOID ProcessAll(PDLGPRIVATE pDlgData,

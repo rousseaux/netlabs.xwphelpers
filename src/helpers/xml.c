@@ -7,8 +7,9 @@
  *      layers:
  *
  *      --  The bottom layer is implemented by @expat, which I have
- *          ported and hacked to the xwphelpers. See xmlparse.c for
- *          an introduction.
+ *          ported and hacked to the xwphelpers.
+ *
+ *          See xmlparse.c for an introduction.
  *
  *      --  Because expat requires so many callbacks and is non-validating,
  *          I have added a top layer above the expat library
