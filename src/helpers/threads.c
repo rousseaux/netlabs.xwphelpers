@@ -395,17 +395,17 @@ ULONG thrRunSync(HAB hab,               // in: anchor block of calling thread
     ULONG ulrc = 0;
     QMSG qmsg;
     BOOL fQuit = FALSE;
-    HWND hwndNotify = WinCreateWindow(HWND_OBJECT,
-                                      WC_BUTTON,
-                                      (PSZ)"",
-                                      0,
-                                      0,0,0,0,
-                                      0,
-                                      HWND_BOTTOM,
-                                      0,
-                                      0,
-                                      NULL);
-    if (hwndNotify)
+    HWND hwndNotify;
+    if (hwndNotify = WinCreateWindow(HWND_OBJECT,
+                                     WC_BUTTON,
+                                     (PSZ)"",
+                                     0,
+                                     0,0,0,0,
+                                     0,
+                                     HWND_BOTTOM,
+                                     0,
+                                     0,
+                                     NULL))
     {
         THREADINFO  ti = {0};
         thrCreate(&ti,
