@@ -47,6 +47,8 @@ extern "C" {
         ULONG           ulLength;       // length of *psz
         ULONG           cbAllocated;    // memory allocated in *psz
                                         // (>= ulLength + 1)
+        ULONG           ulDelta;        // allocation delta (0 = none)
+                                        // V0.9.9 (2001-03-07) [umoeller]
     } XSTRING, *PXSTRING;
 
     void XWPENTRY xstrInit(PXSTRING pxstr, ULONG ulPreAllocate);

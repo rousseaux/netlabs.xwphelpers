@@ -271,6 +271,210 @@ SHORT winhInsertMenuSeparator(HWND hMenu,       // in: menu to add separator to
 }
 
 /*
+ *@@ winhCopyMenuItem:
+ *      copies a menu item from hmenuSource to hmenuTarget.
+ *
+ *      This creates a full duplicate. If usID specifies
+ *      a submenu, the entire submenu is copied as well
+ *      (this will then recurse).
+ *
+ *      NOTE: Copying submenus will work only if each item
+ *      in the submenu has a unique menu ID. This is due
+ *      to the dumb implementation of menus in PM where
+ *      it is impossible to query menu items without
+ *      knowing their ID.
+ *
+ *@@added V0.9.9 (2001-03-09) [umoeller]
+ */
+
+BOOL winhCopyMenuItem(HWND hmenuTarget,
+                      HWND hmenuSource,
+                      USHORT usID,
+                      SHORT sTargetPosition)    // in: position to insert at or MIT_END
+{
+    BOOL brc = FALSE;
+    MENUITEM mi = {0};
+    if (WinSendMsg(hmenuSource,
+                   MM_QUERYITEM,
+                   MPFROM2SHORT(usID,
+                                FALSE),
+                   (MPARAM)&mi))
+    {
+        // found in source:
+        // is it a separator?
+        if (mi.afStyle & MIS_SEPARATOR)
+            winhInsertMenuSeparator(hmenuTarget,
+                                    sTargetPosition,
+                                    usID);
+        else
+        {
+            // no separator:
+            // get item text
+            PSZ pszSource = winhQueryMenuItemText(hmenuSource,
+                                                  usID);
+            if (pszSource)
+            {
+                if (    (mi.afStyle & MIS_SUBMENU)
+                     && (mi.hwndSubMenu)
+                   )
+                {
+                    // this is the top of a submenu:
+                    HWND hwndSubMenu = winhInsertSubmenu(hmenuTarget,
+                                                         sTargetPosition,
+                                                         mi.id,
+                                                         pszSource,
+                                                         mi.afStyle,
+                                                         0,
+                                                         NULL,
+                                                         0,
+                                                         0);
+                    if (hwndSubMenu)
+                    {
+                        // now copy all the items in the submenu
+                        SHORT cMenuItems = (SHORT)WinSendMsg(mi.hwndSubMenu,
+                                                             MM_QUERYITEMCOUNT,
+                                                             0, 0);
+                        // loop through all entries in the original submenu
+                        ULONG i;
+                        for (i = 0;
+                             i < cMenuItems;
+                             i++)
+                        {
+                            CHAR szItemText[100];
+                            SHORT id = (SHORT)WinSendMsg(mi.hwndSubMenu,
+                                                         MM_ITEMIDFROMPOSITION,
+                                                         MPFROMSHORT(i),
+                                                         0);
+                            // recurse
+                            winhCopyMenuItem(hwndSubMenu,
+                                             mi.hwndSubMenu,
+                                             id,
+                                             MIT_END);
+                        }
+
+                        // now check... was the original submenu
+                        // "conditional cascade"?
+                        if (WinQueryWindowULong(mi.hwndSubMenu,
+                                                QWL_STYLE)
+                                & MS_CONDITIONALCASCADE)
+                            // yes:
+                        {
+                            // get the original default item
+                            SHORT sDefID = (SHORT)WinSendMsg(mi.hwndSubMenu,
+                                                             MM_QUERYDEFAULTITEMID,
+                                                             0, 0);
+                            // set "conditional cascade style" on target too
+                            WinSetWindowBits(hwndSubMenu,
+                                             QWL_STYLE,
+                                             MS_CONDITIONALCASCADE,
+                                             MS_CONDITIONALCASCADE);
+                            // and set default item id
+                            WinSendMsg(hwndSubMenu,
+                                       MM_SETDEFAULTITEMID,
+                                       (MPARAM)sDefID,
+                                       0);
+                        }
+                    } // end if (hwndSubmenu)
+                } // end if (    (mi.afStyle & MIS_SUBMENU)
+                else
+                {
+                    // no submenu:
+                    // just copy that item
+                    SHORT s;
+                    mi.iPosition = sTargetPosition;
+                    s = (SHORT)WinSendMsg(hmenuTarget,
+                                          MM_INSERTITEM,
+                                          MPFROMP(&mi),
+                                          MPFROMP(pszSource));
+                    if (s != MIT_MEMERROR && s != MIT_ERROR)
+                        brc = TRUE;
+                }
+
+                free(pszSource);
+            } // end if (pszSource)
+        } // end else if (mi.afStyle & MIS_SEPARATOR)
+    } // end if (WinSendMsg(hmenuSource, MM_QUERYITEM,...
+
+    return (brc);
+}
+
+/*
+ *@@ winhMergeIntoSubMenu:
+ *      creates a new submenu in hmenuTarget with the
+ *      specified title at the specified position
+ *      and copies the entire contents of hmenuSource
+ *      into that.
+ *
+ *      Returns the window handle of the new submenu
+ *      or NULLHANDLE on errors.
+ *
+ *      NOTE: Copying submenus will work only if each item
+ *      in the submenu has a unique menu ID. This is due
+ *      to the dumb implementation of menus in PM where
+ *      it is impossible to query menu items without
+ *      knowing their ID.
+ *
+ *@@added V0.9.9 (2001-03-09) [umoeller]
+ */
+
+HWND winhMergeIntoSubMenu(HWND hmenuTarget,         // in: menu where to create submenu
+                          SHORT sTargetPosition,    // in: position to insert at or MIT_END
+                          const char *pcszTitle,    // in: title of new submenu
+                          SHORT sID,                // in: ID of new submenu
+                          HWND hmenuSource)         // in: menu to merge
+{
+    HWND hwndNewSubmenu = WinCreateMenu(hmenuTarget, NULL);
+    if (hwndNewSubmenu)
+    {
+        MENUITEM mi = {0};
+        SHORT src = 0;
+        SHORT s = 0;
+        mi.iPosition = MIT_END;
+        mi.afStyle = MIS_TEXT | MIS_SUBMENU;
+        mi.id = 2000;
+        mi.hwndSubMenu = hwndNewSubmenu;
+
+        WinSetWindowUShort(hwndNewSubmenu, QWS_ID, sID);
+
+        // insert new submenu into hmenuTarget
+        src = SHORT1FROMMR(WinSendMsg(hmenuTarget,
+                                      MM_INSERTITEM,
+                                      (MPARAM)&mi,
+                                      (MPARAM)pcszTitle));
+        if (    (src != MIT_MEMERROR)
+            &&  (src != MIT_ERROR)
+           )
+        {
+            int i;
+            SHORT cMenuItems = (SHORT)WinSendMsg(hmenuSource,
+                                                 MM_QUERYITEMCOUNT,
+                                                 0, 0);
+
+            // loop through all entries in the original menu
+            for (i = 0; i < cMenuItems; i++)
+            {
+                SHORT id = (SHORT)WinSendMsg(hmenuSource,
+                                             MM_ITEMIDFROMPOSITION,
+                                             MPFROMSHORT(i),
+                                             0);
+                winhCopyMenuItem(hwndNewSubmenu,
+                                 hmenuSource,
+                                 id,
+                                 MIT_END);
+            }
+        }
+        else
+        {
+            // error:
+            WinDestroyWindow(hwndNewSubmenu);
+            hwndNewSubmenu = NULLHANDLE;
+        }
+    }
+
+    return (hwndNewSubmenu);
+}
+
+/*
  *@@ winhQueryMenuItemText:
  *      this returns a menu item text as a PSZ
  *      to a newly allocated buffer or NULL if

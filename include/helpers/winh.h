@@ -171,6 +171,28 @@ extern "C" {
                                            SHORT iPosition,
                                            SHORT sId);
 
+    BOOL XWPENTRY winhCopyMenuItem(HWND hmenuTarget,
+                                   HWND hmenuSource,
+                                   USHORT usID,
+                                   SHORT sTargetPosition);
+    typedef BOOL XWPENTRY WINHCOPYMENUITEM(HWND hmenuTarget,
+                                   HWND hmenuSource,
+                                   USHORT usID,
+                                   SHORT sTargetPosition);
+    typedef WINHCOPYMENUITEM *PWINHCOPYMENUITEM;
+
+    HWND XWPENTRY winhMergeIntoSubMenu(HWND hmenuTarget,
+                                       SHORT sTargetPosition,
+                                       const char *pcszTitle,
+                                       SHORT sID,
+                                       HWND hmenuSource);
+    typedef HWND XWPENTRY WINHMERGEINTOSUBMENU(HWND hmenuTarget,
+                                       SHORT sTargetPosition,
+                                       const char *pcszTitle,
+                                       SHORT sID,
+                                       HWND hmenuSource);
+    typedef WINHMERGEINTOSUBMENU *PWINHMERGEINTOSUBMENU;
+
     PSZ XWPENTRY winhQueryMenuItemText(HWND hwndMenu,
                                        USHORT usItemID);
 

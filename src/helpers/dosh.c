@@ -1921,7 +1921,7 @@ APIRET doshFindExecutable(const char *pcszCommand,      // in: command (e.g. "lv
        )
     {
         // try additional things then
-        PSZ psz2 = malloc(strlen(pcszCommand) + 20);
+        PSZ psz2 = (PSZ)malloc(strlen(pcszCommand) + 20);
         if (psz2)
         {
             ULONG   ul;

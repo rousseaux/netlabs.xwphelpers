@@ -124,7 +124,10 @@
  *      using an XSTRING from the stack.
  *
  *      If (ulPreAllocate != 0), memory is pre-allocated
- *      for the string, but the string will be empty.
+ *      for the string, but the string will be empty
+ *      (its first byte is set to '\0'). In addition,
+ *      pxstr->ulDelta will be set to 10% of ulPreAllocate.
+ *
  *      This is useful if you plan to add more stuff to
  *      the string later so we don't have to reallocate
  *      all the time in xstrcat.
@@ -134,6 +137,7 @@
  *      Use xstrcpy or xstrset instead.
  *
  *@@added V0.9.6 (2000-11-01) [umoeller]
+ *@@changed V0.9.9 (2001-03-09) [umoeller]: added ulDelta
  */
 
 void xstrInit(PXSTRING pxstr,               // in/out: string
@@ -146,7 +150,10 @@ void xstrInit(PXSTRING pxstr,               // in/out: string
         pxstr->cbAllocated = ulPreAllocate;
                 // ulLength is still zero
         *(pxstr->psz) = 0;
+
+        pxstr->ulDelta = ulPreAllocate * 10 / 100;
     }
+    // else: pxstr->ulDelta is still 0
 }
 
 /*
@@ -169,21 +176,22 @@ void xstrInit(PXSTRING pxstr,               // in/out: string
  +          xstrInitSet(&str, strdup("blah"));
  *
  *@@added V0.9.6 (2000-11-01) [umoeller]
+ *@@changed V0.9.9 (2001-03-09) [umoeller]: added ulDelta
  */
 
 void xstrInitSet(PXSTRING pxstr,
                  PSZ pszNew)
 {
-    pxstr->psz = pszNew;
     if (!pszNew)
     {
-        pxstr->cbAllocated = 0;
-        pxstr->ulLength = 0;
+        memset(pxstr, 0, sizeof(XSTRING));
     }
     else
     {
+        pxstr->psz = pszNew;
         pxstr->ulLength = strlen(pszNew);
         pxstr->cbAllocated = pxstr->ulLength + 1;
+        pxstr->ulDelta = pxstr->ulLength  * 10 / 100;
     }
 }
 
@@ -208,6 +216,7 @@ void xstrInitSet(PXSTRING pxstr,
  *
  *@@added V0.9.6 (2000-11-01) [umoeller]
  *@@changed V0.9.7 (2000-12-31) [umoeller]: added ulExtraAllocate
+ *@@changed V0.9.9 (2001-03-09) [umoeller]: added ulDelta
  */
 
 void xstrInitCopy(PXSTRING pxstr,
@@ -228,6 +237,8 @@ void xstrInitCopy(PXSTRING pxstr,
                 pxstr->cbAllocated = pxstr->ulLength + 1 + ulExtraAllocate;
                 pxstr->psz = (PSZ)malloc(pxstr->cbAllocated);
                 strcpy(pxstr->psz, pcszSource);
+
+                pxstr->ulDelta = pxstr->cbAllocated * 10 / 100;
             }
         }
     }
@@ -264,12 +275,15 @@ void xstrClear(PXSTRING pxstr)              // in/out: string
  *      If ulBytes is smaller than the current allocation,
  *      this function does nothing.
  *
+ *      pxstr->ulDelta has no effect here.
+ *
  *      The XSTRING must be initialized before the
  *      call.
  *
  *      Returns the new total no. of allocated bytes.
  *
  *@@added V0.9.7 (2001-01-07) [umoeller]
+ *@@changed V0.9.9 (2001-03-09) [umoeller]: now using ulDelta
  */
 
 ULONG xstrReserve(PXSTRING pxstr,
@@ -281,21 +295,34 @@ ULONG xstrReserve(PXSTRING pxstr,
     {
         // we need more memory than we have previously
         // allocated:
-        if (pxstr->cbAllocated)
-            // appendee already had memory:
-            // reallocate
-            pxstr->psz = (PSZ)realloc(pxstr->psz,
-                                      cbNeeded);
-        else
+        ULONG cbAllocate;
+        if (pxstr->ulDelta)
         {
-            // appendee has no memory:
-            pxstr->psz = (PSZ)malloc(cbNeeded);
-            *(pxstr->psz) = 0;
+            // delta specified: allocate in chunks of that
+            // V0.9.9 (2001-03-07) [umoeller]
+            ULONG cbExtra = cbNeeded - pxstr->cbAllocated;
+            cbExtra = (   (cbExtra + pxstr->ulDelta)
+                        / pxstr->ulDelta
+                      )
+                      * pxstr->ulDelta;
+                    // if we need 3 extra bytes and ulDelta is 10,
+                    // this gives us 10 extra bytes
+                    // if we need 3 extra bytes and ulDelta is 1000,
+                    // this gives us 1000 extra bytes
+            cbAllocate = pxstr->cbAllocated + cbExtra;
         }
-
-        pxstr->cbAllocated = cbNeeded;
+        else
+            // no delta specified:
+            cbAllocate = cbNeeded;
+        // V0.9.9 (2001-03-05) [umoeller]: use realloc;
+        // this gives the C runtime a chance to expand the
+        // existing block
+        pxstr->psz = (PSZ)realloc(pxstr->psz, cbAllocate);
+                    // if pxstr->psz is NULL, realloc behaves like malloc
+        pxstr->cbAllocated = cbAllocate;
                 // ulLength is unchanged
     }
+    // else: we have enough memory
 
     return (pxstr->cbAllocated);
 }
@@ -368,6 +395,8 @@ ULONG xstrset(PXSTRING pxstr,               // in/out: string
     {
         pxstr->ulLength = strlen(pszNew);
         pxstr->cbAllocated = pxstr->ulLength + 1;
+
+        pxstr->ulDelta = pxstr->cbAllocated * 10 / 100;
     }
     // else null string: cbAllocated and ulLength are 0 already
 
@@ -381,15 +410,20 @@ ULONG xstrset(PXSTRING pxstr,               // in/out: string
  *
  *      If pxstr contains something, its contents are destroyed.
  *
- *      With ulSourceLength, specify the length of pcszSource.
- *      If you specify 0, this function will run strlen(pcszSource)
- *      itself.
+ *      With ulSourceLength, specify the length of pcszSource
+ *      or 0.
  *
- *      If you already know the length of pcszSource, you can
- *      speed this function up a bit this way.
+ *      --  If you specify 0, this function will run
+ *          strlen(pcszSource) and copy the entire source
+ *          string.
  *
- *      You are required to specify ulSourceLength if you only want
- *      to copy a substring, or pcszSource is not zero-terminated.
+ *      --  If you already know the length of pcszSource, you
+ *          can speed this function up by specifying the
+ *          length.
+ *
+ *      --  You are required to specify ulSourceLength if you
+ *          only want to copy a substring, or if pcszSource is
+ *          not zero-terminated.
  *
  *      Returns the length of the new string (excluding the null
  *      terminator), or null upon errors.
@@ -412,14 +446,13 @@ ULONG xstrset(PXSTRING pxstr,               // in/out: string
  *@@changed V0.9.9 (2001-01-28) [lafaix]: fixed memory leak and NULL source behavior
  *@@changed V0.9.9 (2001-02-14) [umoeller]: fixed NULL target crash
  *@@changed V0.9.9 (2001-02-16) [umoeller]: now supporting non-zero-terminated pcszSource
+ *@@changed V0.9.9 (2001-03-09) [umoeller]: now using xstrReserve
  */
 
 ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
               const char *pcszSource,       // in: source, can be NULL
               ULONG ulSourceLength)         // in: length of pcszSource or 0
 {
-    // xstrClear(pxstr);        NOOOO! this frees the string, we want to keep the memory
-
     if (!pxstr)
         return (0);         // V0.9.9 (2001-02-14) [umoeller]
 
@@ -436,24 +469,9 @@ ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
     if (ulSourceLength)
     {
         // we do have a source string:
-        ULONG cbNeeded = ulSourceLength + 1;
-        if (cbNeeded > pxstr->cbAllocated)
-        {
-            // we need more memory than we have previously
-            // allocated:
-            /* if (pxstr->psz)
-                free(pxstr->psz); // V0.9.9 (2001-01-28) [lafaix]
-            pxstr->cbAllocated = cbNeeded;
-            pxstr->psz = (PSZ)malloc(cbNeeded); */
-
-            // V0.9.9 (2001-03-05) [umoeller]: use realloc;
-            // this gives the C runtime a chance to expand the
-            // existing block
-            pxstr->psz = (PSZ)realloc(pxstr->psz, cbNeeded);
-                        // if pxstr->psz is NULL, realloc behaves like malloc
-            pxstr->cbAllocated = cbNeeded;
-        }
-        // else: we have enough memory
+        xstrReserve(pxstr,
+                    // required memory:
+                    ulSourceLength + 1);
 
         memcpy(pxstr->psz,
                pcszSource,
@@ -543,6 +561,7 @@ ULONG xstrcpys(PXSTRING pxstr,
  *@@changed V0.9.7 (2000-12-10) [umoeller]: return value was wrong
  *@@changed V0.9.7 (2001-01-15) [umoeller]: added ulSourceLength
  *@@changed V0.9.9 (2001-02-16) [umoeller]: now supporting non-zero-terminated pcszSource
+ *@@changed V0.9.9 (2001-03-09) [umoeller]: now using xstrReserve
  */
 
 ULONG xstrcat(PXSTRING pxstr,               // in/out: string
@@ -563,33 +582,9 @@ ULONG xstrcat(PXSTRING pxstr,               // in/out: string
                 // we do have a source string:
 
                 // 1) memory management
-                ULONG   cbNeeded = pxstr->ulLength + ulSourceLength + 1;
-                if (cbNeeded > pxstr->cbAllocated)
-                {
-                    // we need more memory than we have previously
-                    // allocated:
-                    if (pxstr->cbAllocated)
-                        // appendee already had memory:
-                        // reallocate
-                        pxstr->psz = (PSZ)realloc(pxstr->psz,
-                                                  cbNeeded);
-                    else
-                        // appendee has no memory:
-                        pxstr->psz = (PSZ)malloc(cbNeeded);
-
-                    pxstr->cbAllocated = cbNeeded;
-                            // ulLength is unchanged yet
-                }
-                // else: we have enough memory, both if appendee
-                //       is empty or not empty
-
-                // now we have:
-                // -- if appendee (pxstr) had enough memory, no problem
-                // -- if appendee (pxstr) needed more memory
-                //      -- and was not empty: pxstr->psz now points to a
-                //         reallocated copy of the old string
-                //      -- and was empty: pxstr->psz now points to a
-                //         new (unitialized) buffer
+                xstrReserve(pxstr,
+                            // required memory:
+                            pxstr->ulLength + ulSourceLength + 1);
 
                 // 2) append source string:
                 memcpy(pxstr->psz + pxstr->ulLength,
@@ -644,6 +639,7 @@ ULONG xstrcat(PXSTRING pxstr,               // in/out: string
  *      to hold enough room for c.
  *
  *@@added V0.9.7 (2000-12-10) [umoeller]
+ *@@changed V0.9.9 (2001-03-09) [umoeller]: now using xstrReserve
  */
 
 ULONG xstrcatc(PXSTRING pxstr,     // in/out: string
@@ -655,42 +651,17 @@ ULONG xstrcatc(PXSTRING pxstr,     // in/out: string
     {
         // ULONG   ulSourceLength = 1;
         // 1) memory management
-        ULONG   cbNeeded = pxstr->ulLength  // existing length, without null terminator
-                           + 1      // new character
-                           + 1;     // null terminator
-        if (cbNeeded > pxstr->cbAllocated)
-        {
-            // we need more memory than we have previously
-            // allocated:
-            if (pxstr->cbAllocated)
-                // appendee already had memory:
-                // reallocate
-                pxstr->psz = (PSZ)realloc(pxstr->psz,
-                                          cbNeeded);
-            else
-                // appendee has no memory:
-                pxstr->psz = (PSZ)malloc(cbNeeded);
-
-            pxstr->cbAllocated = cbNeeded;
-                    // ulLength is unchanged yet
-        }
-        // else: we have enough memory, both if appendee
-        //       is empty or not empty
-
-        // now we have:
-        // -- if appendee (pxstr) had enough memory, no problem
-        // -- if appendee (pxstr) needed more memory
-        //      -- and was not empty: pxstr->psz now points to a
-        //         reallocated copy of the old string
-        //      -- and was empty: pxstr->psz now points to a
-        //         new (unitialized) buffer
-
+        xstrReserve(pxstr,
+                    // required memory:
+                    pxstr->ulLength  // existing length, without null terminator
+                            + 1      // new character
+                            + 1);    // null terminator
         // 2) append character:
         pxstr->psz[pxstr->ulLength] = c;
         pxstr->psz[pxstr->ulLength + 1] = '\0';
 
         // in all cases, set new length
-        pxstr->ulLength++;
+        (pxstr->ulLength)++;
         ulrc = pxstr->ulLength;
 
     } // end if ((pxstr) && (c))
@@ -711,7 +682,9 @@ ULONG xstrcats(PXSTRING pxstr,
     if (!pcstrSource)
         return (0);
 
-    return (xstrcat(pxstr, pcstrSource->psz, pcstrSource->ulLength));
+    return (xstrcat(pxstr,
+                    pcstrSource->psz,
+                    pcstrSource->ulLength));
 }
 
 /*
@@ -752,6 +725,7 @@ ULONG xstrcats(PXSTRING pxstr,
  *@@added V0.9.7 (2001-01-15) [umoeller]
  *@@changed V0.9.9 (2001-01-29) [lafaix]: fixed unnecessary allocation when pxstr was big enough
  *@@changed V0.9.9 (2001-02-14) [umoeller]: fixed NULL target crash
+ *@@changed V0.9.9 (2001-03-09) [umoeller]: now using xstrReserve
  */
 
 ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
@@ -771,21 +745,43 @@ ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
         ULONG   cReplaceLen = pstrReplaceWith->ulLength;
                     // can be 0!
 
-        // length of new string
+        // size of new buffer:
         ULONG   cbNeeded = pxstr->ulLength
                          + cReplaceLen
                          - cReplLen
                          + 1;                  // null terminator
         // offset where pszSearch was found
-                // ulFirstReplOfs = pFound - pxstr->psz; now ulFirstReplOfs
         PSZ     pFound = pxstr->psz + ulFirstReplOfs;
 
         // now check if we have enough memory...
-        if (pxstr->cbAllocated < cbNeeded)
+        if (cbNeeded > pxstr->cbAllocated)
         {
-            // no, we need more memory:
+            // we need more memory than we have previously
+            // allocated:
+            // reallocate using ulDelta V0.9.9 (2001-03-07) [umoeller]
+            ULONG cbAllocate;
+            PSZ pszNew;
+            if (pxstr->ulDelta)
+            {
+                // delta specified: allocate in chunks of that
+                // V0.9.9 (2001-03-07) [umoeller]
+                ULONG cbExtra = cbNeeded - pxstr->cbAllocated;
+                cbExtra = (   (cbExtra + pxstr->ulDelta)
+                            / pxstr->ulDelta
+                          )
+                          * pxstr->ulDelta;
+                        // if we need 3 extra bytes and ulDelta is 10,
+                        // this gives us 10 extra bytes
+                        // if we need 3 extra bytes and ulDelta is 1000,
+                        // this gives us 1000 extra bytes
+                cbAllocate = pxstr->cbAllocated + cbExtra;
+            }
+            else
+                // no delta specified:
+                cbAllocate = cbNeeded;
             // allocate new buffer
-            PSZ pszNew = (PSZ)malloc(cbNeeded);
+            pszNew = (PSZ)malloc(cbAllocate);
+            // end V0.9.9 (2001-03-07) [umoeller]
 
             if (ulFirstReplOfs)
                 // "found" was not at the beginning:
@@ -823,7 +819,7 @@ ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
             free(pxstr->psz);
             pxstr->psz = pszNew;
             pxstr->ulLength = cbNeeded - 1;
-            pxstr->cbAllocated = cbNeeded;
+            pxstr->cbAllocated = cbAllocate; // V0.9.9 (2001-03-07) [umoeller]
         } // end if (pxstr->cbAllocated < cbNeeded)
         else
         {
@@ -1354,15 +1350,17 @@ VOID xstrConvertLineFormat(PXSTRING pxstr,
     BOOL    fRepeat = FALSE;
     ULONG   ulOfs = 0;
 
-    xstrInit(&str, 100);
+    xstrInit(&str, 0);
     xstrInit(&strFind, 0);
     xstrInit(&strReplace, 0);
+
+    str.ulDelta = 50;
 
     xstrcpy(&str, "Test string 1. Test string 2. Test string 3. !", 0);
     xstrcpy(&strFind, "Test", 0);
     xstrcpy(&strReplace, "Dummy", 0);
 
-    printf("Old string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
+    printf("Old string is: \"%s\" (%d/%d/%d)\n", str.psz, str.ulLength, str.cbAllocated, str.ulDelta);
 
     printf("Replacing \"%s\" with \"%s\".\n", strFind.psz, strReplace.psz);
 
@@ -1375,7 +1373,11 @@ VOID xstrConvertLineFormat(PXSTRING pxstr,
                            shift, &fRepeat));
         ;
 
-    printf("New string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
+    printf("New string is: \"%s\" (%d/%d/%d)\n", str.psz, str.ulLength, str.cbAllocated, str.ulDelta);
+
+    printf("Appending \"blah\".\n");
+    xstrcat(&str, "blah", 0);
+    printf("New string is: \"%s\" (%d/%d/%d)\n", str.psz, str.ulLength, str.cbAllocated, str.ulDelta);
 
     xstrcpy(&strFind, strReplace.psz, 0);
     xstrClear(&strReplace);
@@ -1391,7 +1393,7 @@ VOID xstrConvertLineFormat(PXSTRING pxstr,
                    shift, &fRepeat));
         ;
 
-    printf("New string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
+    printf("New string is: \"%s\" (%d/%d/%d)\n", str.psz, str.ulLength, str.cbAllocated, str.ulDelta);
 
     xstrcpy(&strFind, " ", 0);
     xstrcpy(&strReplace, ".", 0);
@@ -1407,7 +1409,7 @@ VOID xstrConvertLineFormat(PXSTRING pxstr,
                    shift, &fRepeat));
         ;
 
-    printf("New string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
+    printf("New string is: \"%s\" (%d/%d/%d)\n", str.psz, str.ulLength, str.cbAllocated, str.ulDelta);
 
     xstrcpy(&strFind, ".", 0);
     xstrcpy(&strReplace, "*.........................*", 0);
@@ -1423,12 +1425,7 @@ VOID xstrConvertLineFormat(PXSTRING pxstr,
                    shift, &fRepeat));
         ;
 
-    printf("New string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
-
-    printf("Reserving extra mem.\n");
-
-    xstrReserve(&str, 6000);
-    printf("New string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
+    printf("New string is: \"%s\" (%d/%d/%d)\n", str.psz, str.ulLength, str.cbAllocated, str.ulDelta);
 
     xstrcpy(&strFind, "..........", 0);
     xstrcpy(&strReplace, "@", 0);
@@ -1444,17 +1441,17 @@ VOID xstrConvertLineFormat(PXSTRING pxstr,
                    shift, &fRepeat));
         ;
 
-    printf("New string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
+    printf("New string is: \"%s\" (%d/%d/%d)\n", str.psz, str.ulLength, str.cbAllocated, str.ulDelta);
 
     printf("Encoding @* chars.\n");
     xstrEncode(&str, "@*");
-    printf("New string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
+    printf("New string is: \"%s\" (%d/%d/%d)\n", str.psz, str.ulLength, str.cbAllocated, str.ulDelta);
 
     printf("Decoding @* chars.\n");
     xstrDecode(&str);
-    printf("New string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
+    printf("New string is: \"%s\" (%d/%d/%d)\n", str.psz, str.ulLength, str.cbAllocated, str.ulDelta);
 
     return (0);
-}
+} */
 
-*/
+
