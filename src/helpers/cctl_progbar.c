@@ -356,7 +356,7 @@ MRESULT EXPENTRY ctl_fnwpProgressBar(HWND hwndBar, ULONG msg, MPARAM mp1, MPARAM
                 mrc = OldStaticProc(hwndBar, msg, mp1, mp2);
        }
     }
-    return (mrc);
+    return mrc;
 }
 
 /*

@@ -240,7 +240,7 @@ MRESULT EXPENTRY ctl_fnwpSplitWindow(HWND hwndSplit, ULONG msg, MPARAM mp1, MPAR
             mrc = WinDefWindowProc(hwndSplit, msg, mp1, mp2);
     }
 
-    return (mrc);
+    return mrc;
 }
 
 /*
@@ -552,7 +552,7 @@ MRESULT EXPENTRY ctl_fnwpSplitBar(HWND hwndBar, ULONG msg, MPARAM mp1, MPARAM mp
                 mrc = OldStaticProc(hwndBar, msg, mp1, mp2);
         }
     }
-    return (mrc);
+    return mrc;
 }
 
 /*
@@ -976,7 +976,7 @@ BOOL ctlUpdateSplitWindow(HWND hwndSplit)
         }
     }
 
-    return (brc);
+    return brc;
 }
 
 /*

@@ -603,7 +603,7 @@ static BOOL LockStrings(VOID)
     else
         brc = !DosRequestMutexSem(G_hmtxStringsCache, SEM_INDEFINITE_WAIT);
 
-    return (brc);
+    return brc;
 }
 
 /*

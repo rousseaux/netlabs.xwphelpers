@@ -263,6 +263,28 @@ VOID gpihManipulateRGB(PLONG plColor,       // in/out: RGB color
         *pb = (BYTE)ul;
 }
 
+#define MEDIATE(a, b) (LONG)(a) + (((LONG)(b) - (LONG)(a)) / 2)
+
+/*
+ *@@ gpihMediumRGB:
+ *      returns the arithmetic medium color between
+ *      lcol1 and lcol2.
+ *
+ *@@added V0.9.19 (2002-05-28) [umoeller]
+ */
+
+LONG gpihMediumRGB(LONG lcol1, LONG lcol2)
+{
+    return MAKE_RGB(
+                     MEDIATE(GET_RED(lcol1),
+                             GET_RED(lcol2)),
+                     MEDIATE(GET_GREEN(lcol1),
+                             GET_GREEN(lcol2)),
+                     MEDIATE(GET_BLUE(lcol1),
+                             GET_BLUE(lcol2))
+                   );
+}
+
 /*
  *@@ gpihSwitchToRGB:
  *      this switches the given HPS into RGB mode. You should
@@ -981,7 +1003,7 @@ BOOL gpihSplitPresFont(PSZ pszFontNameSize,  // in: e.g. "12.Courier"
         }
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -1600,7 +1622,7 @@ BOOL gpihCreateMemPS(HAB hab,       // in: anchor block
         }
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -2418,7 +2440,7 @@ BOOL gpihIcon2Bitmap(HPS hpsMem,         // in: target memory PS with bitmap sel
         brc = TRUE;
     }
 
-    return (brc);
+    return brc;
 }
 
 /*

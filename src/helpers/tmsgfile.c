@@ -294,7 +294,7 @@ APIRET LoadAndCompile(PTMFMSGFILE pFile)
         } // end while (    (pStartOfMarker) ...
     } // end else if (!(pFile = NEW(TMFMSGFILE)))
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -356,7 +356,7 @@ APIRET tmfOpenMessageFile(const char *pcszMessageFile, // in: fully q'fied .TMF 
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -527,7 +527,7 @@ APIRET tmfGetMessage(PTMFMSGFILE pMsgFile,      // in: msg file opened by tmfOpe
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /* test case */

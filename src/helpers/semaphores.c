@@ -242,7 +242,7 @@ APIRET semCreateRWMutex(PHRW phrw)
         UnlockGlobal();
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -303,7 +303,7 @@ APIRET semDeleteRWMutex(PHRW phrw)      // in/out: rwsem handle
         UnlockGlobal();
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -436,7 +436,7 @@ APIRET semRequestRead(HRW hrw,              // in: rw-sem created by semCreateRW
     if (fLocked)
         UnlockGlobal();
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -501,7 +501,7 @@ APIRET semReleaseRead(HRW hrw)      // in: rw-sem created by semCreateRWMutex
 
     } // end if (!(arc = LockGlobal()))
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -550,7 +550,7 @@ APIRET semQueryRead(HRW hrw)        // in: rw-sem created by semCreateRWMutex
 
     } // end if (!(arc = LockGlobal()))
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -678,7 +678,7 @@ APIRET semRequestWrite(HRW hrw,             // in: rw-sem created by semCreateRW
 
     } // end if (!(arc = LockGlobal()))
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -748,7 +748,7 @@ APIRET semReleaseWrite(HRW hrw)             // in: rw-sem created by semCreateRW
 
     } // end if (!(arc = LockGlobal()))
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -791,7 +791,7 @@ APIRET semQueryWrite(HRW hrw)           // in: rw-sem created by semCreateRWMute
 
     } // end if (!(arc = LockGlobal()))
 
-    return (arc);
+    return arc;
 }
 
 

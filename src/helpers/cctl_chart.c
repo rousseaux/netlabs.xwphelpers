@@ -1563,7 +1563,7 @@ static BOOL SetEmphasis(HWND hwndChart,
         }
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -1869,7 +1869,7 @@ MRESULT EXPENTRY ctl_fnwpChart(HWND hwndChart, ULONG msg, MPARAM mp1, MPARAM mp2
         }
     }
 
-    return (mrc);
+    return mrc;
 }
 
 /*

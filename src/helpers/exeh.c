@@ -500,7 +500,7 @@ APIRET exehOpen(const char* pcszExecutable,
     else
         *ppExec = pExec;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -823,7 +823,7 @@ APIRET exehQueryBldLevel(PEXECUTABLE pExec)
         }
     } // end if (!pExec)
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2098,7 +2098,7 @@ APIRET exehLoadLXMaps(PEXECUTABLE pExec)
             exehFreeLXMaps(pExec);
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2610,7 +2610,7 @@ APIRET exehReadLXPage(PEXECUTABLE pExec,        // in: executable from exehOpen
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2848,7 +2848,7 @@ APIRET exehLoadLXResource(PEXECUTABLE pExec,     // in: executable from exehOpen
 
     // _Pmpf((__FUNCTION__ ": returning %d", arc));
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2955,7 +2955,7 @@ APIRET exehLoadOS2NEMaps(PEXECUTABLE pExec)
             exehFreeNEMaps(pExec);
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -3103,7 +3103,7 @@ APIRET exehLoadOS2NEResource(PEXECUTABLE pExec,     // in: executable from exehO
     // else
         // _Pmpf(("exehLoadOS2NEMaps returned %d"));
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -3175,6 +3175,6 @@ APIRET exehClose(PEXECUTABLE *ppExec)
     else
         arc = ERROR_INVALID_PARAMETER;
 
-    return (arc);
+    return arc;
 }
 

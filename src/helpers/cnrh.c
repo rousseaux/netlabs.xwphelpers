@@ -750,7 +750,7 @@ BOOL cnrhMoveTree(HWND hwndCnr,          // in: container control
         if (fBugWorkAround)
             WinSendMsg(hwndCnr, CM_SORTRECORD, (MPARAM)pfnCnrSort, (MPARAM)NULL);
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -1273,7 +1273,7 @@ BOOL cnrhShowContextMenu(HWND hwndCnr,
                               | PU_VCONSTRAIN);
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -1524,7 +1524,7 @@ BOOL cnrhIsChildOf(HWND hwndCnr,
         }
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -1835,7 +1835,7 @@ BOOL cnrhOpenEdit(HWND hwndCnr)
                                0);
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -2151,7 +2151,7 @@ MRESULT cnrhOwnerDrawRecord(MPARAM mp2,     // in: mp2 of WM_DRAWITEM (POWNERITE
         }
     }
 
-    return (mrc);
+    return mrc;
 }
 
 /*

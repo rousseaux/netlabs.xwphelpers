@@ -232,7 +232,7 @@ BOOL lstClear(PLINKLIST pList)
             brc = TRUE;
         }
 
-    return (brc);
+    return brc;
 }
 
 #ifdef __DEBUG_MALLOC_ENABLED__
@@ -347,7 +347,7 @@ BOOL lstFree(PLINKLIST *ppList)
             brc = TRUE;
         }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -1005,7 +1005,7 @@ BOOL lstQuickSort(PLINKLIST pList,
         brc = TRUE;
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -1059,7 +1059,7 @@ BOOL lstBubbleSort(PLINKLIST pList,
             brc = TRUE;
         }
 
-    return (brc);
+    return brc;
 }
 
 /* ******************************************************************

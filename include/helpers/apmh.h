@@ -59,8 +59,8 @@ extern "C" {
      * Reference MS/Intel APM specification for interpretation of status codes.  *
      *---------------------------------------------------------------------------*/
 
-    typedef struct _APMGIO_QSTATUS_PPKT {           // Parameter Packet.
-
+    typedef struct _APMGIO_QSTATUS_PPKT // Parameter Packet.
+    {
       USHORT ParmLength;    // Length, in bytes, of the Parm Packet.
       USHORT Flags;         // Output:  Flags.
       UCHAR  ACStatus;
@@ -160,11 +160,14 @@ extern "C" {
      *
      ********************************************************************/
 
+    #pragma pack(1)
+
     /*
      *@@ APM:
      *      APM monitor data returned from apmhOpen.
      *
      *@@added V0.9.14 (2001-08-01) [umoeller]
+     *@@changed V0.9.19 (2002-05-28) [umoeller]: added fUsingAC
      */
 
     typedef struct _APM
@@ -175,22 +178,36 @@ extern "C" {
                 usDriverVersion,
                 usLowestAPMVersion;
 
-        BOOL    fAlreadyRead;
+        BYTE    fAlreadyRead;
                     // TRUE after the first call to aphReadStatus
 
-        // the following are valid after a call to
-        // apmhReadStatus
-        ULONG   ulBatteryStatus;
+        // the following are valid after a call to apmhReadStatus
+
+        // Note: According to Eirik, his laptop did not return
+        // bBatteryStatus == 0x03 after the battery had finished
+        // charging. So bBatteryStatus cannot be used to determine
+        // whether the system is running on AC or not. Hence the
+        // addition of fUsingAC.
+        // V0.9.19 (2002-05-28) [umoeller]
+        BYTE    fUsingAC;
+                            // 0x00 if not on AC,
+                            // 0x01 if AC,
+                            // 0x02 if on backup power,
+                            // 0xFF if unknown
+
+        BYTE    bBatteryStatus;
                     // copy of APM battery status, that is:
                             // Output:  0x00 if battery high,
                             //          0x01 if battery low,
                             //          0x02 if battery critically low,
                             //          0x03 if battery charging
                             //          0xFF if unknown
-        ULONG   ulBatteryLife;
+        BYTE    bBatteryLife;
                     // current battery life as percentage (0-100)
 
     } APM, *PAPM;
+
+    #pragma pack()
 
     APIRET APIENTRY apmhIOCtl(HFILE hfAPMSys, ULONG ulFunction, PVOID pvParamPck, ULONG cbParamPck);
     typedef APIRET APIENTRY APMHIOCTL(HFILE hfAPMSys, ULONG ulFunction, PVOID pvParamPck, ULONG cbParamPck);

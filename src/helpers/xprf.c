@@ -338,7 +338,7 @@ static BOOL FreeINI(PXINI pXIni)       // in: profile opened with xprfOpenProfil
         free(pXIni);
     }
 
-    return (brc);
+    return brc;
 }
 
 /* ******************************************************************
@@ -445,7 +445,7 @@ static BOOL ReadINI(PXINI pXIni)       // in: profile opened with xprfOpenProfil
         }
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -651,7 +651,7 @@ static BOOL WriteINI(PXINI pXIni)      // in: profile opened with xprfOpenProfil
         free(pbData2Write);
     }
 
-    return (brc);
+    return brc;
 }
 
 /* ******************************************************************
@@ -743,7 +743,7 @@ APIRET xprfOpenProfile(const char *pcszFilename,    // in: profile name
             }
         }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -761,7 +761,7 @@ APIRET xprfOpenProfile(const char *pcszFilename,    // in: profile name
 {
     BOOL brc = FALSE;
 
-    return (brc);
+    return brc;
 } */
 
 /*
@@ -896,7 +896,7 @@ BOOL xprfWriteProfileData(PXINI hIni,           // in: profile opened with xprfO
         }
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -942,7 +942,7 @@ BOOL xprfCloseProfile(PXINI hIni)       // in: profile opened with xprfOpenProfi
         }
     }
 
-    return (brc);
+    return brc;
 }
 
 

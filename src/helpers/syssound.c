@@ -377,7 +377,7 @@ BOOL sndWriteSoundData(HINI hiniMMPM,       // in: MMPM.INI handle (from sndOpen
             // sick stuff..
             WinAlarm(HWND_DESKTOP, usIndex+1000); // V0.9.6 (2000-10-16) [umoeller]
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -406,7 +406,7 @@ BOOL sndSetSystemSound(HAB hab,
         brc = sndWriteSoundData(hiniMMPM, usIndex, pszDescr, pszFile, ulVolume);
         PrfCloseProfile(hiniMMPM);
     }
-    return (brc);
+    return brc;
 }
 
 /*
@@ -529,7 +529,7 @@ APIRET sndCreateSoundScheme(HINI hiniMMPM,      // in: MMPM.INI handle (from snd
     else
         arc = ERROR_INVALID_HANDLE;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -683,7 +683,7 @@ APIRET sndLoadSoundScheme(HINI hiniMMPM,      // in: HINI of ?:\MMOS2\MMPM.INI (
     #ifdef DEBUG_SOUNDS
         _Pmpf(("End of sndLoadSoundScheme, arc: %d", arc));
     #endif
-    return (arc);
+    return arc;
 }
 
 /*
@@ -728,7 +728,7 @@ APIRET sndDestroySoundScheme(PSZ pszScheme)
     else
         arc = ERROR_NO_DATA;
 
-    return (arc);
+    return arc;
 }
 
 

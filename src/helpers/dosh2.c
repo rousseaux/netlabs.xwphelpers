@@ -228,7 +228,7 @@ APIRET doshIsValidFileName(const char* pcszFile,
         } while (*p2);
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -314,7 +314,7 @@ BOOL doshMakeRealName(PSZ pszTarget,    // out: new real name
         strupr(pszTarget);
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -348,7 +348,7 @@ APIRET doshSetCurrentDir(const char *pcszDir)
         arc = DosSetCurrentDir((PSZ)pcszDir);
     }
 
-    return (arc);       // V0.9.9 (2001-04-04) [umoeller]
+    return arc;       // V0.9.9 (2001-04-04) [umoeller]
 }
 
 /*
@@ -473,7 +473,7 @@ APIRET doshSearchPath(const char *pcszPath,     // in: path variable name (e.g. 
             arc = ERROR_NOT_ENOUGH_MEMORY;
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -529,7 +529,7 @@ static APIRET FindFile(const char *pcszCommand,      // in: command (e.g. "lvm")
                              cbExecutable);
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -625,7 +625,7 @@ APIRET doshFindExecutable(const char *pcszCommand,      // in: command (e.g. "lv
             arc = ERROR_NOT_ENOUGH_MEMORY;
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -836,7 +836,7 @@ static APIRET AppendPartition(PARTITIONINFO **pppiFirst,
     else
         arc = ERROR_NOT_ENOUGH_MEMORY;
 
-    return (arc);
+    return arc;
 }
 
 #ifndef __XWPLITE__
@@ -887,7 +887,7 @@ APIRET doshReadSector(USHORT disk,      // in: physical disk no. (1, 2, 3, ...)
         DosPhysicalDisk(INFO_FREEIOCTLHANDLE, 0, 0, &dh, 2);
     }
 
-    return (arc);
+    return arc;
 }
 
 // Sector and Cylinder values are actually 6 bits and 10 bits:
@@ -973,7 +973,7 @@ APIRET doshGetBootManager(USHORT   *pusDisk,    // out: if != NULL, boot manager
                                   0,            // head
                                   0,            // cylinder
                                   1)))          // sector
-            return (arc);
+            return arc;
 
         // scan primary partitions for whether
         // BootManager partition exists
@@ -1076,14 +1076,14 @@ static APIRET GetPrimaryPartitions(PARTITIONINFO **pppiFirst,
                                                    TRUE,        // primary
                                                    fBootable,
                                                    MBoot.sPrtnInfo[i].lTotalSects)))
-                            return (arc);
+                            return arc;
                     }
                 }
             }
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1116,7 +1116,7 @@ static APIRET GetLogicalDrives(PARTITIONINFO **pppiFirst,
                               PrInfo->bBeginHead,
                               GetCyl(PrInfo->rBeginSecCyl),
                               GetSec(PrInfo->rBeginSecCyl))))
-        return (arc);
+        return arc;
 
     for (i = 0; i < 4; i++)
     {
@@ -1138,7 +1138,7 @@ static APIRET GetLogicalDrives(PARTITIONINFO **pppiFirst,
                                             &MBoot.sPrtnInfo[i],
                                             PrDisk,
                                             BmInfo)))
-                    return (arc);
+                    return arc;
 
                 continue;
             }
@@ -1169,7 +1169,7 @@ static APIRET GetLogicalDrives(PARTITIONINFO **pppiFirst,
                                        FALSE,        // primary
                                        fBootable,    // bootable
                                        MBoot.sPrtnInfo[i].lTotalSects)))
-                return (arc);
+                return arc;
         }
     }
 
@@ -1200,7 +1200,7 @@ static APIRET GetExtendedPartition(PARTITIONINFO **pppiFirst,
     USHORT          i;
 
     if ((arc = doshReadSector(iDisk, &MBoot, 0, 0, 1)))
-        return (arc);
+        return arc;
 
     // go thru MBR entries to find extended partition
     for (i = 0;
@@ -1216,7 +1216,7 @@ static APIRET GetExtendedPartition(PARTITIONINFO **pppiFirst,
                                         &MBoot.sPrtnInfo[i],
                                         iDisk,
                                         BmInfo)))
-                return (arc);
+                return arc;
         }
     }
 
@@ -1295,7 +1295,7 @@ static APIRET ReadFDiskPartitions(PARTITIONINFO **ppPartitionInfos,
         }
     } // end else if ((arc = doshGetBootManager(&usBmDisk,
 
-    return (arc);
+    return arc;
 }
 
 #endif
@@ -1434,7 +1434,7 @@ APIRET doshGetPartitionsList(PPARTITIONSLIST *ppList,
 
     _Pmpf((__FUNCTION__ ": exiting, arc = %d", arc));
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1821,7 +1821,7 @@ APIRET doshQueryLVMInfo(PLVMINFO *ppLVMInfo)
     else
         *ppLVMInfo = (PLVMINFO)pLVMInfo;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1972,7 +1972,7 @@ APIRET doshReadLVMPartitions(PLVMINFO pInfo,         // in: LVM info
 
     _Pmpf((__FUNCTION__ ": exiting, arg = %d", arc));
 
-    return (arc);
+    return arc;
 }
 
 /*

@@ -396,7 +396,7 @@ static APIRET CalcAutoSizeText(PCONTROLDEF pControlDef,
     else
         arc = DLGERR_INVALID_CONTROL_TITLE;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -493,7 +493,7 @@ static APIRET CalcAutoSize(PCONTROLDEF pControlDef,
                            + 7;         // some space
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -673,7 +673,7 @@ static APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -767,7 +767,7 @@ static APIRET ColumnCalcPositions(PCOLUMNDEF pColumnDef,
                            pDlgData);
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1071,7 +1071,7 @@ static APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
             arc = DLGERR_CANNOT_CREATE_CONTROL;
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1254,7 +1254,7 @@ static APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
         break;
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1319,7 +1319,7 @@ static APIRET ProcessRow(PROWDEF pRowDef,
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1391,7 +1391,7 @@ static APIRET ProcessTable(PTABLEDEF pTableDef,
             break;
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1484,7 +1484,7 @@ static APIRET ProcessAll(PDLGPRIVATE pDlgData,
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1524,7 +1524,7 @@ static APIRET CreateColumn(PROWDEF pCurrentRow,
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1815,7 +1815,7 @@ static APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
 
     lstClear(&llStack);
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1851,7 +1851,7 @@ static APIRET Dlg2_CalcSizes(PDLGPRIVATE pDlgData)
         WinReleasePS(pDlgData->hps);
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1900,7 +1900,7 @@ static APIRET Dlg3_PositionAndCreate(PDLGPRIVATE pDlgData,
                             ? pDlgData->hwndFirstFocus
                             : pDlgData->hwndDlg;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2362,7 +2362,7 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                      szErr);
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2483,7 +2483,7 @@ APIRET dlghFormatDlg(HWND hwndDlg,              // in: dialog frame to work on
                      szErr);
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2699,7 +2699,7 @@ APIRET dlghAppendToArray(PDLGARRAY pArray,      // in: dialog array created by d
     else
         arc = ERROR_INVALID_PARAMETER;
 
-    return (arc);
+    return arc;
 }
 
 /* ******************************************************************

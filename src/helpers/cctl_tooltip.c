@@ -268,7 +268,7 @@ MRESULT EXPENTRY ctl_fnwpSubclassedTool(HWND hwndTool, ULONG msg, MPARAM mp1, MP
     if (pfnwpOrig)
         mrc = pfnwpOrig(hwndTool, msg, mp1, mp2);
 
-    return (mrc);
+    return mrc;
 }
 
 /*
@@ -310,7 +310,7 @@ static BOOL SubclassTool(HWND hwndTooltip,
         }
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -1962,7 +1962,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
     }
     CATCH(excpt1) {} END_CATCH();
 
-    return (mrc);
+    return mrc;
 }
 
 

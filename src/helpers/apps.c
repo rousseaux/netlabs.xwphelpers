@@ -191,7 +191,7 @@ APIRET appParseEnvironment(const char *pcszEnv,
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -233,7 +233,7 @@ APIRET appGetEnvironment(PDOSENVIRONMENT pEnv)
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -395,7 +395,7 @@ APIRET appSetEnvironmentVar(PDOSENVIRONMENT pEnv,
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -471,7 +471,7 @@ APIRET appConvertEnvironment(PDOSENVIRONMENT pEnv,
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -510,7 +510,7 @@ APIRET appFreeEnvironment(PDOSENVIRONMENT pEnv)
         pEnv->cVars = 0;
     }
 
-    return (arc);
+    return arc;
 }
 
 /* ******************************************************************
@@ -637,7 +637,7 @@ APIRET appQueryAppType(const char *pcszExecutable,
 
     *pulWinAppType = ulWinAppType;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -884,7 +884,7 @@ APIRET appQueryDefaultWin31Environment(PSZ *ppsz)
     else
         arc = ERROR_BAD_ENVIRONMENT;
 
-    return (arc);
+    return arc;
 }
 
 #ifdef _PMPRINTF_
@@ -1481,7 +1481,7 @@ APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem
     if (pszWinOS2Env)
         free(pszWinOS2Env);
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1629,7 +1629,7 @@ static APIRET CallDosStartSession(HAPP *phapp,
                   arc, pszFailingName));
     #endif
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1773,7 +1773,7 @@ static APIRET CallWinStartApp(HAPP *phapp,            // out: application handle
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1886,7 +1886,7 @@ APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
         _Pmpf((__FUNCTION__ ": returning %d", arc));
     #endif
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1935,7 +1935,7 @@ BOOL appWaitForApp(HWND hwndNotify,     // in: notify window
         }
     }
 
-    return (brc);
+    return brc;
 }
 
 /*

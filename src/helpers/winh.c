@@ -671,7 +671,7 @@ BOOL winhCopyMenuItem(HWND hmenuTarget,
         } // end else if (mi.afStyle & MIS_SEPARATOR)
     } // end if (WinSendMsg(hmenuSource, MM_QUERYITEM,...
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -825,7 +825,7 @@ BOOL winhAppend2MenuItemText(HWND hwndMenu,
                                (MPARAM)szItemText);
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -1182,7 +1182,7 @@ BOOL winhSetSliderTicks(HWND hwndSlider,            // in: linear slider
                 // we only loop twice
     } // end for (ulSet = 0; ulSet < 2;
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -1571,7 +1571,7 @@ BOOL winhMoveLboxItem(HWND hwndSource,
         free(pszItemText);
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -1787,7 +1787,7 @@ BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or h
 
     // _Pmpf(("End of winhUpdateScrollBar"));
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -2176,7 +2176,7 @@ BOOL winhSaveWindowPos(HWND hwnd,   // in: window to save
 
         brc = PrfWriteProfileData(hIni, (PSZ)pcszApp, (PSZ)pcszKey, &swp, sizeof(swp));
     }
-    return (brc);
+    return brc;
 }
 
 /*
@@ -2268,7 +2268,7 @@ BOOL winhRestoreWindowPos(HWND hwnd,   // in: window to restore
                     swp.cy,
                     fl2);        // SWP_* flags
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -2501,7 +2501,7 @@ BOOL winhAdjustControls(HWND hwndDlg,           // in: dialog (req.)
             free(pxac->paswp);
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -2883,7 +2883,7 @@ BOOL winhStorePresParam(PPRESPARAMS *pppp,      // in: data pointer (modified)
             brc = TRUE;
         }
     }
-    return (brc);
+    return brc;
 }
 
 /*
@@ -3602,7 +3602,7 @@ BOOL winhReplaceWindowText(HWND hwnd,           // in: window whose text is to b
         }
         free(pszText);
     }
-    return (brc);
+    return brc;
 }
 
 /*
@@ -4168,7 +4168,7 @@ BOOL winhAssertWarp4Notebook(HWND hwndDlg,
             WinShowWindow(hwndDlg, TRUE);
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -4624,7 +4624,7 @@ MRESULT EXPENTRY fnwpSubclExtFrame(HWND hwndFrame, ULONG msg, MPARAM mp1, MPARAM
             mrc = pData->pfnwpOrig(hwndFrame, msg, mp1, mp2);
     }
 
-    return (mrc);
+    return mrc;
 }
 
 /*
@@ -4907,7 +4907,7 @@ APIRET winhRegisterClass(const char* pcszClassName, // in: e.g. "XFolder"
     }
     // else: ulrc still 0 (== no error)
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -4931,7 +4931,7 @@ BOOL winhIsClassRegistered(const char *pcszClass)
         free(pClassList);
     }
 
-    return (brc);
+    return brc;
 }
 
 /*

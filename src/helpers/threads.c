@@ -552,7 +552,7 @@ BOOL thrFindThread(PTHREADINFO pti,
         UnlockThreadInfos();
     }
 
-    return (brc);
+    return brc;
 }
 
 /*

@@ -772,7 +772,7 @@ BOOL XWPENTRY tmrStopXTimer(PXTIMERSET pSet,    // in: timer set (from tmrCreate
         UnlockTimers();
     }
 
-    return (brc);
+    return brc;
 }
 
 

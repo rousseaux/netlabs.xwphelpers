@@ -389,7 +389,7 @@ APIRET xmlCreateNodeBase(NODEBASETYPE ulNodeType,     // in: node type
         *ppNew = pNewNode;
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -664,7 +664,7 @@ APIRET xmlCreateDomNode(PDOMNODE pParentNode,        // in: parent node or NULL 
         if (pNewNode)
             free(pNewNode);
 
-    return (arc);
+    return arc;
 }
 
 /* ******************************************************************
@@ -694,7 +694,7 @@ APIRET xmlCreateElementNode(PDOMNODE pParent,         // in: parent node (either
                                  &pNew)))
         *ppNew = pNew;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -742,7 +742,7 @@ APIRET xmlCreateAttributeNode(PDOMNODE pElement,        // in: element node
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -787,7 +787,7 @@ APIRET xmlCreateTextNode(PDOMNODE pParent,         // in: parent element node
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -815,7 +815,7 @@ APIRET xmlCreateCommentNode(PDOMNODE pParent,         // in: parent element node
         *ppNew = pNew;
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -846,7 +846,7 @@ APIRET xmlCreatePINode(PDOMNODE pParent,         // in: parent element node
         *ppNew = pNew;
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -895,7 +895,7 @@ APIRET xmlCreateDocumentTypeNode(PDOMDOCUMENTNODE pDocumentNode,            // i
             *ppNew = pNew;
         }
     }
-    return (arc);
+    return arc;
 }
 
 /* ******************************************************************
@@ -992,7 +992,7 @@ static APIRET SetupParticleAndSubs(PCMELEMENTPARTICLE pParticle,
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1033,7 +1033,7 @@ APIRET xmlCreateElementDecl(const char *pcszName,
             free(pNew);
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2058,7 +2058,7 @@ static APIRET AddEnum(PCMATTRIBUTEDECL pDecl,
                    (TREE*)pNew,
                    CompareXStrings);
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2509,7 +2509,7 @@ APIRET xmlCreateDOM(ULONG flParserFlags,            // in: DF_* parser flags
     else
         xmlFreeDOM(pDom);
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2597,7 +2597,7 @@ APIRET xmlParse(PXMLDOM pDom,               // in: DOM created by xmlCreateDOM
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2638,7 +2638,7 @@ APIRET xmlFreeDOM(PXMLDOM pDom)
         free(pDom);
     }
 
-    return (arc);
+    return arc;
 }
 
 /* ******************************************************************
@@ -2964,7 +2964,7 @@ APIRET xmlCreateDocument(const char *pcszRootElementName,   // in: root element 
                 *ppRootElement = pRootElement;
             }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -3173,7 +3173,7 @@ APIRET xmlWriteDocument(PDOMDOCUMENTNODE pDocument,     // in: document node
         xstrcatc(pxstr, '\n');
     }
 
-    return (arc);
+    return arc;
 }
 
 

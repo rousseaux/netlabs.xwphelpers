@@ -79,7 +79,7 @@ APIRET apmhIOCtl(HFILE hfAPMSys,
         if (DataPacket.ReturnCode)
             arc = DataPacket.ReturnCode | 10000;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -148,7 +148,7 @@ APIRET apmhOpen(PAPM *ppApm)
     if ((arc) && (hfAPMSys))
         DosClose(hfAPMSys);
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -160,6 +160,8 @@ APIRET apmhOpen(PAPM *ppApm)
  *      If the values changed since the previous
  *      call, *pfChanged is set to TRUE; FALSE
  *      otherwise.
+ *
+ *@@changed V0.9.19 (2002-05-28) [umoeller]: added fUsingAC
  */
 
 APIRET apmhReadStatus(PAPM pApm,        // in: APM structure created by apmhOpen
@@ -179,12 +181,14 @@ APIRET apmhReadStatus(PAPM pApm,        // in: APM structure created by apmhOpen
                               PowerStatus.ParmLength)))
         {
             if (    (pApm->fAlreadyRead)
-                 || (pApm->ulBatteryStatus != PowerStatus.BatteryStatus)
-                 || (pApm->ulBatteryLife != PowerStatus.BatteryLife)
+                 || (pApm->bBatteryStatus != PowerStatus.BatteryStatus)
+                 || (pApm->bBatteryLife != PowerStatus.BatteryLife)
+                 || (pApm->fUsingAC != PowerStatus.ACStatus)
                )
             {
-                pApm->ulBatteryStatus = PowerStatus.BatteryStatus;
-                pApm->ulBatteryLife = PowerStatus.BatteryLife;
+                pApm->bBatteryStatus = PowerStatus.BatteryStatus;
+                pApm->bBatteryLife = PowerStatus.BatteryLife;
+                pApm->fUsingAC = PowerStatus.ACStatus;
 
                 pApm->fAlreadyRead = FALSE;
                 fChanged = TRUE;
@@ -197,7 +201,7 @@ APIRET apmhReadStatus(PAPM pApm,        // in: APM structure created by apmhOpen
     else
         arc = ERROR_INVALID_PARAMETER;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -235,7 +239,7 @@ BOOL apmhHasBattery(VOID)
     if (!apmhOpen(&p))
     {
         if (!apmhReadStatus(p, NULL))
-            brc = (p->ulBatteryStatus != 0xFF);
+            brc = (p->bBatteryStatus != 0xFF);
 
         apmhClose(&p);
     }

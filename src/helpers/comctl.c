@@ -575,7 +575,7 @@ MRESULT EXPENTRY ctl_fnwpSubclassedMenuButton(HWND hwndButton, ULONG msg, MPARAM
             mrc = pmbd->pfnwpButtonOriginal(hwndButton, msg, mp1, mp2);
     }
 
-    return (mrc);
+    return mrc;
 }
 
 /*
@@ -630,7 +630,7 @@ BOOL ctlMakeMenuButton(HWND hwndButton,      // in: button to subclass
         else
             free(pmbd);
     }
-    return (brc);
+    return brc;
 }
 
 /*
@@ -961,7 +961,7 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
                 mrc = OldStaticProc(hwndStatic, msg, mp1, mp2);
        }
     }
-    return (mrc);
+    return mrc;
 }
 
 /* ******************************************************************
@@ -1164,7 +1164,7 @@ BOOL ctlStartAnimation(HWND hwndStatic)
         WinPostMsg(hwndStatic, WM_TIMER, (MPARAM)1, NULL);
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -1402,7 +1402,7 @@ MRESULT EXPENTRY ctl_fnwpObjectHotkeyEntryField(HWND hwndEdit, ULONG msg, MPARAM
         default:
             mrc = pfnwpOrig(hwndEdit, msg, mp1, mp2);
     }
-    return (mrc);
+    return mrc;
 }
 
 /*

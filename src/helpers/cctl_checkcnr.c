@@ -182,7 +182,7 @@ BOOL ctlDrawCheckbox(HPS hps,               // in: paint PS
             brc = TRUE;
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -580,7 +580,7 @@ static MRESULT EXPENTRY fnwpSubclCheckboxCnr(HWND hwndCnr, ULONG msg, MPARAM mp1
     else
         mrc = WinDefWindowProc(hwndCnr, msg, mp1, mp2);
 
-    return (mrc);
+    return mrc;
 }
 
 
@@ -672,7 +672,7 @@ static MRESULT EXPENTRY fnwpSubclCheckboxCnrOwner(HWND hwndOwner, ULONG msg, MPA
     else
         mrc = WinDefWindowProc(hwndOwner, msg, mp1, mp2);
 
-    return (mrc);
+    return mrc;
 }
 
 /*
@@ -856,7 +856,7 @@ BOOL ctlMakeCheckboxContainer(HWND hwndCnrOwner,    // in: owner (and parent) of
         }
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -951,7 +951,7 @@ BOOL ctlSetRecordChecked(HWND hwndCnr,          // in: container prepared with
         brc = TRUE;
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -1020,7 +1020,7 @@ BOOL ctlEnableRecord(HWND hwndCnr,
         brc = TRUE;
     }
 
-    return (brc);
+    return brc;
 }
 
 

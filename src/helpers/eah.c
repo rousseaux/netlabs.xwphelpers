@@ -1163,7 +1163,7 @@ static APIRET WriteEAList(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_R
         list = (EA_LIST_NEXT (list));
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1189,7 +1189,7 @@ static APIRET WriteEA(ULONG type,          // in: ENUMEA_REFTYPE_FHANDLE or  ENU
     else
         arc = DosSetPathInfo((PSZ)pfile, level, (&eaop), size, DSPI_WRTTHRU);
     free(eaop.fpFEA2List);
-    return (arc);
+    return arc;
 }
 
 /*

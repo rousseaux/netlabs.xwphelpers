@@ -183,7 +183,7 @@ static MRESULT EXPENTRY fnwpSubclassedComboButton(HWND hwnd, ULONG msg, MPARAM m
         break;
     }
 
-    return (mrc);
+    return mrc;
 }
 
 /*
@@ -571,7 +571,7 @@ static MRESULT EXPENTRY fnwpComboSubclass(HWND hwnd, ULONG msg, MPARAM mp1, MPAR
         break;
     }
 
-    return (mrc);
+    return mrc;
 }
 
 /*
@@ -718,7 +718,7 @@ BOOL ctlComboFromEntryField(HWND hwnd,          // in: entry field to be convert
         }
     }
 
-    return (brc);
+    return brc;
 }
 
 

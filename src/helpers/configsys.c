@@ -102,7 +102,7 @@ APIRET csysLoadConfigSys(const char *pcszFile,     // in: CONFIG.SYS filename or
         *ppszContents = strBuf.psz;
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -138,7 +138,7 @@ APIRET csysWriteConfigSys(const char *pcszFile,     // in: CONFIG.SYS filename o
 
     xstrClear(&strBuf);
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -508,7 +508,7 @@ BOOL csysDeleteLine(PSZ pszSearchIn,        // in: buffer to search
         brc = TRUE;
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -1080,7 +1080,7 @@ LABEL_CFGRPL_ADD:
     if (pszLineToInsert)
         free(pszLineToInsert);
 
-    return (arc);
+    return arc;
 }
 
 /* ******************************************************************
@@ -1152,7 +1152,7 @@ BOOL csysParseSwapPath(const char *pcszConfigSys,    // in: if NULL, this gets l
     if (pszConfigSysTemp)
         free(pszConfigSysTemp);
 
-    return (brc);
+    return brc;
 }
 
 /*

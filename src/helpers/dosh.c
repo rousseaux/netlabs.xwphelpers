@@ -561,7 +561,7 @@ APIRET doshIsFixedDisk(ULONG ulLogicalDrive,   // in: 1 for A:, 2 for B:, 3 for 
             *pfFixed = (BOOL)ucNonRemoveable;
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -646,7 +646,7 @@ APIRET doshQueryDiskParams(ULONG ulLogicalDrive,        // in:  1 for A:, 2 for 
         } */
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -829,7 +829,7 @@ APIRET doshHasAudioCD(ULONG ulLogicalDrive,
         arc = NO_ERROR;
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1028,7 +1028,7 @@ APIRET doshQueryMedia(ULONG ulLogicalDrive,
     if (hf)
         DosClose(hf);
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1153,7 +1153,7 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
         break;
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1559,7 +1559,7 @@ APIRET doshGetDriveInfo(ULONG ulLogicalDrive,
     if (doshQueryBootDrive() == pdi->cDriveLetter)
         pdi->flDevice |= DFL_BOOTDRIVE;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1653,7 +1653,7 @@ APIRET doshQueryDiskSize(ULONG ulLogicalDrive, // in: 1 for A:, 2 for B:, 3 for 
     if (!(arc = DosQueryFSInfo(ulLogicalDrive, FSIL_ALLOC, &fsa, sizeof(fsa))))
         *pdSize = ((double)fsa.cSectorUnit * fsa.cbSector * fsa.cUnit);
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1680,7 +1680,7 @@ APIRET doshQueryDiskFree(ULONG ulLogicalDrive, // in: 1 for A:, 2 for B:, 3 for 
         *pdFree = ((double)fsa.cSectorUnit * fsa.cbSector * fsa.cUnitAvail);
                    // ^ fixed V0.9.0
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1736,7 +1736,7 @@ APIRET doshQueryDiskFSType(ULONG ulLogicalDrive, // in:  1 for A:, 2 for B:, 3 f
     else
         arc = ERROR_INVALID_PARAMETER; // V0.9.16 (2001-10-02) [umoeller]
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1785,7 +1785,7 @@ APIRET doshQueryDiskLabel(ULONG ulLogicalDrive,         // in:  1 for A:, 2 for 
         #endif
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1952,7 +1952,7 @@ APIRET doshGetDriveSpec(PCSZ pcszFullFile,      // in: fully q'fied file spec
     else
         arc = ERROR_INVALID_PARAMETER;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2060,7 +2060,7 @@ BOOL doshIsFileOnFAT(const char* pcszFileName)
             brc = TRUE;
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -2081,7 +2081,7 @@ APIRET doshQueryFileSize(HFILE hFile,       // in: file handle
     if (!(arc = DosQueryFileInfo(hFile, FIL_STANDARD, &fs3, sizeof(fs3))))
         if (pulSize)
             *pulSize = fs3.cbFile;
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2119,7 +2119,7 @@ APIRET doshQueryPathSize(PCSZ pcszFile,         // in: filename
     else
         arc = ERROR_INVALID_PARAMETER;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2166,7 +2166,7 @@ APIRET doshQueryPathAttr(const char* pcszFile,      // in: file or directory nam
             *pulAttr = fs3.attrFile;
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2214,7 +2214,7 @@ APIRET doshSetPathAttr(const char* pcszFile,    // in: file or directory name
     else
         arc = ERROR_INVALID_PARAMETER;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2407,7 +2407,7 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
         if (!arc)       // V0.9.19 (2002-04-02) [umoeller]
             arc = ERROR_INVALID_PARAMETER;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2615,7 +2615,7 @@ APIRET doshReadAt(PXFILE pFile,
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2719,7 +2719,7 @@ APIRET doshWrite(PXFILE pFile,
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2755,7 +2755,7 @@ APIRET doshWriteAt(PXFILE pFile,
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2811,7 +2811,7 @@ APIRET doshWriteLogEntry(PXFILE pFile,
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2849,7 +2849,7 @@ APIRET doshClose(PXFILE *ppFile)
     else
         arc = ERROR_INVALID_PARAMETER;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -2932,7 +2932,7 @@ APIRET doshLoadTextFile(PCSZ pcszFile,      // in: file name to read
         doshClose(&pFile);
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -3133,7 +3133,7 @@ APIRET doshCreateTempFileName(PSZ pszTempFileName,        // out: fully q'fied t
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -3213,7 +3213,7 @@ APIRET doshWriteTextFile(const char* pszFile,        // in: file name
     if (pulWritten)
         *pulWritten = ulWritten;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -3336,7 +3336,7 @@ APIRET doshQueryCurrentDir(PSZ pszBuf)
         arc = DosQueryCurrentDir(0, pszBuf + 3, &cbBuf);
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -3586,7 +3586,7 @@ APIRET doshQueryProcAddr(PCSZ pcszModuleName,       // in: module name (e.g. "PM
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -3633,7 +3633,7 @@ APIRET doshResolveImports(PCSZ pcszModuleName,    // in: DLL to load
             DosFreeModule(*phmod);
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -3783,7 +3783,7 @@ APIRET doshPerfOpen(PDOSHPERFSYS *ppPerfSys)  // out: new DOSHPERFSYS structure
 
     } // end else if (!*ppPerfSys)
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -3887,7 +3887,7 @@ APIRET doshPerfGet(PDOSHPERFSYS pPerfSys)
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -3932,7 +3932,7 @@ APIRET doshPerfClose(PDOSHPERFSYS *ppPerfSys)
         *ppPerfSys = NULL;
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -4073,7 +4073,7 @@ APIRET doshExecVIO(PCSZ pcszExecWithArgs,
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -4215,7 +4215,7 @@ APIRET doshQuickStartSession(PCSZ pcszPath,       // in: program to start
     if (hq)
         DosCloseQueue(hq);
 
-    return (arc);
+    return arc;
 }
 
 

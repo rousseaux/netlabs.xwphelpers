@@ -129,6 +129,6 @@ APIRET reshWriteResourceToFile(HMODULE hmod,        // in: module handle or NULL
     if (pulBytesWritten)
         *pulBytesWritten = ulBytesWritten;
 
-    return (arc);
+    return arc;
 }
 

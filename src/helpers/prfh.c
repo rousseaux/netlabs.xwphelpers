@@ -123,7 +123,7 @@ APIRET prfhQueryKeysForApp(HINI hIni,      // in: INI handle (can be HINI_USER o
         if (pKeys)
             free(pKeys);
 
-    return (arc);
+    return arc;
 }
 
 #ifdef __DEBUG_MALLOC_ENABLED__ // setup.h, helpers\memdebug.c
@@ -439,7 +439,7 @@ APIRET prfhCopyApp(HINI hiniSource,   // in: source profile (can be HINI_USER or
         free (pszKeysList);
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -570,7 +570,7 @@ APIRET prfhSetUserProfile(HAB hab,
     else
         arc = PRFERR_QUERY;
 
-    return (arc);
+    return arc;
 }
 
 

@@ -1701,7 +1701,7 @@ BOOL txvPaintText(HAB hab,
     if (!fAnyLinesPainted)
         brc = FALSE;
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -3081,7 +3081,7 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
             mrc = WinDefWindowProc(hwndTextView, msg, mp1, mp2);
     }
 
-    return (mrc);
+    return mrc;
 }
 
 /*

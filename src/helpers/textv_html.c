@@ -2236,7 +2236,7 @@ BOOL txvConvertFromHTML(char **ppszText,
                 // ### better really clear this... there are PSZ's inside
     }
 
-    return (brc);
+    return brc;
 }
 
 

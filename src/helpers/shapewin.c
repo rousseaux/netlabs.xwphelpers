@@ -1393,7 +1393,7 @@ BOOL shpLoadBitmap(HAB hab, // in: anchor block
             }
         }
     }
-    return (brc);
+    return brc;
 }
 
 /*
@@ -1586,7 +1586,7 @@ BOOL shpCreateWindows(PSHAPEFRAME psb)
         }
     }
 
-    return (brc);
+    return brc;
 }
 
 /*
@@ -1693,7 +1693,7 @@ MRESULT EXPENTRY fnwpShapeFrame(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
             mrc = (*psb->pfnFrame)(hwnd, msg, mp1, mp2);
     }
 
-    return (mrc);
+    return mrc;
 }
 
 /*

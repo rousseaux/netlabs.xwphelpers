@@ -166,7 +166,7 @@ APIRET lanQueryServers(PSERVER *paServers,      // out: array of SERVER structs
 
     printf(__FUNCTION__ ": arc %d\n", arc);
 
-    return (arc);
+    return arc;
 }
 
 #ifdef __LAN_TEST__

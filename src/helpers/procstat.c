@@ -127,7 +127,7 @@ APIRET prc16GetInfo(PQPROCSTAT16 *ppps)     // out: error, ptr can be NULL
 
     *ppps = pps;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -463,7 +463,7 @@ BOOL prc16QueryThreadInfo(PQPROCSTAT16 pps, // in: from prc16GetInfo
         } // end for process
     }
 
-    return (brc);
+    return brc;
 }
 
 /*

@@ -465,7 +465,7 @@ static APIRET Tokenize(ULONG ulLevel,
 
     _Pmpf((__FUNCTION__ ": returning %d", arc));
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -807,7 +807,7 @@ APIRET vcfRead(PCSZ pcszFilename,
 
     _Pmpf((__FUNCTION__ ": returning %d", arc));
 
-    return (arc);
+    return arc;
 }
 
 /*

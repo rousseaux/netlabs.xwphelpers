@@ -784,7 +784,7 @@ MRESULT EXPENTRY memd_fnwpMemDebug(HWND hwndClient, ULONG msg, MPARAM mp1, MPARA
             mrc = WinDefWindowProc(hwndClient, msg, mp1, mp2);
     }
 
-    return (mrc);
+    return mrc;
 }
 
 /*

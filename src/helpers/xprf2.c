@@ -129,7 +129,7 @@ APIRET xprfCopyKey(HINI hiniSource,       // in: source profile (can be HINI_USE
     else
         arc = PRFERR_DATASIZE;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -186,7 +186,7 @@ APIRET xprfCopyApp(HINI hiniSource,   // in: source profile (can be HINI_USER or
     else
         arc = PRFERR_KEYSLIST;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -289,7 +289,7 @@ APIRET xprfCopyProfile(HINI hOld,           // in: source profile (can be HINI_U
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -462,7 +462,7 @@ APIRET xprfSaveINIs(HAB hab,               // in:  anchor block
     if (Profiles.pszUserName)
         free(Profiles.pszUserName);
 
-    return (arc);
+    return arc;
 }
 
 // testing

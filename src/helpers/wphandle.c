@@ -185,7 +185,7 @@ APIRET wphQueryBaseClassesHiwords(HINI hiniUser,
     else
         arc = ERROR_WPH_NO_BASECLASS_DATA;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -254,7 +254,7 @@ static APIRET NukeNameTrees(PHANDLESBUF pHandlesBuf)
                  &pHandlesBuf->cDrives);
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -424,7 +424,7 @@ APIRET wphRebuildNodeHashTable(HHANDLES hHandles,
     if (!arc)
         pHandlesBuf->fCacheValid = TRUE;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -571,7 +571,7 @@ APIRET wphLoadHandles(HINI hiniUser,      // in: HINI_USER or other INI handle
         }
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -604,7 +604,7 @@ APIRET wphFreeHandles(HHANDLES *phHandles)
     else
         arc = ERROR_INVALID_PARAMETER;
 
-    return (arc);
+    return arc;
 }
 
 /* ******************************************************************
@@ -766,7 +766,7 @@ APIRET wphSearchBufferForHandle(HHANDLES hHandles,
     _Pmpf((__FUNCTION__ ": returning %d", arc));
 
     // not found: end of buffer reached
-    return (arc);
+    return arc;
 }
 
 /*
@@ -837,7 +837,7 @@ APIRET wphQueryHandleFromPath(HINI hiniUser,      // in: HINI_USER or other INI 
     if (hHandles)
         wphFreeHandles(&hHandles);
 
-    return (arc);
+    return arc;
 }
 
 /* ******************************************************************
@@ -898,7 +898,7 @@ static APIRET ComposeThis(PHANDLESBUF pHandlesBuf,
         if (ppNode)
             *ppNode = pNode;
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -969,7 +969,7 @@ APIRET wphComposePath(HHANDLES hHandles,
         } END_CATCH();
     }
 
-    return (arc);
+    return arc;
 }
 
 /*
@@ -1045,7 +1045,7 @@ APIRET wphQueryPathFromHandle(HINI hiniUser,      // in: HINI_USER or other INI 
         arc = ERROR_WPH_CRASHED;
     } END_CATCH();
 
-    return (arc);
+    return arc;
 }
 
 
