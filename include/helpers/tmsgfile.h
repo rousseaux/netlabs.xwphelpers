@@ -17,23 +17,23 @@ extern "C" {
 #endif
 
 #ifndef TMSGFILE_HEADER_INCLUDED
-#define TMSGFILE_HEADER_INCLUDED
+    #define TMSGFILE_HEADER_INCLUDED
 
-APIRET tmfGetMessage(PCHAR *pTable,
-                     ULONG cTable,
-                     PBYTE pbBuffer,
-                     ULONG cbBuffer,
-                     PSZ pszMessageName,
-                     PSZ pszFile,
-                     PULONG pcbMsg);
+    APIRET tmfGetMessage(PCHAR *pTable,
+                         ULONG cTable,
+                         PBYTE pbBuffer,
+                         ULONG cbBuffer,
+                         PCSZ pszMessageName,
+                         PCSZ pszFile,
+                         PULONG pcbMsg);
 
-APIRET tmfGetMessageExt(PCHAR* pTable,
-                        ULONG cTable,
-                        PBYTE pbBuffer,
-                        ULONG cbBuffer,
-                        PSZ pszMessageName,
-                        PSZ pszFile,
-                        PULONG pcbMsg);
+    APIRET tmfGetMessageExt(PCHAR* pTable,
+                            ULONG cTable,
+                            PBYTE pbBuffer,
+                            ULONG cbBuffer,
+                            PCSZ pszMessageName,
+                            PCSZ pszFile,
+                            PULONG pcbMsg);
 
 #endif // TMSGFILE_HEADER_INCLUDED
 

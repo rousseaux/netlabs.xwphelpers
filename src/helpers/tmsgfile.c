@@ -151,8 +151,8 @@ APIRET tmfGetMessage(PCHAR* pTable,    // in: pointer table for string insertion
                      ULONG cTable,     // in: number of pointers in *pTable
                      PBYTE pbBuffer,   // out: returned string
                      ULONG cbBuffer,   // out: sizeof(*pbBuffer)
-                     PSZ pszMessageName,  // in: message identifier
-                     PSZ pszFile,      // in: message file (.TMF extension proposed)
+                     PCSZ pszMessageName,  // in: message identifier
+                     PCSZ pszFile,      // in: message file (.TMF extension proposed)
                      PULONG pcbMsg)    // out: bytes written to *pbBuffer
 {
     // fixed UM 99-10-22: now initializing all vars to 0,
@@ -203,7 +203,7 @@ APIRET tmfGetMessage(PCHAR* pTable,    // in: pointer table for string insertion
                                | SEARCH_ENVIRONMENT
                                | SEARCH_CUR_DIRECTORY,
                                "DPATH",
-                               pszFile,
+                               (PSZ)pszFile,
                                szMessageFile,
                                sizeof(szMessageFile));
             if (rc != NO_ERROR)
@@ -255,7 +255,7 @@ APIRET tmfGetMessage(PCHAR* pTable,    // in: pointer table for string insertion
         ulBytesToRead = _min(ulMessageLen, cbBuffer);
 
         // open file and read message
-        rc = DosOpen(pszFile,
+        rc = DosOpen((PSZ)pszFile,
                      &hfile,
                      &ulAction,
                      0, 0,
@@ -403,8 +403,8 @@ APIRET tmfGetMessageExt(PCHAR* pTable,    // in: pointer table for string insert
                         ULONG cTable,     // in: number of pointers in *pTable
                         PBYTE pbBuffer,   // out: returned string
                         ULONG cbBuffer,   // out: sizeof(*pbBuffer)
-                        PSZ pszMessageName,  // in: message identifier
-                        PSZ pszFile,      // in: message file (.TMF extension proposed)
+                        PCSZ pszMessageName,  // in: message identifier
+                        PCSZ pszFile,      // in: message file (.TMF extension proposed)
                         PULONG pcbMsg)    // out: bytes written to *pbBuffer
 {
     APIRET  arc = NO_ERROR;
