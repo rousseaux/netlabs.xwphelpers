@@ -1548,7 +1548,7 @@ HBITMAP gpihCreateBitmap2(HPS hpsMem,        // in: memory DC
         hbm = GpiCreateBitmap(hpsMem,
                               &bih2,
                               0,            // do not initialize
-                              NULL,
+                              NULL,         // init data
                               NULL);
     }
 

@@ -63,6 +63,34 @@
  ********************************************************************/
 
 /*
+ *@@ appQueryEnvironmentLen:
+ *      returns the total length of the passed in environment
+ *      string buffer, including the terminating two null bytes.
+ *
+ *@@added V0.9.16 (2002-01-09) [umoeller]
+ */
+
+ULONG appQueryEnvironmentLen(PCSZ pcszEnvironment)
+{
+    ULONG   cbEnvironment = 0;
+    if (pcszEnvironment)
+    {
+        PCSZ    pVarThis = pcszEnvironment;
+        // go thru the environment strings; last one has two null bytes
+        while (*pVarThis)
+        {
+            ULONG ulLenThis = strlen(pVarThis) + 1;
+            cbEnvironment += ulLenThis;
+            pVarThis += ulLenThis;
+        }
+
+        cbEnvironment++;        // last null byte
+    }
+
+    return (cbEnvironment);
+}
+
+/*
  *@@ appParseEnvironment:
  *      this takes one of those ugly environment strings
  *      as used by DosStartSession and WinStartApp (with

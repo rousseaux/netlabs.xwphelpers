@@ -384,10 +384,14 @@ extern "C" {
                     PULONG pcbFile,
                     PXFILE *ppFile);
 
+    #define DRFL_NOCACHE            0x0001
+    #define DRFL_FAILIFLESS         0x0002
+
     APIRET doshReadAt(PXFILE pFile,
                       ULONG ulOffset,
                       PULONG pcb,
-                      PBYTE pbData);
+                      PBYTE pbData,
+                      ULONG fl);
 
     APIRET doshWrite(PXFILE pFile,
                      ULONG cb,

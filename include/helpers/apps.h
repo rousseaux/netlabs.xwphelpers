@@ -36,6 +36,8 @@ extern "C" {
      *
      ********************************************************************/
 
+    ULONG appQueryEnvironmentLen(PCSZ pcszEnvironment);
+
     /*
      *@@ DOSENVIRONMENT:
      *      structure holding an array of environment

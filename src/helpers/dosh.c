@@ -1805,9 +1805,11 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
                                             pcbFile);
                     // file ptr is at beginning
 
+                #ifdef DEBUG_DOSOPEN
                  if (arc)
                     _Pmpf((__FUNCTION__ ": DosSetFilePtr/queryfilesize returned %d for %s",
                                 arc, pcszFilename));
+                #endif
 
                 // store file size
                 pFile->cbInitial
@@ -1816,9 +1818,11 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
 
                 pFile->pszFilename = strdup(pcszFilename);
             }
+            #ifdef DEBUG_DOSOPEN
             else
                  _Pmpf((__FUNCTION__ ": DosOpen returned %d for %s",
                              arc, pcszFilename));
+            #endif
 
             if (arc)
                 doshClose(&pFile);
@@ -1890,14 +1894,26 @@ APIRET doshUnlockFile(PXFILE pFile)
  *      the data might have been returned from the
  *      cache.
  *
+ *      fl may be any combination of the following:
+ *
+ *      --  DRFL_NOCACHE: do not fill the cache with
+ *          new data if the data is not in the cache
+ *          currently.
+ *
+ *      --  DRFL_FAILIFLESS: return ERROR_NO_DATA
+ *          if the data returned by DosRead is less
+ *          than what was specified. This might
+ *          simplify error handling.
+ *
  *@@added V0.9.13 (2001-06-14) [umoeller]
  *@@changed V0.9.16 (2001-12-18) [umoeller]: now with XFILE, and always using FILE_BEGIN
  */
 
 APIRET doshReadAt(PXFILE pFile,
-                  ULONG ulOffset,    // in: offset to read from (from beginning of file)
-                  PULONG pcb,      // in: bytes to read, out: bytes read
-                  PBYTE pbData)    // out: read buffer (must be cb bytes)
+                  ULONG ulOffset,   // in: offset to read from (from beginning of file)
+                  PULONG pcb,       // in: bytes to read, out: bytes read
+                  PBYTE pbData,     // out: read buffer (must be cb bytes)
+                  ULONG fl)         // in: DRFL_* flags
 {
     APIRET arc;
     ULONG cb = *pcb;
@@ -1926,6 +1942,7 @@ APIRET doshReadAt(PXFILE pFile,
                    cb);
             *pcb = cb;
 
+            #ifdef DEBUG_DOSOPEN
             _Pmpf((__FUNCTION__ " %s: data is fully in cache",
                         pFile->pszFilename));
             _Pmpf(("  caller wants %d bytes from %d",
@@ -1934,25 +1951,23 @@ APIRET doshReadAt(PXFILE pFile,
                         pFile->cbCache, pFile->ulReadFrom));
             _Pmpf(("  so copied %d bytes from cache ofs %d",
                         cb, ulOfsInCache));
-
-            // still, advance the file pointer because
-            // caller might run plain DosRead next
-            /* DosSetFilePtr(pFile->hf,
-                          (LONG)ulOffset + cb,
-                          FILE_BEGIN,
-                          &ulDummy); */
+            #endif
         }
         else
         {
             // data is not in cache:
             // check how much it is... for small amounts,
             // we load the cache first
-            if (cb <= 4096 - 512)
+            if (    (cb <= 4096 - 512)
+                 && (!(fl & DRFL_NOCACHE))
+               )
             {
+                #ifdef DEBUG_DOSOPEN
                 _Pmpf((__FUNCTION__ " %s: filling cache anew",
                         pFile->pszFilename));
                 _Pmpf(("  caller wants %d bytes from %d",
                             cb, ulOffset));
+                #endif
 
                 // OK, then fix the offset to read from
                 // to a multiple of 512 to get a full sector
@@ -1961,8 +1976,10 @@ APIRET doshReadAt(PXFILE pFile,
                 // value we cut off above
                 pFile->cbCache = 4096;
 
+                #ifdef DEBUG_DOSOPEN
                 _Pmpf(("  getting %d bytes from %d",
                             pFile->cbCache, pFile->ulReadFrom));
+                #endif
 
                 // free old cache
                 if (pFile->pbCache)
@@ -1973,6 +1990,8 @@ APIRET doshReadAt(PXFILE pFile,
                     arc = ERROR_NOT_ENOUGH_MEMORY;
                 else
                 {
+                    ULONG ulOfsInCache = 0;
+
                     if (!(arc = DosSetFilePtr(pFile->hf,
                                               (LONG)pFile->ulReadFrom,
                                               FILE_BEGIN,
@@ -1984,41 +2003,56 @@ APIRET doshReadAt(PXFILE pFile,
                                             &ulDummy)))
                         {
                             // got data:
-                            ULONG ulOfsInCache;
-
+                            #ifdef DEBUG_DOSOPEN
                             _Pmpf(("        %d bytes read", ulDummy));
+                            #endif
+
                             pFile->cbCache = ulDummy;
 
-                            // copy to caller
+                            // check bounds
                             ulOfsInCache = ulOffset - pFile->ulReadFrom;
-                            memcpy(pbData,
-                                   pFile->pbCache + ulOfsInCache,
-                                   cb);
-                            *pcb = cb;
 
-                            _Pmpf(("  so copied %d bytes from cache ofs %d",
-                                        cb, ulOfsInCache));
-
-                            // still, advance the file pointer because
-                            // caller might run plain DosRead next
-                            /* DosSetFilePtr(pFile->hf,
-                                          (LONG)ulOffset + cb,
-                                          FILE_BEGIN,
-                                          &ulDummy); */
+                            /*
+                            if (ulOfsInCache + cb > pFile->cbCache)
+                            {
+                                cb = pFile->cbCache - ulOfsInCache;
+                                if (fl & DRFL_FAILIFLESS)
+                                    arc = ERROR_NO_DATA;
+                            }
+                            */
                         }
                     }
 
-                    if (arc)
-                        FREE(pFile->pbCache);
-                }
+                    if (!arc)
+                    {
+                        // copy to caller
+                        memcpy(pbData,
+                               pFile->pbCache + ulOfsInCache,
+                               cb);
+                        *pcb = cb;
+
+                        #ifdef DEBUG_DOSOPEN
+                        _Pmpf(("  so copied %d bytes from cache ofs %d",
+                                    cb, ulOfsInCache));
+                        #endif
+                    }
+                    else
+                    {
+                        free(pFile->pbCache);
+                        pFile->pbCache = NULL;
+                    }
+                } // end else if (!(pFile->pbCache = (PBYTE)malloc(pFile->cbCache)))
             }
             else
             {
                 // read uncached:
+                #ifdef DEBUG_DOSOPEN
                 _Pmpf(("  " __FUNCTION__ " %s: reading uncached",
                             pFile->pszFilename));
                 _Pmpf(("      caller wants %d bytes from %d",
                             cb, ulOffset));
+                #endif
+
                 if (!(arc = DosSetFilePtr(pFile->hf,
                                           (LONG)ulOffset,
                                           FILE_BEGIN,
@@ -2028,7 +2062,14 @@ APIRET doshReadAt(PXFILE pFile,
                                         pbData,
                                         cb,
                                         &ulDummy)))
-                        *pcb = ulDummy;     // bytes read
+                    {
+                        if (    (fl & DRFL_FAILIFLESS)
+                             && (ulDummy != cb)
+                           )
+                            arc = ERROR_NO_DATA;
+                        else
+                            *pcb = ulDummy;     // bytes read
+                    }
                 }
             }
         }
