@@ -43,6 +43,8 @@ extern "C" {
 
         TREE    *IDsTreeRoot;           // root of tree with MSGENTRY's (a TREE* really)
         ULONG   cIDs;                   // count of entries in the tree
+
+        CHAR    szTimestamp[30];
     } TMFMSGFILE, *PTMFMSGFILE;
 
     APIRET tmfOpenMessageFile(const char *pcszMessageFile,
