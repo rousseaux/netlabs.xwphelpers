@@ -11,8 +11,9 @@
  *      dynamic memory management is desirable.
  *
  *      Instead of char* pointers, the functions in this file
- *      operate on an XSTRING structure, which contains a char*
- *      pointer instead.
+ *      operate on XSTRING structures, which in turn contain
+ *      a char* pointer pointing to heap memory, which is managed
+ *      automatically.
  *
  *      Using these functions has the following advantages:
  *
@@ -119,7 +120,8 @@
 
 /*
  *@@ xstrInit:
- *      initializes an empty XSTRING.
+ *      initializes a new XSTRING. Always call this before
+ *      using an XSTRING from the stack.
  *
  *      If (ulPreAllocate != 0), memory is pre-allocated
  *      for the string, but the string will be empty.
@@ -128,7 +130,8 @@
  *      all the time in xstrcat.
  *
  *      Do not use this on an XSTRING which is already
- *      initialized. Use xstrset instead.
+ *      initialized (this would cause memory leaks).
+ *      Use xstrcpy or xstrset instead.
  *
  *@@added V0.9.6 (2000-11-01) [umoeller]
  */
@@ -157,7 +160,8 @@ void xstrInit(PXSTRING pxstr,               // in/out: string
  *      directly.
  *
  *      Do not use this on an XSTRING which is already
- *      initialized. Use xstrset instead.
+ *      initialized (this would cause memory leaks).
+ *      Use xstrcpy or xstrset instead.
  *
  *      Example:
  *
@@ -194,7 +198,8 @@ void xstrInitSet(PXSTRING pxstr,
  *      a copy of pcszSource.
  *
  *      Do not use this on an XSTRING which is already
- *      initialized. Use xstrcpy instead.
+ *      initialized (this would cause memory leaks).
+ *      Use xstrcpy or xstrset instead.
  *
  *      Example:
  *
@@ -214,14 +219,16 @@ void xstrInitCopy(PXSTRING pxstr,
         memset(pxstr, 0, sizeof(XSTRING));
 
         if (pcszSource)
+        {
             pxstr->ulLength = strlen(pcszSource);
 
-        if (pxstr->ulLength)
-        {
-            // we do have a source string:
-            pxstr->cbAllocated = pxstr->ulLength + 1 + ulExtraAllocate;
-            pxstr->psz = (PSZ)malloc(pxstr->cbAllocated);
-            strcpy(pxstr->psz, pcszSource);
+            if (pxstr->ulLength)
+            {
+                // we do have a source string:
+                pxstr->cbAllocated = pxstr->ulLength + 1 + ulExtraAllocate;
+                pxstr->psz = (PSZ)malloc(pxstr->cbAllocated);
+                strcpy(pxstr->psz, pcszSource);
+            }
         }
     }
 }
@@ -395,6 +402,10 @@ ULONG xstrset(PXSTRING pxstr,               // in/out: string
  *
  *      This sequence can be abbreviated using xstrInitCopy.
  *
+ *      Memory cost: If there's enough room in pxstr for
+ *      pcszSource, none. Otherwise pxstr is reallocated
+ *      to hold enough room for pcszSource.
+ *
  *@@changed V0.9.2 (2000-04-01) [umoeller]: renamed from strhxcpy
  *@@changed V0.9.6 (2000-11-01) [umoeller]: rewritten
  *@@changed V0.9.7 (2001-01-15) [umoeller]: added ulSourceLength
@@ -430,10 +441,17 @@ ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
         {
             // we need more memory than we have previously
             // allocated:
-            if (pxstr->psz)
+            /* if (pxstr->psz)
                 free(pxstr->psz); // V0.9.9 (2001-01-28) [lafaix]
             pxstr->cbAllocated = cbNeeded;
-            pxstr->psz = (PSZ)malloc(cbNeeded);
+            pxstr->psz = (PSZ)malloc(cbNeeded); */
+
+            // V0.9.9 (2001-03-05) [umoeller]: use realloc;
+            // this gives the C runtime a chance to expand the
+            // existing block
+            pxstr->psz = (PSZ)realloc(pxstr->psz, cbNeeded);
+                        // if pxstr->psz is NULL, realloc behaves like malloc
+            pxstr->cbAllocated = cbNeeded;
         }
         // else: we have enough memory
 
@@ -512,6 +530,10 @@ ULONG xstrcpys(PXSTRING pxstr,
  *
  *      After this, str.psz points to a new string containing
  *      "blahblup".
+ *
+ *      Memory cost: If there's enough room in pxstr for
+ *      pcszSource, none. Otherwise pxstr is reallocated
+ *      to hold enough room for pcszSource.
  *
  *@@changed V0.9.1 (99-12-20) [umoeller]: fixed memory leak
  *@@changed V0.9.1 (2000-01-03) [umoeller]: crashed if pszString was null; fixed
@@ -617,6 +639,10 @@ ULONG xstrcat(PXSTRING pxstr,               // in/out: string
  *      After this, str.psz points to a new string containing
  *      "blup".
  *
+ *      Memory cost: If there's enough room in pxstr for
+ *      c, none. Otherwise pxstr is reallocated
+ *      to hold enough room for c.
+ *
  *@@added V0.9.7 (2000-12-10) [umoeller]
  */
 
@@ -719,9 +745,13 @@ ULONG xstrcats(PXSTRING pxstr,
  *
  *      This would yield "This is a stupid string."
  *
+ *      Memory cost: If there's enough room in pxstr for
+ *      the replacement, none. Otherwise pxstr is reallocated
+ *      to hold enough room for the replacement.
+ *
  *@@added V0.9.7 (2001-01-15) [umoeller]
  *@@changed V0.9.9 (2001-01-29) [lafaix]: fixed unnecessary allocation when pxstr was big enough
-  *@@changed V0.9.9 (2001-02-14) [umoeller]: fixed NULL target crash
+ *@@changed V0.9.9 (2001-02-14) [umoeller]: fixed NULL target crash
  */
 
 ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
@@ -959,6 +989,8 @@ PSZ xstrFindWord(const XSTRING *pxstr,        // in: buffer to search ("haystack
  *      would replace all occurences of "Test" in str with
  *      "Dummy".
  *
+ *      Memory cost: Calls xstrrpl if pstrSearch was found.
+ *
  *@@changed V0.9.0 [umoeller]: totally rewritten.
  *@@changed V0.9.0 (99-11-08) [umoeller]: crashed if *ppszBuf was NULL. Fixed.
  *@@changed V0.9.2 (2000-04-01) [umoeller]: renamed from strhxrpl
@@ -1083,6 +1115,8 @@ ULONG xstrFindReplaceC(PXSTRING pxstr,              // in/out: string
  *
  +          S%61mple %63hara%63ters.
  *
+ *      Memory cost: None, except for that of xstrFindReplace.
+ *
  *@@added V0.9.9 (2001-02-28) [umoeller]
  */
 
@@ -1132,11 +1166,17 @@ ULONG xstrEncode(PXSTRING pxstr,            // in/out: string to convert
  *      decodes a string previously encoded by xstrEncode.
  *
  *      This simply assumes that all '%' characters in
- *      pxstr contain encodings and the next two characters
+ *      pxstr introduce encodings and the next two characters
  *      after '%' always are a hex character code. This
- *      only recognizes hex in upper case.
+ *      only recognizes hex in upper case. All this will
+ *      work properly with encodings from xstrEncode.
  *
- *      Returns the no. of characters replaced.
+ *      Returns the no. of encodings replaced.
+ *
+ *      Memory cost: Creates a temporary buffer with the
+ *      length of pxstr and replaces pxstr with it, if any
+ *      encodings were found. In other words, this is
+ *      expensive for very large strings.
  *
  *@@added V0.9.9 (2001-02-28) [umoeller]
  */
@@ -1166,11 +1206,11 @@ ULONG xstrDecode(PXSTRING pxstr)       // in/out: string to be decoded
 
                 if (c == '%')
                 {
-                    static char ach[] = "01234567989ABCDEF";
+                    static char ach[] = "0123456789ABCDEF";
 
                     // convert two chars after '%'
-                    CHAR        c2,         // first char after '%'
-                                c3;         // second char after '%'
+                    CHAR        c2,         // first char after '%'     --> hi-nibble
+                                c3;         // second char after '%'    --> lo-nibble
                     const char  *p2,        // for first char: points into ach or is NULL
                                 *p3;        // for second char: points into ach or is NULL
                     if (    (c2 = *pSource)
@@ -1180,8 +1220,10 @@ ULONG xstrDecode(PXSTRING pxstr)       // in/out: string to be decoded
                        )
                     {
                         // both chars after '%' were valid:
-                        *pDest++ =    (p2 - ach) // 0 for '0', 10 for 'A', ...
-                                    + ((p3 - ach) << 4);
+                        *pDest++ =    // lo-nibble:
+                                      (p3 - ach) // 0 for '0', 10 for 'A', ...
+                                      // hi-nibble:
+                                    + ((p2 - ach) << 4);
                         // go on after that
                         pSource += 2;
                         // raise return count
@@ -1365,8 +1407,15 @@ VOID xstrConvertLineFormat(PXSTRING pxstr,
 
     printf("New string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
 
+    printf("Encoding @* chars.\n");
+    xstrEncode(&str, "@*");
+    printf("New string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
+
+    printf("Decoding @* chars.\n");
+    xstrDecode(&str);
+    printf("New string is: \"%s\" (%d/%d)\n", str.psz, str.ulLength, str.cbAllocated);
+
     return (0);
 }
+
 */
-
-
