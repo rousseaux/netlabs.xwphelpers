@@ -211,6 +211,7 @@ TESTCASE_TARGETS = \
     dialog.exe \
     exeh.exe \
     fdlg.exe \
+    xmap.exe \
     vcard.exe
 
 # dialog.exe
@@ -265,6 +266,17 @@ FDLG_TEST_OBJS = \
 
 fdlg.exe: $(FDLG_TEST_OBJS)
     ilink /debug /pmtype:pm $(FDLG_TEST_OBJS) /o:$@
+
+# xmap.exe
+MAP_TEST_OBJS = \
+    $(TESTCASE_DIR)\map_vac.obj \
+    $(TESTCASE_DIR)\linklist.obj \
+    $(TESTCASE_DIR)\stringh.obj \
+    $(TESTCASE_DIR)\xstring.obj \
+    $(TESTCASE_DIR)\_test_map.obj
+
+xmap.exe: $(MAP_TEST_OBJS)
+    ilink /debug /optfunc /pmtype:vio $(MAP_TEST_OBJS) pmprintf.lib /o:$@
 
 # vcard.exe
 VCARD_TEST_OBJS = \

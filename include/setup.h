@@ -16,6 +16,8 @@
         #define XWPENTRY _Optlink
     #endif
 
+    #define STATIC
+
     /*************************************************************
      *                                                           *
      *   Additional stuff for EMX                                *

@@ -462,8 +462,6 @@ STATIC APIRET Tokenize(ULONG ulLevel,
         pLineThis = pNextEOL + 1;
     }
 
-    _Pmpf((__FUNCTION__ ": returning %d", arc));
-
     return arc;
 }
 
@@ -803,8 +801,6 @@ APIRET vcfRead(PCSZ pcszFilename,
 
         xstrClear(&str);
     }
-
-    _Pmpf((__FUNCTION__ ": returning %d", arc));
 
     return arc;
 }
