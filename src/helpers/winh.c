@@ -590,72 +590,110 @@ HWND winhReplaceWithLinearSlider(HWND hwndParent,   // in: parent of old control
  *      scale values. Only the primary scale is
  *      supported.
  *
- *      If mpEveryOther is 0, this sets all ticks
- *      on the primary slider scale.
+ *      This function goes sets the ticks twice,
+ *      once with mpEveryOther1 and ulPixels1,
+ *      and then a second time with mpEveryOther2
+ *      and ulPixels2. This allows you to quickly
+ *      give, say, every tenth item a taller tick.
+ *
+ *      For every set, if mpEveryOther is 0, this sets
+ *      all ticks on the primary slider scale.
  *
  *      If mpEveryOther is != 0, SHORT1FROMMP
  *      specifies the first tick to set, and
  *      SHORT2FROMMP specifies every other tick
  *      to set from there. For example:
+ *
  +          MPFROM2SHORT(9, 10)
+ *
  *      would set tick 9, 19, 29, and so forth.
+ *
+ *      If both mpEveryOther and ulPixels are -1,
+ *      that set is skipped.
+ *
+ *      Example: Considering a slider with a
+ *      primary scale from 0 to 30, using
+ *
+ +          winhSetSliderTicks(hwndSlider,
+ +                             0,                       // every tick
+ +                             3,                       //      to three pixels
+ +                             MPFROM2SHORT(9, 10)      // then every tenth
+ +                             6);                      //      to six pixels.
  *
  *      Returns FALSE upon errors.
  *
  *@@added V0.9.1 (99-12-04) [umoeller]
+ *@@changed V0.9.7 (2001-01-18) [umoeller]: added second set
  */
 
-BOOL winhSetSliderTicks(HWND hwndSlider,
-                        MPARAM mpEveryOther,
-                        ULONG ulPixels)
+BOOL winhSetSliderTicks(HWND hwndSlider,            // in: linear slider
+                        MPARAM mpEveryOther1,       // in: set 1
+                        ULONG ulPixels1,
+                        MPARAM mpEveryOther2,       // in: set 2
+                        ULONG ulPixels2)
 {
     BOOL brc = FALSE;
 
-    if (mpEveryOther == 0)
+    ULONG ulSet;
+    MPARAM mpEveryOther = mpEveryOther1;
+    ULONG ulPixels = ulPixels1;
+
+    // do this twice
+    for (ulSet = 0;
+         ulSet < 2;
+         ulSet++)
     {
-        // set all ticks:
-        brc = (BOOL)WinSendMsg(hwndSlider,
-                               SLM_SETTICKSIZE,
-                               MPFROM2SHORT(SMA_SETALLTICKS,
-                                            ulPixels),
-                               NULL);
-    }
-    else
-    {
-        SLDCDATA  slcd;
-        WNDPARAMS   wp;
-        memset(&wp, 0, sizeof(WNDPARAMS));
-        wp.fsStatus = WPM_CTLDATA;
-        wp.cbCtlData = sizeof(slcd);
-        wp.pCtlData = &slcd;
-        // get primary scale data from the slider
-        if (WinSendMsg(hwndSlider,
-                       WM_QUERYWINDOWPARAMS,
-                       (MPARAM)&wp,
-                       0))
+        if (mpEveryOther == 0)
         {
-            USHORT usStart = SHORT1FROMMP(mpEveryOther),
-                   usEveryOther = SHORT2FROMMP(mpEveryOther);
-
-            USHORT usScale1Max = slcd.usScale1Increments,
-                   us;
-
-            brc = TRUE;
-
-            for (us = usStart; us < usScale1Max; us += usEveryOther)
+            // set all ticks:
+            brc = (BOOL)WinSendMsg(hwndSlider,
+                                   SLM_SETTICKSIZE,
+                                   MPFROM2SHORT(SMA_SETALLTICKS,
+                                                ulPixels),
+                                   NULL);
+        }
+        else if ( (mpEveryOther != (MPARAM)-1) && (ulPixels != -1) )
+        {
+            SLDCDATA  slcd;
+            WNDPARAMS   wp;
+            memset(&wp, 0, sizeof(WNDPARAMS));
+            wp.fsStatus = WPM_CTLDATA;
+            wp.cbCtlData = sizeof(slcd);
+            wp.pCtlData = &slcd;
+            // get primary scale data from the slider
+            if (WinSendMsg(hwndSlider,
+                           WM_QUERYWINDOWPARAMS,
+                           (MPARAM)&wp,
+                           0))
             {
-                if (!(BOOL)WinSendMsg(hwndSlider,
-                                      SLM_SETTICKSIZE,
-                                      MPFROM2SHORT(us,
-                                                   ulPixels),
-                                      NULL))
+                USHORT usStart = SHORT1FROMMP(mpEveryOther),
+                       usEveryOther = SHORT2FROMMP(mpEveryOther);
+
+                USHORT usScale1Max = slcd.usScale1Increments,
+                       us;
+
+                brc = TRUE;
+
+                for (us = usStart; us < usScale1Max; us += usEveryOther)
                 {
-                    brc = FALSE;
-                    break;
+                    if (!(BOOL)WinSendMsg(hwndSlider,
+                                          SLM_SETTICKSIZE,
+                                          MPFROM2SHORT(us,
+                                                       ulPixels),
+                                          NULL))
+                    {
+                        brc = FALSE;
+                        break;
+                    }
                 }
             }
         }
-    }
+
+        // for the second loop, use second value set
+        mpEveryOther = mpEveryOther2;
+        ulPixels = ulPixels2;
+                // we only loop twice
+    } // end for (ulSet = 0; ulSet < 2;
 
     return (brc);
 }

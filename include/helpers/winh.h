@@ -199,7 +199,11 @@ extern "C" {
                                               ULONG ulSliderStyle,
                                               ULONG ulTickCount);
 
-    BOOL XWPENTRY winhSetSliderTicks(HWND hwndSlider, MPARAM mpEveryOther, ULONG ulPixels);
+    BOOL winhSetSliderTicks(HWND hwndSlider,
+                            MPARAM mpEveryOther1,
+                            ULONG ulPixels1,
+                            MPARAM mpEveryOther2,
+                            ULONG ulPixels2);
 
     /*
      * winhSetSliderArmPosition:
