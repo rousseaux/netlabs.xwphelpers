@@ -230,43 +230,43 @@ MRESULT EXPENTRY ctl_fnwpSubclassedTool(HWND hwndTool, ULONG msg, MPARAM mp1, MP
     {
         PSUBCLASSEDTOOL pst = FindSubclassedTool(hwndTool);
 
-        switch (msg)
+        if (pst)
         {
-            case WM_MOUSEMOVE:
-            case WM_BUTTON1DOWN:
-            case WM_BUTTON1UP:
-            case WM_BUTTON2DOWN:
-            case WM_BUTTON2UP:
-            case WM_BUTTON3DOWN:
-            case WM_BUTTON3UP:
+            pfnwpOrig = pst->pfnwpOrig;     // call default
+
+            switch (msg)
             {
-                QMSG qmsg;
-                qmsg.hwnd = hwndTool;
-                qmsg.msg = msg;
-                qmsg.mp1 = mp1;
-                qmsg.mp2 = mp2;
-                // _Pmpf((__FUNCTION__ ": sending TTM_RELAYEVENT"));
-                WinSendMsg(pst->hwndTooltip,
-                           TTM_RELAYEVENT,
-                           (MPARAM)0,
-                           (MPARAM)&qmsg);
-                pfnwpOrig = pst->pfnwpOrig;     // call default
-            break; }
+                case WM_MOUSEMOVE:
+                case WM_BUTTON1DOWN:
+                case WM_BUTTON1UP:
+                case WM_BUTTON2DOWN:
+                case WM_BUTTON2UP:
+                case WM_BUTTON3DOWN:
+                case WM_BUTTON3UP:
+                {
+                    QMSG qmsg;
+                    qmsg.hwnd = hwndTool;
+                    qmsg.msg = msg;
+                    qmsg.mp1 = mp1;
+                    qmsg.mp2 = mp2;
+                    // _Pmpf((__FUNCTION__ ": sending TTM_RELAYEVENT"));
+                    WinSendMsg(pst->hwndTooltip,
+                               TTM_RELAYEVENT,
+                               (MPARAM)0,
+                               (MPARAM)&qmsg);
+                break; }
 
-            case WM_DESTROY:
-                lstRemoveItem(&G_llSubclassedTools, pst);         // this frees the item
-                pfnwpOrig = pst->pfnwpOrig;     // call default
-            break;
-
-            default:
-                pfnwpOrig = pst->pfnwpOrig;     // call default
+                case WM_DESTROY:
+                    lstRemoveItem(&G_llSubclassedTools, pst);         // this frees the item
+                break;
+            }
         }
 
         UnlockSubclassedTools();
     }
 
     if (pfnwpOrig)
-        mrc = (pfnwpOrig)(hwndTool, msg, mp1, mp2);
+        mrc = pfnwpOrig(hwndTool, msg, mp1, mp2);
 
     return (mrc);
 }
