@@ -1,9 +1,8 @@
 
 /*
  *@@sourcefile exeh.c:
- *      contains code to load and parse executable files,
- *      including resources.
- *      See exehOpen for details.
+ *      contains code to load and parse executable headers
+ *      and resources. See exehOpen for details.
  *
  *      This file is new with V0.9.16 (2002-01-05) [umoeller]
  *      and contains code formerly in dosh2.c.
@@ -88,7 +87,9 @@
  *      executable file and reads in the various
  *      executable headers manually. Since DosLoadModule
  *      et al is never used, the OS/2 executable loader
- *      is completely circumvented.
+ *      is completely circumvented. (Side note:
+ *      DosLoadModule cannot be used on EXE files in
+ *      the first place.)
  *
  *      To be more precise, this uses doshOpen internally
  *      and can thus profit from the caching that is
@@ -148,10 +149,11 @@
  *
  *      V0.9.12 adds support for NOSTUB executables,
  *      which are new-style executables (NE or LX)
- *      without a leading DOS header. The executable
- *      then starts directly with the NE or LX header.
- *      I am not sure whether PE supports such things
- *      as well... if so, it should be supported too.
+ *      without a leading DOS header. JFS.IFS uses that
+ *      format, for example. The executable then starts
+ *      directly with the NE or LX header. I am not sure
+ *      whether PE supports such beasts  as well... if
+ *      so, it should be supported too.
  *
  *      Note that not all of the other exeh* functions
  *      support all of the executable types. See the
@@ -457,10 +459,10 @@ APIRET exehOpen(const char* pcszExecutable,
                                     pExec->cbPEHeader = sizeof(PEHEADER);
                                 }
                             }
-                        }
-                    }
-                }
-            }
+                        } // end else if (cbRead < sizeof(IMAGE_FILE_HEADER))
+                    } // end if (!(arc = doshReadAt(pFile,
+                } // end else if (!(pExec->pPEHeader = (PPEHEADER)malloc(sizeof(PEHEADER))))
+            } // end else if (!memcmp(achNewHeaderType, "PE\0\0", 4))
             else
                 // strange type:
                 arc = ERROR_INVALID_EXE_SIGNATURE;
@@ -2276,7 +2278,7 @@ static APIRET ExpandIterdata2(char *pachPage,              // out: page data (pa
                               const char *pachSrcPage,     // in: compressed source data in EXEPACK:1 format
                               int cchSrcPage)              // in: size of source buf
 {
-    char *          pachDestPage = pachPage; /* Store the pointer for boundrary checking. */
+    char    *pachDestPage = pachPage; /* Store the pointer for boundrary checking. */
 
     while (cchSrcPage > 0)
     {
@@ -2559,7 +2561,7 @@ APIRET exehReadLXPage(PEXECUTABLE pExec,        // in: executable from exehOpen
     {
         ULONG ulPageSize = pExec->pLXHeader->ulPageSize;
 
-        ulOffset +=   ulExeOffset;
+        ulOffset += ulExeOffset;
 
         /* _Pmpf(("  reading pgtbl %d, ofs %d, type %s",
                 ulObjPageTblIndex,
@@ -3112,7 +3114,8 @@ APIRET exehLoadOS2NEResource(PEXECUTABLE pExec,     // in: executable from exehO
  *      Always call this function if NO_ERROR was returned by
  *      exehOpen.
  *
- *      This automaticall calls exehFreeLXMaps.
+ *      This automaticall calls exehFreeLXMaps and
+ *      exehFreeNEMaps.
  *
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.16 (2001-12-08) [umoeller]: fixed memory leaks
