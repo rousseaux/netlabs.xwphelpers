@@ -115,10 +115,13 @@ extern "C" {
                                     HAPP happ,
                                     PULONG pulExitCode);
 
-        HAPP XWPENTRY appQuickStartApp(const char *pcszFile,
-                                       ULONG ulProgType,
-                                       const char *pcszArgs,
-                                       PULONG pulExitCode);
+        HAPP appQuickStartApp(const char *pcszFile,
+                              ULONG ulProgType,
+                              const char *pcszArgs,
+                              const char *pcszWorkingDir,
+                              PULONG pulExitCode);
+
+        BOOL appOpenURL(PCSZ pcszURL);
 
     #endif
 

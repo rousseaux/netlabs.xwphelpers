@@ -74,13 +74,18 @@ extern "C" {
     #define TXVESC_STRIKE_END       TXVESC_STRING "\x05\x02"
 
     // links
-    #define TXVESC_LINK             TXVESC_STRING "\x06"
-                // here follow four characters with the
-                // link index in hex (0001-FFFF);
-                // "####" means end of link
-                // --> total size: 6
+    #define TXVESC_LINK_BEGIN       TXVESC_STRING "\x06"
+                // here follows the link reference, which
+                // is variable in length and must be terminated
+                // with another 0xFF escape code (NOT null byte);
+                // --> total size: 2 plus link name length
+                //      plus 1 for 0xFF terminator
 
-    #define TXVESC_ANCHORNAME       TXVESC_STRING "\x07"
+    #define TXVESC_LINK_END         TXVESC_STRING "\x07"
+                // end of the link
+                // --> total size: 2
+
+    #define TXVESC_ANCHORNAME       TXVESC_STRING "\x08"
                 // here follows the anchor name, which is
                 // variable in length and must be terminated
                 // with another 0xFF escape code (NOT null byte);
@@ -222,11 +227,14 @@ extern "C" {
         LONG        lcid;           // logical font ID to use for this rectangle
         LONG        lPointSize;     // point size to use for this rectangle;
                                     // this is set to 0 for bitmap fonts
-        ULONG       flOptions;      // flOptions parameter for GpiCharStringPosAt;
+        ULONG       flChar;         // flOptions parameter for GpiCharStringPosAt;
                                     // this will only have the CHS_UNDERSCORE or
                                     // CHS_STRIKEOUT flags set
 
-        USHORT      usAnchor;       // != 0 if this word belongs to an anchor
+        PSZ         pszLinkTarget;  // if != NULL, pointer to a string in XFORMATDATA.llLinks;
+                                    // the word is then part of a link
+                                    // V0.9.20 (2002-08-10) [umoeller]
+
     } TXVWORD, *PTXVWORD;
 
     #ifdef LINKLIST_HEADER_INCLUDED
@@ -363,8 +371,14 @@ extern "C" {
                                 // in the TXVRECTANGLE.llWords list also point
                                 // to the words stored in this list.
 
-            ULONG       ulViewportCX,   // width of viewport (total text space)
-                        ulViewportCY;   // height of viewport (total text space)
+            SIZEL       szlWorkspace;   // width and height of viewport (total text space)
+
+            LINKLIST    llLinks;
+                                // list of malloc'd PSZ's (auto-free) with all
+                                // the links encountered while parsing the text.
+                                // These are needed for passing the correct link
+                                // target names when the user clicks on one.
+                                // V0.9.20 (2002-08-10) [umoeller]
 
         } XFORMATDATA, *PXFORMATDATA;
 
@@ -399,6 +413,7 @@ extern "C" {
     #define TXM_QUERYCDATA                  (WM_USER + 1025)
     #define TXM_SETCDATA                    (WM_USER + 1026)
     #define TXM_JUMPTOANCHORNAME            (WM_USER + 1027)
+    #define TXM_QUERYTEXTEXTENT             (WM_USER + 1028)
 
     #define WC_XTEXTVIEW     "XTextViewClass"
 
@@ -416,7 +431,7 @@ extern "C" {
      *
      *      -- USHORT SHORT1FROMMP(mp1): id of the control.
      *      -- USHORT SHORT2FROMMP(mp1): nofify code (TXVN_LINK).
-     *      -- USHORT mp2: index of anchor (1 >= index > 0xFFFF).
+     *      -- const char *mp2: link target.
      *
      *@@added V0.9.3 (2000-05-18) [umoeller]
      */
@@ -424,14 +439,32 @@ extern "C" {
     #define TXVN_LINK                       1
 
     /*
-     * XTextView style flags:
-     *
+     * XTextView window style flags:
+     *      all renamed, all turned into window style flags
      */
 
-    #define XTXF_VSCROLL        0x0100
-    #define XTXF_HSCROLL        0x0200
-    #define XTXF_AUTOVHIDE      0x0400
-    #define XTXF_AUTOHHIDE      0x0800
+    #define XS_VSCROLL          0x0001      // show vertical scroll bar
+    #define XS_HSCROLL          0x0002      // show horizontal scroll bar
+    #define XS_AUTOVHIDE        0x0004      // with XTXF_VSCROLL: automatically hide scrollbar
+    #define XS_AUTOHHIDE        0x0008      // with XTXF_HSCROLL: automatically hide scrollbar
+
+    // handy macro V0.9.20 (2002-08-10) [umoeller]
+    #define XS_FULLSCROLL       (XS_VSCROLL | XS_HSCROLL | XS_AUTOVHIDE | XS_AUTOHHIDE)
+
+    #define XS_WORDWRAP         0x0010
+                // enable word-wrapping in the default paragraph
+                // format from the start
+
+    #define XS_STATIC           0x0020
+                // behave like static control: no focus, be skipped
+                // over with tabbing in dialogs
+                // V0.9.20 (2002-08-10) [umoeller]
+
+    #define XS_FORMAT_MASK      0x0700
+    #define XS_PREFORMATTED     0x0000      // plain text with \n only plus \xFF escape codes
+                                            // (no conversion performed)
+    #define XS_PLAINTEXT        0x0100      // plain text with \r and \xFF chars that need conversion
+    #define XS_HTML             0x0200      // HTML
 
     /*
      *@@ XTEXTVIEWCDATA:
@@ -445,12 +478,6 @@ extern "C" {
     typedef struct _XTEXTVIEWCDATA
     {
         USHORT      cbData;
-        ULONG       flStyle;
-                // XTXF_* flags:
-                // --  XTXF_VSCROLL: show vertical scroll bar.
-                // --  XTXF_HSCROLL: show horizontal scroll bar.
-                // --  XTXF_AUTOVHIDE: with XTXF_VSCROLL: automatically hide scrollbar.
-                // --  XTXF_AUTOHHIDE: with XTXF_HSCROLL: automatically hide scrollbar.
         ULONG       ulXBorder,
                 // space to leave on the left and right of text view;
                 // defaults to 0
@@ -471,7 +498,6 @@ extern "C" {
     HWND txvReplaceWithTextView(HWND hwndParentAndOwner,
                                 USHORT usID,
                                 ULONG flWinStyle,
-                                ULONG flStyle,
                                 USHORT usBorder);
 
     /* ******************************************************************

@@ -544,7 +544,6 @@ BOOL winhSetMenuCondCascade(HWND hwndMenu,          // in: submenu handle
                                        MM_QUERYDEFAULTITEMID,
                                        0,
                                        0);
-        _PmpfF(("lOldDefault is %d", lOldDefault));
     }
     else
     {

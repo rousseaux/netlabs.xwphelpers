@@ -38,6 +38,7 @@
 #define INCL_DOSERRORS
 
 #define INCL_WINPROGRAMLIST     // needed for PROGDETAILS, wppgm.h
+#define INCL_WINSHELLDATA
 #define INCL_WINERRORS
 #define INCL_SHLERRORS
 #include <os2.h>
@@ -1145,6 +1146,8 @@ static void DumpMemoryBlock(PBYTE pb,       // in: start address
  *
  *@@added V0.9.18 (2002-03-27) [umoeller]
  *@@changed V0.9.19 (2002-03-28) [umoeller]: now allocating contiguous buffer
+ *@@changed V0.9.20 (2002-07-03) [umoeller]: fixed Win-OS/2 full screen breakage
+ *@@changed V0.9.20 (2002-07-03) [umoeller]: fixed broken bat and cmd files when PROG_DEFAULT was set
  */
 
 APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem with fixed program spec (req.)
@@ -1162,7 +1165,7 @@ APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem
     *ppDetails = NULL;
 
     if (!pcProgDetails && !ppDetails)
-        return (ERROR_INVALID_PARAMETER);
+        return ERROR_INVALID_PARAMETER;
 
     /*
      * part 1:
@@ -1385,8 +1388,8 @@ APIRET appBuildProgDetails(PPROGDETAILS *ppDetails,           // out: shared mem
         if (!arc)
         {
             if (    (ulIsWinApp)
-                 && (    (Details.pszEnvironment == NULL)
-                      || (!strlen(Details.pszEnvironment))
+                 && (    (!(Details.pszEnvironment))
+                      || (!(*Details.pszEnvironment))
                     )
                )
             {
@@ -1728,7 +1731,7 @@ static APIRET CallWinStartApp(HAPP *phapp,            // out: application handle
     APIRET arc = NO_ERROR;
 
     if (!pcProgDetails)
-        return (ERROR_INVALID_PARAMETER);
+        return ERROR_INVALID_PARAMETER;
 
     if (pszFailingName)
         *pszFailingName = '\0';
@@ -1932,7 +1935,7 @@ APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
     PPROGDETAILS    pDetails;
 
     if (!phapp)
-        return (ERROR_INVALID_PARAMETER);
+        return ERROR_INVALID_PARAMETER;
 
     if (!(arc = appBuildProgDetails(&pDetails,
                                     pcProgDetails,
@@ -2014,21 +2017,24 @@ BOOL appWaitForApp(HWND hwndNotify,     // in: notify window
 
 /*
  *@@ appQuickStartApp:
- *      shortcut for simply starting an app and
- *      waiting until it's finished.
+ *      shortcut for simply starting an app.
  *
  *      On errors, NULLHANDLE is returned.
  *
- *      If pulReturnCode != NULL, it receives the
- *      return code of the app.
+ *      Only if pulExitCode != NULL, we wait for
+ *      the app to complete and return the
+ *      exit code.
  *
  *@@added V0.9.16 (2001-10-19) [umoeller]
+ *@@changed V0.9.20 (2002-08-10) [umoeller]: fixed missing destroy window, made wait optional
+ *@@changed V0.9.20 (2002-08-10) [umoeller]: added pcszWorkingDir
  */
 
 HAPP appQuickStartApp(const char *pcszFile,
-                      ULONG ulProgType,         // e.g. PROG_PM
-                      const char *pcszArgs,
-                      PULONG pulExitCode)
+                      ULONG ulProgType,             // e.g. PROG_PM
+                      const char *pcszArgs,         // in: arguments (can be NULL)
+                      const char *pcszWorkingDir,   // in: working dir (can be NULL)
+                      PULONG pulExitCode)           // out: exit code; if ptr is NULL, we don't wait
 {
     PROGDETAILS    pd = {0};
     HAPP           happ,
@@ -2042,7 +2048,10 @@ HAPP appQuickStartApp(const char *pcszFile,
     pd.progt.fbVisible = SHE_VISIBLE;
     pd.pszExecutable = (PSZ)pcszFile;
     pd.pszParameters = (PSZ)pcszArgs;
-    if (p = strrchr(pcszFile, '\\'))
+
+    if (    (!(pd.pszStartupDir = (PSZ)pcszWorkingDir))
+         && (p = strrchr(pcszFile, '\\'))
+       )
     {
         strhncpy0(szDir,
                   pcszFile,
@@ -2059,11 +2068,74 @@ HAPP appQuickStartApp(const char *pcszFile,
                           NULL))
        )
     {
-        if (appWaitForApp(hwndObject,
+        if (pulExitCode)
+            appWaitForApp(hwndObject,
                           happ,
-                          pulExitCode))
-            happReturn = happ;
+                          pulExitCode);
+
+        happReturn = happ;
+
+        WinDestroyWindow(hwndObject);       // was missing V0.9.20 (2002-08-10) [umoeller]
     }
 
     return happReturn;
+}
+
+/*
+ *@@ appOpenURL:
+ *      opens the system default browser with the given
+ *      URL.
+ *
+ *@@added V0.9.20 (2002-08-10) [umoeller]
+ */
+
+BOOL appOpenURL(PCSZ pcszURL)
+{
+    BOOL        brc = FALSE;
+
+    CHAR        szBrowser[CCHMAXPATH],
+                szStartupDir[CCHMAXPATH];
+    XSTRING     strParameters;
+
+    xstrInit(&strParameters, 0);
+
+    if (PrfQueryProfileString(HINI_USER,
+                              "WPURLDEFAULTSETTINGS",
+                              "DefaultBrowserExe",
+                              "NETSCAPE.EXE",
+                              szBrowser,
+                              sizeof(szBrowser)))
+    {
+        PSZ pszDefParams;
+
+        if (pszDefParams = prfhQueryProfileData(HINI_USER,
+                                                "WPURLDEFAULTSETTINGS",
+                                                "DefaultParameters",
+                                                NULL))
+        {
+            xstrcpy(&strParameters, pszDefParams, 0);
+            xstrcatc(&strParameters, ' ');
+            free(pszDefParams);
+        }
+
+        xstrcat(&strParameters, pcszURL, 0);
+
+        PrfQueryProfileString(HINI_USER,
+                              "WPURLDEFAULTSETTINGS",
+                              "DefaultWorkingDir",
+                              "",
+                              szStartupDir,
+                              sizeof(szStartupDir));
+
+
+        brc = !!appQuickStartApp(szBrowser,
+                                 PROG_DEFAULT,
+                                 strParameters.psz,
+                                 szStartupDir,
+                                 NULL);            // don't wait
+    }
+
+    xstrClear(&strParameters);
+
+    return brc;
 }

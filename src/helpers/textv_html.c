@@ -113,7 +113,8 @@ typedef struct _COPYTARGET
     // saved character while tag handler is being called
     CHAR    cSaved;
 
-    PXHTMLDATA pxhtml;      // ptr to XHTMLDATA passed to txvConvertFromHTML
+    PSZ     *ppszTitle;     // out: title (ptr can be NULL)
+                            // V0.9.20 (2002-08-10) [umoeller]
 
     // formatting flags while going through the text
     BOOL    fSkipNextSpace;
@@ -132,7 +133,7 @@ typedef struct _COPYTARGET
                             // and attributes exist for the tag
 
     // anchors count
-    USHORT  usAnchorIndex;  // start with 1
+    // USHORT  usAnchorIndex;  // start with 1      removed V0.9.20 (2002-08-10) [umoeller]
 
     // list maintenance
     ULONG   ulListLevel;    // if > 0, we're in a UL or OL block;
@@ -420,21 +421,21 @@ static VOID TagTITLE(PCOPYTARGET pct)
         // points to temporary null byte in main buffer now
     *pSource = pct->cSaved;
 
-    pSource = strchr(pct->pSource, '>');
-    if (pSource)
+    if (pSource = strchr(pct->pSource, '>'))
     {
-        PSZ pNextOpen = strchr(pSource, '<');
-        if (pNextOpen)
+        PSZ pNextOpen;
+        if (pNextOpen = strchr(pSource, '<'))
         {
             // extract title
-            pct->pxhtml->pszTitle = strhSubstr(pSource + 1, pNextOpen);
+            if (pct->ppszTitle)
+                *(pct->ppszTitle) = strhSubstr(pSource + 1, pNextOpen);
+                        // adjusted V0.9.20 (2002-08-10) [umoeller]
 
             if (strnicmp(pNextOpen + 1, "/TITLE", 6) == 0)
             {
                 // closing /TITLE tag found:
                 // search on after that
-                pct->pNewSource = strchr(pNextOpen, '>');
-                if (pct->pNewSource)
+                if (pct->pNewSource = strchr(pNextOpen, '>'))
                     pct->pNewSource++;
             }
         }
@@ -805,14 +806,15 @@ static VOID TagXCODE(PCOPYTARGET pct)
 static VOID TagA(PCOPYTARGET pct)
 {
     CHAR    szAnchor[10];
+    PSZ     pHREF = NULL;
 
     pct->fInLink = FALSE;
 
-    if ((pct->pszAttributes) && (pct->pxhtml))     // points into main source buffer
+    if (pct->pszAttributes)
     {
         // we have attributes:
-        PSZ pszClosingTag = strchr(pct->pszAttributes, '>');
-        if (pszClosingTag)
+        PSZ pszClosingTag;
+        if (pszClosingTag = strchr(pct->pszAttributes, '>'))
         {
             ULONG ulOfs = 0;
 
@@ -821,35 +823,22 @@ static VOID TagA(PCOPYTARGET pct)
              *
              */
 
-            PSZ pHREF = strhGetTextAttr(pct->pszAttributes, "HREF", &ulOfs),
-                pNAME = 0;
+            PSZ pNAME = 0;
 
             // replace '>' with null char to mark end of search
             *pszClosingTag = 0;
 
-            if (pHREF)
-            {
+            if (pHREF = strhGetTextAttr(pct->pszAttributes, "HREF", &ulOfs))
                 // OK, we got a link target:
-                // create a link item and append it to the output list
-                PXHTMLLINK pNewLink = (PXHTMLLINK)malloc(sizeof(XHTMLLINK));
-                memset(pNewLink, 0, sizeof(XHTMLLINK));
-
                 pct->fInLink = TRUE;
-
-                // this starts with anchor 1
-                pNewLink->usLinkIndex = ++pct->usAnchorIndex;
-                pNewLink->pszTargetFile = pHREF;
                             // do not free
-                lstAppendItem(&pct->pxhtml->llLinks, pNewLink);
-            }
 
             /*
              * NAME attribute:
              *
              */
 
-            pNAME = strhGetTextAttr(pct->pszAttributes, "NAME", &ulOfs);
-            if (pNAME)
+            if (pNAME = strhGetTextAttr(pct->pszAttributes, "NAME", &ulOfs))
             {
                 AppendString(pct,
                              TXVESC_ANCHORNAME);
@@ -859,18 +848,22 @@ static VOID TagA(PCOPYTARGET pct)
                 AppendChar(pct, 0xFF);
                 free(pNAME);
             }
+
             // restore '>'
             *pszClosingTag = '>';
         }
     }
 
-    if (pct->fInLink)
+    if (pHREF)
     {
-        sprintf(szAnchor, "%04hX", pct->usAnchorIndex);
         AppendString(pct,
-                     TXVESC_LINK);
+                     TXVESC_LINK_BEGIN);
         AppendString(pct,
-                     szAnchor);
+                     pHREF);
+        // must be terminated with 0xFF
+        AppendChar(pct, 0xFF);
+
+        free(pHREF);
     }
 }
 
@@ -879,7 +872,7 @@ static VOID TagXA(PCOPYTARGET pct)
     if (pct->fInLink)
     {
         AppendString(pct,
-                     TXVESC_LINK "####");
+                     TXVESC_LINK_END);
         pct->fInLink = FALSE;
     }
 }
@@ -2050,10 +2043,11 @@ static VOID HandleEscape(PCOPYTARGET pct)
  *      All other tags are completely thrown out.
  *
  *@@added V0.9.3 (2000-05-06) [umoeller]
+ *@@changed V0.9.20 (2002-08-10) [umoeller]: changed prototype
  */
 
-BOOL txvConvertFromHTML(char **ppszText,
-                        PVOID pxhtml,           // out: various config data (PXHTMLDATA)
+BOOL txvConvertFromHTML(PSZ *ppszText,          // in/out: text (gets reallocated)
+                        PSZ *ppszTitle,         // out: if != NULL, receives malloc'd buffer with HTML title
                         PULONG pulProgress,     // out: progress (ptr can be NULL)
                         PBOOL pfCancel)         // in: cancel flag (ptr can be NULL)
 {
@@ -2061,24 +2055,17 @@ BOOL txvConvertFromHTML(char **ppszText,
 
     ULONG   cbSource = strlen(*ppszText);
 
-    XHTMLDATA xhtmlTemp = {0};
-    BOOL fUsingTemp = FALSE;
     COPYTARGET  ct = {0};
 
     lstInit(&ct.llLists,
             TRUE);      // free items
 
+    ct.ppszTitle = ppszTitle;       // V0.9.20 (2002-08-10) [umoeller]
+                // can be NULL
+
     ct.pSource = *ppszText;
     // skip leading spaces
     ct.fSkipNextSpace = TRUE;
-    ct.pxhtml = (PXHTMLDATA)pxhtml;
-    if (ct.pxhtml == NULL)  // not specified:
-    {
-        ct.pxhtml = &xhtmlTemp;
-        fUsingTemp = TRUE;
-    }
-
-    lstInit(&ct.pxhtml->llLinks, TRUE);       // auto-free
 
     // step 2:
     // actual tags formatting
@@ -2227,14 +2214,6 @@ BOOL txvConvertFromHTML(char **ppszText,
     *ppszText = ct.pszNew;
 
     lstClear(&ct.llLists);
-
-    if (fUsingTemp)
-    {
-        if (xhtmlTemp.pszTitle)
-            free(xhtmlTemp.pszTitle);
-        lstClear(&xhtmlTemp.llLinks);
-                // ### better really clear this... there are PSZ's inside
-    }
 
     return brc;
 }

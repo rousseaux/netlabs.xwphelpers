@@ -267,7 +267,7 @@ ULONG doshIsWarp4(VOID)
                         &aulBuf, sizeof(aulBuf));
         // Warp 3 is reported as 20.30
         // Warp 4 is reported as 20.40
-        // Aurora is reported as 20.45
+        // Aurora is reported as 20.45 (regardless of convenience packs)
 
         if     (    (aulBuf[0] > 20)        // major > 20; not the case with Warp 3, 4, 5
                  || (   (aulBuf[0] == 20)   // major == 20 and minor >= 45

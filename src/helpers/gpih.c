@@ -533,6 +533,7 @@ VOID gpihDraw3DFrame(HPS hps,
  *      calls GpiCharStringPosAt accordingly.
  *
  *@@added V0.9.3 (2000-05-06) [umoeller]
+ *@@changed V0.9.20 (2002-08-10) [umoeller]: fixed underline for bitmap fonts, which never worked
  */
 
 LONG gpihCharStringPosAt(HPS hps,
@@ -558,7 +559,7 @@ LONG gpihCharStringPosAt(HPS hps,
 
             lHits = GpiCharStringPos(hps,
                                      prclRect,
-                                     flOptions,
+                                     0, // flOptions,
                                      lCountThis,
                                      pchThis,
                                      0);
@@ -566,6 +567,21 @@ LONG gpihCharStringPosAt(HPS hps,
             pchThis += 512;
             lCountLeft -= 512;
         } while (lCountLeft > 0);
+    }
+
+    // I can't get underscore to work with bitmap fonts,
+    // so I'm doing it manually always now
+    // V0.9.20 (2002-08-10) [umoeller]
+    if (flOptions & CHS_UNDERSCORE)
+    {
+        POINTL ptl2, ptlSave;
+        GpiQueryCurrentPosition(hps, &ptlSave);
+        ptl2.x = pptlStart->x;
+        ptl2.y = pptlStart->y - 2;
+        GpiMove(hps, &ptl2);
+        ptl2.x = ptlSave.x;
+        GpiLine(hps, &ptl2);
+        GpiMove(hps, &ptlSave);
     }
 
     return lHits;

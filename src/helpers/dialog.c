@@ -79,6 +79,7 @@
 #include "helpers\linklist.h"
 #include "helpers\standards.h"
 #include "helpers\stringh.h"
+#include "helpers\textview.h"
 #include "helpers\winh.h"
 #include "helpers\xstring.h"
 
@@ -117,6 +118,11 @@ typedef struct _DLGPRIVATE
                 hwndDefPushbutton;      // V0.9.14 (2001-08-21) [umoeller]
 
     POINTL      ptlTotalOfs;
+
+    LINKLIST    llTempControls;         // linked list of HWNDs that were
+                                        // created temporarily to determine
+                                        // control sizes for SZL_AUTOSIZE
+                                        // V0.9.20 (2002-08-10) [umoeller]
 
     PLINKLIST   pllControls;            // linked list of HWNDs in the order
                                         // in which controls were created;
@@ -364,12 +370,6 @@ static APIRET CalcAutoSizeText(const CONTROLDEF *pControlDef,
         if (fMultiLine)
         {
             RECTL rcl = {0, 0, 0, 0};
-            /*
-            if (pControlDef->szlControlProposed.cx > 0)
-                rcl.xRight = pControlDef->szlControlProposed.cx;   // V0.9.12 (2001-05-31) [umoeller]
-            else
-                rcl.xRight = winhQueryScreenCX() * 2 / 3;
-            */
             rcl.xRight = ulWidth;
             if (pControlDef->szlDlgUnits.cy > 0)
                 rcl.yTop = pControlDef->szlDlgUnits.cy * FACTOR_Y;
@@ -487,12 +487,92 @@ static APIRET CalcAutoSize(const CONTROLDEF *pControlDef,
         break;
 
         default:
-            // any other control (just to be safe):
-            SetDlgFont(pControlDef, pDlgData);
-            pszlAuto->cx = 50;
-            pszlAuto->cy =   pDlgData->fmLast.lMaxBaselineExt
-                           + pDlgData->fmLast.lExternalLeading
-                           + 7;         // some space
+            if (!strcmp(pControlDef->pcszClass, WC_XTEXTVIEW))
+            {
+                HWND hwnd = NULLHANDLE;
+                PCSZ pcszTitle;
+
+                PLISTNODE pTempNode;
+                HWND hwndFound = NULLHANDLE;
+                FOR_ALL_NODES(&pDlgData->llTempControls, pTempNode)
+                {
+                    HWND hwndThis = (HWND)pTempNode->pItemData;
+                    if (WinQueryWindowUShort(hwndThis, QWS_ID) == pControlDef->usID)
+                    {
+                        hwnd = hwndThis;
+
+                        // resize it to what we really need
+                        WinSetWindowPos(hwndThis,
+                                        HWND_BOTTOM,
+                                        0,
+                                        0,
+                                        ulWidth,
+                                        2000,
+                                        SWP_SIZE);
+                        break;
+                    }
+                }
+
+                if (!hwnd)
+                {
+                    if (hwnd = WinCreateWindow(pDlgData->hwndDlg,   // parent
+                                               (PSZ)pControlDef->pcszClass,
+                                               NULL,
+                                               pControlDef->flStyle,
+                                               0,
+                                               0,
+                                               ulWidth,
+                                               2000,         // cy, for now
+                                               pDlgData->hwndDlg,   // owner
+                                               HWND_BOTTOM,
+                                               pControlDef->usID,
+                                               pControlDef->pvCtlData,
+                                               NULL))
+                    {
+                        PCSZ pcszFont = pControlDef->pcszFont;
+                                        // can be NULL, or CTL_COMMON_FONT
+                        if (pcszFont == CTL_COMMON_FONT)
+                            pcszFont = pDlgData->pcszControlsFont;
+
+                        if (pcszFont)
+                            winhSetWindowFont(hwnd,
+                                              pcszFont);
+
+                        WinSetWindowText(hwnd,
+                                         (pcszTitle = pControlDef->pcszText)
+                                             ? (PSZ)pcszTitle
+                                             : "");
+
+                        // store the window we have created in the temp
+                        // windows list so it can be reused in
+                        // ColumnCreateControls
+                        lstAppendItem(&pDlgData->llTempControls,
+                                      (PVOID)hwnd);
+                    }
+                    else
+                        arc = DLGERR_CANNOT_CREATE_CONTROL;
+                }
+
+                if (hwnd)
+                {
+                    SIZEL szlTemp;
+                    WinSendMsg(hwnd,
+                               TXM_QUERYTEXTEXTENT,
+                               (MPARAM)&szlTemp,
+                               0);
+
+                    pszlAuto->cy = szlTemp.cy;
+                }
+            }
+            else
+            {
+                // any other control (just to be safe):
+                SetDlgFont(pControlDef, pDlgData);
+                pszlAuto->cx = 50;
+                pszlAuto->cy =   pDlgData->fmLast.lMaxBaselineExt
+                               + pDlgData->fmLast.lExternalLeading
+                               + 7;         // some space
+            }
     }
 
     return arc;
@@ -957,28 +1037,85 @@ static APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
     if (pControlDef)
     {
         // create something:
-        PCSZ pcszFont = pControlDef->pcszFont;
-                        // can be NULL, or CTL_COMMON_FONT
-        if (pcszFont == CTL_COMMON_FONT)
-            pcszFont = pDlgData->pcszControlsFont;
 
-        if (pColumnDef->hwndControl
-            = WinCreateWindow(pDlgData->hwndDlg,   // parent
-                              (PSZ)pcszClass,   // hacked
-                              (pcszTitle)   // hacked
-                                    ? (PSZ)pcszTitle
-                                    : "",
-                              flStyle,      // hacked
-                              x,
-                              y,
-                              cx,
-                              cy,
-                              pDlgData->hwndDlg,   // owner
-                              HWND_BOTTOM,
-                              pControlDef->usID,
-                              pControlDef->pvCtlData,
-                              NULL))
+        // check if we have the window on the temp list from
+        // CalcAutoSize V0.9.20 (2002-08-10) [umoeller]
+        PLISTNODE pTempNode;
+        HWND hwndFound = NULLHANDLE;
+        FOR_ALL_NODES(&pDlgData->llTempControls, pTempNode)
         {
+            HWND hwndThis = (HWND)pTempNode->pItemData;
+            if (WinQueryWindowUShort(hwndThis, QWS_ID) == pControlDef->usID)
+            {
+                hwndFound
+                    = pColumnDef->hwndControl
+                    = hwndThis;
+
+                // resize it to what we really need
+                WinSetWindowPos(hwndThis,
+                                HWND_BOTTOM,
+                                x,
+                                y,
+                                cx,
+                                cy,
+                                SWP_SIZE | SWP_MOVE | SWP_ZORDER);
+
+                lstRemoveNode(&pDlgData->llTempControls, pTempNode);
+                break;
+            }
+        }
+
+        if (    (!hwndFound)
+             && (!(pColumnDef->hwndControl = WinCreateWindow(pDlgData->hwndDlg,   // parent
+                                                             (PSZ)pcszClass,   // hacked
+                                                             (pcszTitle)   // hacked
+                                                                   ? (PSZ)pcszTitle
+                                                                   : "",
+                                                             flStyle,      // hacked
+                                                             x,
+                                                             y,
+                                                             cx,
+                                                             cy,
+                                                             pDlgData->hwndDlg,   // owner
+                                                             HWND_BOTTOM,
+                                                             pControlDef->usID,
+                                                             pControlDef->pvCtlData,
+                                                             NULL)))
+           )
+            arc = DLGERR_CANNOT_CREATE_CONTROL;
+
+        if (!arc)
+        {
+            PCSZ pcszFont = pControlDef->pcszFont;
+                            // can be NULL, or CTL_COMMON_FONT
+            if (pcszFont == CTL_COMMON_FONT)
+                pcszFont = pDlgData->pcszControlsFont;
+
+            if (lHandleSet)
+            {
+                // subclass the damn static
+                if ((flOld & 0x0F) == SS_ICON)
+                    // this was a static:
+                    ctlPrepareStaticIcon(pColumnDef->hwndControl,
+                                         1);
+                else
+                    // this was a bitmap:
+                    ctlPrepareStretchedBitmap(pColumnDef->hwndControl,
+                                              TRUE);
+
+                WinSendMsg(pColumnDef->hwndControl,
+                           SM_SETHANDLE,
+                           (MPARAM)lHandleSet,
+                           0);
+            }
+            else if (pcszFont)
+                // we must set the font explicitly here...
+                // doesn't always work with WinCreateWindow
+                // presparams parameter, for some reason
+                // V0.9.12 (2001-05-31) [umoeller]
+                winhSetWindowFont(pColumnDef->hwndControl,
+                                  pcszFont);
+
 #ifdef DEBUG_DIALOG_WINDOWS
             {
                 HWND hwndDebug;
@@ -1019,33 +1156,6 @@ static APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
                 winhSetPresColor(hwndDebug, PP_FOREGROUNDCOLOR, RGBCOL_RED);
             }
 #endif
-
-            if (lHandleSet)
-            {
-                // subclass the damn static
-                if ((flOld & 0x0F) == SS_ICON)
-                    // this was a static:
-                    ctlPrepareStaticIcon(pColumnDef->hwndControl,
-                                         1);
-                else
-                    // this was a bitmap:
-                    ctlPrepareStretchedBitmap(pColumnDef->hwndControl,
-                                              TRUE);
-
-                WinSendMsg(pColumnDef->hwndControl,
-                           SM_SETHANDLE,
-                           (MPARAM)lHandleSet,
-                           0);
-            }
-            else
-                if (pcszFont)
-                    // we must set the font explicitly here...
-                    // doesn't always work with WinCreateWindow
-                    // presparams parameter, for some reason
-                    // V0.9.12 (2001-05-31) [umoeller]
-                    winhSetWindowFont(pColumnDef->hwndControl,
-                                      pcszFont);
-
             // append window that was created
             // V0.9.18 (2002-03-03) [umoeller]
             if (pDlgData->pllControls)
@@ -1259,7 +1369,8 @@ static APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
                     {
                         PROWDEF     pRowThis = (PROWDEF)pRowNode->pItemData;
                         PCOLUMNDEF  pCorrespondingColumn;
-                        if (    (pCorrespondingColumn = lstItemFromIndex(&pRowThis->llColumns, ulMyIndex))
+                        if (    (pCorrespondingColumn = (PCOLUMNDEF)lstItemFromIndex(&pRowThis->llColumns,
+                                                                                     ulMyIndex))
                              && (pCorrespondingColumn->cpColumn.cx > pColumnDef->cpColumn.cx)
                            )
                             pColumnDef->cpColumn.cx = pCorrespondingColumn->cpColumn.cx;
@@ -1356,6 +1467,9 @@ static APIRET ProcessRow(PROWDEF pRowDef,
                     pRowDef->cpRow.cy = pColumnDefThis->cpColumn.cy;
             }
         }
+        // we should stop on errors V0.9.20 (2002-08-10) [umoeller]
+        else
+            break;
     }
 
     return arc;
@@ -1525,6 +1639,9 @@ static APIRET ProcessAll(PDLGPRIVATE pDlgData,
                 pDlgData->szlClient.cy += pTableDefThis->cpTable.cy;
             }
         }
+        // we should stop on errors V0.9.20 (2002-08-10) [umoeller]
+        else
+            break;
     }
 
     return arc;
@@ -1650,6 +1767,8 @@ static APIRET Dlg0_Init(PDLGPRIVATE *ppDlgData,
         return (ERROR_NOT_ENOUGH_MEMORY);
     ZERO(pDlgData);
     lstInit(&pDlgData->llTables, FALSE);
+
+    lstInit(&pDlgData->llTempControls, FALSE);     // V0.9.20 (2002-08-10) [umoeller]
 
     if (pllControls)
         pDlgData->pllControls = pllControls;
@@ -1903,6 +2022,7 @@ static APIRET Dlg2_CalcSizes(PDLGPRIVATE pDlgData)
  *
  *@@added V0.9.15 (2001-08-26) [umoeller]
  *@@changed V0.9.15 (2001-08-26) [umoeller]: BS_DEFAULT for other than first button was ignored, fixed
+ *@@changed V0.9.20 (2002-08-10) [umoeller]: return code checking was missing, fixed
  */
 
 static APIRET Dlg3_PositionAndCreate(PDLGPRIVATE pDlgData,
@@ -1915,34 +2035,38 @@ static APIRET Dlg3_PositionAndCreate(PDLGPRIVATE pDlgData,
      *
      */
 
-    ProcessAll(pDlgData,
-               PROCESS_4_CALC_POSITIONS);
-
-    /*
-     *  6) create control windows, finally
-     *
-     */
-
-    pDlgData->ptlTotalOfs.x = DLG_OUTER_SPACING_X * FACTOR_X;
-    pDlgData->ptlTotalOfs.y = DLG_OUTER_SPACING_Y * FACTOR_Y;
-
-    ProcessAll(pDlgData,
-               PROCESS_5_CREATE_CONTROLS);
-
-    if (pDlgData->hwndDefPushbutton)
+    // this was missing a return code, fixed V0.9.20 (2002-08-10) [umoeller]
+    if (!(arc = ProcessAll(pDlgData,
+                           PROCESS_4_CALC_POSITIONS)))
     {
-        // we had a default pushbutton:
-        // go set it V0.9.14 (2001-08-21) [umoeller]
-        WinSetWindowULong(pDlgData->hwndDlg,
-                          QWL_DEFBUTTON,
-                          pDlgData->hwndDefPushbutton);
-        *phwndFocusItem = pDlgData->hwndDefPushbutton;
-                // V0.9.15 (2001-08-26) [umoeller]
+        /*
+         *  6) create control windows, finally
+         *
+         */
+
+        pDlgData->ptlTotalOfs.x = DLG_OUTER_SPACING_X * FACTOR_X;
+        pDlgData->ptlTotalOfs.y = DLG_OUTER_SPACING_Y * FACTOR_Y;
+
+        // this was missing a return code, fixed V0.9.20 (2002-08-10) [umoeller]
+        if (!(arc = ProcessAll(pDlgData,
+                               PROCESS_5_CREATE_CONTROLS)))
+        {
+            if (pDlgData->hwndDefPushbutton)
+            {
+                // we had a default pushbutton:
+                // go set it V0.9.14 (2001-08-21) [umoeller]
+                WinSetWindowULong(pDlgData->hwndDlg,
+                                  QWL_DEFBUTTON,
+                                  pDlgData->hwndDefPushbutton);
+                *phwndFocusItem = pDlgData->hwndDefPushbutton;
+                        // V0.9.15 (2001-08-26) [umoeller]
+            }
+            else
+                *phwndFocusItem = (pDlgData->hwndFirstFocus)
+                                    ? pDlgData->hwndFirstFocus
+                                    : pDlgData->hwndDlg;
+        }
     }
-    else
-        *phwndFocusItem = (pDlgData->hwndFirstFocus)
-                            ? pDlgData->hwndFirstFocus
-                            : pDlgData->hwndDlg;
 
     return arc;
 }
@@ -1972,6 +2096,8 @@ static VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
             FreeTable(pTable);
                     // this may recurse for nested tables
         }
+
+        lstClear(&pDlgData->llTempControls);     // V0.9.20 (2002-08-10) [umoeller]
 
         lstClear(&pDlgData->llTables);
 
@@ -2460,12 +2586,12 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
  */
 
 APIRET dlghFormatDlg(HWND hwndDlg,              // in: dialog frame to work on
-                     PCDLGHITEM paDlgItems,      // in: definition array
+                     PCDLGHITEM paDlgItems,     // in: definition array
                      ULONG cDlgItems,           // in: array item count (NOT array size)
-                     PCSZ pcszControlsFont, // in: font for ctls with CTL_COMMON_FONT
+                     PCSZ pcszControlsFont,     // in: font for ctls with CTL_COMMON_FONT
                      ULONG flFlags,             // in: DFFL_* flags
                      PSIZEL pszlClient,         // out: size of all controls (ptr can be NULL)
-                     PVOID *ppllControls)   // out: new LINKLIST receiving HWNDs of created controls (ptr can be NULL)
+                     PVOID *ppllControls)       // out: new LINKLIST receiving HWNDs of created controls (ptr can be NULL)
 {
     APIRET      arc = NO_ERROR;
 

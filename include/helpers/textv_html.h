@@ -36,44 +36,10 @@ extern "C" {
      *
      ********************************************************************/
 
-    /*
-     *@@ XHTMLLINK:
-     *      describes a link.
-     *
-     *@@added V0.9.3 (2000-05-19) [umoeller]
-     */
-
-    typedef struct _XHTMLLINK
-    {
-        USHORT      usLinkIndex;        // >= 1; this is stored in the XTextView control
-        PSZ         pszTargetFile;      // target file (HREF="...") without anchors;
-                                        // this is NULL if the target is an anchor only
-                                        // (HREF="#anchor")
-        PSZ         pszTargetAnchor;    // anchor in target file; this is NULL if the
-                                        // target has no anchor
-    } XHTMLLINK, *PXHTMLLINK;
-
-    #ifdef LINKLIST_HEADER_INCLUDED
-        /*
-         *@@ XHTMLDATA:
-         *      for storing output from txvConvertFromHTML.
-         *
-         *@@added V0.9.3 (2000-05-19) [umoeller]
-         */
-
-        typedef struct _XHTMLDATA
-        {
-            PSZ         pszTitle;           // contents of TITLE tag (must be freed)
-            LINKLIST    llLinks;            // list of XHTMLLINK structures; empty if none
-                                            // (auto-free mode; use lstClear)
-        } XHTMLDATA, *PXHTMLDATA;
-    #endif
-
-    BOOL txvConvertFromHTML(char **ppszText,
-                            PVOID pxhtml,
+    BOOL txvConvertFromHTML(PSZ *ppszText,
+                            PSZ *ppszTitle,
                             PULONG pulProgress,
                             PBOOL pfCancel);
-
 #endif
 
 #if __cplusplus

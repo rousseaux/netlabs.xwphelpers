@@ -182,6 +182,11 @@ DIALOG_TEST_OBJS = \
     $(TESTCASE_DIR)\dosh.obj \
     $(TESTCASE_DIR)\except.obj \
     $(TESTCASE_DIR)\debug.obj \
+    $(TESTCASE_DIR)\textview.obj \
+    $(TESTCASE_DIR)\textv_html.obj \
+    $(TESTCASE_DIR)\tmsgfile.obj \
+    $(TESTCASE_DIR)\datetime.obj \
+    $(TESTCASE_DIR)\tree.obj \
     $(TESTCASE_DIR)\gpih.obj
 
 dialog.exe: $(DIALOG_TEST_OBJS)

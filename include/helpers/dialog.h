@@ -429,6 +429,16 @@ extern "C" {
             | SLS_BUTTONSRIGHT | SLS_SNAPTOINCREMENT, \
             id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING, pctldata }
 
+    // the following require #include helpers\textview.h
+
+    #define CONTROLDEF_XTEXTVIEW(text, id, cx, pctldata) { WC_XTEXTVIEW, text, \
+            WS_VISIBLE | XS_STATIC | XS_WORDWRAP, \
+            id, CTL_COMMON_FONT, 0, {cx, SZL_AUTOSIZE}, COMMON_SPACING, pctldata }
+
+    #define CONTROLDEF_XTEXTVIEW_HTML(text, id, cx, pctldata) { WC_XTEXTVIEW, text, \
+            WS_VISIBLE | XS_STATIC | XS_WORDWRAP | XS_HTML, \
+            id, CTL_COMMON_FONT, 0, {cx, SZL_AUTOSIZE}, COMMON_SPACING, pctldata }
+
     /* ******************************************************************
      *
      *   Dialog formatter entry points

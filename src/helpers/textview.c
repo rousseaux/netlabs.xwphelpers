@@ -242,6 +242,7 @@
 #include "helpers\xstring.h"            // extended string helpers
 
 #include "helpers\textview.h"
+#include "helpers\textv_html.h"
 
 #pragma hdrstop
 
@@ -417,40 +418,55 @@ static VOID AppendCharNoCheck(char **ppszNew,
  *      must be free()'able.
  *
  *@@added V0.9.3 (2000-05-07) [umoeller]
+ *@@changed V0.9.20 (2002-08-10) [umoeller]: now stripping \xFF too
  */
 
 VOID txvStripLinefeeds(char **ppszText,
                        ULONG ulTabSize)
 {
-    PSZ pSource = *ppszText;
-    ULONG cbNew = 1000;
-    PSZ pszNew = (PSZ)malloc(cbNew);
-    PSZ pTarget = pszNew;
+    PSZ     pSource = *ppszText;
+    ULONG   cbNew = 1000;
+    PSZ     pszNew = (PSZ)malloc(cbNew);
+    PSZ     pTarget = pszNew;
+    ULONG   ul;
 
     while (*pSource)
     {
-        if (*pSource == '\r')
-            pSource++;
-        else if (*pSource == '\t')
+        switch (*pSource)
         {
-            ULONG ul;
-            for (ul = 0;
-                 ul < ulTabSize;
-                 ul++)
+            case '\r':
+                pSource++;
+            break;
+
+            case '\t':
+                for (ul = 0;
+                     ul < ulTabSize;
+                     ul++)
+                    AppendCharNoCheck(&pszNew,
+                                      &cbNew,
+                                      &pTarget,
+                                      ' ');
+
+                // skip the tab
+                pSource++;
+            break;
+
+            case '\xFF':        // V0.9.20 (2002-08-10) [umoeller]
                 AppendCharNoCheck(&pszNew,
                                   &cbNew,
                                   &pTarget,
                                   ' ');
+                pSource++;
+            break;
 
-            // skip the tab
-            pSource++;
+            default:
+                AppendCharNoCheck(&pszNew,
+                                  &cbNew,
+                                  &pTarget,
+                                  *pSource++);
         }
-        else
-            AppendCharNoCheck(&pszNew,
-                              &cbNew,
-                              &pTarget,
-                              *pSource++);
     }
+
     AppendCharNoCheck(&pszNew,
                       &cbNew,
                       &pTarget,
@@ -541,7 +557,7 @@ static PSZ strhFindEOL2(PSZ *ppszSearchIn,        // in: where to search
     // 2)   *ppszSearchIn has been advanced to the first character
     //      of the next line or points to the \0 character
 
-    return (prc);
+    return prc;
 }
 
 /* #define TXVFRECTF_EMPTY                  0x0001
@@ -550,6 +566,7 @@ static PSZ strhFindEOL2(PSZ *ppszSearchIn,        // in: where to search
 #define TXVFRECTF_STOPPEDONESCAPE        0x0008
 #define TXVFRECTF_ENDOFTEXT              0x0010
    */
+
 /*
  *@@ FORMATLINEBUF:
  *      worker structure to store various data
@@ -576,13 +593,15 @@ typedef struct _FORMATLINEBUF
                     fItalics;
 
     // current anchor
-    USHORT          usCurrentAnchor;
-                        // this is > 0 if we're currently in an anchor block
+    PSZ             pszCurrentLink;
+                        // this is != NULL if we're currently in a link block
+                        // and points to an item in XFORMATDATA.llLinks
+                        // (simply copied to the word structs that are created)
 
     // data copied to TXVWORD
     LONG            lcid;
     LONG            lPointSize;
-    ULONG           flOptions;  // any combination of CHS_UNDERSCORE and CHS_STRIKEOUT
+    ULONG           flChar;     // any combination of CHS_UNDERSCORE and CHS_STRIKEOUT
 
     // counters, ...
     LONG            lXCurrent;  // current X position while adding words to rectangle
@@ -610,6 +629,7 @@ typedef struct _FORMATLINEBUF
  *          TXVWORDF_LINEFEED.
  *
  *@@added V0.9.3 (2000-05-14) [umoeller]
+ *@@changed V0.9.20 (2002-08-10) [umoeller]: rewrote link implementation
  */
 
 static PTXVWORD CreateWord(HPS hps,
@@ -708,12 +728,12 @@ static PTXVWORD CreateWord(HPS hps,
 
         pWord->lcid = pflbuf->pfmtf->lcid;
         pWord->lPointSize = pflbuf->lPointSize;
-        pWord->flOptions = pflbuf->flOptions;
+        pWord->flChar = pflbuf->flChar;
 
-        pWord->usAnchor = pflbuf->usCurrentAnchor; // 0 if none
+        pWord->pszLinkTarget = pflbuf->pszCurrentLink; // 0 if none
     }
 
-    return (pWord);
+    return pWord;
 }
 
 /*
@@ -755,8 +775,8 @@ static PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current pos
     // this is set to TRUE either above or by txvCreateRectangle if
     // an escape character was found; txvCreateRectangle
     // then sets pCurrent to the escape character (\xFF)
-    CHAR    cCode1 = *((*ppCurrent)+1);
-    CHAR    cCode2 = *((*ppCurrent)+2);
+    CHAR    cCode1 = *((*ppCurrent) + 1);
+    CHAR    cCode2 = *((*ppCurrent) + 2);
     ULONG   ulSkip = 3; // per default, skip \xFF plus two
     CHAR    szDecimal[10];
     LONG    lDecimal;
@@ -768,7 +788,7 @@ static PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current pos
     {
         case 1:     // change font:
             // three decimals follow specifying the font
-            memcpy(szDecimal, (*ppCurrent)+2, 3);
+            memcpy(szDecimal, (*ppCurrent) + 2, 3);
             szDecimal[3] = 0;
             lDecimal = atoi(szDecimal);
             if (lDecimal == 0)
@@ -794,38 +814,43 @@ static PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current pos
 
         case 4:     // U or /U
             if (cCode2 == 1)
-                pflbuf->flOptions |= CHS_UNDERSCORE;
+                pflbuf->flChar |= CHS_UNDERSCORE;
             else
-                pflbuf->flOptions &= ~CHS_UNDERSCORE;
+                pflbuf->flChar &= ~CHS_UNDERSCORE;
         break;
 
         case 5:     // STRIKE or /STRIKE
             if (cCode2 == 1)
-                pflbuf->flOptions |= CHS_STRIKEOUT;
+                pflbuf->flChar |= CHS_STRIKEOUT;
             else
-                pflbuf->flOptions &= ~CHS_STRIKEOUT;
+                pflbuf->flChar &= ~CHS_STRIKEOUT;
         break;
 
-        case 6:     // A or /A HREF= (link)
-            // four characters with hex anchor index (>=1)
-            // or "####"
-            if (  *( (*ppCurrent)+2 )
-                  == '#'
-               )
-                pflbuf->usCurrentAnchor = 0;
-            else
+        case 6:     // A HREF= (link)
+                    // changed implementation V0.9.20 (2002-08-10) [umoeller]
+        {
+            // this is variable in length and terminated with
+            // another 0xFF char; what's in between is the
+            // link target name and gets appended to
+            // XFORMATDATA.llLinks
+            PSZ pEnd;
+            if (pEnd = strchr((*ppCurrent) + 2, 0xFF))
             {
-                PSZ pEnd;
-                memcpy(szDecimal, (*ppCurrent)+2, 4);
-                szDecimal[4] = 0;
-                lDecimal = strtol(szDecimal, &pEnd, 16);
-                pflbuf->usCurrentAnchor = lDecimal;
-            }
+                pflbuf->pszCurrentLink = strhSubstr((*ppCurrent) + 2, pEnd);
+                ulSkip = pEnd - *ppCurrent + 1;
 
-            ulSkip = 6;
+                lstAppendItem(&pxfd->llLinks,
+                              pflbuf->pszCurrentLink);
+            }
+        }
         break;
 
-        case 7:     // A NAME= (anchor name)
+        case 7:     // /A HREF (end of link)
+            pflbuf->pszCurrentLink = NULL;
+            ulSkip = 2;
+        break;
+
+        case 8:     // A NAME= (anchor name)
         {
             // this is variable in length and terminated with
             // another 0xFF char; we completely ignore this
@@ -833,7 +858,7 @@ static PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current pos
             // only used with TXM_JUMPTOANCHORNAME, which then
             // searches the buffer
             PSZ pEnd;
-            if (pEnd = strchr((*ppCurrent)+2, 0xFF))
+            if (pEnd = strchr((*ppCurrent) + 2, 0xFF))
             {
                 ulSkip = pEnd - *ppCurrent + 1;
                 // store this with the other words so we can
@@ -848,7 +873,7 @@ static PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current pos
         case 0x10:  // relative point size in percent
             // three characters follow specifying the
             // percentage
-            memcpy(szDecimal, (*ppCurrent)+2, 3);
+            memcpy(szDecimal, (*ppCurrent) + 2, 3);
             szDecimal[3] = 0;
             lDecimal = atoi(szDecimal);
 
@@ -857,7 +882,7 @@ static PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current pos
         break;
 
         case 0x20: // left margin changed:
-            memcpy(szDecimal, (*ppCurrent)+2, 4);   // four decimals xxxx
+            memcpy(szDecimal, (*ppCurrent) + 2, 4);   // four decimals xxxx
             szDecimal[4] = 0;
             lDecimal = atoi(szDecimal);
 
@@ -870,7 +895,7 @@ static PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current pos
         break;
 
         case 0x21: // first line margin changed:
-            memcpy(szDecimal, (*ppCurrent)+2, 4);   // +xxx, -xxx
+            memcpy(szDecimal, (*ppCurrent) + 2, 4);   // +xxx, -xxx
             szDecimal[4] = 0;
             lDecimal = atoi(szDecimal);
 
@@ -898,7 +923,7 @@ static PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current pos
 
         case 0x30:  // spacing before paragraph:
             // four chars follow with either "####" or decimal spacing
-            memcpy(szDecimal, (*ppCurrent)+2, 4);
+            memcpy(szDecimal, (*ppCurrent) + 2, 4);
             szDecimal[4] = 0;
             if (memcmp(szDecimal, "####", 4) == 0)
                 // reset to default:
@@ -914,7 +939,7 @@ static PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current pos
 
         case 0x31:  // spacing before paragraph:
             // four chars follow with either "####" or decimal spacing
-            memcpy(szDecimal, (*ppCurrent)+2, 4);
+            memcpy(szDecimal, (*ppCurrent) + 2, 4);
             szDecimal[4] = 0;
             if (memcmp(szDecimal, "####", 4) == 0)
                 // reset to default:
@@ -948,13 +973,15 @@ static PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current pos
             pEscapeWord->cChars = ulSkip;
             pEscapeWord->cEscapeCode = *(*ppCurrent + 1);
             pEscapeWord->fPaintEscapeWord = fPaintEscapeWord;
-            pEscapeWord->usAnchor = pflbuf->usCurrentAnchor; // 0 if none
+            pEscapeWord->pszLinkTarget = pflbuf->pszCurrentLink;
+                    // V0.9.20 (2002-08-10) [umoeller]
+                    // NULL if none
             if (fPaintEscapeWord)
             {
                 pEscapeWord->lX = pflbuf->lXCurrent;
                 pEscapeWord->lcid = pflbuf->pfmtf->lcid;
                 pEscapeWord->lPointSize = pflbuf->lPointSize;
-                pEscapeWord->flOptions = pflbuf->flOptions;
+                pEscapeWord->flChar = pflbuf->flChar;
             }
             lstAppendItem(&pxfd->llWords, pEscapeWord);
         }
@@ -964,7 +991,7 @@ static PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current pos
         // current pointer by the escape length
         *ppCurrent += ulSkip;
 
-    return (pEscapeWord);
+    return pEscapeWord;
 }
 
 /*
@@ -1054,16 +1081,16 @@ static PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current pos
  *         structures, correlating the words on the words list
  *         to paint rectangles.
  *
- *      -- XFORMATDATA.ulViewportCX, ulViewportCY: total width
- *         and height of the "viewport", i.e. the total space
+ *      -- XFORMATDATA.szlWorkspace: total width
+ *         and height of the "workspace", i.e. the total space
  *         needed to display the text (in pels). This might
  *         be smaller, the same, or larger than prclView,
  *         depending on whether the text fits into prclView.
  *
  *         When displaying text, you should display scroll bars
- *         if the viewport is larger than the window (prclView).
+ *         if the workspace is larger than the window (prclView).
  *
- *         When printing, if the viewport is larger than the
+ *         When printing, if the workspace is larger than the
  *         printer page (prclView), you will need to call
  *         txvPaintText several times for each page.
  *
@@ -1086,8 +1113,8 @@ VOID txvFormatText(HPS hps,             // in: HPS whose font is used for
     if (fFullRecalc)
         lstClear(&pxfd->llWords);
 
-    pxfd->ulViewportCX = 0;
-    pxfd->ulViewportCY = 0;
+    pxfd->szlWorkspace.cx = 0;
+    pxfd->szlWorkspace.cy = 0;
 
     if (pxfd->strViewText.cbAllocated)
     {
@@ -1365,8 +1392,8 @@ VOID txvFormatText(HPS hps,             // in: HPS whose font is used for
                                     }
 
                                 // update x extents
-                                if (pRect->rcl.xRight > pxfd->ulViewportCX)
-                                    pxfd->ulViewportCX = pRect->rcl.xRight;
+                                if (pRect->rcl.xRight > pxfd->szlWorkspace.cx)
+                                    pxfd->szlWorkspace.cx = pRect->rcl.xRight;
 
                                 // and quit the inner loop
                                 fWords2Go = FALSE;
@@ -1391,8 +1418,8 @@ VOID txvFormatText(HPS hps,             // in: HPS whose font is used for
                 }
 
                 // lCurrentYTop now has the bottommost point we've used;
-                // store this as viewport (this might be negative)
-                pxfd->ulViewportCY = lOrigYTop - lCurrentYTop;
+                // store this as workspace (this might be negative)
+                pxfd->szlWorkspace.cy = lOrigYTop - lCurrentYTop;
             }
         }
     }
@@ -1585,10 +1612,10 @@ BOOL txvPaintText(HAB hab,
             while (pWordNode)
             {
                 PTXVWORD pWordThis = (PTXVWORD)pWordNode->pItemData;
-                ULONG flOptions = pWordThis->flOptions;
+                ULONG flChar = pWordThis->flChar;
 
-                if (pWordThis->usAnchor)
-                    flOptions |= CHS_UNDERSCORE;
+                if (pWordThis->pszLinkTarget)       // V0.9.20 (2002-08-10) [umoeller]
+                    flChar |= CHS_UNDERSCORE;
 
                 // x start: this word's X coordinate
                 ptlStart.x = pWordThis->lX - lViewXOfs;
@@ -1620,7 +1647,7 @@ BOOL txvPaintText(HAB hab,
                     gpihCharStringPosAt(hps,
                                         &ptlStart,
                                         &rclLine,
-                                        flOptions,
+                                        flChar,
                                         pWordThis->cChars,
                                         (PSZ)pWordThis->pStart);
                 else
@@ -1748,7 +1775,7 @@ PLISTNODE txvFindWordFromPoint(PXFORMATDATA pxfd,
         pRectangleNode = pRectangleNode->pNext;
     }
 
-    return (pWordNodeFound);
+    return pWordNodeFound;
 }
 
 /*
@@ -1801,7 +1828,7 @@ PLISTNODE txvFindWordFromAnchor(PXFORMATDATA pxfd,
         }
     }
 
-    return (pNodeFound);
+    return pNodeFound;
 }
 
 /* ******************************************************************
@@ -1810,10 +1837,12 @@ PLISTNODE txvFindWordFromAnchor(PXFORMATDATA pxfd,
  *
  ********************************************************************/
 
+#define QWL_PRIVATE     4               // V0.9.20 (2002-08-10) [umoeller]
+
 /*
  *@@ TEXTVIEWWINDATA:
  *      view control-internal structure, stored in
- *      QWL_USER at fnwpTextView.
+ *      QWL_PRIVATE at fnwpTextView.
  *      This is device-dependent on the text view
  *      window.
  */
@@ -1824,6 +1853,9 @@ typedef struct _TEXTVIEWWINDATA
 
     HDC     hdc;
     HPS     hps;
+
+    ULONG   flStyle;            // window style flags copied on WM_CREATE
+                                // V0.9.20 (2002-08-10) [umoeller]
 
     LONG    lBackColor,
             lForeColor;
@@ -1839,7 +1871,7 @@ typedef struct _TEXTVIEWWINDATA
             fHScrollVisible;    // TRUE if hscroll is currently used
 
     RECTL   rclViewReal,        // window rect as returned by WinQueryWindowRect
-                                // (top right point is inclusive!!)
+                                // (top right point is inclusive!)
             rclViewPaint,       // same as rclViewReal, but excluding scroll bars
             rclViewText;        // same as rclViewPaint, but excluding cdata borders
 
@@ -1850,7 +1882,9 @@ typedef struct _TEXTVIEWWINDATA
 
     // anchor clicking
     PLISTNODE   pWordNodeFirstInAnchor;  // points to first word which belongs to anchor
-    USHORT      usLastAnchorClicked;    // last anchor which was clicked (1-0xFFFF)
+    // USHORT      usLastAnchorClicked;    // last anchor which was clicked (1-0xFFFF)
+    PSZ         pszLastLinkClicked;     // last link that was clicked (points into llLinks)
+
 } TEXTVIEWWINDATA, *PTEXTVIEWWINDATA;
 
 #define ID_VSCROLL      100
@@ -1952,7 +1986,7 @@ static VOID AdjustViewRects(HWND hwndTextView,
     // now reposition scroll bars; their sizes may change
     // if either the vertical or horizontal scroll bar has
     // popped up or been hidden
-    if (ptxvd->cdata.flStyle & XTXF_VSCROLL)
+    if (ptxvd->flStyle & XS_VSCROLL)
     {
         // vertical scroll bar enabled:
         ulOfs = 0;
@@ -1967,7 +2001,7 @@ static VOID AdjustViewRects(HWND hwndTextView,
                         SWP_MOVE | SWP_SIZE);
     }
 
-    if (ptxvd->cdata.flStyle & XTXF_HSCROLL)
+    if (ptxvd->flStyle & XS_HSCROLL)
     {
         ulOfs = 0;
         if (ptxvd->fVScrollVisible)
@@ -2010,19 +2044,19 @@ static VOID FormatText2Screen(HWND hwndTextView,
 
     if (ptxvd->ulViewYOfs < 0)
         ptxvd->ulViewYOfs = 0;
-    if (ptxvd->ulViewYOfs > ((LONG)ptxvd->xfd.ulViewportCY - ulWinCY))
-        ptxvd->ulViewYOfs = (LONG)ptxvd->xfd.ulViewportCY - ulWinCY;
+    if (ptxvd->ulViewYOfs > ((LONG)ptxvd->xfd.szlWorkspace.cy - ulWinCY))
+        ptxvd->ulViewYOfs = (LONG)ptxvd->xfd.szlWorkspace.cy - ulWinCY;
 
     // vertical scroll bar enabled at all?
-    if (ptxvd->cdata.flStyle & XTXF_VSCROLL)
+    if (ptxvd->flStyle & XS_VSCROLL)
     {
         BOOL fEnabled = winhUpdateScrollBar(ptxvd->hwndVScroll,
                                             ulWinCY,
-                                            ptxvd->xfd.ulViewportCY,
+                                            ptxvd->xfd.szlWorkspace.cy,
                                             ptxvd->ulViewYOfs,
-                                            (ptxvd->cdata.flStyle & XTXF_AUTOVHIDE));
+                                            (ptxvd->flStyle & XS_AUTOVHIDE));
         // is auto-hide on?
-        if (ptxvd->cdata.flStyle & XTXF_AUTOVHIDE)
+        if (ptxvd->flStyle & XS_AUTOVHIDE)
         {
             // yes, auto-hide on: did visibility change?
             if (fEnabled != ptxvd->fVScrollVisible)
@@ -2045,15 +2079,15 @@ static VOID FormatText2Screen(HWND hwndTextView,
     ulWinCX = (ptxvd->rclViewText.xRight - ptxvd->rclViewText.xLeft);
 
     // horizontal scroll bar enabled at all?
-    if (ptxvd->cdata.flStyle & XTXF_HSCROLL)
+    if (ptxvd->flStyle & XS_HSCROLL)
     {
         BOOL fEnabled = winhUpdateScrollBar(ptxvd->hwndHScroll,
                                             ulWinCX,
-                                            ptxvd->xfd.ulViewportCX,
+                                            ptxvd->xfd.szlWorkspace.cx,
                                             ptxvd->ulViewXOfs,
-                                            (ptxvd->cdata.flStyle & XTXF_AUTOHHIDE));
+                                            (ptxvd->flStyle & XS_AUTOHHIDE));
         // is auto-hide on?
-        if (ptxvd->cdata.flStyle & XTXF_AUTOHHIDE)
+        if (ptxvd->flStyle & XS_AUTOHHIDE)
         {
             // yes, auto-hide on: did visibility change?
             if (fEnabled != ptxvd->fHScrollVisible)
@@ -2070,6 +2104,75 @@ static VOID FormatText2Screen(HWND hwndTextView,
     }
 
     WinInvalidateRect(hwndTextView, NULL, FALSE);
+}
+
+/*
+ *@@ SetWindowText:
+ *      implementation for WM_SETWINDOWPARAMS and
+ *      also WM_CREATE to set the window text.
+ *
+ *@@added V0.9.20 (2002-08-10) [umoeller]
+ */
+
+VOID SetWindowText(HWND hwndTextView,
+                   PTEXTVIEWWINDATA ptxvd,
+                   PCSZ pcszText)
+{
+    if (pcszText && *pcszText)
+    {
+        PXSTRING pstr = &ptxvd->xfd.strViewText;
+        PSZ p;
+
+        switch (ptxvd->flStyle & XS_FORMAT_MASK)
+        {
+            case XS_PLAINTEXT:          // 0x0100
+                xstrcpy(pstr,
+                        pcszText,
+                        0);
+                xstrConvertLineFormat(pstr,
+                                      CRLF2LF);
+                p = pstr->psz;
+                while (p = strchr(p, '\xFF'))
+                    *p = ' ';
+            break;
+
+            case XS_HTML:               // 0x0200
+                if (p = strdup(pcszText))
+                {
+                    PSZ p2 = p;
+                    while (p2 = strchr(p2, '\xFF'))
+                        *p2 = ' ';
+                    txvConvertFromHTML(&p, NULL, NULL, NULL);
+                    xstrset(pstr, p);
+                    xstrConvertLineFormat(pstr,
+                                          CRLF2LF);
+                }
+            break;
+
+            default: // case XS_PREFORMATTED:       // 0x0000
+                // no conversion (default)
+                xstrcpy(pstr,
+                        pcszText,
+                        0);
+            break;
+        }
+
+        // if the last character of the window text is not "\n",
+        // add it explicitly here, or our lines processing
+        // is being funny
+        // V0.9.20 (2002-08-10) [umoeller]
+        if (pstr->psz[pstr->ulLength - 1] != '\n')
+            xstrcatc(pstr, '\n');
+
+        ptxvd->ulViewXOfs = 0;
+        ptxvd->ulViewYOfs = 0;
+        AdjustViewRects(hwndTextView,
+                        ptxvd);
+        FormatText2Screen(hwndTextView,
+                          ptxvd,
+                          FALSE,
+                          TRUE);        // full format
+    }
 }
 
 /*
@@ -2135,7 +2238,7 @@ static VOID RepaintWord(PTEXTVIEWWINDATA ptxvd,
                         LONG lColor)
 {
     POINTL ptlStart;
-    ULONG flOptions = pWordThis->flOptions;
+    ULONG flChar = pWordThis->flChar;
     PTXVRECTANGLE pLineRcl = pWordThis->pRectangle;
 
     RECTL           rclLine;
@@ -2144,8 +2247,8 @@ static VOID RepaintWord(PTEXTVIEWWINDATA ptxvd,
     rclLine.yBottom = pLineRcl->rcl.yBottom + ptxvd->ulViewYOfs;
     rclLine.yTop = pLineRcl->rcl.yTop + ptxvd->ulViewYOfs;
 
-    if (pWordThis->usAnchor)
-        flOptions |= CHS_UNDERSCORE;
+    if (pWordThis->pszLinkTarget)
+        flChar |= CHS_UNDERSCORE;
 
     // x start: this word's X coordinate
     ptlStart.x = pWordThis->lX - ptxvd->ulViewXOfs;
@@ -2163,12 +2266,14 @@ static VOID RepaintWord(PTEXTVIEWWINDATA ptxvd,
                 lColor);
 
     if (!pWordThis->cEscapeCode)
+    {
         gpihCharStringPosAt(ptxvd->hps,
                             &ptlStart,
                             &rclLine,
-                            flOptions,
+                            flChar,
                             pWordThis->cChars,
                             (PSZ)pWordThis->pStart);
+    }
     else
         // escape to be painted:
         DrawListMarker(ptxvd->hps,
@@ -2187,15 +2292,15 @@ static VOID RepaintAnchor(PTEXTVIEWWINDATA ptxvd,
                           LONG lColor)
 {
     PLISTNODE pNode = ptxvd->pWordNodeFirstInAnchor;
-    USHORT usAnchor = 0;
+    PSZ     pszLinkTarget = NULL;
     while (pNode)
     {
         PTXVWORD pWordThis = (PTXVWORD)pNode->pItemData;
-        if (usAnchor == 0)
+        if (!pszLinkTarget)
             // first loop:
-            usAnchor = pWordThis->usAnchor;
+            pszLinkTarget = pWordThis->pszLinkTarget;
         else
-            if (pWordThis->usAnchor != usAnchor)
+            if (pWordThis->pszLinkTarget != pszLinkTarget)
                 // first word with different anchor:
                 break;
 
@@ -2210,8 +2315,6 @@ static VOID RepaintAnchor(PTEXTVIEWWINDATA ptxvd,
  *@@ fnwpTextView:
  *      window procedure for the text view control. This is
  *      registered with the WC_XTEXTVIEW class in txvRegisterTextView.
- *      We have a TEXTVIEWWINDATA structure in QWL_USER where we
- *      store all information we need.
  *
  *      The text view control is not a subclassed whatever control,
  *      but a control implemented from scratch. As a result, we
@@ -2235,7 +2338,7 @@ static VOID RepaintAnchor(PTEXTVIEWWINDATA ptxvd,
  *         window.
  *
  *      -- WM_CHAR: if we have the focus, the user can move the
- *         visible part within the viewport using the usual
+ *         visible part within the workspace using the usual
  *         cursor and HOME/END keys.
  *
  *      -- WM_MOUSEMOVE: this sends WM_CONTROLPOINTER to the
@@ -2250,15 +2353,24 @@ static VOID RepaintAnchor(PTEXTVIEWWINDATA ptxvd,
  *      us from resetting and researching all the fonts etc., which
  *      should be speedier.
  *
+ *      The text view control uses a private window word for storing
+ *      its own data. The client is free to use QWL_USER of the
+ *      text view control.
+ *
  *@@changed V0.9.3 (2000-05-05) [umoeller]: removed TXM_NEWTEXT; now supporting WinSetWindowText
  *@@changed V0.9.3 (2000-05-07) [umoeller]: crashed if create param was NULL; fixed
+ *@@changed V0.9.20 (2002-08-10) [umoeller]: no longer using QWL_USER, which is free now
+ *@@changed V0.9.20 (2002-08-10) [umoeller]: setting text on window creation never worked, fixed
+ *@@changed V0.9.20 (2002-08-10) [umoeller]: added TXN_ANCHORCLICKED owner notify for anchors
+ *@@changed V0.9.20 (2002-08-10) [umoeller]: converted private style flags to XS_* window style flags
+ *@@changed V0.9.20 (2002-08-10) [umoeller]: added support for formatting HTML and plain text automatically
  */
 
 static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT mrc = 0;
 
-    PTEXTVIEWWINDATA ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_USER);
+    PTEXTVIEWWINDATA ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE);
 
     switch (msg)
     {
@@ -2276,12 +2388,11 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
 
             mrc = (MPARAM)TRUE;     // error
 
-            // allocate TEXTVIEWWINDATA for QWL_USER
+            // allocate TEXTVIEWWINDATA for QWL_PRIVATE
             if (ptxvd = (PTEXTVIEWWINDATA)malloc(sizeof(TEXTVIEWWINDATA)))
             {
                 SIZEL   szlPage = {0, 0};
                 BOOL    fShow = FALSE;
-                // LONG    lcid = 0;
 
                 // query message queue
                 HMQ hmq = WinQueryWindowULong(hwndTextView, QWL_HMQ);
@@ -2289,7 +2400,7 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
                 ULONG ulCodepage = WinQueryCp(hmq);
 
                 memset(ptxvd, 0, sizeof(TEXTVIEWWINDATA));
-                WinSetWindowPtr(hwndTextView, QWL_USER, ptxvd);
+                WinSetWindowPtr(hwndTextView, QWL_PRIVATE, ptxvd);
 
                 ptxvd->hab = WinQueryAnchorBlock(hwndTextView);
 
@@ -2298,6 +2409,9 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
                                          ptxvd->hdc,
                                          &szlPage, // use same page size as device
                                          PU_PELS | GPIT_MICRO | GPIA_ASSOC);
+
+                // copy window style flags V0.9.20 (2002-08-10) [umoeller]
+                ptxvd->flStyle = pcs->flStyle;
 
                 gpihSwitchToRGB(ptxvd->hps);
 
@@ -2344,7 +2458,7 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
                                                      ID_VSCROLL,
                                                      &sbcd,
                                                      0);
-                fShow = ((ptxvd->cdata.flStyle & XTXF_VSCROLL) != 0);
+                fShow = ((ptxvd->flStyle & XS_VSCROLL) != 0);
                 WinShowWindow(ptxvd->hwndVScroll, fShow);
                 ptxvd->fVScrollVisible = fShow;
 
@@ -2359,21 +2473,43 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
                                                      ID_HSCROLL,
                                                      &sbcd,
                                                      0);
-                fShow = ((ptxvd->cdata.flStyle & XTXF_HSCROLL) != 0);
+                fShow = ((ptxvd->flStyle & XS_HSCROLL) != 0);
                 WinShowWindow(ptxvd->hwndHScroll, fShow);
                 ptxvd->fHScrollVisible = fShow;
 
+                if (ptxvd->flStyle & XS_WORDWRAP)
+                    // word-wrapping should be enabled from the start:
+                    // V0.9.20 (2002-08-10) [umoeller]
+                    ptxvd->xfd.fmtpStandard.fWordWrap = TRUE;
+
                 // set "code" format
                 SetFormatFont(ptxvd->hps,
-                                 &ptxvd->xfd.fmtcCode,
-                                 6,
-                                 "System VIO");
+                              &ptxvd->xfd.fmtcCode,
+                              6,
+                              "System VIO");
 
                 // get colors from presparams/syscolors
                 UpdateTextViewPresData(hwndTextView, ptxvd);
 
                 AdjustViewRects(hwndTextView,
                                 ptxvd);
+
+                if (ptxvd->flStyle & XS_HTML)
+                {
+                    // if we're operating in HTML mode, set a
+                    // different default paragraph format to
+                    // make things prettier
+                    // V0.9.20 (2002-08-10) [umoeller]
+                    ptxvd->xfd.fmtpStandard.lSpaceBefore = 5;
+                    ptxvd->xfd.fmtpStandard.lSpaceAfter = 5;
+                }
+
+                // setting the window text on window creation never
+                // worked V0.9.20 (2002-08-10) [umoeller]
+                if (pcs->pszText)
+                    SetWindowText(hwndTextView,
+                                  ptxvd,
+                                  pcs->pszText);
 
                 mrc = (MPARAM)FALSE;        // OK
             }
@@ -2391,24 +2527,14 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
         case WM_SETWINDOWPARAMS:
         {
             WNDPARAMS *pwndParams;
-            if (pwndParams = (WNDPARAMS *)mp1)
+            if (    (pwndParams = (WNDPARAMS *)mp1)
+                 && (pwndParams->fsStatus & WPM_TEXT)
+               )
             {
-                if (pwndParams->fsStatus & WPM_TEXT)
-                {
-                    xstrcpy(&ptxvd->xfd.strViewText,
-                            pwndParams->pszText,
-                            0);
-                    ptxvd->ulViewXOfs = 0;
-                    ptxvd->ulViewYOfs = 0;
-                    /* ptxvd->fVScrollVisible = FALSE;
-                    ptxvd->fHScrollVisible = FALSE; */
-                    AdjustViewRects(hwndTextView,
-                                    ptxvd);
-                    FormatText2Screen(hwndTextView,
-                                      ptxvd,
-                                      FALSE,
-                                      TRUE);        // full format
-                }
+                SetWindowText(hwndTextView,
+                              ptxvd,
+                              pwndParams->pszText);
+                mrc = (MRESULT)TRUE;     // was missing V0.9.20 (2002-08-10) [umoeller]
             }
         }
         break;
@@ -2484,8 +2610,8 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
                 // draw little box at the bottom right
                 // (in between scroll bars) if we have
                 // both vertical and horizontal scroll bars
-                if (    (ptxvd->cdata.flStyle & (XTXF_VSCROLL | XTXF_HSCROLL))
-                        == (XTXF_VSCROLL | XTXF_HSCROLL)
+                if (    (ptxvd->flStyle & (XS_VSCROLL | XS_HSCROLL))
+                        == (XS_VSCROLL | XS_HSCROLL)
                      && (ptxvd->fVScrollVisible)
                      && (ptxvd->fHScrollVisible)
                    )
@@ -2522,7 +2648,10 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
                 PaintViewText2Screen(ptxvd,
                                      &rcl2Update);
 
-                if (WinQueryFocus(HWND_DESKTOP) == hwndTextView)
+                if (    (!(ptxvd->flStyle & XS_STATIC))
+                                // V0.9.20 (2002-08-10) [umoeller]
+                     && (WinQueryFocus(HWND_DESKTOP) == hwndTextView)
+                   )
                 {
                     // we have the focus:
                     // reset clip region to "all"
@@ -2584,7 +2713,7 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
                                     ptxvd->hwndVScroll,
                                     &ptxvd->ulViewYOfs,
                                     &ptxvd->rclViewText,
-                                    ptxvd->xfd.ulViewportCY,
+                                    ptxvd->xfd.szlWorkspace.cy,
                                     ptxvd->cdata.ulVScrollLineUnit,
                                     msg,
                                     mp2);
@@ -2603,7 +2732,7 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
                                     ptxvd->hwndHScroll,
                                     &ptxvd->ulViewXOfs,
                                     &ptxvd->rclViewText,
-                                    ptxvd->xfd.ulViewportCX,
+                                    ptxvd->xfd.szlWorkspace.cx,
                                     ptxvd->cdata.ulHScrollLineUnit,
                                     msg,
                                     mp2);
@@ -2617,12 +2746,54 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
 
         case WM_SETFOCUS:
         {
-            HPS hps = WinGetPS(hwndTextView);
-            gpihSwitchToRGB(hps);
-            PaintViewFocus(hps,
-                           ptxvd,
-                           (mp2 != 0));
-            WinReleasePS(hps);
+            if (ptxvd->flStyle & XS_STATIC)
+            {
+                if (mp2)
+                {
+                    // we're receiving the focus, but shouldn't have it:
+                    // then behave like the static control does, that is,
+                    // give focus to the next window in the dialog
+                    HWND    hwnd = hwndTextView,
+                            hwndStart = hwnd;
+
+                    while (TRUE)
+                    {
+                        ULONG flStyle;
+
+                        if (!(hwnd = WinQueryWindow(hwnd, QW_NEXT)))
+                            hwnd = WinQueryWindow(WinQueryWindow(hwndStart, QW_PARENT), QW_TOP);
+
+                        // avoid endless looping
+                        if (hwnd == hwndStart)
+                        {
+                            if (    (hwnd = WinQueryWindow(hwnd, QW_OWNER))
+                                 && (hwnd == hwndStart)
+                               )
+                                hwnd = NULLHANDLE;
+
+                            break;
+                        }
+
+                        if (    (flStyle = WinQueryWindowULong(hwnd, QWL_STYLE))
+                             && (flStyle & (WS_DISABLED | WS_TABSTOP | WS_VISIBLE)
+                                    == (WS_TABSTOP | WS_VISIBLE))
+                           )
+                        {
+                            WinSetFocus(HWND_DESKTOP, hwnd);
+                            break;
+                        }
+                    };
+                }
+            }
+            else
+            {
+                HPS hps = WinGetPS(hwndTextView);
+                gpihSwitchToRGB(hps);
+                PaintViewFocus(hps,
+                               ptxvd,
+                               (mp2 != 0));
+                WinReleasePS(hps);
+            }
         }
         break;
 
@@ -2662,22 +2833,23 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
             ptlPos.x = SHORT1FROMMP(mp1) + ptxvd->ulViewXOfs;
             ptlPos.y = SHORT2FROMMP(mp1) - ptxvd->ulViewYOfs;
 
-            if (hwndTextView != WinQueryFocus(HWND_DESKTOP))
+            if (    (!(ptxvd->flStyle & XS_STATIC))
+                            // V0.9.20 (2002-08-10) [umoeller]
+                 && (hwndTextView != WinQueryFocus(HWND_DESKTOP))
+               )
                 WinSetFocus(HWND_DESKTOP, hwndTextView);
 
-            ptxvd->usLastAnchorClicked = 0;
+            ptxvd->pszLastLinkClicked = NULL;
 
             if (pWordNodeClicked = txvFindWordFromPoint(&ptxvd->xfd,
                                                         &ptlPos))
             {
                 PTXVWORD pWordClicked = (PTXVWORD)pWordNodeClicked->pItemData;
 
-                // store anchor (can be 0)
-                ptxvd->usLastAnchorClicked = pWordClicked->usAnchor;
-
-                if (pWordClicked->usAnchor)
+                // store link target (can be NULL)
+                if (ptxvd->pszLastLinkClicked = pWordClicked->pszLinkTarget)
                 {
-                    // word has an anchor:
+                    // word has a link target:
                     PLISTNODE   pNode = pWordNodeClicked;
 
                     // reset first word of anchor
@@ -2688,7 +2860,7 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
                     while (pNode)
                     {
                         PTXVWORD pWordThis = (PTXVWORD)pNode->pItemData;
-                        if (pWordThis->usAnchor == pWordClicked->usAnchor)
+                        if (pWordThis->pszLinkTarget == pWordClicked->pszLinkTarget)
                         {
                             // still has same anchor:
                             // go for previous
@@ -2726,7 +2898,7 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
             ptlPos.y = SHORT2FROMMP(mp1) - ptxvd->ulViewYOfs;
             WinSetCapture(HWND_DESKTOP, NULLHANDLE);
 
-            if (ptxvd->usLastAnchorClicked)
+            if (ptxvd->pszLastLinkClicked)
             {
                 RepaintAnchor(ptxvd,
                               ptxvd->lForeColor);
@@ -2738,7 +2910,7 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
                                MPFROM2SHORT(WinQueryWindowUShort(hwndTextView,
                                                                  QWS_ID),
                                             TXVN_LINK),
-                               (MPARAM)(ULONG)(ptxvd->usLastAnchorClicked));
+                               (MPARAM)(ULONG)(ptxvd->pszLastLinkClicked));
             }
 
             mrc = (MPARAM)TRUE;
@@ -2802,7 +2974,7 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
                         ulMsg = WM_VSCROLL;
                         if (usFlags & KC_CTRL)
                         {
-                            sPos = ptxvd->xfd.ulViewportCY;
+                            sPos = ptxvd->xfd.szlWorkspace.cy;
                             usCmd = SB_SLIDERPOSITION;
                         }
                         else
@@ -2825,12 +2997,12 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
                         {
                             // vertical:
                             ulMsg = WM_VSCROLL;
-                            sPos = ptxvd->xfd.ulViewportCY;
+                            sPos = ptxvd->xfd.szlWorkspace.cy;
                         }
                         else
                         {
                             ulMsg = WM_HSCROLL;
-                            sPos = ptxvd->xfd.ulViewportCX;
+                            sPos = ptxvd->xfd.szlWorkspace.cx;
                         }
 
                         usCmd = SB_SLIDERPOSITION;
@@ -2865,10 +3037,14 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          *      to retrieve the paragraph format with the
          *      index specified in mp1.
          *
+         *      This must be sent, not posted, to the control.
+         *
          *      Parameters:
+         *
          *      -- ULONG mp1: index of format to query.
          *              Must be 0 currently for the standard
          *              paragraph format.
+         *
          *      -- PXFMTPARAGRAPH mp2: pointer to buffer
          *              which is to receive the formatting
          *              data.
@@ -2903,10 +3079,14 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          *      paragraph format (line spacings, margins
          *      and such).
          *
+         *      This must be sent, not posted, to the control.
+         *
          *      Parameters:
+         *
          *      -- ULONG mp1: index of format to set.
          *              Must be 0 currently for the standard
          *              paragraph format.
+         *
          *      -- PXFMTPARAGRAPH mp2: pointer to buffer
          *              from which to copy formatting data.
          *              If this pointer is NULL, the format
@@ -2952,6 +3132,9 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          *      this text view control msg quickly changes
          *      the word-wrapping style of the default
          *      paragraph formatting.
+         *
+         *      This may be sent or posted.
+         *
          *      (BOOL)mp1 determines whether word wrapping
          *      should be turned on or off.
          */
@@ -2971,20 +3154,28 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
         /*
          *@@ TXM_QUERYCDATA:
          *      copies the current XTEXTVIEWCDATA
-         *      into the specified buffer. This must
-         *      be sent to the control.
+         *      into the specified buffer.
+         *
+         *      This must be sent, not posted, to the control.
          *
          *      Parameters:
-         *      -- PXTEXTVIEWCDATA mp1: target buffer.
-         *         Before calling this, you MUST specify
-         *         XTEXTVIEWCDATA.cbData.
+         *
+         *      --  PXTEXTVIEWCDATA mp1: target buffer.
+         *          Before calling this, you MUST specify
+         *          XTEXTVIEWCDATA.cbData.
+         *
+         *      Returns: the bytes that were copied as
+         *      a ULONG.
          */
 
         case TXM_QUERYCDATA:
             if (mp1)
             {
                 PXTEXTVIEWCDATA pTarget = (PXTEXTVIEWCDATA)mp1;
-                memcpy(pTarget, &ptxvd->cdata, pTarget->cbData);
+                mrc = (MRESULT)min(pTarget->cbData, sizeof(XTEXTVIEWCDATA));
+                memcpy(pTarget,
+                       &ptxvd->cdata,
+                       (ULONG)mrc);
             }
         break;
 
@@ -2992,7 +3183,8 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          *@@ TXM_SETCDATA:
          *      updates the current XTEXTVIEWCDATA
          *      with the data from the specified buffer.
-         *      This must be sent to the control.
+         *
+         *      This must be sent, not posted, to the control.
          *
          *      Parameters:
          *      -- PXTEXTVIEWCDATA mp1: source buffer.
@@ -3015,7 +3207,7 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          *      (TXVESC_ANCHORNAME escape) appears at the top
          *      of the control.
          *
-         *      This must be sent, not posted to the control
+         *      This must be sent, not posted, to the control.
          *
          *      Parameters:
          *      -- PSZ mp1: anchor name (e.g. "anchor1").
@@ -3045,21 +3237,53 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
 
                         if (ptxvd->ulViewYOfs < 0)
                             ptxvd->ulViewYOfs = 0;
-                        if (ptxvd->ulViewYOfs > ((LONG)ptxvd->xfd.ulViewportCY - ulWinCY))
-                            ptxvd->ulViewYOfs = (LONG)ptxvd->xfd.ulViewportCY - ulWinCY;
+                        if (ptxvd->ulViewYOfs > ((LONG)ptxvd->xfd.szlWorkspace.cy - ulWinCY))
+                            ptxvd->ulViewYOfs = (LONG)ptxvd->xfd.szlWorkspace.cy - ulWinCY;
 
                         // vertical scroll bar enabled at all?
-                        if (ptxvd->cdata.flStyle & XTXF_VSCROLL)
+                        if (ptxvd->flStyle & XS_VSCROLL)
                         {
                             /* BOOL fEnabled = */ winhUpdateScrollBar(ptxvd->hwndVScroll,
                                                                 ulWinCY,
-                                                                ptxvd->xfd.ulViewportCY,
+                                                                ptxvd->xfd.szlWorkspace.cy,
                                                                 ptxvd->ulViewYOfs,
-                                                                (ptxvd->cdata.flStyle & XTXF_AUTOVHIDE));
+                                                                (ptxvd->flStyle & XS_AUTOVHIDE));
                             WinInvalidateRect(hwndTextView, NULL, FALSE);
                         }
                     }
                 }
+            }
+        break;
+
+        /*
+         *@@ TXM_QUERYTEXTEXTENT:
+         *      returns the extents of the currently set text,
+         *      that is, the width and height of the internal
+         *      work area, of which the current view rectangle
+         *      displays a subrectangle.
+         *
+         *      This must be sent, not posted, to the control.
+         *
+         *      Parameters:
+         *
+         *      --  PSIZEL mp1: pointer to a SIZEL buffer,
+         *          which receives the extent in the cx and
+         *          cy members. These will be set to null
+         *          values if the control currently has no
+         *          text.
+         *
+         *      Returns TRUE on success.
+         *
+         *@@added V0.9.20 (2002-08-10) [umoeller]
+         */
+
+        case TXM_QUERYTEXTEXTENT:
+            if (mp1)
+            {
+                memcpy((PSIZEL)mp1,
+                       &ptxvd->xfd.szlWorkspace,
+                       sizeof(SIZEL));
+                mrc = (MRESULT)TRUE;
             }
         break;
 
@@ -3092,11 +3316,11 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
 
 BOOL txvRegisterTextView(HAB hab)
 {
-    return (WinRegisterClass(hab,
-                             WC_XTEXTVIEW,
-                             fnwpTextView,
-                             0,
-                             sizeof(PVOID)));     // QWL_USER
+    return WinRegisterClass(hab,
+                            WC_XTEXTVIEW,
+                            fnwpTextView,
+                            0,
+                            2 * sizeof(PVOID));     // QWL_USER and QWL_PRIVATE
 }
 
 /*
@@ -3110,7 +3334,6 @@ BOOL txvRegisterTextView(HAB hab)
 HWND txvReplaceWithTextView(HWND hwndParentAndOwner,
                             USHORT usID,
                             ULONG flWinStyle,
-                            ULONG flStyle,
                             USHORT usBorder)
 {
     HWND hwndMLE = WinWindowFromID(hwndParentAndOwner, usID),
@@ -3149,7 +3372,6 @@ HWND txvReplaceWithTextView(HWND hwndParentAndOwner,
         WinDestroyWindow(hwndMLE);
         memset(&xtxCData, 0, sizeof(xtxCData));
         xtxCData.cbData = sizeof(xtxCData);
-        xtxCData.flStyle = flStyle;
         xtxCData.ulXBorder = usBorder;
         xtxCData.ulYBorder = usBorder;
         hwndTextView = WinCreateWindow(hwndParentAndOwner,
@@ -3182,7 +3404,7 @@ HWND txvReplaceWithTextView(HWND hwndParentAndOwner,
                             sizeof(ULONG),
                             &lForeClr);
     }
-    return (hwndTextView);
+    return hwndTextView;
 }
 
 /* ******************************************************************
@@ -3239,7 +3461,7 @@ static PRQINFO3* prthEnumQueues(PULONG pulReturned)    // out: no. of queues fou
         }
     }
 
-    return (pprq3);
+    return pprq3;
 }
 
 /*
@@ -3300,7 +3522,7 @@ static HDC prthCreatePrinterDC(HAB hab,
                      2,
                      palRes);   // buffer
 
-    return (hdc);
+    return hdc;
 }
 
 /*
@@ -3333,7 +3555,7 @@ static HCINFO* prthQueryForms(HDC hdc,
         }
     }
 
-    return (pahci);
+    return pahci;
 }
 
 /*
@@ -3361,10 +3583,10 @@ static HPS prthCreatePS(HAB hab,       // in: anchor block
 
     sizel.cx = 0;
     sizel.cy = 0;
-    return (GpiCreatePS(hab,
-                        hdc,
-                        &sizel,
-                        ulUnits | GPIA_ASSOC | GPIT_NORMAL));
+    return GpiCreatePS(hab,
+                       hdc,
+                       &sizel,
+                       ulUnits | GPIA_ASSOC | GPIT_NORMAL);
 }
 
 /*
@@ -3528,7 +3750,7 @@ BOOL txvPrint(HAB hab,
 
     prthEndDoc(hdc, hps);
 
-    return (TRUE);
+    return TRUE;
 }
 
 /*
@@ -3548,7 +3770,7 @@ int txvPrintWindow(HWND hwndTextView,
 {
     int     irc = 0;
 
-    PTEXTVIEWWINDATA ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_USER);
+    PTEXTVIEWWINDATA ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE);
 
     if (!ptxvd)
         irc = 1;
@@ -3645,7 +3867,7 @@ int txvPrintWindow(HWND hwndTextView,
         }
     }
 
-    return (irc);
+    return irc;
 }
 
 
