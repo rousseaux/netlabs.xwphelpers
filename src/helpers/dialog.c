@@ -956,9 +956,9 @@ typedef struct _STACKITEM
 
 /*
  *@@ dlghCreateDlg:
- *      replacement for WinCreateDlg for creating a dialog
- *      from a settings array in memory, which is formatted
- *      automatically.
+ *      replacement for WinCreateDlg/WinLoadDlg for creating a
+ *      dialog from a settings array in memory, which is
+ *      formatted automatically.
  *
  *      This does NOT use regular dialog templates from
  *      module resources. Instead, you pass in an array
@@ -976,9 +976,11 @@ typedef struct _STACKITEM
  *
  *      Like WinLoadDlg, this creates a standard WC_FRAME and
  *      subclasses it with fnwpMyDlgProc. It then sends WM_INITDLG
- *      to the dialog with pCreateParams in mp2. You can use
- *      WinProcessDlg as usual. In your dlg proc, use WinDefDlgProc
- *      as usual.
+ *      to the dialog with pCreateParams in mp2.
+ *
+ *      If this func returns no error, you can then use
+ *      WinProcessDlg with the newly created dialog as usual. In
+ *      your dlg proc, use WinDefDlgProc as usual.
  *
  *      There is NO run-time overhead after creation; after this
  *      function returns, the dialog is a standard dialog as if
@@ -993,24 +995,34 @@ typedef struct _STACKITEM
  *      defined to make this easier and to provide type-checking
  *      at compile time.
  *
+ *      Essentially, such a dialog item operates similarly to
+ *      HTML tables. There are rows and columns in the table,
+ *      and each control which is specified must be a column
+ *      in some table. Tables may also nest (see below).
+ *
  *      The macros are:
  *
  *      --  START_TABLE starts a new table. The tables may nest,
  *          but must each be properly terminated with END_TABLE.
  *
- *      --  START_ROW(fl) starts a new row in a table.
+ *      --  START_GROUP_TABLE(pDef) starts a group. This
+ *          behaves exacly like START_TABLE, but in addition,
+ *          it produces a static group control around the table.
+ *          Useful for group boxes. pDef must point to a
+ *          _CONTROLDEF describing the control to be used for
+ *          the group (usually a WC_STATIC with SS_GROUP style),
+ *          whose size parameter is ignored.
+ *
+ *          As with START_TABLE, START_GROUP_TABLE must be
+ *          terminated with END_TABLE.
+ *
+ *      --  START_ROW(fl) starts a new row in a table (regular
+ *          or group). This must also be the first item after
+ *          the (group) table tag.
  *
  *          fl specifies formatting flags for the row. This
  *          can be one of ROW_VALIGN_BOTTOM, ROW_VALIGN_CENTER,
  *          ROW_VALIGN_TOP and affects all items in the control.
- *
- *      --  START_GROUP_TABLE(pDef) starts a group. This
- *          behaves exacly like START_TABLE, but in addition,
- *          it produces a control around the table. Useful
- *          for group boxes. pDef must point to a _CONTROLDEF,
- *          whose size parameter is ignored.
- *
- *          This must also be terminated with END_TABLE.
  *
  *      --  CONTROL_DEF(pDef) defines a control in a table row.
  *          pDef must point to a _CONTROLDEF structure.
@@ -1020,18 +1032,17 @@ typedef struct _STACKITEM
  *          _CONTROLDEF about a control's _position_.
  *          Instead, the structure only contains the _size_
  *          of the control. All positions are computed by
- *          this function, depending on the position of the
- *          control and its nesting within the various tables.
+ *          this function, depending on the sizes of the
+ *          controls and their nesting within the various tables.
  *
  *          If you specify SZL_AUTOSIZE, the size of the
  *          control is even computed automatically. Presently,
- *          this only works for statics with SS_TEXT and
- *          SS_BITMAP.
+ *          this only works for statics with SS_TEXT, SS_ICON,
+ *          and SS_BITMAP.
  *
- *          Unless separated with TYPE_START_NEW_ROW items,
- *          subsequent control items will be considered
- *          to be in the same row (== positioned next to
- *          each other).
+ *          Unless separated with START_ROW items, subsequent
+ *          control items will be considered to be in the same
+ *          row (== positioned next to each other).
  *
  *      There are a few rules, whose violation will produce
  *      an error:
@@ -1074,8 +1085,8 @@ typedef struct _STACKITEM
  +
  +          DLGHITEM DlgTemplate[] =
  +              {
- +                  START_TABLE,            // root table, must exist
- +                      START_ROW(0),       // row 1 in the root table
+ +                  START_TABLE,            // root table, required
+ +                      START_ROW(0),       // row 1 in the root table, required
  +                          // create group on top
  +      (1)                 START_GROUP_TABLE(&Group),
  +                              START_ROW(0),
@@ -1152,11 +1163,11 @@ typedef struct _STACKITEM
  +                                        FCF_DLGBORDER | FCF_NOBYTEALIGN,
  +                                        fnwpMyDlgProc,
  +                                        "My Dlg Title",
- +                                        G_aMyDialogTemplate,
- +                                        ARRAYITEMSIZE(G_aMyDialogTemplate),
+ +                                        DlgTemplate,      // DLGHITEM array
+ +                                        ARRAYITEMSIZE(DlgTemplate),
  +                                        NULL))
  +          {
- +              ULONG idReturn = WinProcessDlg(pDlgData->hwndDlg);
+ +              ULONG idReturn = WinProcessDlg(hwndDlg);
  +              WinDestroyWindow(hwndDlg);
  +          }
  *
@@ -1377,12 +1388,13 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
             arc = DLGERR_CANNOT_CREATE_FRAME;
         else
         {
+            HWND    hwndDlg = pDlgData->hwndDlg;
             SIZEL   szlClient = {0};
             RECTL   rclClient;
             HWND    hwndFocusItem = NULLHANDLE;
 
             /*
-             *  3) compute size of client after computing all control sizes
+             *  3) compute size of all controls
              *
              */
 
@@ -1393,18 +1405,23 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
             if (pDlgData->hps)
                 WinReleasePS(pDlgData->hps);
 
-            WinSubclassWindow(pDlgData->hwndDlg, pfnwpDialogProc);
+            /*
+             *  4) compute size of dialog client from total
+             *     size of all controls
+             */
+
+            WinSubclassWindow(hwndDlg, pfnwpDialogProc);
 
             // calculate the frame size from the client size
             rclClient.xLeft = 10;
             rclClient.yBottom = 10;
             rclClient.xRight = szlClient.cx + 2 * SPACING;
             rclClient.yTop = szlClient.cy + 2 * SPACING;
-            WinCalcFrameRect(pDlgData->hwndDlg,
+            WinCalcFrameRect(hwndDlg,
                              &rclClient,
                              FALSE);            // frame from client
 
-            WinSetWindowPos(pDlgData->hwndDlg,
+            WinSetWindowPos(hwndDlg,
                             0,
                             10,
                             10,
@@ -1413,7 +1430,7 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                             SWP_MOVE | SWP_SIZE | SWP_NOADJUST);
 
             /*
-             *  4) compute positions of all controls
+             *  5) compute _positions_ of all controls
              *
              */
 
@@ -1422,7 +1439,7 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                        PROCESS_CALC_POSITIONS);
 
             /*
-             *  5) create control windows, finally
+             *  6) create control windows, finally
              *
              */
 
@@ -1434,14 +1451,14 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                        PROCESS_CREATE_CONTROLS);
 
             /*
-             *  6) WM_INITDLG, set focus
+             *  7) WM_INITDLG, set focus
              *
              */
 
             hwndFocusItem = (pDlgData->hwndFirstFocus)
                                     ? pDlgData->hwndFirstFocus
-                                    : pDlgData->hwndDlg;
-            if (!WinSendMsg(pDlgData->hwndDlg,
+                                    : hwndDlg;
+            if (!WinSendMsg(hwndDlg,
                             WM_INITDLG,
                             (MPARAM)hwndFocusItem,
                             (MPARAM)pCreateParams))
