@@ -101,6 +101,7 @@
  +          }
  *
  *@@added V0.9.4 (2000-08-02) [umoeller]
+ *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from dosh2.c to apps.c
  */
 
 APIRET appParseEnvironment(const char *pcszEnv,
@@ -155,6 +156,7 @@ APIRET appParseEnvironment(const char *pcszEnv,
  *      the info blocks.
  *
  *@@added V0.9.4 (2000-07-19) [umoeller]
+ *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from dosh2.c to apps.c
  */
 
 APIRET appGetEnvironment(PDOSENVIRONMENT pEnv)
@@ -195,10 +197,11 @@ APIRET appGetEnvironment(PDOSENVIRONMENT pEnv)
  *
  *@@added V0.9.4 (2000-07-19) [umoeller]
  *@@changed V0.9.12 (2001-05-21) [umoeller]: fixed memory leak
+ *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from dosh2.c to apps.c
  */
 
 PSZ* appFindEnvironmentVar(PDOSENVIRONMENT pEnv,
-                            PSZ pszVarName)
+                           PSZ pszVarName)
 {
     PSZ *ppszRet = 0;
     if (pEnv)
@@ -271,6 +274,7 @@ PSZ* appFindEnvironmentVar(PDOSENVIRONMENT pEnv,
  *@@changed V0.9.7 (2000-12-17) [umoeller]: added fAddFirst
  *@@changed V0.9.12 (2001-05-21) [umoeller]: fixed memory leak
  *@@changed V0.9.12 (2001-05-26) [umoeller]: fixed crash if !fAddFirst
+ *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from dosh2.c to apps.c
  */
 
 APIRET appSetEnvironmentVar(PDOSENVIRONMENT pEnv,
@@ -362,6 +366,7 @@ APIRET appSetEnvironmentVar(PDOSENVIRONMENT pEnv,
  *      function in *ppszEnv.
  *
  *@@added V0.9.4 (2000-07-19) [umoeller]
+ *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from dosh2.c to apps.c
  */
 
 APIRET appConvertEnvironment(PDOSENVIRONMENT pEnv,
@@ -433,6 +438,7 @@ APIRET appConvertEnvironment(PDOSENVIRONMENT pEnv,
  *      frees memory allocated by appGetEnvironment.
  *
  *@@added V0.9.4 (2000-07-19) [umoeller]
+ *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from dosh2.c to apps.c
  */
 
 APIRET appFreeEnvironment(PDOSENVIRONMENT pEnv)
@@ -485,6 +491,7 @@ APIRET appFreeEnvironment(PDOSENVIRONMENT pEnv)
  *
  *@@added V0.9.6 (2000-10-16) [umoeller]
  *@@changed V0.9.7 (2001-01-15) [umoeller]: now using XSTRING
+ *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from winh.c to apps.c
  */
 
 VOID CallBatchCorrectly(PPROGDETAILS pProgDetails,
@@ -563,6 +570,7 @@ VOID CallBatchCorrectly(PPROGDETAILS pProgDetails,
  *      --  PROG_WINDOWABLEVIO
  *
  *@@added V0.9.9 (2001-03-07) [umoeller]
+ *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from winh.c to apps.c
  */
 
 APIRET appQueryAppType(const char *pcszExecutable,
@@ -734,8 +742,7 @@ PSZ appQueryDefaultWin31Environment(VOID)
  *
  *      --  If PROGDETAILS specifies a Win-OS/2 session
  *          and PROGDETAILS.pszEnvironment is empty,
- *          this merges the current process environment
- *          with the default Win-OS/2 environment.
+ *          this uses the default Win-OS/2 environment.
  *          See appQueryDefaultWin31Environment.
  *
  *      Even though this isn't clearly said in PMREF,
@@ -755,6 +762,7 @@ PSZ appQueryDefaultWin31Environment(VOID)
  *@@changed V0.9.7 (2000-12-17) [umoeller]: PROGDETAILS.pszEnvironment no longer zeroed
  *@@changed V0.9.9 (2001-01-27) [umoeller]: crashed if PROGDETAILS.pszExecutable was NULL
  *@@changed V0.9.12 (2001-05-26) [umoeller]: fixed PROG_DEFAULT
+ *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from winh.c to apps.c
  */
 
 HAPP appStartApp(HWND hwndNotify,                  // in: notify window (as with WinStartApp)
@@ -917,8 +925,8 @@ HAPP appStartApp(HWND hwndNotify,                  // in: notify window (as with
             // get standard WIN-OS/2 environment
             PSZ pszTemp = appQueryDefaultWin31Environment();
 
-            /* if (!appParseEnvironment(pszTemp,
-                                     &Env)) */
+            if (!appParseEnvironment(pszTemp,
+                                     &Env))
             {
                 // now override KBD_CTRL_BYPASS=CTRL_ESC
                 appSetEnvironmentVar(&Env,

@@ -168,7 +168,6 @@ static HMTX         G_hmtxGlobal = NULLHANDLE;
  *      WARNING: As opposed to most other Lock* functions
  *      I have created, this returns an APIRET.
  *
- *@@added V0.9.12 (2001-05-27) [umoeller]
  */
 
 APIRET LockGlobal(VOID)
@@ -186,7 +185,6 @@ APIRET LockGlobal(VOID)
 /*
  *@@ UnlockGlobal:
  *
- *@@added V0.9.12 (2001-05-27) [umoeller]
  */
 
 VOID UnlockGlobal(VOID)
@@ -257,12 +255,11 @@ APIRET semCreateRWMutex(PHRW phrw)
  *      --  NO_ERROR: sem was deleted, and *phrw
  *          was set to NULLHANDLE.
  *
- *      --  ERROR_SEM_BUSY: couldn't delete one
- *          of the member semaphores because they
- *          were held by some other thread.
+ *      --  ERROR_SEM_BUSY: semaphore is currently
+ *          requested.
  */
 
-APIRET semDeleteRWMutex(PHRW phrw)
+APIRET semDeleteRWMutex(PHRW phrw)      // in/out: rwsem handle
 {
     APIRET  arc = NO_ERROR;
 
@@ -273,24 +270,31 @@ APIRET semDeleteRWMutex(PHRW phrw)
              && (pMutex = (PRWMUTEX)(*phrw))
            )
         {
-            if (    (!(arc = DosCloseEventSem(pMutex->hevWriterDone)))
-                 && (!(arc = DosCloseEventSem(pMutex->hevReadersDone)))
+            if (    (pMutex->cReaders)
+                 || (pMutex->cWriters)
                )
+                arc = ERROR_SEM_BUSY;
+            else
             {
-                ULONG cItems = pMutex->cReaderThreads;
-                TREE **papNodes = treeBuildArray(pMutex->ReaderThreadsTree,
-                                                 &cItems);
-                if (papNodes)
+                if (    (!(arc = DosCloseEventSem(pMutex->hevWriterDone)))
+                     && (!(arc = DosCloseEventSem(pMutex->hevReadersDone)))
+                   )
                 {
-                    ULONG ul;
-                    for (ul = 0; ul < cItems; ul++)
-                        free(papNodes[ul]);
+                    ULONG cItems = pMutex->cReaderThreads;
+                    TREE **papNodes = treeBuildArray(pMutex->ReaderThreadsTree,
+                                                     &cItems);
+                    if (papNodes)
+                    {
+                        ULONG ul;
+                        for (ul = 0; ul < cItems; ul++)
+                            free(papNodes[ul]);
 
-                    free(papNodes);
+                        free(papNodes);
+                    }
+
+                    free(pMutex);
+                    *phrw = NULLHANDLE;
                 }
-
-                free(pMutex);
-                *phrw = NULLHANDLE;
             }
         }
         else
