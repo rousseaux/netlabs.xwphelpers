@@ -152,13 +152,14 @@ APIRET xprfCopyApp(HINI hiniSource,   // in: source profile (can be HINI_USER or
                    PSZ pszErrorKey)   // out: failing key in case of error; ptr can be NULL
 {
     APIRET arc = NO_ERROR;
-    PSZ pszKeysList;
+    PSZ pszKeysList = NULL;
 
     if (pszErrorKey)
         *pszErrorKey = 0;
 
-    pszKeysList = prfhQueryKeysForApp(hiniSource, pszSourceApp);
-    if (pszKeysList)
+    if (!(arc = prfhQueryKeysForApp(hiniSource,
+                                    pszSourceApp,
+                                    &pszKeysList)))
     {
         PSZ pKey2 = pszKeysList;
 

@@ -69,6 +69,7 @@
  *      The returned buffer should be freed later using free().
  *
  *      <B>Example</B> for iterating over a keys list:
+ *
  +          PSZ pszKeysList = prfhQueryKeysForApp(...);
  +          if (pszKeysList)
  +          {
@@ -84,25 +85,40 @@
  *
  *      You can also use this function to query the applications
  *      list for hIni, if you specifiy pszApp as NULL.
+ *
+ *@@changed V0.9.12 (2001-05-12) [umoeller]: changed prototypes to return APIRET now
  */
 
-PSZ prfhQueryKeysForApp(HINI hIni,      // in: INI handle (can be HINI_USER or HINI_SYSTEM)
-                        const char *pcszApp)     // in: application to query list for (or NULL for applications list)
+APIRET prfhQueryKeysForApp(HINI hIni,      // in: INI handle (can be HINI_USER or HINI_SYSTEM)
+                           const char *pcszApp, // in: application to query list for (or NULL for applications list)
+                           PSZ *ppszKeys)   // out: keys list (newly allocated)
 {
+    APIRET  arc = NO_ERROR;
     PSZ     pKeys = NULL;
     ULONG   ulSizeOfKeysList = 0;
 
     // get size of keys list for pszApp
-    if (PrfQueryProfileSize(hIni, (PSZ)pcszApp, NULL, &ulSizeOfKeysList))
+    if (    (!PrfQueryProfileSize(hIni, (PSZ)pcszApp, NULL, &ulSizeOfKeysList))
+         || (ulSizeOfKeysList == 0)
+       )
+        arc = PRFERR_KEYSLIST;
+    else
     {
         pKeys = (PSZ)malloc(ulSizeOfKeysList);
-        if (!PrfQueryProfileData(hIni, (PSZ)pcszApp, NULL, pKeys, &ulSizeOfKeysList))
-        {
-            free(pKeys);
-            pKeys = NULL;
-        }
+        if (!pKeys)
+            arc = ERROR_NOT_ENOUGH_MEMORY;
+        else
+            if (!PrfQueryProfileData(hIni, (PSZ)pcszApp, NULL, pKeys, &ulSizeOfKeysList))
+                arc = PRFERR_KEYSLIST;
     }
-    return (pKeys);
+
+    if (!arc)       // V0.9.12 (2001-05-12) [umoeller]
+        *ppszKeys = pKeys;
+    else
+        if (pKeys)
+            free(pKeys);
+
+    return (arc);
 }
 
 #ifdef __XWPMEMDEBUG__ // setup.h, helpers\memdebug.c
@@ -294,19 +310,23 @@ LONG prfhQueryColor(const char *pcszKeyName,
  *
  *      Returns:
  *      --  0: no error
+ *
  *      --  PRFERR_DATASIZE: couldn't query data size for key
+ *
  *      --  PRFERR_MEMORY: couldn't allocate memory
+ *
  *      --  PRFERR_READ: couldn't read data from source (PrfQueryProfileData error)
+ *
  *      --  PRFERR_WRITE: couldn't write data to target (PrfWriteProfileData error)
  *
  *@@added V0.9.0 [umoeller]
  */
 
-ULONG prfhCopyKey(HINI hiniSource,       // in: source profile (can be HINI_USER or HINI_SYSTEM)
-                  const char *pcszSourceApp,      // in: source application
-                  const char *pcszKey,            // in: source/target key
-                  HINI hiniTarget,       // in: target profile (can be HINI_USER or HINI_SYSTEM)
-                  const char *pcszTargetApp)      // in: target app
+APIRET prfhCopyKey(HINI hiniSource,       // in: source profile (can be HINI_USER or HINI_SYSTEM)
+                   const char *pcszSourceApp,      // in: source application
+                   const char *pcszKey,            // in: source/target key
+                   HINI hiniTarget,       // in: target profile (can be HINI_USER or HINI_SYSTEM)
+                   const char *pcszTargetApp)      // in: target app
 {
     ULONG   ulSizeOfData = 0,
             ulrc = 0;       // return: no error
@@ -364,9 +384,11 @@ ULONG prfhCopyKey(HINI hiniSource,       // in: source profile (can be HINI_USER
  *      to another one.
  *
  *      You can use this function in several contexts:
+ *
  *      -- copy one application within the same profile
  *         (i.e. hiniSource == hiniTarget);
  *         in this case, pszSourceApp must be != pszTargetApp;
+ *
  *      -- copy an application from one profile to another
  *         (i.e. hiniSource != hiniTarget);
  *         in this case, pszSourceApp can be == pszTargetApp
@@ -374,7 +396,9 @@ ULONG prfhCopyKey(HINI hiniSource,       // in: source profile (can be HINI_USER
  *
  *      WARNING: This does _not_ check for whether the target
  *      application exists already. This has two consequences:
+ *
  *      --  existing data will be overwritten without warning;
+ *
  *      --  if the existing target application has keys that are
  *          not in the source application, they are not deleted.
  *          As a result, you might end up with more keys than
@@ -382,6 +406,7 @@ ULONG prfhCopyKey(HINI hiniSource,       // in: source profile (can be HINI_USER
  *
  *      So you should delete the target application before
  *      calling this function, like this:
+ *
  +          PrfWriteProfileString(hiniTarget, pszTargetApp, NULL, NULL);
  *
  *      You must specify all parameters. You cannot specify pszApp
@@ -406,32 +431,33 @@ ULONG prfhCopyKey(HINI hiniSource,       // in: source profile (can be HINI_USER
  *@@added V0.9.0 [umoeller]
  */
 
-ULONG prfhCopyApp(HINI hiniSource,   // in: source profile (can be HINI_USER or HINI_SYSTEM)
-                  const char *pcszSourceApp,  // in: source application
-                  HINI hiniTarget,   // in: target profile (can be HINI_USER or HINI_SYSTEM)
-                  const char *pcszTargetApp,  // in: name of pszSourceApp in hiniTarget
-                  PSZ pszErrorKey)   // out: failing key in case of error; ptr can be NULL
+APIRET prfhCopyApp(HINI hiniSource,   // in: source profile (can be HINI_USER or HINI_SYSTEM)
+                   const char *pcszSourceApp,  // in: source application
+                   HINI hiniTarget,   // in: target profile (can be HINI_USER or HINI_SYSTEM)
+                   const char *pcszTargetApp,  // in: name of pszSourceApp in hiniTarget
+                   PSZ pszErrorKey)   // out: failing key in case of error; ptr can be NULL
 {
-    ULONG   ulrc;
-    PSZ pszKeysList;
+    APIRET  arc = NO_ERROR;
+    PSZ     pszKeysList = NULL;
 
     if (pszErrorKey)
         *pszErrorKey = 0;
 
-    pszKeysList = prfhQueryKeysForApp(hiniSource, (PSZ)pcszSourceApp);
-    if (pszKeysList)
+    if (!(arc = prfhQueryKeysForApp(hiniSource,
+                                    (PSZ)pcszSourceApp,
+                                    &pszKeysList)))
     {
         PSZ pKey2 = pszKeysList;
 
         while (*pKey2 != 0)
         {
             // copy this key
-            ulrc = prfhCopyKey(hiniSource,
-                               pcszSourceApp,
-                               pKey2,
-                               hiniTarget,
-                               pcszTargetApp);
-            if (ulrc)
+            arc = prfhCopyKey(hiniSource,
+                              pcszSourceApp,
+                              pKey2,
+                              hiniTarget,
+                              pcszTargetApp);
+            if (arc)
             {
                 // error: copy failing key to buffer
                 if (pszErrorKey)
@@ -443,10 +469,8 @@ ULONG prfhCopyApp(HINI hiniSource,   // in: source profile (can be HINI_USER or 
 
         free (pszKeysList);
     }
-    else
-        ulrc = PRFERR_KEYSLIST;
 
-    return (ulrc);
+    return (arc);
 }
 
 /*

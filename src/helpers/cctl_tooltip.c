@@ -163,10 +163,12 @@ BOOL LockSubclassedTools(VOID)
  *      unlocks the global list of subclassed tools.
  *
  *@@added V0.9.12 (2001-04-28) [umoeller]
+ *@@changed V0.9.12 (2001-05-03) [umoeller]: this did nothing... fixed
  */
 
 VOID UnlockSubclassedTools(VOID)
 {
+    DosReleaseMutexSem(G_hmtxSubclassedTools);      // was missing V0.9.12 (2001-05-03) [umoeller]
 }
 
 /*

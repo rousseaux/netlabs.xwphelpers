@@ -101,21 +101,56 @@ extern "C" {
     typedef struct _CHARTDATA
     {
         USHORT          usStartAngle,
-                            // angle to start with (0%).
+                            // for "pie chart" mode, angle to start with (0%).
                             // This must be in the range of 0 to 360 degrees,
                             // with 0 degrees being the rightmost point
                             // of the arc.
+
                             // All degree values are counter-clockwise from that point.
                             // Example: 90 will start the arc at the top.
+
+                            //                   90ø
+                            //                 +++++++
+                            //              +           +
+                            //            +               +
+                            //           +                 +
+                            //          +                   +
+                            //          +                   +
+                            //   180ø   +         X         +     0ø
+                            //          +                   +
+                            //          +                   +
+                            //           +                 +
+                            //            +               +
+                            //              +           +
+                            //                 +++++++
+                            //                   270ø
+
                         usSweepAngle;
-                            // the maximum angle to use for 100%.
+                            // the maximum angle to use for 100%, in addition to
+                            // usStartAngle.
                             // This must be in the range of 0 to 360 degrees,
                             // with 0 degrees being usStartAngle.
                             // All degree values are counter-clockwise from that point.
-                            // Example 1: usStartAngle = 0 and usSweepAngle = 360
-                            // will draw a full circle from the right.
-                            // Example 2: usStartAngle = 180 and usSweepAngle = 270
-                            // will draw a three-quarter angle from the left.
+                            // Example: Specify usStartAngle = 180 (1) to start the pie
+                            // at the left and usSweepAngle = 270 (2) to draw a
+                            // three-quarter total pie.
+
+                            //                   90ø
+                            //                    ++++
+                            //                    +   _ +
+                            //                    +  |\   +
+                            //                    +    \   +
+                            //                    +     \   +
+                            //                    +     |   +
+                            // (1) 180ø +++++++++++     |   +     0ø
+                            //          +              /    +
+                            //          +    \       (2)    +
+                            //           +    \      /     +
+                            //            +    ------     +
+                            //              +           +
+                            //                 +++++++
+                            //                   270ø
+
         ULONG           cValues;
                             // data item count; the arrays in *padValues and *palColors
                             // (and also *papszDescriptions, if CHS_DESCRIPTIONS is
@@ -123,13 +158,17 @@ extern "C" {
         double*         padValues;
                             // pointer to an array of double values;
                             // the sum of all these will make up 100%
-                            // in the chart (i.e. the usSweepAngle angle).
-                            // If this is NULL, the chart displays nothing.
+                            // in the chart. In "pie chart" mode, the
+                            // sum of all these values corresponds to
+                            // the usSweepAngle angle; in "bar chart" mode,
+                            // the sum corresponds to the width of the control.
+                            // If this ptr is NULL, the chart displays nothing.
                             // Otherwise, this array must have cValues items.
         LONG*           palColors;
                             // pointer to an array of LONG RGB colors;
                             // each item in this array must correspond
-                            // to an item in padValues.
+                            // to an item in padValues and specifies the color
+                            // to paint the corresponding data item with.
                             // This _must_ be specified if padValues is != NULL.
                             // This array must have cValues items.
         PSZ*            papszDescriptions;
@@ -140,21 +179,29 @@ extern "C" {
                             // Otherwise, this array must have cValues items.
     } CHARTDATA, *PCHARTDATA;
 
-    // chart display mode: currently only PCF_PIECHART is supported.
+    // chart display mode:
     #define CHS_PIECHART            0x0000
+    #define CHS_BARCHART            0x0001
 
     // chart display flags (CHARTSTYLE.ulStyle):
-    #define CHS_SHADOW              0x0100  // draw shadow
-    #define CHS_3D_BRIGHT           0x0200  // draw 3D block in same color as surface;
+    #define CHS_SHADOW              0x0100  // (pie chart only) draw shadow
+    #define CHS_3D_BRIGHT           0x0200  // (pie chart only)
+                                            // // draw 3D block in same color as surface;
                                             // CHARTSTYLE.ulThickness defines thickness
-    #define CHS_3D_DARKEN           0x0600  // draw 3D block too, but darker
+    #define CHS_3D_DARKEN           0x0600  // (pie chart only)
+                                            // draw 3D block too, but darker
                                             // compared to surface;
                                             // CHARTSTYLE.ulThickness defines thickness
+
+    #define CHS_DRAWLINES           0x0800  // draw lines between pie slices
+                                            // added V0.9.12 (2001-05-03) [umoeller]
 
     #define CHS_DESCRIPTIONS        0x1000  // show descriptions
     #define CHS_DESCRIPTIONS_3D     0x3000  // same as CHS_DESCRIPTIONS, but shaded
 
-    #define CHS_SELECTIONS          0x4000  // allow data items to be selected
+    #define CHS_SELECTIONS          0x4000  // allow data items to be selected using
+                                            // mouse and keyboard; this also enables
+                                            // WM_CONTROL notifications
 
     /*
      *@@ CHARTSTYLE:
@@ -164,14 +211,20 @@ extern "C" {
     typedef struct _CHARTSTYLE
     {
         ULONG           ulStyle;        // CHS_* flags
-        ULONG           ulThickness;    // pie thickness (with CHS_3D_xxx) in pixels
-        double          dPieSize;       // size of the pie chart relative to the control
+
+        ULONG           ulThickness;    // (pie chart only)
+                                        // pie thickness (with CHS_3D_xxx) in pixels
+
+        double          dPieSize;       // (pie chart only)
+                                        // // size of the pie chart relative to the control
                                         // size. A value of 1 would make the pie chart
                                         // consume all available space. A value of .5
                                         // would make the pie chart consume half of the
                                         // control's space. The pie chart is always
                                         // centered within the control.
-        double          dDescriptions;  // position of the slice descriptions on the pie
+
+        double          dDescriptions;  // (pie chart only)
+                                        // position of the slice descriptions on the pie
                                         // relative to the window size. To calculate the
                                         // description positions, the control calculates
                                         // an invisible pie slice again, for which this
@@ -190,33 +243,6 @@ extern "C" {
                                         // outside the slice.
     } CHARTSTYLE, *PCHARTSTYLE;
 
-    /*
-     *@@ CHARTCDATA:
-     *      pie chart control data. Composed from the various
-     *      chart initialization data.
-     *      Stored in QWL_USER of the subclassed static control.
-     *      Not available to the application.
-     */
-
-    typedef struct _CHARTCDATA
-    {
-        // data which is initialized upon creation:
-        PFNWP           OldStaticProc;  // old static window procedure (from WinSubclassWindow)
-
-        // data which is initialized upon CHTM_SETCHARTDATA/CHTM_SETCHARTSTYLE:
-        HDC             hdcMem;         // memory device context for bitmap
-        HPS             hpsMem;         // memory presentation space for bitmap
-        CHARTDATA       cd;             // chart data: initialized to null values
-        CHARTSTYLE      cs;             // chart style: initialized to null values
-
-        HBITMAP         hbmChart;       // chart bitmap (for quick painting)
-        HRGN*           paRegions;      // pointer to array of GPI regions for each data item
-
-        // user interaction data:
-        LONG            lSelected;      // zero-based index of selected chart item, or -1 if none
-        BOOL            fHasFocus;
-    } CHARTCDATA, *PCHARTCDATA;
-
     HBITMAP ctlCreateChartBitmap(HPS hpsMem,
                                  LONG lcx,
                                  LONG lcy,
@@ -228,11 +254,122 @@ extern "C" {
 
     BOOL ctlChartFromStatic(HWND hwndStatic);
 
-    #define CHTM_SETCHARTDATA      WM_USER + 2
+    #define CHTM_SETCHARTDATA      (WM_USER + 2)
 
-    #define CHTM_SETCHARTSTYLE     WM_USER + 3
+    #define CHTM_SETCHARTSTYLE     (WM_USER + 3)
 
-    #define CHTM_ITEMFROMPOINT     WM_USER + 4
+    #define CHTM_ITEMFROMPOINT     (WM_USER + 4)
+
+    #define CHTM_SETEMPHASIS       (WM_USER + 5)
+
+    // WM_CONTROL notification codes
+
+    /*
+     *@@ CHTN_EMPHASISCHANGED:
+     *      WM_CONTROL notification code sent (!)
+     *      by a chart control to its owner when
+     *      selections change in the control.
+     *
+     *      This is only sent if the CHS_SELECTIONS
+     *      style bit is set in the control.
+     *
+     *      Parameters:
+     *
+     *      --  USHORT SHORT1FROMMP(mp1): usid (control ID).
+     *      --  USHORT SHORT2FROMMP(mp1): CHTN_EMPHASISCHANGED.
+     *
+     *      --  mp2: pointer to EMPHASISNOTIFY structure.
+     *
+     *      Note: The control only sends one such notification,
+     *      even if an old selection was undone. That is, if
+     *      item 1 was previously selected and item 2 is then
+     *      selected, only one notification for item 2 is sent.
+     *
+     *@@added V0.9.12 (2001-05-03) [umoeller]
+     */
+
+    #define CHTN_EMPHASISCHANGED       1001
+
+    /*
+     *@@ CHTN_CONTEXTMENU:
+     *      WM_CONTROL notification code sent (!)
+     *      by a chart control to its owner when
+     *      a context menu was requested on the
+     *      control.
+     *
+     *      This is only sent if the CHS_SELECTIONS
+     *      style bit is set in the control.
+     *
+     *      Parameters:
+     *
+     *      --  USHORT SHORT1FROMMP(mp1): usid (control ID).
+     *      --  USHORT SHORT2FROMMP(mp1): CHTN_EMPHASISCHANGED.
+     *
+     *      --  mp2: pointer to EMPHASISNOTIFY structure.
+     *          If the context menu was requested on a chart
+     *          slice, lIndex has the index of the slice.
+     *          Otherwise (e.g. whitespace), lIndex will
+     *          be -1.
+     *
+     *@@added V0.9.12 (2001-05-03) [umoeller]
+     */
+
+    #define CHTN_CONTEXTMENU            1002
+
+    /*
+     *@@ CHTN_ENTER:
+     *      WM_CONTROL notification code sent (!)
+     *      by a chart control to its owner when
+     *      the user double-clicked on a data item.
+     *
+     *      This is only sent if the CHS_SELECTIONS
+     *      style bit is set in the control.
+     *
+     *      Parameters:
+     *
+     *      --  USHORT SHORT1FROMMP(mp1): usid (control ID).
+     *      --  USHORT SHORT2FROMMP(mp1): CHTN_ENTER.
+     *
+     *      --  mp2: pointer to EMPHASISNOTIFY structure.
+     *          If the double click occured on a chart
+     *          slice, lIndex has the index of the slice.
+     *          Otherwise (e.g. whitespace), lIndex will
+     *          be -1.
+     *
+     *@@added V0.9.12 (2001-05-03) [umoeller]
+     */
+
+    #define CHTN_ENTER                  1003
+
+    /*
+     *@@ EMPHASISNOTIFY:
+     *      structure used with CHTN_EMPHASISCHANGED,
+     *      CHTN_ENTER, and CHTN_CONTEXTMENU.
+     *
+     *@@added V0.9.12 (2001-05-03) [umoeller]
+     */
+
+    typedef struct _EMPHASISNOTIFY
+    {
+        HWND    hwndSource;
+                // window handle of the chart control
+        ULONG   ulEmphasis;
+                // with CHTN_EMPHASISCHANGED: emphasis which has changed
+                // (0 for selection, 1 for source emphasis).
+                // Otherwise undefined.
+        LONG    lIndex;
+                // with CHTN_EMPHASISCHANGED: index of the data
+                // item for which emphasis has changed (counting
+                // from 0); if -1, a previous emphasis has been undone.
+                // With CHTN_CONTEXTMENU and CHTN_ENTER, index of the
+                // data item for which the request occured, or -1 for
+                // a request on the control's whitespace.
+        POINTL  ptl;
+                // exact window coordinates where mouse
+                // click occured (e.g. for context menu).
+                // This is undefined (-1) if the event was not
+                // caused by a mouse click.
+    } EMPHASISNOTIFY, *PEMPHASISNOTIFY;
 
     /* ******************************************************************
      *

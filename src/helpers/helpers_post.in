@@ -195,12 +195,11 @@ $(OUTPUTDIR)\xml.obj:      $(@B).c $(HLPINC)\$(@B).h \
 
 $(OUTPUTDIR)\xprf.obj:  $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h \
-               $(HLPINC)\linklist.h
+               $(HLPINC)\linklist.h $(HLPINC)\prfh.h
 
 $(OUTPUTDIR)\xprf2.obj:  $(@B).c $(HLPINC)\xprf.h \
                $(PROJECTINC)\setup.h \
-               $(INC)\expat\expat.h \
-               $(HLPINC)\linklist.h $(HLPINC)\stringh.h $(HLPINC)\xstring.h
+               $(HLPINC)\dosh.h $(HLPINC)\prfh.h $(HLPINC)\stringh.h
 
 $(OUTPUTDIR)\xstring.obj:  $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h \

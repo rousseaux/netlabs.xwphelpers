@@ -47,8 +47,9 @@ extern "C" {
     #define PRFERR_INVALID_KEY  10009
     #define PRFERR_KEY_EXISTS   10010
 
-    PSZ prfhQueryKeysForApp(HINI hIni,
-                            const char *pcszApp);
+    APIRET prfhQueryKeysForApp(HINI hIni,
+                               const char *pcszApp,
+                               PSZ *ppszKeys);
 
     #ifdef __XWPMEMDEBUG__ // setup.h, helpers\memdebug.c
         PSZ prfhQueryProfileDataDebug(HINI hIni,
@@ -103,17 +104,17 @@ extern "C" {
 
     VOID prfhQueryCountrySettings(PCOUNTRYSETTINGS pcs);
 
-    ULONG prfhCopyKey(HINI hiniSource,
-                      const char *pcszSourceApp,
-                      const char *pcszKey,
-                      HINI hiniTarget,
-                      const char *pcszTargetApp);
+    APIRET prfhCopyKey(HINI hiniSource,
+                       const char *pcszSourceApp,
+                       const char *pcszKey,
+                       HINI hiniTarget,
+                       const char *pcszTargetApp);
 
-    ULONG prfhCopyApp(HINI hiniSource,
-                      const char *pcszSourceApp,
-                      HINI hiniTarget,
-                      const char *pcszTargetApp,
-                      PSZ pszErrorKey);
+    APIRET prfhCopyApp(HINI hiniSource,
+                       const char *pcszSourceApp,
+                       HINI hiniTarget,
+                       const char *pcszTargetApp,
+                       PSZ pszErrorKey);
 
     ULONG prfhRenameKey(HINI hini,
                         const char *pcszOldApp,

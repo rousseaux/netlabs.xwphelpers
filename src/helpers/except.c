@@ -312,6 +312,7 @@ VOID excDescribePage(FILE *file, ULONG ulCheck)
  *      output stuff right.
  *
  *@@added V0.9.2 (2000-03-10) [umoeller]
+ *@@changed V0.9.12 (2001-05-12) [umoeller]: added seg:ofs to output always
  */
 
 VOID excPrintStackFrame(FILE *file,         // in: output log file
@@ -337,9 +338,8 @@ VOID excPrintStackFrame(FILE *file,         // in: output log file
     {
         // error:
         fprintf(file,
-                " %-8s:%lu   Error: DosQueryModFromEIP returned %lu\n",
+                " %-8s Error: DosQueryModFromEIP returned %lu\n",
                 szMod1,
-                ulObject,
                 arc);
     }
     else
@@ -347,12 +347,12 @@ VOID excPrintStackFrame(FILE *file,         // in: output log file
         CHAR szFullName[2*CCHMAXPATH];
 
         fprintf(file,
-                " %-8s:%lu   ",
+                " %-8s %02lX:%08lX\n                                 ",
                 szMod1,
-                ulObject);
+                ulObject + 1,       // V0.9.12 (2001-05-12) [umoeller]
+                ulOffset);          // V0.9.12 (2001-05-12) [umoeller]
 
         DosQueryModuleName(hmod1, sizeof(szFullName), szFullName);
-
         dbgPrintStackFrame(file,
                            szFullName,
                            ulObject,
@@ -380,7 +380,7 @@ VOID excDumpStackFrames(FILE *file,                   // in: logfile from fopen(
 {
     PULONG pulStackWord = 0;
 
-    fprintf(file, "\n\nStack frames:\n              Address   Module:Object\n");
+    fprintf(file, "\n\nStack frames:\n              Address   Module   seg:ofs\n");
 
     // first the trapping address itself
     excPrintStackFrame(file,

@@ -365,9 +365,39 @@ int Read16CodeView(FILE *LogFile, PXDEBUGINFO pxdi, int fh, int TrapSeg, int Tra
 int Read32PmDebug(FILE *LogFile, PXDEBUGINFO pxdi, int fh, int TrapSeg, int TrapOff, CHAR *FileName);
 
 /*
+ *@@ WriteAddressInfo:
+ *      formats and writes a line into the trap log
+ *      file.
+ *
+ *      This gets called for each line from the
+ *      stack dump. At this point, the line in the
+ *      trap log already has:
+ *
+ +          CS:EIP  : 000109FF  XMLVIEW :0
+ +                                          ^^^ and we write here
+ *      After this call, we have.
+ *
+ +          CS:EIP  : 000109FF  XMLVIEW :0  xxx.c  123 ConfirmCreate__Fv
+ +                                          ^^^ and we write here
+ *
+ *@@added V0.9.12 (2001-05-12) [umoeller]
+ */
+
+VOID WriteDebugInfo(FILE *LogFile,              // in: open log file
+                    PXDEBUGINFO pxdi)           // in: debug info
+{
+    fprintf(LogFile,
+            "%s%s%s",
+            pxdi->szNrFile,
+            pxdi->szNrLine,
+            pxdi->szNrPub);
+}
+
+/*
  *@@ dbgPrintDebugInfo:
  *      this is the main entry point into analyzing debug
  *      code.
+ *
  *      This analyzes a given address and tries to find
  *      debug code descriptions for this address. If found,
  *      the information is written to the given log file.
@@ -382,13 +412,15 @@ int Read32PmDebug(FILE *LogFile, PXDEBUGINFO pxdi, int fh, int TrapSeg, int Trap
 
 APIRET dbgPrintDebugInfo(FILE *LogFile,         // out: log file to write to
                          CHAR *FileName,        // in: EXE/DLL module file name
-                         ULONG Object,          // in: trapping object
-                         ULONG TrapOffset)      // in: trapping address
+                         ULONG Object,          // in: trapping object (from DosQueryModFromEIP)
+                         ULONG TrapOffset)      // in: trapping address (from DosQueryModFromEIP)
 {
     APIRET                  rc = 0;
     int                     ModuleFile = 0;
     static struct exe_hdr   OldExeHeader;
     static struct new_exe   NewExeHeader;
+
+    ULONG                   ulSegment = Object + 1;     // segment no. is object no. + 1
 
     XDEBUGINFO              xdi;
     memset(&xdi, 0, sizeof(xdi));
@@ -429,18 +461,14 @@ APIRET dbgPrintDebugInfo(FILE *LogFile,         // out: log file to write to
              */
 
             // do analysis for 32-bit code
-            rc = Read32PmDebug(LogFile,
-                               &xdi,
-                               ModuleFile,
-                               Object + 1,
-                               TrapOffset,
-                               FileName);
-            if (rc == 0)
-            {
-                fprintf(LogFile, "%s", xdi.szNrFile);
-                fprintf(LogFile, "%s", xdi.szNrLine);
-                fprintf(LogFile, "%s", xdi.szNrPub);
-            }                   // endif
+            if (!(rc = Read32PmDebug(LogFile,
+                                     &xdi,                // output
+                                     ModuleFile,
+                                     ulSegment,
+                                     TrapOffset,
+                                     FileName)))
+                WriteDebugInfo(LogFile, &xdi);
+
             close(ModuleFile);
 
             // rc !=0 try with DBG file
@@ -450,16 +478,17 @@ APIRET dbgPrintDebugInfo(FILE *LogFile,         // out: log file to write to
                 ModuleFile = sopen(FileName, O_RDONLY | O_BINARY, SH_DENYNO);
                 if (ModuleFile != -1)
                 {
-                    rc = Read32PmDebug(LogFile, &xdi, ModuleFile, Object + 1, TrapOffset, FileName);
-                    if (rc == 0)
-                    {
-                        fprintf(LogFile, "%s", xdi.szNrFile);
-                        fprintf(LogFile, "%s", xdi.szNrLine);
-                        fprintf(LogFile, "%s", xdi.szNrPub);
-                    }           // endif
+                    if (!(rc = Read32PmDebug(LogFile,
+                                             &xdi,
+                                             ModuleFile,
+                                             ulSegment,
+                                             TrapOffset,
+                                             FileName)))
+                        WriteDebugInfo(LogFile, &xdi);
+
                     close(ModuleFile);
                 }
-            }                   // endif
+            }
 
             return rc;
         }
@@ -472,13 +501,17 @@ APIRET dbgPrintDebugInfo(FILE *LogFile,         // out: log file to write to
                  *
                  */
 
-                if ((xdi.pseg = (struct new_seg *)calloc(NE_CSEG(NewExeHeader), sizeof(struct new_seg))) == NULL)
+                if ((xdi.pseg = (struct new_seg *)calloc(NE_CSEG(NewExeHeader),
+                                                         sizeof(struct new_seg)))
+                            == NULL)
                 {
                     fprintf(LogFile, "Out of memory!");
                     close(ModuleFile);
                     return -1;
                 }
-                if (lseek(ModuleFile, E_LFANEW(OldExeHeader) + NE_SEGTAB(NewExeHeader), SEEK_SET) == -1L)
+                if (  lseek(ModuleFile,
+                            E_LFANEW(OldExeHeader) + NE_SEGTAB(NewExeHeader),
+                            SEEK_SET) == -1L)
                 {
                     fprintf(LogFile, "Error %u seeking segment table in %s\n", errno, FileName);
                     free(xdi.pseg);
@@ -486,20 +519,25 @@ APIRET dbgPrintDebugInfo(FILE *LogFile,         // out: log file to write to
                     return 9;
                 }
 
-                if (read(ModuleFile, (void *)xdi.pseg, NE_CSEG(NewExeHeader) * sizeof(struct new_seg)) == -1)
+                if (read(ModuleFile,
+                         (void *)xdi.pseg,
+                         NE_CSEG(NewExeHeader) * sizeof(struct new_seg))
+                      == -1)
                 {
                     fprintf(LogFile, "Error %u reading segment table from %s\n", errno, FileName);
                     free(xdi.pseg);
                     close(ModuleFile);
                     return 10;
                 }
-                rc = Read16CodeView(LogFile, &xdi, ModuleFile, Object + 1, TrapOffset, FileName);
-                if (rc == 0)
-                {
-                    fprintf(LogFile, "%s", xdi.szNrFile);
-                    fprintf(LogFile, "%s", xdi.szNrLine);
-                    fprintf(LogFile, "%s", xdi.szNrPub);
-                }               // endif
+
+                if (!(rc = Read16CodeView(LogFile,
+                                          &xdi,
+                                          ModuleFile,
+                                          ulSegment,
+                                          TrapOffset,
+                                          FileName)))
+                    WriteDebugInfo(LogFile, &xdi);
+
                 free(xdi.pseg);
                 close(ModuleFile);
 
@@ -507,21 +545,22 @@ APIRET dbgPrintDebugInfo(FILE *LogFile,         // out: log file to write to
                 if (rc != 0)
                 {
                     strcpy(FileName + strlen(FileName) - 3, "DBG");     // Build DBG File name
-                    ModuleFile = sopen(FileName, O_RDONLY | O_BINARY, SH_DENYNO);
+                    ModuleFile = sopen(FileName,
+                                       O_RDONLY | O_BINARY, SH_DENYNO);
                     if (ModuleFile != -1)
                     {
-                        rc = Read16CodeView(LogFile, &xdi, ModuleFile, Object + 1, TrapOffset, FileName);
-                        if (rc == 0)
-                        {
-                            fprintf(LogFile, "%s", xdi.szNrFile);
-                            fprintf(LogFile, "%s", xdi.szNrLine);
-                            fprintf(LogFile, "%s", xdi.szNrPub);
-                        }       // endif
+                        if (!(rc = Read16CodeView(LogFile,
+                                                  &xdi,
+                                                  ModuleFile,
+                                                  ulSegment,
+                                                  TrapOffset,
+                                                  FileName)))
+                            WriteDebugInfo(LogFile, &xdi);
+
                         close(ModuleFile);
                     }
-                }               // endif
+                }
                 return rc;
-
             }
             else
             {
@@ -607,7 +646,9 @@ int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
         return (18);
     }
 
-    if (read(ModuleFile, (void *)&G_eodbug, 8) == -1)
+    if (read(ModuleFile,
+             (void *)&G_eodbug, 8)
+            == -1)
     {
         fprintf(LogFile, "Error %u reading debug info from %s\n", errno, FileName);
         return (19);
@@ -618,40 +659,53 @@ int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
         return (100);
     }
 
-    if ((pxdi->lfaBase = lseek(ModuleFile, -(LONG)G_eodbug.dfaBase, SEEK_END)) == -1L)
+    if (    (pxdi->lfaBase = lseek(ModuleFile,
+                                   -(LONG)G_eodbug.dfaBase,
+                                   SEEK_END))
+         == -1L)
     {
         fprintf(LogFile, "Error %u seeking base codeview data in %s\n", errno, FileName);
         return (20);
     }
 
-    if (read(ModuleFile, (void *)&pxdi->base, 8) == -1)
+    if (read(ModuleFile,
+             (void *)&pxdi->base, 8)
+        == -1)
     {
         fprintf(LogFile, "Error %u reading base codeview data in %s\n", errno, FileName);
         return (21);
     }
 
-    if (lseek(ModuleFile, pxdi->base.lfoDir - 8 + 4, SEEK_CUR) == -1)
+    if (lseek(ModuleFile,
+              pxdi->base.lfoDir - 8 + 4,
+              SEEK_CUR)
+        == -1)
     {
         fprintf(LogFile, "Error %u seeking dir codeview data in %s\n", errno, FileName);
         return (22);
     }
 
-    if (read(ModuleFile, (void *)&numdir, 4) == -1)
+    if (read(ModuleFile,
+             (void *)&numdir, 4)
+        == -1)
     {
         fprintf(LogFile, "Error %u reading dir codeview data in %s\n", errno, FileName);
         return (23);
     }
 
     // Read dir table into buffer
-    if ((pxdi->pDirTab32 = (SSDIR32*)calloc(numdir,
-                                             sizeof(SSDIR32))
-                     ) == NULL)
+    if (    (pxdi->pDirTab32 = (SSDIR32*)calloc(numdir,
+                                             sizeof(SSDIR32)))
+        == NULL)
     {
         fprintf(LogFile, "Out of memory!");
         return (-1);
     }
 
-    if (read(ModuleFile, (void *)pxdi->pDirTab32, numdir * sizeof(SSDIR32)) == -1)
+    if (read(ModuleFile,
+             (void*)pxdi->pDirTab32,
+             numdir * sizeof(SSDIR32))
+        == -1)
     {
         fprintf(LogFile, "Error %u reading codeview dir table from %s\n", errno, FileName);
         free(pxdi->pDirTab32);
@@ -666,15 +720,22 @@ int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
             i++;
             continue;
         }
+
         NrPublic = 0x0;
         NrSymbol = 0;
         NrLine = 0x0;
         NrFile = 0x0;
         CurrSymSeg = 0;
         // point to subsection
-        lseek(ModuleFile, pxdi->pDirTab32[i].lfoStart + pxdi->lfaBase, SEEK_SET);
-        read(ModuleFile, (void*)&(pxdi->ssmod32.csBase), sizeof(SSMOD32));
-        read(ModuleFile, (void*)ModName, (unsigned)pxdi->ssmod32.csize);
+        lseek(ModuleFile,
+              pxdi->pDirTab32[i].lfoStart + pxdi->lfaBase,
+              SEEK_SET);
+        read(ModuleFile,
+             (void*)&pxdi->ssmod32.csBase,
+             sizeof(SSMOD32));
+        read(ModuleFile,
+             (void*)ModName,
+             (unsigned)pxdi->ssmod32.csize);
         ModIndex = pxdi->pDirTab32[i].modindex;
         ModName[pxdi->ssmod32.csize] = '\0';
         i++;
@@ -686,15 +747,22 @@ int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
               )
         {
             // point to subsection
-            lseek(ModuleFile, pxdi->pDirTab32[i].lfoStart + pxdi->lfaBase, SEEK_SET);
+            lseek(ModuleFile,
+                  pxdi->pDirTab32[i].lfoStart + pxdi->lfaBase,
+                  SEEK_SET);
+
             switch (pxdi->pDirTab32[i].sst)
             {
                 case SSTPUBLICS:
                     bytesread = 0;
                     while (bytesread < pxdi->pDirTab32[i].cb)
                     {
-                        bytesread += read(ModuleFile, (void *)&pxdi->sspub32.offset, sizeof(pxdi->sspub32));
-                        bytesread += read(ModuleFile, (void *)ename, (unsigned)pxdi->sspub32.csize);
+                        bytesread += read(ModuleFile,
+                                          (void *)&pxdi->sspub32.offset,
+                                          sizeof(pxdi->sspub32));
+                        bytesread += read(ModuleFile,
+                                          (void*)ename,
+                                          (unsigned)pxdi->sspub32.csize);
                         ename[pxdi->sspub32.csize] = '\0';
                         if (    (pxdi->sspub32.segment == TrapSeg)
                              && (pxdi->sspub32.offset <= TrapOff)
@@ -704,12 +772,12 @@ int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
                             NrPublic = pubfunc_ofs = pxdi->sspub32.offset;
                             read_types = TRUE;
                             sprintf(pxdi->szNrPub,
-                                    "%s %s (%s, seg %04lX : ofs %08lX\n",
-                                    (pxdi->sspub32.type == 1) ? " Abs" : " ",
+                                    "%s %s (%s)\n",
+                                    (pxdi->sspub32.type == 1)
+                                            ? " Abs"
+                                            : " ",
                                     ename,
-                                    ModName, // ()
-                                    (ULONG)pxdi->sspub32.segment,
-                                    pxdi->sspub32.offset
+                                    ModName
                                 );
                             // but continue, because there might be a
                             // symbol that comes closer

@@ -466,9 +466,10 @@ APIRET sndCreateSoundScheme(HINI hiniMMPM,      // in: MMPM.INI handle (from snd
     if (hiniMMPM)
     {
         // get applications list for sounds list in MMPM.INI
-        PSZ pszKeysList = prfhQueryKeysForApp(hiniMMPM,
-                                              MMINIKEY_SYSSOUNDS); // "MMPM2_AlarmSounds"
-        if (pszKeysList)
+        PSZ pszKeysList = NULL;
+        if (!(arc = prfhQueryKeysForApp(hiniMMPM,
+                                        MMINIKEY_SYSSOUNDS, // "MMPM2_AlarmSounds"
+                                        &pszKeysList)))
         {
             PSZ     pKey2 = pszKeysList;
 
@@ -593,9 +594,10 @@ APIRET sndLoadSoundScheme(HINI hiniMMPM,      // in: HINI of ?:\MMOS2\MMPM.INI (
             // scheme...
 
             // get applications list for sounds list in MMPM.INI
-            PSZ pszMMPMKeysList = prfhQueryKeysForApp(hiniMMPM,
-                                                  MMINIKEY_SYSSOUNDS); // "MMPM2_AlarmSounds"
-            if (pszMMPMKeysList)
+            PSZ pszMMPMKeysList = NULL;
+            if (!(arc = prfhQueryKeysForApp(hiniMMPM,
+                                            MMINIKEY_SYSSOUNDS,// "MMPM2_AlarmSounds"
+                                            &pszMMPMKeysList)))
             {
                 PSZ     pMMPMKey2 = pszMMPMKeysList,
                         pMMPMSoundData,
