@@ -1803,9 +1803,10 @@ string BSProfileBase::DescribePrfKey(BSUniCodec &codecProcess) const
  *
  *      Syntax:
  *
- +          CLEARPROFILE="profile[\application[\key]]"
+ +          CLEARPROFILE="profile\application[\key]"
  *
  *@@added V0.9.1 (2000-02-07) [umoeller]
+ *@@changed V1.0.5 (2005-03-06) [pr]: Improved parsing of profiles with path names. @@fixes 633
  */
 
 BSClearProfile::BSClearProfile(const ustring &ustrClearProfile)
@@ -1820,6 +1821,28 @@ BSClearProfile::BSClearProfile(const ustring &ustrClearProfile)
         // extract profile
         _ustrProfile.assignUtf8(pcszClearProfile, pFirstBackslash);
 
+        if (   _ustrProfile.compareUtf8("USER")
+            && _ustrProfile.compareUtf8("SYSTEM")
+           )
+        {
+            while (pFirstBackslash)
+            {
+                ULONG cbProfile = pFirstBackslash - pcszClearProfile;
+                if (   (cbProfile > 4)
+                    && (!strnicmp(pFirstBackslash - 4, ".INI", 4))
+                   )
+                {
+                    _ustrProfile.assignUtf8(pcszClearProfile, pFirstBackslash);
+                    break;
+                }
+
+                pFirstBackslash = strchr(pFirstBackslash + 1, '\\');
+            }
+        }
+    }
+
+    if (pFirstBackslash)
+    {
         // get application
         PCSZ pSecondBackslash;
         if (pSecondBackslash = strchr(pFirstBackslash + 2, '\\'))
@@ -1836,9 +1859,7 @@ BSClearProfile::BSClearProfile(const ustring &ustrClearProfile)
             _ustrApplication.assignUtf8(pFirstBackslash + 1);
     }
 
-    if (    (!_ustrProfile())
-         || (!_ustrApplication())
-       )
+    if (!_ustrApplication())
         // any error:
         throw BSConfigExcpt(PRFEXCPT_SYNTAX, ustrClearProfile);
 }
@@ -1971,6 +1992,7 @@ int BSClearProfile::AddToUndoList(list<BSConfigBase*> &List,
  *
  *@@added V0.9.1 (2000-02-07) [umoeller]
  *@@changed V0.9.19 (2002-05-07) [umoeller]: added missing class init, now writeprofiles work again
+ *@@changed V1.0.5 (2005-03-06) [pr]: Improved parsing of profiles with path names. @@fixes 633
  */
 
 BSWriteProfile::BSWriteProfile(const ustring &ustrWriteProfile)
@@ -1996,6 +2018,29 @@ BSWriteProfile::BSWriteProfile(const ustring &ustrWriteProfile)
             // extract profile
             _ustrProfile.assignUtf8(pcszWriteProfile, pFirstBackslash);
 
+            if (   _ustrProfile.compareUtf8("USER")
+                && _ustrProfile.compareUtf8("SYSTEM")
+               )
+            {
+                while (pFirstBackslash)
+                {
+                    ULONG cbProfile = pFirstBackslash - pcszWriteProfile;
+                    if (   (cbProfile > 4)
+                        && (!strnicmp(pFirstBackslash - 4, ".INI", 4))
+                        && (pFirstBackslash < pSlash)
+                       )
+                    {
+                        _ustrProfile.assignUtf8(pcszWriteProfile, pFirstBackslash);
+                        break;
+                    }
+
+                    pFirstBackslash = strchr(pFirstBackslash + 1, '\\');
+                }
+            }
+        }
+
+        if (pFirstBackslash)
+        {
             // get application
             PCSZ pSecondBackslash;
             if (pSecondBackslash = strchr(pFirstBackslash + 2, '\\'))
