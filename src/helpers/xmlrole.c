@@ -63,11 +63,11 @@ static const char KW_SYSTEM[] = { ASCII_S, ASCII_Y, ASCII_S, ASCII_T, ASCII_E, A
 #define setTopLevel(state) ((state)->handler = internalSubset)
 #endif /* not XML_DTD */
 
-typedef int PROLOG_HANDLER(PROLOG_STATE *state,
-               int tok,
-               const char *ptr,
-               const char *end,
-               const ENCODING *enc);
+typedef int EXPATENTRY PROLOG_HANDLER(PROLOG_STATE *state,
+                                      int tok,
+                                      const char *ptr,
+                                      const char *end,
+                                      const ENCODING *enc);
 
 static PROLOG_HANDLER
   prolog0, prolog1, prolog2,
@@ -91,7 +91,7 @@ static
 int common(PROLOG_STATE *state, int tok);
 
 static
-int prolog0(PROLOG_STATE *state,
+int EXPATENTRY prolog0(PROLOG_STATE *state,
         int tok,
         const char *ptr,
         const char *end,

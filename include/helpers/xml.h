@@ -629,7 +629,7 @@ extern "C" {
     typedef FNGETCPDATA *PFNGETCPDATA;
 
     typedef APIRET APIENTRY FNEXTERNALHANDLER(PXMLDOM pDom,
-                                              XML_Parser *pSubParser,
+                                              XML_Parser pSubParser,
                                               const char *pcszSystemID,
                                               const char *pcszPublicID);
     typedef FNEXTERNALHANDLER *PFNEXTERNALHANDLER;

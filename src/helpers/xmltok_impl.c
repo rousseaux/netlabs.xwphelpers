@@ -1,7 +1,36 @@
+
 /*
-Copyright (c) 1998, 1999 Thai Open Source Software Center Ltd
-See the file COPYING for copying permission.
-*/
+ *sourcefile xmltok_impl.c
+ *      part of the expat implementation. See xmlparse.c.
+ *
+ *      NOTE: This file must not be compiled directly. It is
+ *      #include'd from xmltok.c several times.
+ */
+
+/*
+ *      Copyright (C) 2001 Ulrich M”ller.
+ *      Copyright (c) 1998, 1999, 2000 Thai Open Source Software Center Ltd.
+ *                                     and Clark Cooper.
+ *
+ *      Permission is hereby granted, free of charge, to any person obtaining
+ *      a copy of this software and associated documentation files (the
+ *      "Software"), to deal in the Software without restriction, including
+ *      without limitation the rights to use, copy, modify, merge, publish,
+ *      distribute, sublicense, and/or sell copies of the Software, and to
+ *      permit persons to whom the Software is furnished to do so, subject to
+ *      the following conditions:
+ *
+ *      The above copyright notice and this permission notice shall be included
+ *      in all copies or substantial portions of the Software.
+ *
+ *      THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ *      EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ *      MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ *      IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ *      CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ *      TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ *      SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
 
 #ifndef IS_INVALID_CHAR
 #define IS_INVALID_CHAR(enc, ptr, n) (0)
@@ -87,9 +116,10 @@ See the file COPYING for copying permission.
 
 /* ptr points to character following "<!-" */
 
-static
-int PREFIX(scanComment)(const ENCODING *enc, const char *ptr, const char *end,
-            const char **nextTokPtr)
+static int EXPATENTRY PREFIX(scanComment)(const ENCODING *enc,
+                                          const char *ptr,
+                                          const char *end,
+                                          const char **nextTokPtr)
 {
   if (ptr != end) {
     if (!CHAR_MATCHES(enc, ptr, ASCII_MINUS)) {
@@ -125,8 +155,7 @@ int PREFIX(scanComment)(const ENCODING *enc, const char *ptr, const char *end,
 
 /* ptr points to character following "<!" */
 
-static
-int PREFIX(scanDecl)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(scanDecl)(const ENCODING *enc, const char *ptr, const char *end,
              const char **nextTokPtr)
 {
   if (ptr == end)
@@ -172,8 +201,7 @@ int PREFIX(scanDecl)(const ENCODING *enc, const char *ptr, const char *end,
   return XML_TOK_PARTIAL;
 }
 
-static
-int PREFIX(checkPiTarget)(const ENCODING *enc, const char *ptr, const char *end, int *tokPtr)
+static int EXPATENTRY PREFIX(checkPiTarget)(const ENCODING *enc, const char *ptr, const char *end, int *tokPtr)
 {
   int upper = 0;
   *tokPtr = XML_TOK_PI;
@@ -216,8 +244,7 @@ int PREFIX(checkPiTarget)(const ENCODING *enc, const char *ptr, const char *end,
 
 /* ptr points to character following "<?" */
 
-static
-int PREFIX(scanPi)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(scanPi)(const ENCODING *enc, const char *ptr, const char *end,
            const char **nextTokPtr)
 {
   int tok;
@@ -279,8 +306,7 @@ int PREFIX(scanPi)(const ENCODING *enc, const char *ptr, const char *end,
 }
 
 
-static
-int PREFIX(scanCdataSection)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(scanCdataSection)(const ENCODING *enc, const char *ptr, const char *end,
                  const char **nextTokPtr)
 {
   static const char CDATA_LSQB[] = { ASCII_C, ASCII_D, ASCII_A, ASCII_T, ASCII_A, ASCII_LSQB };
@@ -298,8 +324,7 @@ int PREFIX(scanCdataSection)(const ENCODING *enc, const char *ptr, const char *e
   return XML_TOK_CDATA_SECT_OPEN;
 }
 
-static
-int PREFIX(cdataSectionTok)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(cdataSectionTok)(const ENCODING *enc, const char *ptr, const char *end,
                 const char **nextTokPtr)
 {
   if (ptr == end)
@@ -376,8 +401,7 @@ int PREFIX(cdataSectionTok)(const ENCODING *enc, const char *ptr, const char *en
 
 /* ptr points to character following "</" */
 
-static
-int PREFIX(scanEndTag)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(scanEndTag)(const ENCODING *enc, const char *ptr, const char *end,
                const char **nextTokPtr)
 {
   if (ptr == end)
@@ -424,8 +448,7 @@ int PREFIX(scanEndTag)(const ENCODING *enc, const char *ptr, const char *end,
 
 /* ptr points to character following "&#X" */
 
-static
-int PREFIX(scanHexCharRef)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(scanHexCharRef)(const ENCODING *enc, const char *ptr, const char *end,
                const char **nextTokPtr)
 {
   if (ptr != end) {
@@ -456,8 +479,7 @@ int PREFIX(scanHexCharRef)(const ENCODING *enc, const char *ptr, const char *end
 
 /* ptr points to character following "&#" */
 
-static
-int PREFIX(scanCharRef)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(scanCharRef)(const ENCODING *enc, const char *ptr, const char *end,
             const char **nextTokPtr)
 {
   if (ptr != end) {
@@ -488,8 +510,7 @@ int PREFIX(scanCharRef)(const ENCODING *enc, const char *ptr, const char *end,
 
 /* ptr points to character following "&" */
 
-static
-int PREFIX(scanRef)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(scanRef)(const ENCODING *enc, const char *ptr, const char *end,
             const char **nextTokPtr)
 {
   if (ptr == end)
@@ -518,8 +539,7 @@ int PREFIX(scanRef)(const ENCODING *enc, const char *ptr, const char *end,
 
 /* ptr points to character following first character of attribute name */
 
-static
-int PREFIX(scanAtts)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(scanAtts)(const ENCODING *enc, const char *ptr, const char *end,
              const char **nextTokPtr)
 {
 #ifdef XML_NS
@@ -678,8 +698,7 @@ int PREFIX(scanAtts)(const ENCODING *enc, const char *ptr, const char *end,
 
 /* ptr points to character following "<" */
 
-static
-int PREFIX(scanLt)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(scanLt)(const ENCODING *enc, const char *ptr, const char *end,
            const char **nextTokPtr)
 {
 #ifdef XML_NS
@@ -777,8 +796,7 @@ int PREFIX(scanLt)(const ENCODING *enc, const char *ptr, const char *end,
   return XML_TOK_PARTIAL;
 }
 
-static
-int PREFIX(contentTok)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(contentTok)(const ENCODING *enc, const char *ptr, const char *end,
                const char **nextTokPtr)
 {
   if (ptr == end)
@@ -876,8 +894,7 @@ int PREFIX(contentTok)(const ENCODING *enc, const char *ptr, const char *end,
 
 /* ptr points to character following "%" */
 
-static
-int PREFIX(scanPercent)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(scanPercent)(const ENCODING *enc, const char *ptr, const char *end,
             const char **nextTokPtr)
 {
   if (ptr == end)
@@ -905,8 +922,7 @@ int PREFIX(scanPercent)(const ENCODING *enc, const char *ptr, const char *end,
   return XML_TOK_PARTIAL;
 }
 
-static
-int PREFIX(scanPoundName)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(scanPoundName)(const ENCODING *enc, const char *ptr, const char *end,
               const char **nextTokPtr)
 {
   if (ptr == end)
@@ -932,8 +948,7 @@ int PREFIX(scanPoundName)(const ENCODING *enc, const char *ptr, const char *end,
   return -XML_TOK_POUND_NAME;
 }
 
-static
-int PREFIX(scanLit)(int open, const ENCODING *enc,
+static int EXPATENTRY PREFIX(scanLit)(int open, const ENCODING *enc,
             const char *ptr, const char *end,
             const char **nextTokPtr)
 {
@@ -964,8 +979,7 @@ int PREFIX(scanLit)(int open, const ENCODING *enc,
   return XML_TOK_PARTIAL;
 }
 
-static
-int PREFIX(prologTok)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(prologTok)(const ENCODING *enc, const char *ptr, const char *end,
               const char **nextTokPtr)
 {
   int tok;
@@ -1192,8 +1206,7 @@ int PREFIX(prologTok)(const ENCODING *enc, const char *ptr, const char *end,
   return -tok;
 }
 
-static
-int PREFIX(attributeValueTok)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(attributeValueTok)(const ENCODING *enc, const char *ptr, const char *end,
                   const char **nextTokPtr)
 {
   const char *start;
@@ -1250,8 +1263,7 @@ int PREFIX(attributeValueTok)(const ENCODING *enc, const char *ptr, const char *
   return XML_TOK_DATA_CHARS;
 }
 
-static
-int PREFIX(entityValueTok)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(entityValueTok)(const ENCODING *enc, const char *ptr, const char *end,
                const char **nextTokPtr)
 {
   const char *start;
@@ -1307,8 +1319,7 @@ int PREFIX(entityValueTok)(const ENCODING *enc, const char *ptr, const char *end
 
 #ifdef XML_DTD
 
-static
-int PREFIX(ignoreSectionTok)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(ignoreSectionTok)(const ENCODING *enc, const char *ptr, const char *end,
                  const char **nextTokPtr)
 {
   int level = 0;
@@ -1360,8 +1371,7 @@ int PREFIX(ignoreSectionTok)(const ENCODING *enc, const char *ptr, const char *e
 
 #endif /* XML_DTD */
 
-static
-int PREFIX(isPublicId)(const ENCODING *enc, const char *ptr, const char *end,
+static int EXPATENTRY PREFIX(isPublicId)(const ENCODING *enc, const char *ptr, const char *end,
                const char **badPtr)
 {
   ptr += MINBPC(enc);
@@ -1419,8 +1429,7 @@ int PREFIX(isPublicId)(const ENCODING *enc, const char *ptr, const char *end,
 Returns the number of attributes.  Pointers to the first attsMax attributes
 are stored in atts. */
 
-static
-int PREFIX(getAtts)(const ENCODING *enc, const char *ptr,
+static int EXPATENTRY PREFIX(getAtts)(const ENCODING *enc, const char *ptr,
             int attsMax, ATTRIBUTE *atts)
 {
   enum { other, inName, inValue } state = inName;
@@ -1512,8 +1521,7 @@ int PREFIX(getAtts)(const ENCODING *enc, const char *ptr,
   /* not reached */
 }
 
-static
-int PREFIX(charRefNumber)(const ENCODING *enc, const char *ptr)
+static int EXPATENTRY PREFIX(charRefNumber)(const ENCODING *enc, const char *ptr)
 {
   int result = 0;
   /* skip &# */
@@ -1552,8 +1560,7 @@ int PREFIX(charRefNumber)(const ENCODING *enc, const char *ptr)
   return checkCharRefNumber(result);
 }
 
-static
-int PREFIX(predefinedEntityName)(const ENCODING *enc, const char *ptr, const char *end)
+static int EXPATENTRY PREFIX(predefinedEntityName)(const ENCODING *enc, const char *ptr, const char *end)
 {
   switch ((end - ptr)/MINBPC(enc)) {
   case 2:
@@ -1605,8 +1612,7 @@ int PREFIX(predefinedEntityName)(const ENCODING *enc, const char *ptr, const cha
   return 0;
 }
 
-static
-int PREFIX(sameName)(const ENCODING *enc, const char *ptr1, const char *ptr2)
+static int EXPATENTRY PREFIX(sameName)(const ENCODING *enc, const char *ptr1, const char *ptr2)
 {
   for (;;) {
     switch (BYTE_TYPE(enc, ptr1)) {
@@ -1669,8 +1675,7 @@ int PREFIX(sameName)(const ENCODING *enc, const char *ptr1, const char *ptr2)
   /* not reached */
 }
 
-static
-int PREFIX(nameMatchesAscii)(const ENCODING *enc, const char *ptr1,
+static int EXPATENTRY PREFIX(nameMatchesAscii)(const ENCODING *enc, const char *ptr1,
                  const char *end1, const char *ptr2)
 {
   for (; *ptr2; ptr1 += MINBPC(enc), ptr2++) {
@@ -1682,8 +1687,7 @@ int PREFIX(nameMatchesAscii)(const ENCODING *enc, const char *ptr1,
   return ptr1 == end1;
 }
 
-static
-int PREFIX(nameLength)(const ENCODING *enc, const char *ptr)
+static int EXPATENTRY PREFIX(nameLength)(const ENCODING *enc, const char *ptr)
 {
   const char *start = ptr;
   for (;;) {
@@ -1709,8 +1713,7 @@ int PREFIX(nameLength)(const ENCODING *enc, const char *ptr)
   }
 }
 
-static
-const char *PREFIX(skipS)(const ENCODING *enc, const char *ptr)
+static const char* EXPATENTRY PREFIX(skipS)(const ENCODING *enc, const char *ptr)
 {
   for (;;) {
     switch (BYTE_TYPE(enc, ptr)) {
@@ -1725,8 +1728,7 @@ const char *PREFIX(skipS)(const ENCODING *enc, const char *ptr)
   }
 }
 
-static
-void PREFIX(updatePosition)(const ENCODING *enc,
+static void EXPATENTRY PREFIX(updatePosition)(const ENCODING *enc,
                 const char *ptr,
                 const char *end,
                 POSITION *pos)

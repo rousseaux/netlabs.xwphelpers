@@ -99,7 +99,8 @@ typedef struct _DLGPRIVATE
     // definition data (private)
     LINKLIST    llTables;
 
-    HWND        hwndFirstFocus;
+    HWND        hwndFirstFocus,
+                hwndDefPushbutton;      // V0.9.14 (2001-08-21) [umoeller]
 
     POINTL      ptlTotalOfs;
 
@@ -718,6 +719,15 @@ APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
                          && (!pDlgData->hwndFirstFocus)
                        )
                         pDlgData->hwndFirstFocus = pColumnDef->hwndControl;
+
+                    // if this is the first default push button,
+                    // go store it too
+                    // V0.9.14 (2001-08-21) [umoeller]
+                    if (    (!pDlgData->hwndDefPushbutton)
+                         && ((ULONG)pControlDef->pcszClass == 0xffff0003L)
+                         && (pControlDef->flStyle & BS_DEFAULT)
+                       )
+                        pDlgData->hwndDefPushbutton = pColumnDef->hwndControl;
                 }
                 else
                     // V0.9.14 (2001-08-03) [umoeller]
@@ -1047,8 +1057,16 @@ typedef struct _STACKITEM
  *
  *      This does NOT use regular dialog templates from
  *      module resources. Instead, you pass in an array
- *      of _DLGHITEM structures, which define the controls
+ *      of DLGHITEM structures, which define the controls
  *      and how they are to be formatted.
+ *
+ *      The main advantage compared to dialog resources is
+ *      that with this  function, you will never have to
+ *      define control _positions_. Instead, you only specify
+ *      the control _sizes_, and all positions are computed
+ *      automatically here. Even better, for many controls,
+ *      auto-sizing is supported according to the control's
+ *      text (e.g. for statics and checkboxes).
  *
  *      A regular standard dialog would use something like
  *
@@ -1067,18 +1085,17 @@ typedef struct _STACKITEM
  *      WinProcessDlg with the newly created dialog as usual. In
  *      your dlg proc, use WinDefDlgProc as usual.
  *
- *      There is NO run-time overhead after creation; after this
- *      function returns, the dialog is a standard dialog as if
- *      loaded from WinLoadDlg.
- *
- *      The array of _DLGHITEM structures defines how the
+ *      There is NO run-time overhead for either code or memory
+ *      after dialog creation; after this function returns, the
+ *      dialog is a standard dialog as if loaded from WinLoadDlg.
+ *      The array of DLGHITEM structures defines how the
  *      dialog is set up. All this is ONLY used by this function
  *      and NOT needed after the dialog has been created.
  *
- *      In _DLGHITEM, the "Type" field determines what this
+ *      In DLGHITEM, the "Type" field determines what this
  *      structure defines. A number of handy macros have been
  *      defined to make this easier and to provide type-checking
- *      at compile time.
+ *      at compile time. See dialog.h for more.
  *
  *      Essentially, such a dialog item operates similarly to
  *      HTML tables. There are rows and columns in the table,
@@ -1110,11 +1127,10 @@ typedef struct _STACKITEM
  *          ROW_VALIGN_TOP and affects all items in the control.
  *
  *      --  CONTROL_DEF(pDef) defines a control in a table row.
- *          pDef must point to a _CONTROLDEF structure.
+ *          pDef must point to a CONTROLDEF structure.
  *
- *          The main difference (and advantage) of this
- *          function is that there is NO information in
- *          _CONTROLDEF about a control's _position_.
+ *          Again, there is is NO information in
+ *          CONTROLDEF about a control's _position_.
  *          Instead, the structure only contains the _size_
  *          of the control. All positions are computed by
  *          this function, depending on the sizes of the
@@ -1250,7 +1266,8 @@ typedef struct _STACKITEM
  +                                        "My Dlg Title",
  +                                        DlgTemplate,      // DLGHITEM array
  +                                        ARRAYITEMCOUNT(DlgTemplate),
- +                                        NULL))
+ +                                        NULL,             // mp2 for WM_INITDLG
+ +                                        "9.WarpSans"))    // default font
  +          {
  +              ULONG idReturn = WinProcessDlg(hwndDlg);
  +              WinDestroyWindow(hwndDlg);
@@ -1258,6 +1275,7 @@ typedef struct _STACKITEM
  *
  *@@changed V0.9.14 (2001-07-07) [umoeller]: fixed disabled mouse with hwndOwner == HWND_DESKTOP
  *@@changed V0.9.14 (2001-08-01) [umoeller]: fixed major memory leaks with nested tables
+ *@@changed V0.9.14 (2001-08-21) [umoeller]: fixed default push button problems
  */
 
 APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
@@ -1316,8 +1334,13 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                 BOOL fIsRoot = (pCurrentTable == NULL);
 
                 // push the current table on the stack
-                PSTACKITEM pStackItem = NEW(STACKITEM);
-                if (pStackItem)
+                PSTACKITEM pStackItem;
+                if (!(pStackItem = NEW(STACKITEM)))
+                {
+                    arc = ERROR_NOT_ENOUGH_MEMORY;
+                    break;
+                }
+                else
                 {
                     pStackItem->pLastTable = pCurrentTable;
                     pStackItem->pLastRow = pCurrentRow;
@@ -1325,8 +1348,7 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                 }
 
                 // create new table
-                pCurrentTable = NEW(TABLEDEF);
-                if (!pCurrentTable)
+                if (!(pCurrentTable = NEW(TABLEDEF)))
                     arc = ERROR_NOT_ENOUGH_MEMORY;
                 else
                 {
@@ -1371,8 +1393,7 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                 else
                 {
                     // create new row
-                    pCurrentRow = NEW(ROWDEF);
-                    if (!pCurrentRow)
+                    if (!(pCurrentRow = NEW(ROWDEF)))
                         arc = ERROR_NOT_ENOUGH_MEMORY;
                     else
                     {
@@ -1464,18 +1485,16 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
             // V0.9.14 (2001-07-07) [umoeller]
             hwndOwner = NULLHANDLE;
 
-        pDlgData->hwndDlg = WinCreateWindow(HWND_DESKTOP,
-                                            WC_FRAME,
-                                            (PSZ)pcszDlgTitle,
-                                            flStyle,        // style; invisible for now
-                                            0, 0, 0, 0,
-                                            hwndOwner,
-                                            HWND_TOP,
-                                            0,              // ID
-                                            &fcData,
-                                            NULL);          // presparams
-
-        if (!pDlgData->hwndDlg)
+        if (!(pDlgData->hwndDlg = WinCreateWindow(HWND_DESKTOP,
+                                                  WC_FRAME,
+                                                  (PSZ)pcszDlgTitle,
+                                                  flStyle,        // style; invisible for now
+                                                  0, 0, 0, 0,
+                                                  hwndOwner,
+                                                  HWND_TOP,
+                                                  0,              // ID
+                                                  &fcData,
+                                                  NULL)))          // presparams
             arc = DLGERR_CANNOT_CREATE_FRAME;
         else
         {
@@ -1492,7 +1511,10 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
             ProcessAll(pDlgData,
                        &szlClient,
                        PROCESS_CALC_SIZES);
+                // this goes into major recursions...
 
+            // free the cached font resources that
+            // might have been created here
             if (pDlgData->lcidLast)
             {
                 GpiSetCharSet(pDlgData->hps, LCID_DEFAULT);
@@ -1501,12 +1523,12 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
             if (pDlgData->hps)
                 WinReleasePS(pDlgData->hps);
 
+            WinSubclassWindow(hwndDlg, pfnwpDialogProc);
+
             /*
              *  4) compute size of dialog client from total
              *     size of all controls
              */
-
-            WinSubclassWindow(hwndDlg, pfnwpDialogProc);
 
             // calculate the frame size from the client size
             rclClient.xLeft = 10;
@@ -1545,6 +1567,13 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
             ProcessAll(pDlgData,
                        &szlClient,
                        PROCESS_CREATE_CONTROLS);
+
+            if (pDlgData->hwndDefPushbutton)
+                // we had a default pushbutton:
+                // go set it V0.9.14 (2001-08-21) [umoeller]
+                WinSetWindowULong(pDlgData->hwndDlg,
+                                  QWL_DEFBUTTON,
+                                  pDlgData->hwndDefPushbutton);
 
             /*
              *  7) WM_INITDLG, set focus

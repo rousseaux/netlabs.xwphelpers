@@ -12,14 +12,23 @@ See the file COPYING for copying permission.
                         // V0.9.9 (2001-02-10) [umoeller]
                         // to save the app from having to include this as well
 
-#ifndef XMLPARSEAPI
+/* #ifndef XMLPARSEAPI
     #ifdef EXPATENTRY
-        #define XMLPARSEAPI(type) type EXPATENTRY
+        // #define XMLPARSEAPI(type) type EXPATENTRY
+        #define XMLPARSEAPI(type)
             // V0.9.14 (2001-08-09) [umoeller]
     #else
         #define XMLPARSEAPI(type) type
     #endif
-#endif
+#endif */
+
+#ifndef XMLPARSEAPI
+#  ifdef __declspec
+#    define XMLPARSEAPI __declspec(dllimport)
+#  else
+#    define XMLPARSEAPI /* nothing */
+#  endif
+#endif  /* not defined XMLPARSEAPI */
 
 #ifdef __cplusplus
 extern "C" {
@@ -118,13 +127,12 @@ typedef struct _XMLCONTENT
    to free model when finished with it.
 */
 
-typedef void (*XML_ElementDeclHandler) (void *userData,
+typedef void (* EXPATENTRY XML_ElementDeclHandler) (void *userData,
                                         const XML_Char *name,
                                         XMLCONTENT *model);
 
-XMLPARSEAPI(void)
-XML_SetElementDeclHandler(XML_Parser parser,
-              XML_ElementDeclHandler eldecl);
+void EXPATENTRY XML_SetElementDeclHandler(XML_Parser parser,
+                                            XML_ElementDeclHandler eldecl);
 
 /*
   The Attlist declaration handler is called for *each* attribute. So
@@ -136,14 +144,14 @@ XML_SetElementDeclHandler(XML_Parser parser,
   default is non-NULL, then this is a "#FIXED" default.
  */
 
-typedef void (*XML_AttlistDeclHandler) (void           *userData,
+typedef void (* EXPATENTRY XML_AttlistDeclHandler) (void           *userData,
                                         const XML_Char *elname,
                                         const XML_Char *attname,
                                         const XML_Char *att_type,
                                         const XML_Char *dflt,
                                         int     isrequired);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetAttlistDeclHandler(XML_Parser parser,
               XML_AttlistDeclHandler attdecl);
 
@@ -156,12 +164,12 @@ XML_SetAttlistDeclHandler(XML_Parser parser,
      the declaration, that it was given as no, or that it was given as yes.
   */
 
-typedef void (*XML_XmlDeclHandler) (void        *userData,
+typedef void (* EXPATENTRY XML_XmlDeclHandler) (void        *userData,
                                     const XML_Char  *version,
                                     const XML_Char  *encoding,
                                     int          standalone);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetXmlDeclHandler(XML_Parser parser,
               XML_XmlDeclHandler xmldecl);
 
@@ -175,7 +183,7 @@ typedef struct {
 /* Constructs a new parser; encoding is the encoding specified by the
 external protocol or null if there is none specified. */
 
-XMLPARSEAPI(XML_Parser)
+XML_Parser EXPATENTRY
 XML_ParserCreate(const XML_Char *encoding);
 
 /* Constructs a new parser and namespace processor.  Element type
@@ -188,7 +196,7 @@ separator is '\0' then the namespace URI and the local part will be
 concatenated without any separator.  When a namespace is not declared,
 the name and prefix will be passed through without expansion. */
 
-XMLPARSEAPI(XML_Parser)
+XML_Parser EXPATENTRY
 XML_ParserCreateNS(const XML_Char *encoding, XML_Char namespaceSeparator);
 
 
@@ -202,7 +210,7 @@ XML_ParserCreateNS(const XML_Char *encoding, XML_Char namespaceSeparator);
    the given suite.
 */
 
-XMLPARSEAPI(XML_Parser)
+XML_Parser EXPATENTRY
 XML_ParserCreate_MM(const XML_Char *encoding,
             const XML_Memory_Handling_Suite *memsuite,
             const XML_Char *namespaceSeparator);
@@ -210,29 +218,29 @@ XML_ParserCreate_MM(const XML_Char *encoding,
 /* atts is array of name/value pairs, terminated by 0;
    names and values are 0 terminated. */
 
-typedef void (*XML_StartElementHandler)(void *userData,
+typedef void (* EXPATENTRY XML_StartElementHandler)(void *userData,
                                         const XML_Char *name,
                                         const XML_Char **atts);
 
-typedef void (*XML_EndElementHandler)(void *userData,
+typedef void (* EXPATENTRY XML_EndElementHandler)(void *userData,
                                       const XML_Char *name);
 
 
 /* s is not 0 terminated. */
-typedef void (*XML_CharacterDataHandler)(void *userData,
+typedef void (* EXPATENTRY XML_CharacterDataHandler)(void *userData,
                                          const XML_Char *s,
                                          int len);
 
 /* target and data are 0 terminated */
-typedef void (*XML_ProcessingInstructionHandler)(void *userData,
+typedef void (* EXPATENTRY XML_ProcessingInstructionHandler)(void *userData,
                                                  const XML_Char *target,
                                                  const XML_Char *data);
 
 /* data is 0 terminated */
-typedef void (*XML_CommentHandler)(void *userData, const XML_Char *data);
+typedef void (* EXPATENTRY XML_CommentHandler)(void *userData, const XML_Char *data);
 
-typedef void (*XML_StartCdataSectionHandler)(void *userData);
-typedef void (*XML_EndCdataSectionHandler)(void *userData);
+typedef void (* EXPATENTRY XML_StartCdataSectionHandler)(void *userData);
+typedef void (* EXPATENTRY XML_EndCdataSectionHandler)(void *userData);
 
 /* This is called for any characters in the XML document for
 which there is no applicable handler.  This includes both
@@ -247,14 +255,14 @@ There are no guarantees about how characters are divided between calls
 to the default handler: for example, a comment might be split between
 multiple calls. */
 
-typedef void (*XML_DefaultHandler)(void *userData,
+typedef void (* EXPATENTRY XML_DefaultHandler)(void *userData,
                                    const XML_Char *s,
                                    int len);
 
 /* This is called for the start of the DOCTYPE declaration, before
    any DTD or internal subset is parsed. */
 
-typedef void (*XML_StartDoctypeDeclHandler)(void *userData,
+typedef void (* EXPATENTRY XML_StartDoctypeDeclHandler)(void *userData,
                                             const XML_Char *doctypeName,
                                             const XML_Char *sysid,
                                             const XML_Char *pubid,
@@ -262,7 +270,7 @@ typedef void (*XML_StartDoctypeDeclHandler)(void *userData,
 
 /* This is called for the start of the DOCTYPE declaration when the
 closing > is encountered, but after processing any external subset. */
-typedef void (*XML_EndDoctypeDeclHandler)(void *userData);
+typedef void (* EXPATENTRY XML_EndDoctypeDeclHandler)(void *userData);
 
 /* This is called for entity declarations. The is_parameter_entity
    argument will be non-zero if the entity is a parameter entity, zero
@@ -280,7 +288,7 @@ typedef void (*XML_EndDoctypeDeclHandler)(void *userData);
    for unparsed entity declarations.
 */
 
-typedef void (*XML_EntityDeclHandler) (void *userData,
+typedef void (* EXPATENTRY XML_EntityDeclHandler) (void *userData,
                                        const XML_Char *entityName,
                                        int is_parameter_entity,
                                        const XML_Char *value,
@@ -290,7 +298,7 @@ typedef void (*XML_EntityDeclHandler) (void *userData,
                                        const XML_Char *publicId,
                                        const XML_Char *notationName);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetEntityDeclHandler(XML_Parser parser,
              XML_EntityDeclHandler handler);
 
@@ -302,7 +310,7 @@ entity.  The base argument is whatever was set by XML_SetBase.
 The entityName, systemId and notationName arguments will never be null.
 The other arguments may be. */
 
-typedef void (*XML_UnparsedEntityDeclHandler)(void *userData,
+typedef void (* EXPATENTRY XML_UnparsedEntityDeclHandler)(void *userData,
                                               const XML_Char *entityName,
                                               const XML_Char *base,
                                               const XML_Char *systemId,
@@ -313,7 +321,7 @@ typedef void (*XML_UnparsedEntityDeclHandler)(void *userData,
 The base argument is whatever was set by XML_SetBase.
 The notationName will never be null.  The other arguments can be. */
 
-typedef void (*XML_NotationDeclHandler)(void *userData,
+typedef void (* EXPATENTRY XML_NotationDeclHandler)(void *userData,
                                         const XML_Char *notationName,
                                         const XML_Char *base,
                                         const XML_Char *systemId,
@@ -325,11 +333,11 @@ handlers occur between the calls to the start and end namespace
 declaration handlers. For an xmlns attribute, prefix will be null.
 For an xmlns="" attribute, uri will be null. */
 
-typedef void (*XML_StartNamespaceDeclHandler)(void *userData,
+typedef void (* EXPATENTRY XML_StartNamespaceDeclHandler)(void *userData,
                                               const XML_Char *prefix,
                                               const XML_Char *uri);
 
-typedef void (*XML_EndNamespaceDeclHandler)(void *userData,
+typedef void (* EXPATENTRY XML_EndNamespaceDeclHandler)(void *userData,
                                             const XML_Char *prefix);
 
 /* This is called if the document is not standalone (it has an
@@ -338,7 +346,7 @@ have standalone="yes"). If this handler returns 0, then processing
 will not continue, and the parser will return a
 ERROR_EXPAT_NOT_STANDALONE error. */
 
-typedef int (*XML_NotStandaloneHandler)(void *userData);
+typedef int (* EXPATENTRY XML_NotStandaloneHandler)(void *userData);
 
 /* This is called for a reference to an external parsed general entity.
 The referenced entity is not automatically parsed.
@@ -365,7 +373,7 @@ ERROR_EXPAT_EXTERNAL_ENTITY_HANDLING error.
 Note that unlike other handlers the first argument is the parser, not
 userData. */
 
-typedef int (*XML_ExternalEntityRefHandler)(void *userData,     // added V0.9.14 (2001-08-09) [umoeller]
+typedef int (* EXPATENTRY XML_ExternalEntityRefHandler)(void *userData,     // added V0.9.14 (2001-08-09) [umoeller]
                                             XML_Parser parser,
                                             const XML_Char *context,
                                             const XML_Char *base,
@@ -417,8 +425,8 @@ of bytes. */
 typedef struct {
   int map[256];
   void *data;
-  int (*convert)(void *data, const char *s);
-  void (*release)(void *data);
+  int (* EXPATENTRY convert)(void *data, const char *s);
+  void (* EXPATENTRY release)(void *data);
 } XML_Encoding;
 
 /* This is called for an encoding that is unknown to the parser.
@@ -432,42 +440,42 @@ Otherwise it must return 0.
 If info does not describe a suitable encoding,
 then the parser will return an XML_UNKNOWN_ENCODING error. */
 
-typedef int (*XML_UnknownEncodingHandler)(void *encodingHandlerData,
+typedef int (* EXPATENTRY XML_UnknownEncodingHandler)(void *encodingHandlerData,
                                           const XML_Char *name,
                                           XML_Encoding *info);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetElementHandler(XML_Parser parser,
               XML_StartElementHandler start,
               XML_EndElementHandler end);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetStartElementHandler(XML_Parser, XML_StartElementHandler);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetEndElementHandler(XML_Parser, XML_EndElementHandler);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetCharacterDataHandler(XML_Parser parser,
                 XML_CharacterDataHandler handler);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetProcessingInstructionHandler(XML_Parser parser,
                     XML_ProcessingInstructionHandler handler);
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetCommentHandler(XML_Parser parser,
                       XML_CommentHandler handler);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetCdataSectionHandler(XML_Parser parser,
                XML_StartCdataSectionHandler start,
                XML_EndCdataSectionHandler end);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetStartCdataSectionHandler(XML_Parser parser,
                                 XML_StartCdataSectionHandler start);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetEndCdataSectionHandler(XML_Parser parser,
                               XML_EndCdataSectionHandler end);
 
@@ -475,7 +483,7 @@ XML_SetEndCdataSectionHandler(XML_Parser parser,
 internal entities.  The entity reference will be passed to the default
 handler. */
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetDefaultHandler(XML_Parser parser,
               XML_DefaultHandler handler);
 
@@ -483,59 +491,59 @@ XML_SetDefaultHandler(XML_Parser parser,
 internal entities.  The entity reference will not be passed to the
 default handler. */
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetDefaultHandlerExpand(XML_Parser parser,
                     XML_DefaultHandler handler);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetDoctypeDeclHandler(XML_Parser parser,
               XML_StartDoctypeDeclHandler start,
               XML_EndDoctypeDeclHandler end);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetStartDoctypeDeclHandler(XML_Parser parser,
                    XML_StartDoctypeDeclHandler start);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetEndDoctypeDeclHandler(XML_Parser parser,
                  XML_EndDoctypeDeclHandler end);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetUnparsedEntityDeclHandler(XML_Parser parser,
                  XML_UnparsedEntityDeclHandler handler);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetNotationDeclHandler(XML_Parser parser,
                XML_NotationDeclHandler handler);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetNamespaceDeclHandler(XML_Parser parser,
                 XML_StartNamespaceDeclHandler start,
                 XML_EndNamespaceDeclHandler end);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetStartNamespaceDeclHandler(XML_Parser parser,
                  XML_StartNamespaceDeclHandler start);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetEndNamespaceDeclHandler(XML_Parser parser,
                    XML_EndNamespaceDeclHandler end);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetNotStandaloneHandler(XML_Parser parser,
                 XML_NotStandaloneHandler handler);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetExternalEntityRefHandler(XML_Parser parser,
                 XML_ExternalEntityRefHandler handler);
 
 /* If a non-null value for arg is specified here, then it will be passed
 as the first argument to the external entity ref handler instead
 of the parser object. */
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetExternalEntityRefHandlerArg(XML_Parser, void *arg);
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetUnknownEncodingHandler(XML_Parser parser,
                   XML_UnknownEncodingHandler handler,
                   void *encodingHandlerData);
@@ -543,7 +551,7 @@ XML_SetUnknownEncodingHandler(XML_Parser parser,
 /* This can be called within a handler for a start element, end element,
 processing instruction or character data.  It causes the corresponding
 markup to be passed to the default handler. */
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_DefaultCurrent(XML_Parser parser);
 
 /* If do_nst is non-zero, and namespace processing is in effect, and
@@ -557,11 +565,11 @@ XML_DefaultCurrent(XML_Parser parser);
    has a prefix.
 */
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetReturnNSTriplet(XML_Parser parser, int do_nst);
 
 /* This value is passed as the userData argument to callbacks. */
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_SetUserData(XML_Parser parser, void *userData);
 
 /* Returns the last value set by XML_SetUserData or null. */
@@ -571,14 +579,14 @@ XML_SetUserData(XML_Parser parser, void *userData);
 to XML_ParserCreate. It must not be called after XML_Parse
 or XML_ParseBuffer. */
 
-XMLPARSEAPI(int)
+int EXPATENTRY
 XML_SetEncoding(XML_Parser parser, const XML_Char *encoding);
 
 /* If this function is called, then the parser will be passed
 as the first argument to callbacks instead of userData.
 The userData will still be accessible using XML_GetUserData. */
 
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_UseParserAsHandlerArg(XML_Parser parser);
 
 /* Sets the base to be used for resolving relative URIs in system
@@ -588,10 +596,10 @@ argument to the XML_ExternalEntityRefHandler, XML_NotationDeclHandler
 and XML_UnparsedEntityDeclHandler. The base argument will be copied.
 Returns zero if out of memory, non-zero otherwise. */
 
-XMLPARSEAPI(int)
+int EXPATENTRY
 XML_SetBase(XML_Parser parser, const XML_Char *base);
 
-XMLPARSEAPI(const XML_Char *)
+const XML_Char * EXPATENTRY
 XML_GetBase(XML_Parser parser);
 
 /* Returns the number of the attribute/value pairs passed in last call
@@ -600,7 +608,7 @@ rather than defaulted. Each attribute/value pair counts as 2; thus
 this correspondds to an index into the atts array passed to the
 XML_StartElementHandler. */
 
-XMLPARSEAPI(int)
+int EXPATENTRY
 XML_GetSpecifiedAttributeCount(XML_Parser parser);
 
 /* Returns the index of the ID attribute passed in the last call to
@@ -608,19 +616,19 @@ XML_StartElementHandler, or -1 if there is no ID attribute.  Each
 attribute/value pair counts as 2; thus this correspondds to an index
 into the atts array passed to the XML_StartElementHandler. */
 
-XMLPARSEAPI(int)
+int EXPATENTRY
 XML_GetIdAttributeIndex(XML_Parser parser);
 
 /* Parses some input. Returns 0 if a fatal error is detected.
 The last call to XML_Parse must have isFinal true;
 len may be zero for this call (or any other). */
-XMLPARSEAPI(int)
+int EXPATENTRY
 XML_Parse(XML_Parser parser, const char *s, int len, int isFinal);
 
-XMLPARSEAPI(void *)
+void * EXPATENTRY
 XML_GetBuffer(XML_Parser parser, int len);
 
-XMLPARSEAPI(int)
+int EXPATENTRY
 XML_ParseBuffer(XML_Parser parser, int len, int isFinal);
 
 /* Creates an XML_Parser object that can parse an external general
@@ -638,7 +646,7 @@ freed.  The new parser is completely independent and may safely be
 used in a separate thread.  The handlers and userData are initialized
 from the parser argument.  Returns 0 if out of memory.  Otherwise
 returns a new XML_Parser object. */
-XMLPARSEAPI(XML_Parser)
+XML_Parser EXPATENTRY
 XML_ExternalEntityParserCreate(XML_Parser parser,
                    const XML_Char *context,
                    const XML_Char *encoding);
@@ -668,7 +676,7 @@ parsing (ie without XML_DTD being defined), then
 XML_SetParamEntityParsing will return 0 if parsing of parameter
 entities is requested; otherwise it will return non-zero. */
 
-XMLPARSEAPI(int)
+int EXPATENTRY
 XML_SetParamEntityParsing(XML_Parser parser,
               enum XML_ParamEntityParsing parsing);
 
@@ -731,7 +739,7 @@ typedef unsigned long XMLERROR;     // V0.9.12 (2001-05-20) [umoeller]
 /* If XML_Parse or XML_ParseBuffer have returned 0, then XML_GetErrorCode
 returns information about the error. */
 
-XMLPARSEAPI(XMLERROR)
+XMLERROR EXPATENTRY
 XML_GetErrorCode(XML_Parser parser);
 
 /* These functions return information about the current parse location.
@@ -742,14 +750,14 @@ They may also be called from any other callback called to report
 some parse event; in this the location is the location of the first
 of the sequence of characters that generated the event. */
 
-XMLPARSEAPI(int) XML_GetCurrentLineNumber(XML_Parser parser);
-XMLPARSEAPI(int) XML_GetCurrentColumnNumber(XML_Parser parser);
-XMLPARSEAPI(long) XML_GetCurrentByteIndex(XML_Parser parser);
+int EXPATENTRY XML_GetCurrentLineNumber(XML_Parser parser);
+int EXPATENTRY XML_GetCurrentColumnNumber(XML_Parser parser);
+long EXPATENTRY XML_GetCurrentByteIndex(XML_Parser parser);
 
 /* Return the number of bytes in the current event.
 Returns 0 if the event is in an internal entity. */
 
-XMLPARSEAPI(int)
+int EXPATENTRY
 XML_GetCurrentByteCount(XML_Parser parser);
 
 /* If XML_CONTEXT_BYTES is defined, returns the input buffer, sets
@@ -762,7 +770,7 @@ XML_GetCurrentByteCount(XML_Parser parser);
    NOTE: The character pointer returned should not be used outside
    the handler that makes the call. */
 
-XMLPARSEAPI(const char *)
+const char * EXPATENTRY
 XML_GetInputContext(XML_Parser parser,
             int *offset,
             int *size);
@@ -773,15 +781,15 @@ XML_GetInputContext(XML_Parser parser,
 #define XML_GetErrorByteIndex XML_GetCurrentByteIndex
 
 /* Frees memory used by the parser. */
-XMLPARSEAPI(void)
+void EXPATENTRY
 XML_ParserFree(XML_Parser parser);
 
 /* Returns a string describing the error. */
-XMLPARSEAPI(const XML_LChar *)
+const XML_LChar * EXPATENTRY
 XML_ErrorString(int code);
 
 /* Return a string containing the version number of this expat */
-XMLPARSEAPI(const XML_LChar *)
+const XML_LChar * EXPATENTRY
 XML_ExpatVersion(void);
 
 typedef struct {
@@ -793,7 +801,7 @@ typedef struct {
 /* Return an XML_Expat_Version structure containing numeric version
    number information for this version of expat */
 
-XMLPARSEAPI(XML_Expat_Version)
+XML_Expat_Version EXPATENTRY
 XML_ExpatVersionInfo(void);
 
 #define XML_MAJOR_VERSION @EXPAT_MAJOR_VERSION@

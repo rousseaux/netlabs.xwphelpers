@@ -6,6 +6,10 @@ See the file COPYING for copying permission.
 #ifndef XmlTok_INCLUDED
 #define XmlTok_INCLUDED 1
 
+#include "expat\expat_setup.h"
+                        // V0.9.9 (2001-02-10) [umoeller]
+                        // to save the app from having to include this as well
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -16,7 +20,7 @@ extern "C" {
 /* The following tokens may be returned by both XmlPrologTok and XmlContentTok */
 #define XML_TOK_NONE -4    /* The string to be scanned is empty */
 #define XML_TOK_TRAILING_CR -3 /* A CR at the end of the scan;
-                                  might be part of CRLF sequence */ 
+                                  might be part of CRLF sequence */
 #define XML_TOK_PARTIAL_CHAR -2 /* only part of a multibyte sequence */
 #define XML_TOK_PARTIAL -1 /* only part of a token */
 #define XML_TOK_INVALID 0
@@ -121,41 +125,45 @@ typedef struct {
 struct encoding;
 typedef struct encoding ENCODING;
 
+typedef int EXPATENTRY SCANNERFUNC(const ENCODING *,
+                                   const char *,
+                                   const char *,
+                                   const char **);
+typedef SCANNERFUNC *PSCANNERFUNC;
+
 struct encoding {
-  int (*scanners[XML_N_STATES])(const ENCODING *,
-			        const char *,
-			        const char *,
-			        const char **);
-  int (*literalScanners[XML_N_LITERAL_TYPES])(const ENCODING *,
-					      const char *,
-					      const char *,
-					      const char **);
-  int (*sameName)(const ENCODING *,
-	          const char *, const char *);
-  int (*nameMatchesAscii)(const ENCODING *,
-			  const char *, const char *, const char *);
-  int (*nameLength)(const ENCODING *, const char *);
-  const char *(*skipS)(const ENCODING *, const char *);
-  int (*getAtts)(const ENCODING *enc, const char *ptr,
-	         int attsMax, ATTRIBUTE *atts);
-  int (*charRefNumber)(const ENCODING *enc, const char *ptr);
-  int (*predefinedEntityName)(const ENCODING *, const char *, const char *);
-  void (*updatePosition)(const ENCODING *,
-			 const char *ptr,
-			 const char *end,
-			 POSITION *);
-  int (*isPublicId)(const ENCODING *enc, const char *ptr, const char *end,
-		    const char **badPtr);
-  void (*utf8Convert)(const ENCODING *enc,
-		      const char **fromP,
-		      const char *fromLim,
-		      char **toP,
-		      const char *toLim);
-  void (*utf16Convert)(const ENCODING *enc,
-		       const char **fromP,
-		       const char *fromLim,
-		       unsigned short **toP,
-		       const unsigned short *toLim);
+  PSCANNERFUNC scanners[XML_N_STATES];
+  PSCANNERFUNC      literalScanners[XML_N_LITERAL_TYPES];
+  /* int (* EXPATENTRY literalScanners[XML_N_LITERAL_TYPES])(const ENCODING *,
+                          const char *,
+                          const char *,
+                          const char **); */
+  int (* EXPATENTRY sameName)(const ENCODING *,
+              const char *, const char *);
+  int (* EXPATENTRY nameMatchesAscii)(const ENCODING *,
+              const char *, const char *, const char *);
+  int (* EXPATENTRY nameLength)(const ENCODING *, const char *);
+  const char *(* EXPATENTRY skipS)(const ENCODING *, const char *);
+  int (* EXPATENTRY getAtts)(const ENCODING *enc, const char *ptr,
+             int attsMax, ATTRIBUTE *atts);
+  int (* EXPATENTRY charRefNumber)(const ENCODING *enc, const char *ptr);
+  int (* EXPATENTRY predefinedEntityName)(const ENCODING *, const char *, const char *);
+  void (* EXPATENTRY updatePosition)(const ENCODING *,
+             const char *ptr,
+             const char *end,
+             POSITION *);
+  int (* EXPATENTRY isPublicId)(const ENCODING *enc, const char *ptr, const char *end,
+            const char **badPtr);
+  void (* EXPATENTRY utf8Convert)(const ENCODING *enc,
+              const char **fromP,
+              const char *fromLim,
+              char **toP,
+              const char *toLim);
+  void (* EXPATENTRY utf16Convert)(const ENCODING *enc,
+               const char **fromP,
+               const char *fromLim,
+               unsigned short **toP,
+               const unsigned short *toLim);
   int minBytesPerChar;
   char isUtf8;
   char isUtf16;
@@ -202,7 +210,7 @@ literals, comments and processing instructions.
 #endif /* XML_DTD */
 
 /* This is used for performing a 2nd-level tokenization on
-the content of a literal that has already been returned by XmlTok. */ 
+the content of a literal that has already been returned by XmlTok. */
 
 #define XmlLiteralTok(enc, literalType, ptr, end, nextTokPtr) \
   (((enc)->literalScanners[literalType])(enc, ptr, end, nextTokPtr))
@@ -251,15 +259,15 @@ typedef struct {
 } INIT_ENCODING;
 
 int  XmlParseXmlDecl(int isGeneralTextEntity,
-			      const ENCODING *enc,
-			      const char *ptr,
-	  		      const char *end,
-			      const char **badPtr,
-			      const char **versionPtr,
-			      const char **versionEndPtr,
-			      const char **encodingNamePtr,
-			      const ENCODING **namedEncodingPtr,
-			      int *standalonePtr);
+                  const ENCODING *enc,
+                  const char *ptr,
+                  const char *end,
+                  const char **badPtr,
+                  const char **versionPtr,
+                  const char **versionEndPtr,
+                  const char **encodingNamePtr,
+                  const ENCODING **namedEncodingPtr,
+                  int *standalonePtr);
 
 int  XmlInitEncoding(INIT_ENCODING *, const ENCODING **, const char *name);
 const ENCODING  *XmlGetUtf8InternalEncoding(void);
@@ -270,28 +278,28 @@ int  XmlUtf16Encode(int charNumber, unsigned short *buf);
 int  XmlSizeOfUnknownEncoding(void);
 ENCODING  *
 XmlInitUnknownEncoding(void *mem,
-		       int *table,
-		       int (*conv)(void *userData, const char *p),
-		       void *userData);
+               int *table,
+               int (*conv)(void *userData, const char *p),
+               void *userData);
 
 int  XmlParseXmlDeclNS(int isGeneralTextEntity,
-			        const ENCODING *enc,
-			        const char *ptr,
-	  		        const char *end,
-			        const char **badPtr,
-			        const char **versionPtr,
-				const char **versionEndPtr,
-			        const char **encodingNamePtr,
-			        const ENCODING **namedEncodingPtr,
-			        int *standalonePtr);
+                    const ENCODING *enc,
+                    const char *ptr,
+                    const char *end,
+                    const char **badPtr,
+                    const char **versionPtr,
+                const char **versionEndPtr,
+                    const char **encodingNamePtr,
+                    const ENCODING **namedEncodingPtr,
+                    int *standalonePtr);
 int  XmlInitEncodingNS(INIT_ENCODING *, const ENCODING **, const char *name);
 const ENCODING  *XmlGetUtf8InternalEncodingNS(void);
 const ENCODING  *XmlGetUtf16InternalEncodingNS(void);
 ENCODING  *
 XmlInitUnknownEncodingNS(void *mem,
-		         int *table,
-		         int (*conv)(void *userData, const char *p),
-		         void *userData);
+                 int *table,
+                 int (*conv)(void *userData, const char *p),
+                 void *userData);
 #ifdef __cplusplus
 }
 #endif

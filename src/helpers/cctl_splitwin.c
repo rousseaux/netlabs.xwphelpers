@@ -509,7 +509,12 @@ MRESULT EXPENTRY ctl_fnwpSplitBar(HWND hwndBar, ULONG msg, MPARAM mp1, MPARAM mp
              */
 
             case WM_MOUSEMOVE:
-                pData->hptrOld = WinSetPointer(HWND_DESKTOP, pData->hptrMove);
+                if (pData->sbcd.ulCreateFlags & SBCF_MOVEABLE)
+                    // V0.9.14 (2001-08-21) [umoeller]
+                    // split bar is moveable:
+                    pData->hptrOld = WinSetPointer(HWND_DESKTOP, pData->hptrMove);
+                else
+                    mrc = OldStaticProc(hwndBar, msg, mp1, mp2);
             break;
 
             /*
@@ -520,7 +525,12 @@ MRESULT EXPENTRY ctl_fnwpSplitBar(HWND hwndBar, ULONG msg, MPARAM mp1, MPARAM mp
 
             case WM_BUTTON1DOWN:
             case WM_BUTTON2DOWN:
-                TrackSplitBar(hwndBar, pData);
+                if (pData->sbcd.ulCreateFlags & SBCF_MOVEABLE)
+                    // V0.9.14 (2001-08-21) [umoeller]
+                    // split bar is moveable:
+                    TrackSplitBar(hwndBar, pData);
+                else
+                    mrc = OldStaticProc(hwndBar, msg, mp1, mp2);
             break;
 
             /*
