@@ -163,6 +163,36 @@ ULONG sndParseSoundData(PSZ pszSoundData,  // in: INI data from MMPM.INI
 }
 
 /*
+ *@@ sndQueryMmpmIniPath:
+ *      writes the full path of MMPM.INI into
+ *      the specified buffer (e.g. C:\MMOS2\MMPM.INI).
+ *
+ *@@added V0.9.10 (2001-04-16) [umoeller]
+ */
+
+VOID sndQueryMmpmIniPath(PSZ pszMMPM)       // out: fully q'fied MMPM.INI
+{
+    PSZ     pszMMPMPath = getenv("MMBASE"); // V0.9.6 (2000-10-16) [umoeller]
+    if (pszMMPMPath)
+    {
+        // variable set:
+        PSZ p;
+
+        strcpy(pszMMPM, pszMMPMPath); // V0.9.7 (2000-12-17) [umoeller]
+
+        // kill semicolon if present
+        p = strchr(pszMMPM, ';');
+        if (p)
+           *p = 0;
+
+        strcat(pszMMPM, "\\MMPM.INI");
+    }
+    else
+        // variable not set (shouldn't happen): try boot drive
+        sprintf(pszMMPM, "%c:\\MMOS2\\MMPM.INI", doshQueryBootDrive());
+}
+
+/*
  *@@ sndOpenMmpmIni:
  *      this opens \MMOS2\MMPM.INI on the
  *      boot drive and returns the profile
@@ -182,24 +212,8 @@ HINI sndOpenMmpmIni(HAB hab)
     CHAR    szMMPM[CCHMAXPATH];
     HINI    hini = NULLHANDLE;
 
-    PSZ     pszMMPMPath = getenv("MMBASE"); // V0.9.6 (2000-10-16) [umoeller]
-    if (pszMMPMPath)
-    {
-        // variable set:
-        PSZ p;
+    sndQueryMmpmIniPath(szMMPM);
 
-        strcpy(szMMPM, pszMMPMPath); // V0.9.7 (2000-12-17) [umoeller]
-
-        // kill semicolon if present
-        p = strchr(szMMPM, ';');
-        if (p)
-           *p = 0;
-
-        strcat(szMMPM, "\\MMPM.INI");
-    }
-    else
-        // variable not set (shouldn't happen): try boot drive
-        sprintf(szMMPM, "%c:\\MMOS2\\MMPM.INI", doshQueryBootDrive());
     hini = PrfOpenProfile(habDesktop, szMMPM);
     return (hini);
 }

@@ -809,6 +809,7 @@ APIRET doshFreeEnvironment(PDOSENVIRONMENT pEnv)
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.1 (2000-02-13) [umoeller]: fixed 32-bits flag
  *@@changed V0.9.7 (2000-12-20) [lafaix]: fixed ulNewHeaderOfs
+ *@@changed V0.9.10 (2001-04-08) [lafaix]: added PE support
  *@@changed V0.9.10 (2001-04-08) [umoeller]: now setting ppExec only if NO_ERROR is returned
  */
 
@@ -944,11 +945,38 @@ APIRET doshExecOpen(const char* pcszExecutable,
                             }
                             else if (memcmp(achNewHeaderType, "PE", 2) == 0)
                             {
+                                PEHEADER PEHeader = {0};
+
                                 pExec->ulExeFormat = EXEFORMAT_PE;
                                 pExec->ulOS = EXEOS_WIN32;
                                 pExec->f32Bits = TRUE;
 
-                                // can't parse this yet
+                                // V0.9.10 (2001-04-08) [lafaix]
+                                // read in standard PE header
+                                if (!(arc = DosRead(hFile,
+                                                    &PEHeader,
+                                                    24,
+                                                    &ulBytesRead)))
+                                {
+                                    // allocate PE header
+                                    pExec->pPEHeader = (PPEHEADER)malloc(24 + PEHeader.usHeaderSize);
+                                    if (!(pExec->pPEHeader))
+                                        arc = ERROR_NOT_ENOUGH_MEMORY;
+                                    else
+                                    {
+                                        // copy standard PE header
+                                        memcpy(pExec->pPEHeader,
+                                               &PEHeader,
+                                               24);
+
+                                        // read in optional PE header
+                                        if (!(arc = DosRead(hFile,
+                                                            &(pExec->pPEHeader->usReserved3),
+                                                            PEHeader.usHeaderSize,
+                                                            &(pExec->cbPEHeader))))
+                                            pExec->cbPEHeader += 24;
+                                    }
+                                }
                             }
                             else
                                 // strange type:
@@ -1242,6 +1270,8 @@ APIRET doshExecQueryBldLevel(PEXECUTABLE pExec)
  *@@added V0.9.9 (2001-03-11) [lafaix]
  *@@changed V0.9.9 (2001-04-03) [umoeller]: added tons of error checking, changed prototype to return APIRET
  *@@changed V0.9.9 (2001-04-05) [lafaix]: rewritten error checking code
+ *@@changed V0.9.10 (2001-04-10) [lafaix]: added Win16 and Win386 support
+ *@@changed V0.9.10 (2001-04-13) [lafaix]: removed 127 characters limit
  */
 
 APIRET doshExecQueryImportedModules(PEXECUTABLE pExec,
@@ -1249,7 +1279,10 @@ APIRET doshExecQueryImportedModules(PEXECUTABLE pExec,
                                     PULONG pcModules)           // out: array item count
 {
     if (    (pExec)
-         && (pExec->ulOS == EXEOS_OS2)
+         && (    (pExec->ulOS == EXEOS_OS2)
+              || (pExec->ulOS == EXEOS_WIN16)
+              || (pExec->ulOS == EXEOS_WIN386)
+            )
        )
     {
         ENSURE_BEGIN;
@@ -1286,9 +1319,6 @@ APIRET doshExecQueryImportedModules(PEXECUTABLE pExec,
                     // reading the length of the module name
                     ENSURE_SAFE(DosRead(pExec->hfExe, &bLen, 1, &ulDummy));
 
-                    // At most 127 bytes
-                    bLen &= 0x7F;
-
                     // reading the module name
                     ENSURE_SAFE(DosRead(pExec->hfExe,
                                         paModules[i].achModuleName,
@@ -1303,7 +1333,7 @@ APIRET doshExecQueryImportedModules(PEXECUTABLE pExec,
         } // end LX
         else if (pExec->ulExeFormat == EXEFORMAT_NE)
         {
-            // 16-bit OS/2 executable:
+            // 16-bit executable:
             cModules = pExec->pNEHeader->usModuleTblEntries;
 
             if (cModules)
@@ -1344,8 +1374,6 @@ APIRET doshExecQueryImportedModules(PEXECUTABLE pExec,
                                               &ulDummy));
 
                     ENSURE_SAFE(DosRead(pExec->hfExe, &bLen, 1, &ulDummy));
-
-                    bLen &= 0x7F;
 
                     ENSURE_SAFE(DosRead(pExec->hfExe,
                                         paModules[i].achModuleName,
@@ -1661,44 +1689,49 @@ APIRET ScanNEEntryTable(PEXECUTABLE pExec,
 
         ENSURE(DosRead(pExec->hfExe, &bType, 1, &ulDummy));
 
-        for (i = 0; i < bCnt; i++)
+        if (bType)
         {
-            ENSURE(DosRead(pExec->hfExe,
-                           &bFlag,
-                           1,
-                           &ulDummy));
-
-            if (bFlag & 0x01)
+            for (i = 0; i < bCnt; i++)
             {
-                if (paFunctions)
+                ENSURE(DosRead(pExec->hfExe,
+                               &bFlag,
+                               1,
+                               &ulDummy));
+
+                if (bFlag & 0x01)
                 {
-                    paFunctions[usCurrent].ulOrdinal = usOrdinal;
-                    paFunctions[usCurrent].ulType = 1; // 16-bit entry
-                    paFunctions[usCurrent].achFunctionName[0] = 0;
+                    if (paFunctions)
+                    {
+                        paFunctions[usCurrent].ulOrdinal = usOrdinal;
+                        paFunctions[usCurrent].ulType = 1; // 16-bit entry
+                        paFunctions[usCurrent].achFunctionName[0] = 0;
+                    }
+                    usCurrent++;
                 }
-                usCurrent++;
-            }
 
-            usOrdinal++;
+                usOrdinal++;
 
-            if (bType == 0xFF)
-            {
-                // moveable segment
-                ENSURE(DosSetFilePtr(pExec->hfExe,
-                                     5,
-                                     FILE_CURRENT,
-                                     &ulDummy));
-            }
-            else
-            {
-                // fixed segment
-                ENSURE(DosSetFilePtr(pExec->hfExe,
-                                     2,
-                                     FILE_CURRENT,
-                                     &ulDummy));
-            }
+                if (bType == 0xFF)
+                {
+                    // moveable segment
+                    ENSURE(DosSetFilePtr(pExec->hfExe,
+                                         5,
+                                         FILE_CURRENT,
+                                         &ulDummy));
+                }
+                else
+                {
+                    // fixed segment or constant (0xFE)
+                    ENSURE(DosSetFilePtr(pExec->hfExe,
+                                         2,
+                                         FILE_CURRENT,
+                                         &ulDummy));
+                }
 
-        } // end for
+            } // end for
+        }
+        else
+            usOrdinal += bCnt;
     } // end while (TRUE)
 
     if (pcEntries)
@@ -1814,6 +1847,7 @@ APIRET ScanNameTable(PEXECUTABLE pExec,
  *@@added V0.9.9 (2001-03-11) [lafaix]
  *@@changed V0.9.9 (2001-04-03) [umoeller]: added tons of error checking, changed prototype to return APIRET
  *@@changed V0.9.9 (2001-04-05) [lafaix]: rewritten error checking code
+ *@@changed V0.9.10 (2001-04-10) [lafaix]: added Win16 and Win386 support
  */
 
 APIRET doshExecQueryExportedFunctions(PEXECUTABLE pExec,
@@ -1821,7 +1855,10 @@ APIRET doshExecQueryExportedFunctions(PEXECUTABLE pExec,
                                       PULONG pcFunctions)           // out: array item count
 {
     if (    (pExec)
-         && (pExec->ulOS == EXEOS_OS2)
+         && (    (pExec->ulOS == EXEOS_OS2)
+              || (pExec->ulOS == EXEOS_WIN16)
+              || (pExec->ulOS == EXEOS_WIN386)
+            )
        )
     {
         ENSURE_BEGIN;
@@ -1879,7 +1916,7 @@ APIRET doshExecQueryExportedFunctions(PEXECUTABLE pExec,
         }
         else if (pExec->ulExeFormat == EXEFORMAT_NE)
         {
-            // It's a 16bit OS/2 executable
+            // it's a "new" segmented 16bit executable
 
             // here too the number of exported entry points
             // is not stored in the executable header; we
@@ -1979,6 +2016,7 @@ APIRET doshExecFreeExportedFunctions(PFSYSFUNCTION paFunctions)
  *
  *@@added V0.9.7 (2000-12-18) [lafaix]
  *@@changed V0.9.9 (2001-04-03) [umoeller]: added tons of error checking, changed prototype to return APIRET
+ *@@changed V0.9.10 (2001-04-10) [lafaix]: added Win16 and Win386 support
  */
 
 APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from doshExecOpen
@@ -1986,7 +2024,10 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
                               PULONG pcResources)    // out: array item count
 {
     if (    (pExec)
-         && (pExec->ulOS == EXEOS_OS2)
+         && (    (pExec->ulOS == EXEOS_OS2)
+              || (pExec->ulOS == EXEOS_WIN16)
+              || (pExec->ulOS == EXEOS_WIN386)
+            )
        )
     {
         ENSURE_BEGIN;
@@ -2081,72 +2122,213 @@ APIRET doshExecQueryResources(PEXECUTABLE pExec,     // in: executable from dosh
         } // end if (pExec->ulExeFormat == EXEFORMAT_LX)
         else if (pExec->ulExeFormat == EXEFORMAT_NE)
         {
-            // 16-bit OS/2 executable:
-            cResources = pExec->pNEHeader->usResSegmCount;
-
-            if (cResources)
+            if (pExec->ulOS == EXEOS_OS2)
             {
-                #pragma pack(1)     // V0.9.9 (2001-04-02) [umoeller]
-                struct {unsigned short type; unsigned short name;} rti;
-                struct new_seg                          /* New .EXE segment table entry */
+                // 16-bit OS/2 executable:
+                cResources = pExec->pNEHeader->usResSegmCount;
+
+                if (cResources)
                 {
-                    unsigned short      ns_sector;      /* File sector of start of segment */
-                    unsigned short      ns_cbseg;       /* Number of bytes in file */
-                    unsigned short      ns_flags;       /* Attribute flags */
-                    unsigned short      ns_minalloc;    /* Minimum allocation in bytes */
-                } ns;
-                #pragma pack()
+                    #pragma pack(1)     // V0.9.9 (2001-04-02) [umoeller]
+                    struct {unsigned short type; unsigned short name;} rti;
+                    struct new_seg                          /* New .EXE segment table entry */
+                    {
+                        unsigned short      ns_sector;      /* File sector of start of segment */
+                        unsigned short      ns_cbseg;       /* Number of bytes in file */
+                        unsigned short      ns_flags;       /* Attribute flags */
+                        unsigned short      ns_minalloc;    /* Minimum allocation in bytes */
+                    } ns;
+                    #pragma pack()
 
-                ULONG cb = sizeof(FSYSRESOURCE) * cResources;
-                ULONG ulDummy;
-                int i;
+                    ULONG cb = sizeof(FSYSRESOURCE) * cResources;
+                    ULONG ulDummy;
+                    int i;
 
-                paResources = (PFSYSRESOURCE)malloc(cb);
-                if (!paResources)
-                    ENSURE_FAIL(ERROR_NOT_ENOUGH_MEMORY);
+                    paResources = (PFSYSRESOURCE)malloc(cb);
+                    if (!paResources)
+                        ENSURE_FAIL(ERROR_NOT_ENOUGH_MEMORY);
 
-                memset(paResources, 0, cb);     // V0.9.9 (2001-04-03) [umoeller]
+                    memset(paResources, 0, cb);     // V0.9.9 (2001-04-03) [umoeller]
 
-                // we first read the resources IDs and types
+                    // we first read the resources IDs and types
 
-                ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
-                                          pExec->pNEHeader->usResTblOfs
-                                            + pExec->pDosExeHeader->ulNewHeaderOfs,
-                                          FILE_BEGIN,
-                                          &ulDummy));
+                    ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                                              pExec->pNEHeader->usResTblOfs
+                                                + pExec->pDosExeHeader->ulNewHeaderOfs,
+                                              FILE_BEGIN,
+                                              &ulDummy));
 
-                for (i = 0; i < cResources; i++)
+                    for (i = 0; i < cResources; i++)
+                    {
+                        ENSURE_SAFE(DosRead(pExec->hfExe, &rti, sizeof(rti), &ulDummy));
+
+                        paResources[i].ulID = rti.name;
+                        paResources[i].ulType = rti.type;
+                    }
+
+                    // we then read their sizes and flags
+
+                    for (i = 0; i < cResources; i++)
+                    {
+                        ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                                                  pExec->pDosExeHeader->ulNewHeaderOfs
+                                                    + pExec->pNEHeader->usSegTblOfs
+                                                    + (sizeof(ns)
+                                                    * (  pExec->pNEHeader->usSegTblEntries
+                                                       - pExec->pNEHeader->usResSegmCount
+                                                       + i)),
+                                                    FILE_BEGIN,
+                                                    &ulDummy));
+
+                        ENSURE_SAFE(DosRead(pExec->hfExe, &ns, sizeof(ns), &ulDummy));
+
+                        paResources[i].ulSize = ns.ns_cbseg;
+
+                        paResources[i].ulFlag  = (ns.ns_flags & OBJPRELOAD) ? RNPRELOAD : 0;
+                        paResources[i].ulFlag |= (ns.ns_flags & OBJSHARED) ? RNPURE : 0;
+                        paResources[i].ulFlag |= (ns.ns_flags & OBJDISCARD) ? RNMOVE : 0;
+                        paResources[i].ulFlag |= (ns.ns_flags & OBJDISCARD) ? 4096 : 0;
+                    }
+                } // end if (cResources)
+            }
+            else
+            {
+                // 16-bit Windows executable
+                USHORT usAlignShift;
+                ULONG  ulDummy;
+
+                ENSURE(DosSetFilePtr(pExec->hfExe,
+                                     pExec->pNEHeader->usResTblOfs
+                                       + pExec->pDosExeHeader->ulNewHeaderOfs,
+                                     FILE_BEGIN,
+                                     &ulDummy));
+
+                ENSURE(DosRead(pExec->hfExe,
+                               &usAlignShift,
+                               sizeof(usAlignShift),
+                               &ulDummy));
+
+                while (TRUE)
                 {
-                    ENSURE_SAFE(DosRead(pExec->hfExe, &rti, sizeof(rti), &ulDummy));
+                    USHORT usTypeID;
+                    USHORT usCount;
 
-                    paResources[i].ulID = rti.name;
-                    paResources[i].ulType = rti.type;
+                    ENSURE(DosRead(pExec->hfExe,
+                                   &usTypeID,
+                                   sizeof(usTypeID),
+                                   &ulDummy));
+
+                    if (usTypeID == 0)
+                        break;
+
+                    ENSURE(DosRead(pExec->hfExe,
+                                   &usCount,
+                                   sizeof(usCount),
+                                   &ulDummy));
+
+                    ENSURE(DosSetFilePtr(pExec->hfExe,
+                                         sizeof(ULONG),
+                                         FILE_CURRENT,
+                                         &ulDummy));
+
+                    cResources += usCount;
+
+                    // first pass, skip NAMEINFO table
+                    ENSURE(DosSetFilePtr(pExec->hfExe,
+                                         usCount*6*sizeof(USHORT),
+                                         FILE_CURRENT,
+                                         &ulDummy));
                 }
 
-                // we then read their sizes and flags
-
-                for (i = 0; i < cResources; i++)
+                if (cResources)
                 {
+                    USHORT usCurrent = 0;
+                    ULONG cb = sizeof(FSYSRESOURCE) * cResources;
+
+                    paResources = (PFSYSRESOURCE)malloc(cb);
+                    if (!paResources)
+                        ENSURE_FAIL(ERROR_NOT_ENOUGH_MEMORY);
+
+                    memset(paResources, 0, cb);
+
                     ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
-                                              pExec->pDosExeHeader->ulNewHeaderOfs
-                                                + pExec->pNEHeader->usSegTblOfs
-                                                + (sizeof(ns)
-                                                * (  pExec->pNEHeader->usSegTblEntries
-                                                   - pExec->pNEHeader->usResSegmCount
-                                                   + i)),
-                                                FILE_BEGIN,
+                                              pExec->pNEHeader->usResTblOfs
+                                                + pExec->pDosExeHeader->ulNewHeaderOfs,
+                                              FILE_BEGIN,
+                                              &ulDummy));
+
+                    ENSURE_SAFE(DosRead(pExec->hfExe,
+                                        &usAlignShift,
+                                        sizeof(usAlignShift),
+                                        &ulDummy));
+
+                    while (TRUE)
+                    {
+                        USHORT usTypeID;
+                        USHORT usCount;
+                        int i;
+
+                        ENSURE_SAFE(DosRead(pExec->hfExe,
+                                            &usTypeID,
+                                            sizeof(usTypeID),
+                                            &ulDummy));
+
+                        if (usTypeID == 0)
+                            break;
+
+                        ENSURE_SAFE(DosRead(pExec->hfExe,
+                                            &usCount,
+                                            sizeof(usCount),
+                                            &ulDummy));
+
+                        ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                                                  sizeof(ULONG),
+                                                  FILE_CURRENT,
+                                                  &ulDummy));
+
+                        // second pass, read NAMEINFO table
+                        for (i = 0; i < usCount; i++)
+                        {
+                            USHORT usLength,
+                                   usFlags,
+                                   usID;
+
+                            ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                                                      sizeof(USHORT),
+                                                      FILE_CURRENT,
+                                                      &ulDummy));
+
+                            ENSURE_SAFE(DosRead(pExec->hfExe,
+                                                &usLength,
+                                                sizeof(USHORT),
+                                                &ulDummy));
+                            ENSURE_SAFE(DosRead(pExec->hfExe,
+                                                &usFlags,
+                                                sizeof(USHORT),
+                                                &ulDummy));
+                            ENSURE_SAFE(DosRead(pExec->hfExe,
+                                                &usID,
+                                                sizeof(USHORT),
                                                 &ulDummy));
 
-                    ENSURE_SAFE(DosRead(pExec->hfExe, &ns, sizeof(ns), &ulDummy));
+                            ENSURE_SAFE(DosSetFilePtr(pExec->hfExe,
+                                                      2*sizeof(USHORT),
+                                                      FILE_CURRENT,
+                                                      &ulDummy));
 
-                    paResources[i].ulSize = ns.ns_cbseg;
+                            // !!! strings ids and types not handled yet
+                            // !!! 15th bit is used to denotes strings
+                            // !!! offsets [lafaix]
+                            paResources[usCurrent].ulType = usTypeID ^ 0x8000;
+                            paResources[usCurrent].ulID = usID ^ 0x8000;
+                            paResources[usCurrent].ulSize = usLength << usAlignShift;
+                            paResources[usCurrent].ulFlag = usFlags & 0x70;
 
-                    paResources[i].ulFlag  = (ns.ns_flags & OBJPRELOAD) ? RNPRELOAD : 0;
-                    paResources[i].ulFlag |= (ns.ns_flags & OBJSHARED) ? RNPURE : 0;
-                    paResources[i].ulFlag |= (ns.ns_flags & OBJDISCARD) ? RNMOVE : 0;
-                    paResources[i].ulFlag |= (ns.ns_flags & OBJDISCARD) ? 4096 : 0;
+                            usCurrent++;
+                        }
+                    }
                 }
-            } // end if (cResources)
+            }
         } // end else if (pExec->ulExeFormat == EXEFORMAT_NE)
         else
             ENSURE_FAIL(ERROR_INVALID_EXE_SIGNATURE); // V0.9.9 (2001-04-03) [umoeller]

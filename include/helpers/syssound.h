@@ -70,6 +70,8 @@ extern "C" {
                             PSZ pszFile,
                             PULONG pulVolume);
 
+    VOID sndQueryMmpmIniPath(PSZ pszMMPM);
+
     HINI sndOpenMmpmIni(HAB hab);
 
     BOOL sndQuerySystemSound(HAB hab,

@@ -3890,8 +3890,10 @@ VOID winhFindPMErrorWindows(HWND *phwndHardError,  // out: hard error window
  *      the whole screen in the color of PM's Desktop to fool the
  *      user that all windows have been closed (which in fact might
  *      not be the case).
+ *
  *      This window's background color is set to the Desktop's
  *      (PM's one, not the WPS's one).
+ *
  *      Returns the HWND of this window.
  */
 

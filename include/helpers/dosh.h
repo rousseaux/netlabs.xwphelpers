@@ -12,7 +12,7 @@
  *@@include #include "dosh.h"
  */
 
-/*      This file Copyright (C) 1997-2000 Ulrich M”ller,
+/*      This file Copyright (C) 1997-2001 Ulrich M”ller,
  *                                        Dmitry A. Steklenev.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
@@ -416,6 +416,7 @@ extern "C" {
      *      in any EXE file.
      *
      *@@changed V0.9.7 (2000-12-20) [umoeller]: fixed NE offset
+     *@@changed V0.9.9 (2001-04-06) [lafaix]: additional fields defined
      */
 
     #pragma pack(1)
@@ -435,15 +436,19 @@ extern "C" {
          USHORT usCodeSegOfs;           // 16: code segment offset from EXE start
          USHORT usRelocTableOfs;        // 18: reloc table ofs.header (Win: >= 0x40)
          USHORT usOverlayNo;            // 1a: overlay no.
-         ULONG  ulLinkerVersion;        // 1c: linker version (if 0x18 > 0x28)
-         ULONG  ulUnused1;              // 20: unused
-         ULONG  ulUnused2;              // 24: exe.h says the following fields are
-         ULONG  ulUnused3;              // 28:   'behavior bits'
-         ULONG  ulUnused4;              // 3c:
+         USHORT usLinkerVersion;        // 1c: linker version (if 0x18 > 0x28)
+         USHORT usUnused1;              // 1e: unused
+         USHORT usBehaviorBits;         // 20: exe.h says this field contains
+                                        //     'behavior bits'
+         USHORT usUnused2;              // 22: unused
+         USHORT usOEMIdentifier;        // 24: OEM identifier
+         USHORT usOEMInformation;       // 26: OEM information
+         ULONG  ulUnused3;              // 28:
+         ULONG  ulUnused4;              // 2c:
          ULONG  ulUnused5;              // 30:
          ULONG  ulUnused6;              // 34:
          ULONG  ulUnused7;              // 38:
-         ULONG  ulNewHeaderOfs;         // new header ofs (if 0x18 > 0x40)
+         ULONG  ulNewHeaderOfs;         // 3c: new header ofs (if 0x18 > 0x40)
                     // fixed this from USHORT, thanks Martin Lafaix
                     // V0.9.7 (2000-12-20) [umoeller]
     } DOSEXEHEADER, *PDOSEXEHEADER;
@@ -460,6 +465,8 @@ extern "C" {
      *      linear executable (LX) header format,
      *      which comes after the DOS header in the
      *      EXE file (at DOSEXEHEADER.ulNewHeaderOfs).
+     *
+     *@@changed V0.9.9 (2001-04-06) [lafaix]: fixed typo in usMoveableEntries
      */
 
     typedef struct _NEHEADER
@@ -485,7 +492,7 @@ extern "C" {
         USHORT    usModRefTblOfs;       // 28: module ref. table ofs
         USHORT    usImportTblOfs;       // 2a: import tbl ofs
         ULONG     ulNonResdTblOfs;      // 2c: non-resd. name tbl ofs
-        USHORT    usMoveableEntires;    // 30: moveable entry pts. count
+        USHORT    usMoveableEntries;    // 30: moveable entry pts. count
         USHORT    usLogicalSectShift;   // 32: logcl. sector shift
         USHORT    usResSegmCount;       // 34: resource segm. count
         BYTE      bTargetOS;            // 36: target OS (NEOS_* flags)
@@ -501,6 +508,8 @@ extern "C" {
      *      linear executable (LX) header format,
      *      which comes after the DOS header in the
      *      EXE file (at DOSEXEHEADER.ulNewHeaderOfs).
+     *
+     *@@changed V0.9.9 (2001-04-06) [lafaix]: fixed auto data object and ulinstanceDemdCnt
      */
 
     typedef struct _LXHEADER
@@ -548,14 +557,72 @@ extern "C" {
         ULONG     ulNonResdNameTblOfs;  // 88: non-resdnt name tbl ofs
         ULONG     ulNonResdNameTblLen;  // 8c: non-resdnt name tbl length
         ULONG     ulNonResdNameTblCS;   // 90: non-res name tbl checksum
-        ULONG     ulAutoDataSegObjCnt;  // 94: auto dataseg object count
+        ULONG     ulAutoDataSegObj;     // 94: auto dataseg object
         ULONG     ulDebugOfs;           // 98: debug info ofs
         ULONG     ulDebugLen;           // 9c: debug info length
         ULONG     ulInstancePrelCnt;    // a0: instance preload count
-        ULONG     ulinstanceDemdCnt;    // a0: instance demand count
+        ULONG     ulInstanceDemdCnt;    // a0: instance demand count
         ULONG     ulHeapSize16;         // a8: heap size (16-bit)
         ULONG     ulStackSize;          // ac: stack size
     } LXHEADER, *PLXHEADER;
+
+    /*
+     *@@ PEHEADER:
+     *      portable executable (PE) header format,
+     *      which comes after the DOS header in the
+     *      EXE file (at DOSEXEHEADER.ulNewHeaderOfs).
+     *
+     *@@added V0.9.10 (2001-04-08) [lafaix]
+     */
+
+    typedef struct _PEHEADER
+    {
+        // standard header
+        ULONG     ulSignature;          // 00: 'P', 'E', 0, 0
+        USHORT    usCPU;                // 04: CPU type
+        USHORT    usObjCount;           // 06: number of object entries
+        ULONG     ulTimeDateStamp;      // 08: store the time and date the
+                                        //     file was created or modified
+                                        //     by the linker
+        ULONG     ulReserved1;          // 0c: reserved
+        ULONG     ulReserved2;          // 10: reserved
+        USHORT    usHeaderSize;         // 14: number of remaining bytes after
+                                        //     usImageFlags
+        USHORT    usImageFlags;         // 16: flags bits for the image
+
+        // optional header (always present in valid Win32 files)
+        USHORT    usReserved3;          // 18: reserved
+        USHORT    usLinkerMajor;        // 1a: linker major version number
+        USHORT    usLinkerMinor;        // 1c: linker minor version number
+        USHORT    usReserved4;          // 1e: reserved
+        ULONG     ulReserved5;          // 20: reserved
+        ULONG     ulReserved6;          // 24: reserved
+        ULONG     ulEntryPointRVA;      // 28: entry point relative virtual address
+        ULONG     ulReserved7;          // 2c: reserved
+        ULONG     ulReserved8;          // 30: reserved
+        ULONG     ulImageBase;          // 34:
+        ULONG     ulObjectAlign;        // 38:
+        ULONG     ulFileAlign;          // 3c:
+        USHORT    usOSMajor;            // 40:
+        USHORT    usOSMinor;            // 42:
+        USHORT    usUserMajor;          // 44:
+        USHORT    usUserMinor;          // 46:
+        USHORT    usSubSystemMajor;     // 48:
+        USHORT    usSubSystemMinor;     // 4a:
+        ULONG     ulReserved9;          // 4c: reserved
+        ULONG     ulImageSize;          // 50:
+        ULONG     ulHeaderSize;         // 54:
+        ULONG     ulFileChecksum;       // 58:
+        USHORT    usSubSystem;          // 5c:
+        USHORT    usDLLFlags;           // 5e:
+        ULONG     ulStackReserveSize;   // 60:
+        ULONG     ulStackCommitSize;    // 64:
+        ULONG     ulHeapReserveSize;    // 68:
+        ULONG     ulHeapCommitSize;     // 6c:
+        ULONG     ulReserved10;         // 70: reserved
+        ULONG     ulInterestingRVACount;// 74:
+        ULONG     aulRVASize[1];        // 78: array of RVA/Size entries
+    } PEHEADER, *PPEHEADER;
 
     #pragma pack()
 
@@ -650,6 +717,10 @@ extern "C" {
         // Linear Executable (LX) header, if ulExeFormat == EXEFORMAT_LX
         PLXHEADER           pLXHeader;
         ULONG               cbLXHeader;
+
+        // Portable Executable (PE) header, if ulExeFormat == EXEFORMAT_PE
+        PPEHEADER           pPEHeader;
+        ULONG               cbPEHeader;
 
         // module analysis (always set):
         ULONG               ulExeFormat;

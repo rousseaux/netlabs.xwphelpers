@@ -320,31 +320,39 @@ BOOL prc16QueryProcessInfo(PQPROCSTAT16 pps,    // in: from prc16GetInfo
  *      This function returns the number of running processes on the
  *      system. If pfnwpCallback is NULL, only this number will be
  *      returned, so you can use this as a process counter too.
+ *
+ *@@changed V0.9.10 (2001-04-16) [pr]: now using DosAllocMem
  */
 
 ULONG prc16ForEachProcess(PFNWP pfnwpCallback, HWND hwnd, ULONG ulMsg, MPARAM mp1)
 {
     ULONG ulrc = 0;
+    PQPROCSTAT16 pps;
     PQPROCESS16 pProcess;
     PRCPROCESS prcp;
-    PQPROCSTAT16 pps = (PQPROCSTAT16)malloc(0x8000);
-    DosQProcStatus(pps, 0x8000);
 
-    for ( pProcess = (PQPROCESS16)PTR(pps->ulProcesses, 0);
-          pProcess->ulType != 3;
-          pProcess = (PQPROCESS16)PTR(pProcess->ulThreadList,
-                     pProcess->usThreads * sizeof(QTHREAD16))
-        )
+    if (!DosAllocMem((PVOID*)&pps,
+                     BUF_SIZE,
+                     PAG_READ | PAG_WRITE | PAG_COMMIT | OBJ_TILE))
     {
-        if (pfnwpCallback)
-        {
-            prcReport16(pProcess, &prcp);
-            (*pfnwpCallback)(hwnd, ulMsg, mp1, &prcp);
-        }
-        ulrc++;
+        if (!DosQProcStatus(pps, BUF_SIZE))
+            for ( pProcess = (PQPROCESS16)PTR(pps->ulProcesses, 0);
+                  pProcess->ulType != 3;
+                  pProcess = (PQPROCESS16)PTR(pProcess->ulThreadList,
+                             pProcess->usThreads * sizeof(QTHREAD16))
+                )
+            {
+                if (pfnwpCallback)
+                {
+                    prcReport16(pProcess, &prcp);
+                    (*pfnwpCallback)(hwnd, ulMsg, mp1, &prcp);
+                }
+                ulrc++;
+            }
+
+        DosFreeMem(pps);
     }
 
-    free(pps);
     return (ulrc);
 }
 
@@ -541,12 +549,12 @@ PQTOPLEVEL32 prc32GetInfo(APIRET *parc)     // out: error, ptr can be NULL
  *      frees the memory allocated by prc32GetInfo.
  *
  *@@added V0.9.1 (2000-02-12) [umoeller]
- *@@changed V0.9.3 (2000-05-01) [umoeller]: now using DosAllocMem
+ *@@changed V0.9.3 (2000-05-01) [umoeller]: now using DosFreeMem
  */
 
 VOID prc32FreeInfo(PQTOPLEVEL32 pInfo)
 {
-    DosFreeMem(pInfo);;
+    DosFreeMem(pInfo);
 }
 
 /*
