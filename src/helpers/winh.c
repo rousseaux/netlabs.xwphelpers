@@ -4251,6 +4251,33 @@ PSWBLOCK winhQuerySwitchList(HAB hab)
     return (pSwBlock);
 }
 
+typedef HSWITCH APIENTRY WINHSWITCHFROMHAPP(HAPP happ);
+
+/*
+ *@@ winhHSWITCHfromHAPP:
+ *      resolves and calls the undocumented
+ *      WinHSWITCHfromHAPP API.
+ *
+ *@@added V0.9.19 (2002-04-17) [umoeller]
+ */
+
+HSWITCH winhHSWITCHfromHAPP(HAPP happ)
+{
+    static WINHSWITCHFROMHAPP *pWinHSWITCHfromHAPP = NULL;
+
+    if (!pWinHSWITCHfromHAPP)
+        // first call: import WinHSWITCHfromHAPP
+        // WinHSWITCHfromHAPP PMMERGE.5199
+        doshQueryProcAddr("PMMERGE",
+                          5199,
+                          (PFN*)&pWinHSWITCHfromHAPP);
+
+    if (pWinHSWITCHfromHAPP)
+        return pWinHSWITCHfromHAPP(happ);
+
+    return NULLHANDLE;
+}
+
 /*
  *@@ winhQueryTasklistWindow:
  *      returns the window handle of the PM task list.

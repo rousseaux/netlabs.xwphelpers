@@ -311,6 +311,13 @@ extern "C" {
             WS_VISIBLE | WS_TABSTOP | 0, \
             id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
 
+    // the following require INCL_WINSTDSLIDER
+
+    #define CONTROLDEF_SLIDER(id, cx, cy, pctldata) { WC_SLIDER, NULL, \
+            WS_VISIBLE | WS_TABSTOP | WS_GROUP | SLS_HORIZONTAL | SLS_PRIMARYSCALE1 \
+            | SLS_BUTTONSRIGHT | SLS_SNAPTOINCREMENT, \
+            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING, pctldata }
+
     /* ******************************************************************
      *
      *   Dialog formatter entry points

@@ -474,6 +474,7 @@ static APIRET CalcAutoSize(PCONTROLDEF pControlDef,
  *@@changed V0.9.16 (2001-10-15) [umoeller]: fixed ugly group table spacings
  *@@changed V0.9.16 (2001-10-15) [umoeller]: added APIRET
  *@@changed V0.9.16 (2002-02-02) [umoeller]: added support for explicit group size
+ *@@changed V0.9.19 (2002-04-17) [umoeller]: fixes for the STUPID drop-down comboboxes
  */
 
 static APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
@@ -713,6 +714,7 @@ static APIRET ColumnCalcPositions(PCOLUMNDEF pColumnDef,
  *@@added V0.9.15 (2001-08-26) [umoeller]
  *@@changed V0.9.16 (2001-10-15) [umoeller]: fixed ugly group table spacings
  *@@changed V0.9.16 (2001-12-08) [umoeller]: fixed entry field ES_MARGIN positioning
+ *@@changed V0.9.19 (2002-04-17) [umoeller]: fixes for the STUPID drop-down comboboxes
  */
 
 static APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,

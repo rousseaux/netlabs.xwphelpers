@@ -125,14 +125,14 @@ struct
     };
 
 /*
- *@@ FindEntry:
+ *@@ encGetTable:
  *
  *@@added V0.9.18 (2002-03-08) [umoeller]
  */
 
-static int FindEntry(ENCID id,
-                     PXWPENCODINGMAP *ppMap,
-                     unsigned long *pcEntries)
+int encGetTable(ENCID id,
+                PXWPENCODINGMAP *ppMap,
+                unsigned long *pcEntries)
 {
     unsigned long ul;
     for (ul = 0;
@@ -160,7 +160,7 @@ static int FindEntry(ENCID id,
 
 ENCID encFindIdForCodepage(unsigned short usCodepage,       // in: codepage to find
                            const char **ppcszDescription,   // out: codepage description; ptr can be NULL
-                           ENCBYTECOUNT *pByteCount)        // out: SINGLE or DOUBLE
+                           ENCBYTECOUNT *pByteCount)        // out: SINGLE or DOUBLE; ptr can be NULL
 {
     unsigned long ul;
     for (ul = 0;
@@ -245,9 +245,9 @@ PCONVERSION encCreateCodec(ENCID id)
     PXWPENCODINGMAP pEncodingMap;
     unsigned long cArrayEntries;
 
-    if (FindEntry(id,
-                  &pEncodingMap,
-                  &cArrayEntries))
+    if (encGetTable(id,
+                    &pEncodingMap,
+                    &cArrayEntries))
     {
         unsigned short usHighestCP = 0,
                        usHighestUni = 0;

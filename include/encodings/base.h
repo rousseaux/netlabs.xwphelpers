@@ -112,9 +112,13 @@ extern "C" {
         UNKNOWN
     } ENCBYTECOUNT;
 
+    int encGetTable(ENCID id,
+                    PXWPENCODINGMAP *ppMap,
+                    unsigned long *pcEntries);
+
     ENCID encFindIdForCodepage(unsigned short usCodepage,
-                                       const char **ppcszDescription,
-                                       ENCBYTECOUNT *pByteCount);
+                               const char **ppcszDescription,
+                               ENCBYTECOUNT *pByteCount);
 
     PCONVERSION encCreateCodec(ENCID id);
 

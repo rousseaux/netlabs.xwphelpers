@@ -836,6 +836,8 @@ extern "C" {
         PSWBLOCK XWPENTRY winhQuerySwitchList(HAB hab);
         typedef PSWBLOCK XWPENTRY WINHQUERYSWITCHLIST(HAB hab);
         typedef WINHQUERYSWITCHLIST *PWINHQUERYSWITCHLIST;
+
+        HSWITCH XWPENTRY winhHSWITCHfromHAPP(HAPP happ);
     #endif
 
     HWND XWPENTRY winhQueryTasklistWindow(VOID);
