@@ -644,7 +644,7 @@ STATIC int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
     if (lseek(ModuleFile, -8L, SEEK_END) == -1)
     {
         fprintf(LogFile, "Error %u seeking CodeView table in %s\n", errno, FileName);
-        return (18);
+        return 18;
     }
 
     if (read(ModuleFile,
@@ -652,12 +652,12 @@ STATIC int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
             == -1)
     {
         fprintf(LogFile, "Error %u reading debug info from %s\n", errno, FileName);
-        return (19);
+        return 19;
     }
     if (G_eodbug.dbug != DBUGSIG)
     {
         // fprintf(LogFile,"\nNo CodeView information stored.\n");
-        return (100);
+        return 100;
     }
 
     if (    (pxdi->lfaBase = lseek(ModuleFile,
@@ -666,7 +666,7 @@ STATIC int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
          == -1L)
     {
         fprintf(LogFile, "Error %u seeking base codeview data in %s\n", errno, FileName);
-        return (20);
+        return 20;
     }
 
     if (read(ModuleFile,
@@ -674,7 +674,7 @@ STATIC int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
         == -1)
     {
         fprintf(LogFile, "Error %u reading base codeview data in %s\n", errno, FileName);
-        return (21);
+        return 21;
     }
 
     if (lseek(ModuleFile,
@@ -683,7 +683,7 @@ STATIC int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
         == -1)
     {
         fprintf(LogFile, "Error %u seeking dir codeview data in %s\n", errno, FileName);
-        return (22);
+        return 22;
     }
 
     if (read(ModuleFile,
@@ -691,7 +691,7 @@ STATIC int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
         == -1)
     {
         fprintf(LogFile, "Error %u reading dir codeview data in %s\n", errno, FileName);
-        return (23);
+        return 23;
     }
 
     // Read dir table into buffer
@@ -700,7 +700,7 @@ STATIC int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
         == NULL)
     {
         fprintf(LogFile, "Out of memory!");
-        return (-1);
+        return -1;
     }
 
     if (read(ModuleFile,
@@ -710,7 +710,7 @@ STATIC int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
     {
         fprintf(LogFile, "Error %u reading codeview dir table from %s\n", errno, FileName);
         free(pxdi->pDirTab32);
-        return (24);
+        return 24;
     }
 
     i = 0;
@@ -1039,8 +1039,10 @@ STATIC int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
             i++;
         } // end while modindex
     } // End While i < numdir
+
     free(pxdi->pDirTab32);
-    return (0);
+
+    return 0;
 }
 
 /*
@@ -1069,56 +1071,56 @@ STATIC int Read16CodeView(FILE *LogFile,       // in: text log file to write to
     if (lseek(fh, -8L, SEEK_END) == -1)
     {
         fprintf(LogFile, "Error %u seeking CodeView table in %s\n", errno, FileName);
-        return (18);
+        return 18;
     }
 
     if (read(fh, (void *)&G_eodbug, 8) == -1)
     {
         fprintf(LogFile, "Error %u reading debug info from %s\n", errno, FileName);
-        return (19);
+        return 19;
     }
     if (G_eodbug.dbug != DBUGSIG)
     {
         // fprintf(LogFile,"\nNo CodeView information stored.\n");
-        return (100);
+        return 100;
     }
 
     if ((pxdi->lfaBase = lseek(fh, -(LONG)G_eodbug.dfaBase, SEEK_END)) == -1L)
     {
         fprintf(LogFile, "Error %u seeking base codeview data in %s\n", errno, FileName);
-        return (20);
+        return 20;
     }
 
     if (read(fh, (void *)&pxdi->base, 8) == -1)
     {
         fprintf(LogFile, "Error %u reading base codeview data in %s\n", errno, FileName);
-        return (21);
+        return 21;
     }
 
     if (lseek(fh, pxdi->base.lfoDir - 8, SEEK_CUR) == -1)
     {
         fprintf(LogFile, "Error %u seeking dir codeview data in %s\n", errno, FileName);
-        return (22);
+        return 22;
     }
 
     if (read(fh, (void *)&numdir, 2) == -1)
     {
         fprintf(LogFile, "Error %u reading dir codeview data in %s\n", errno, FileName);
-        return (23);
+        return 23;
     }
 
     // Read dir table into buffer
     if ((pxdi->pDirTab = (SSDIR*)calloc(numdir, sizeof(SSDIR))) == NULL)
     {
         fprintf(LogFile, "Out of memory!");
-        return (-1);
+        return -1;
     }
 
     if (read(fh, (void*)pxdi->pDirTab, numdir * sizeof(SSDIR)) == -1)
     {
         fprintf(LogFile, "Error %u reading codeview dir table from %s\n", errno, FileName);
         free(pxdi->pDirTab);
-        return (24);
+        return 24;
     }
 
     i = 0;
@@ -1196,8 +1198,10 @@ STATIC int Read16CodeView(FILE *LogFile,       // in: text log file to write to
             i++;
         }                       // end while modindex
     }                           // End While i < numdir
+
     free(pxdi->pDirTab);
-    return (0);
+
+    return 0;
 }
 
 /* ******************************************************************
@@ -1541,7 +1545,7 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
 #endif
     SymFile = fopen(SymFileName, "rb");
     if (SymFile == 0)
-        return (2);
+        return 2;
 
     // read in first map definition
     fread(&MapDef, sizeof(MAPDEF), 1, SymFile);
@@ -1567,7 +1571,7 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
 #endif
         if (fseek(SymFile, SegOffset, SEEK_SET))
             // seek error
-            return (3);
+            return 3;
 
         // read in segment definition
         fread(&SegDef, sizeof(SEGDEF), 1, SymFile);
@@ -1661,8 +1665,10 @@ int dbgPrintSYMInfo(FILE *LogFile,      // in: text log file to write to
         }                       // endif
         SegOffset = NEXTSEGDEFOFFSET(SegDef);
     }                           // endwhile
+
     fclose(SymFile);
-    return (0);         // no error
+
+    return 0;         // no error
 }
 
 /* ******************************************************************
@@ -1784,7 +1790,7 @@ BOOL dbgPrintStackFrame(FILE *LogFile,
                     szSymName);
     }
 
-    return (arc == NO_ERROR);
+    return !arc;
 }
 
 /*

@@ -241,7 +241,7 @@ ULONG eaPathQueryTotalSize(const char *pcszPath)
         }
     }
 
-    return (ulTotalEASize);
+    return ulTotalEASize;
 }
 
 /*
@@ -253,7 +253,7 @@ ULONG eaPathQueryTotalSize(const char *pcszPath)
 
 PEALIST eaPathReadAll(const char *pcszPath)
 {
-    return (ReadEAList(ENUMEA_REFTYPE_PATH, (PSZ)pcszPath));
+    return ReadEAList(ENUMEA_REFTYPE_PATH, (PSZ)pcszPath);
 }
 
 /*
@@ -263,7 +263,7 @@ PEALIST eaPathReadAll(const char *pcszPath)
 
 PEALIST eaHFileReadAll(HFILE hfile)
 {
-    return (ReadEAList(ENUMEA_REFTYPE_FHANDLE, (&hfile)));
+    return ReadEAList(ENUMEA_REFTYPE_FHANDLE, (&hfile));
 }
 
 /*
@@ -277,7 +277,7 @@ PEALIST eaHFileReadAll(HFILE hfile)
 
 PEABINDING eaPathReadOneByIndex(const char *pcszPath, ULONG index)
 {
-    return (ReadEAByIndex(ENUMEA_REFTYPE_PATH, (PSZ)pcszPath, index));
+    return ReadEAByIndex(ENUMEA_REFTYPE_PATH, (PSZ)pcszPath, index);
 }
 
 /*
@@ -287,7 +287,7 @@ PEABINDING eaPathReadOneByIndex(const char *pcszPath, ULONG index)
 
 PEABINDING eaHFileReadOneByIndex(HFILE hfile, ULONG index)
 {
-    return (ReadEAByIndex(ENUMEA_REFTYPE_FHANDLE, (&hfile), index));
+    return ReadEAByIndex(ENUMEA_REFTYPE_FHANDLE, (&hfile), index);
 }
 
 /*
@@ -299,7 +299,7 @@ PEABINDING eaHFileReadOneByIndex(HFILE hfile, ULONG index)
 
 PEABINDING eaPathReadOneByName(const char *pcszPath, const char *pcszEAName)
 {
-    return (ReadEAByName(ENUMEA_REFTYPE_PATH, (PSZ)pcszPath, (PSZ)pcszEAName));
+    return ReadEAByName(ENUMEA_REFTYPE_PATH, (PSZ)pcszPath, (PSZ)pcszEAName);
 }
 
 /*
@@ -309,7 +309,7 @@ PEABINDING eaPathReadOneByName(const char *pcszPath, const char *pcszEAName)
 
 PEABINDING eaHFileReadOneByName(HFILE hfile, const char *pcszEAName)
 {
-    return (ReadEAByName(ENUMEA_REFTYPE_FHANDLE, (&hfile), (PSZ)pcszEAName));
+    return ReadEAByName(ENUMEA_REFTYPE_FHANDLE, (&hfile), (PSZ)pcszEAName);
 }
 
 /* ******************************************************************
@@ -333,7 +333,7 @@ PEABINDING eaHFileReadOneByName(HFILE hfile, const char *pcszEAName)
 
 APIRET eaPathWriteAll(const char *pcszPath, PEALIST list)
 {
-    return (WriteEAList(ENUMEA_REFTYPE_PATH, (PSZ)pcszPath, list));
+    return WriteEAList(ENUMEA_REFTYPE_PATH, (PSZ)pcszPath, list);
 }
 
 /*
@@ -345,7 +345,7 @@ APIRET eaPathWriteAll(const char *pcszPath, PEALIST list)
 
 APIRET eaHFileWriteAll(HFILE hfile, PEALIST list)
 {
-    return (WriteEAList(ENUMEA_REFTYPE_FHANDLE, (&hfile), list));
+    return WriteEAList(ENUMEA_REFTYPE_FHANDLE, (&hfile), list);
 }
 
 /*
@@ -364,7 +364,7 @@ APIRET eaHFileWriteAll(HFILE hfile, PEALIST list)
 
 APIRET eaPathWriteOne(const char *pcszPath, PEABINDING peab)
 {
-    return (WriteEA(ENUMEA_REFTYPE_PATH, (PSZ)pcszPath, peab));
+    return WriteEA(ENUMEA_REFTYPE_PATH, (PSZ)pcszPath, peab);
 }
 
 /*
@@ -376,7 +376,7 @@ APIRET eaPathWriteOne(const char *pcszPath, PEABINDING peab)
 
 APIRET eaHFileWriteOne(HFILE hfile, PEABINDING peab)
 {
-    return (WriteEA(ENUMEA_REFTYPE_FHANDLE, (&hfile), peab));
+    return WriteEA(ENUMEA_REFTYPE_FHANDLE, (&hfile), peab);
 }
 
 /*
@@ -397,7 +397,7 @@ APIRET eaPathDeleteOne(const char *pcszPath, const char *pcszEAName)
     eab.pszName = (PSZ)pcszEAName;
     eab.usValueLength = 0;
     eab.pszValue = 0;
-    return (eaPathWriteOne(pcszPath, &eab));
+    return eaPathWriteOne(pcszPath, &eab);
 }
 
 /*
@@ -430,7 +430,7 @@ USHORT eaQueryEAType(PEABINDING peab)
         if (peab->pszValue)
             // first USHORT always has EAT_* flag
             usReturn = *((PUSHORT)(peab->pszValue));
-    return (usReturn);
+    return usReturn;
 }
 
 /*
@@ -464,7 +464,7 @@ PSZ eaCreatePSZFromBinding(PEABINDING peab)
         }
     }
 
-    return (pszReturn);
+    return pszReturn;
 }
 
 /*
@@ -532,7 +532,7 @@ PEABINDING eaCreateBindingFromPSZ(const char *pcszEAName, // in: EA name (e.g. "
         }
     }
 
-    return (peab);
+    return peab;
 }
 
 /*
@@ -582,7 +582,7 @@ USHORT eaQueryMVCount(PEABINDING peab,      // in: EA binding to examine (must b
         usReturn = *((PUSHORT)(peab->pszValue + 4));
     }
 
-    return (usReturn);
+    return usReturn;
 }
 
 /*
@@ -721,7 +721,7 @@ PSZ eaQueryMVItem(PEABINDING peab,            // in: binding to examing
         }
     } // end if (usEAType == EAT_MVMT)
 
-    return (pszReturn);
+    return pszReturn;
 }
 
 /*
@@ -818,7 +818,7 @@ PSZ eaCreatePSZFromMVBinding(PEABINDING peab,       // in: EAT_MVMT binding
         } // end if (usMVCount)
     }
 
-    return (pszTotal);
+    return pszTotal;
 }
 
 /*
@@ -932,7 +932,7 @@ PEABINDING eaCreateMVBindingFromPSZ(const char *pcszEAName,      // in: EA name 
         } // end if (peab)
     } // end if (pszInput)
 
-    return (peab);
+    return peab;
 }
 
 /********************************************************************
@@ -975,7 +975,7 @@ STATIC PEALIST ReadEAList(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENUMEA_R
         }
         index += 1;
     }
-    return (head);
+    return head;
 }
 
 /*
@@ -1009,7 +1009,7 @@ STATIC PEABINDING ReadEAByName(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENU
         if (dena == 0)
             return NULL;
         if ((strcmp(name, (dena->szName))) == 0)
-            return (GetEAValue(type, pfile, dena));
+            return GetEAValue(type, pfile, dena);
         free(dena);
         index += 1;
     }
@@ -1056,10 +1056,10 @@ STATIC PDENA2 ReadDenaByIndex(ULONG type, // in: ENUMEA_REFTYPE_FHANDLE or  ENUM
        )
     {
         free(dena);
-        return (0);
+        return 0;
     }
-    else
-        return (dena);
+
+    return dena;
 }
 
 /*
@@ -1085,9 +1085,9 @@ STATIC PEABINDING GetEAValue(ULONG type,  // in: ENUMEA_REFTYPE_FHANDLE or  ENUM
                     // changed V0.9.0 (99-11-28) [umoeller]; this now works with C
     free(eaop.fpGEA2List);
     if (arc == NO_ERROR)
-        return (ConvertFeal2Binding(eaop.fpFEA2List));
-    else
-        return NULL;
+        return ConvertFeal2Binding(eaop.fpFEA2List);
+
+    return NULL;
 }
 
 /*
@@ -1141,7 +1141,8 @@ STATIC PEABINDING ConvertFeal2Binding(PFEA2LIST feal)
                 (fea->cbValue));
         free(feal);
     }
-    return (binding);
+
+    return binding;
 }
 
 /*
@@ -1215,7 +1216,7 @@ STATIC PFEA2LIST ConvertBinding2Feal(PEABINDING binding)
         memcpy ((&((fea->szName) [(fea->cbName) + 1])),
                 (EA_BINDING_VALUE (binding)),
                 (fea->cbValue));
-    return (feal);
+    return feal;
 }
 
 /* ******************************************************************

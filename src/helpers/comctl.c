@@ -1181,7 +1181,7 @@ PANIMATIONDATA ctlPrepareStaticIcon(HWND hwndStatic,
     {
         // switch static to icon mode
         pa->ulFlags = ANF_ICON;
-        return (pa);
+        return pa;
     }
 
     return NULL;
@@ -1300,7 +1300,7 @@ BOOL ctlStartAnimation(HWND hwndStatic)
 
 BOOL ctlStopAnimation(HWND hwndStatic)
 {
-    return (WinStopTimer(WinQueryAnchorBlock(hwndStatic), hwndStatic, 1));
+    return WinStopTimer(WinQueryAnchorBlock(hwndStatic), hwndStatic, 1);
 }
 
 /*
@@ -1375,7 +1375,7 @@ PANIMATIONDATA ctlPrepareStretchedBitmap(HWND hwndStatic,
         pa->ulFlags = ANF_BITMAP;
         if (fPreserveProportions)
             pa->ulFlags |= ANF_PROPORTIONAL;
-        return (pa);
+        return pa;
     }
 
     return NULL;

@@ -150,7 +150,7 @@ PSZ         pszMemCnrTitle = NULL; */
             else
                 ulTotalAllocated += Size;
         }
-        return (0);
+        return 0;
     }
 
     /*
@@ -193,10 +193,10 @@ PSZ         pszMemCnrTitle = NULL; */
                 pMemRecordThis = (PMEMRECORD)pMemRecordThis->recc.preccNextRecord;
             }
             else
-                return (1);     // stop
+                return 1;     // stop
         }
 
-        return (0);
+        return 0;
     }
 
     /*
@@ -415,11 +415,11 @@ STATIC SHORT EXPENTRY mnu_fnCompareIndex(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PV
     pStorage = pStorage; // to keep the compiler happy
     if ((pmrc1) && (pmrc2))
         if (pmrc1->ulIndex < pmrc2->ulIndex)
-            return (-1);
+            return -1;
         else if (pmrc1->ulIndex > pmrc2->ulIndex)
-            return (1);
+            return 1;
 
-    return (0);
+    return 0;
 }
 
 /*
@@ -438,17 +438,17 @@ STATIC SHORT EXPENTRY mnu_fnCompareSourceFile(PMEMRECORD pmrc1, PMEMRECORD  pmrc
                                       pmrc2->szSource,
                                       0))
             {
-                case WCS_LT: return (-1);
-                case WCS_GT: return (1);
+                case WCS_LT: return -1;
+                case WCS_GT: return 1;
                 default:    // equal
                     if (pmrc1->ulLine < pmrc2->ulLine)
-                        return (-1);
+                        return -1;
                     else if (pmrc1->ulLine > pmrc2->ulLine)
-                        return (1);
+                        return 1;
 
             }
 
-    return (0);
+    return 0;
 }
 
 /*
@@ -463,12 +463,12 @@ STATIC SHORT EXPENTRY mnu_fnCompareSize(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVO
     if ((pmrc1) && (pmrc2))
     {
         if (pmrc1->ulSize > pmrc2->ulSize)
-            return (1);
+            return 1;
         else if (pmrc1->ulSize < pmrc2->ulSize)
-            return (-1);
+            return -1;
     }
 
-    return (0);
+    return 0;
 }
 
 /*
@@ -483,12 +483,12 @@ STATIC SHORT EXPENTRY mnu_fnCompareAddress(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, 
     if ((pmrc1) && (pmrc2))
     {
         if (pmrc1->ulAddress > pmrc2->ulAddress)
-            return (1);
+            return 1;
         else if (pmrc1->ulAddress < pmrc2->ulAddress)
-            return (-1);
+            return -1;
     }
 
-    return (0);
+    return 0;
 }
 
 #define ID_MEMCNR   1000

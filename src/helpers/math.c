@@ -63,7 +63,7 @@ int mathGCD(int a, int b)
         b = r;
     }
 
-    return (a);
+    return a;
 
 }
 
@@ -224,7 +224,7 @@ int mathFactorBrute(int n,                           // in: integer to factor
         }
     }
 
-    return (rc);
+    return rc;
 }
 
 /*
@@ -309,7 +309,7 @@ int mathFactorPrime(double n,
     if (n > 1)
     {
         if (!rc)
-            return (0);
+            return 0;
 
         rc++;
         pfnCallback(n,
@@ -317,7 +317,7 @@ int mathFactorPrime(double n,
                     pUser);
     }
 
-    return (rc);
+    return rc;
 }
 
 /*
@@ -352,7 +352,7 @@ int mathGCDMulti(int *paNs,             // in: array of integers
         k--;
     }
 
-    return (d);
+    return d;
 }
 
 

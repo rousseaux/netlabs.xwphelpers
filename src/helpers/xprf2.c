@@ -643,7 +643,7 @@ APIRET xprfSaveINIs(HAB hab,               // in:  anchor block
 BOOL _Optlink fnCallback(ULONG ulUser, ULONG ulNow, ULONG ulMax)
 {
     printf("\r done %03d%%", ulNow * 100 / ulMax);
-    return (TRUE);
+    return TRUE;
 }
 
 int main(int argc, char* argv[])

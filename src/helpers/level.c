@@ -528,7 +528,7 @@ STATIC APIRET _locatesysleveldata(HFILE hFile)
 
 STATIC PSYSLEVELDATA _allocsysleveldata(HFILE hFile)
 {
-    return (PSYSLEVELDATA) malloc(sizeof(SYSLEVELDATA));
+    return (PSYSLEVELDATA)malloc(sizeof(SYSLEVELDATA));
 }
 
 /*

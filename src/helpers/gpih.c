@@ -1091,10 +1091,10 @@ BOOL gpihLockLCIDs(VOID)
 {
     if (!G_hmtxLCIDs)
         // first call: create
-        return (!DosCreateMutexSem(NULL,
-                                   &G_hmtxLCIDs,
-                                   0,
-                                   TRUE));     // request!
+        return !DosCreateMutexSem(NULL,
+                                  &G_hmtxLCIDs,
+                                  0,
+                                  TRUE);     // request!
 
     // subsequent calls: request
     return !DosRequestMutexSem(G_hmtxLCIDs, SEM_INDEFINITE_WAIT);

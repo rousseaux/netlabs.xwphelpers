@@ -147,6 +147,7 @@ STATIC PCSZ     G_pcszStartMarker = "\n<--",
  *
  *@@added V0.9.18 (2002-03-24) [umoeller]
  *@@changed V0.9.20 (2002-07-19) [umoeller]: optimized, no longer holding all msgs im mem
+ *@@changed V1.0.1 (2002-12-16) [pr]: Ctrl-Z fix
  */
 
 APIRET LoadAndCompile(PTMFMSGFILE pTmf,     // in: TMF struct to set up
@@ -180,35 +181,8 @@ APIRET LoadAndCompile(PTMFMSGFILE pTmf,     // in: TMF struct to set up
                 pszContent,
                 cbRead - 1);    // not including null byte
 
-        // convert to plain C format
-        /* xstrConvertLineFormat(&pTmf->strContent,
-                              CRLF2LF);
-        */
-
-        // kick out all the comments
-        /*
-        while (pStartOfMarker = strstr(pTmf->strContent.psz, "\n;"))
-        {
-            // copy the next line over this
-            PCSZ pEOL = strhFindEOL(pStartOfMarker + 2, NULL);
-            xstrrpl(&pTmf->strContent,
-                    // ofs of first char to replace: "\n;"
-                    pStartOfMarker - pTmf->strContent.psz,
-                    // no. of chars to replace:
-                    pEOL - pStartOfMarker,
-                    // string to replace chars with:
-                    NULL,
-                    // length of replacement string:
-                    0);
-        }
-        */
-
-        // free excessive memory
-        // xstrShrink(&pTmf->strContent);
-
-        pStartOfFile = strContents.psz;
-
         // go build a tree of all message IDs...
+        pStartOfFile = strContents.psz;
 
         // find first start message marker
         pStartOfMarker = strstr(pStartOfFile,
@@ -300,10 +274,11 @@ APIRET LoadAndCompile(PTMFMSGFILE pTmf,     // in: TMF struct to set up
                         // this was the last message:
                         pNew->cbText = strlen(pStartOfText);
 
-                // remove trailing newlines
+                // remove trailing newlines and Ctrl-Z
                 while (    (pNew->cbText)
                         && (    (pStartOfText[pNew->cbText - 1] == '\n')
                              || (pStartOfText[pNew->cbText - 1] == '\r')
+                             || (pStartOfText[pNew->cbText - 1] == '\x1a') // V1.0.1 (2002-12-16) [pr]
                            )
                       )
                     (pNew->cbText)--;
@@ -334,8 +309,7 @@ APIRET LoadAndCompile(PTMFMSGFILE pTmf,     // in: TMF struct to set up
  *      with tmfGetMessage.
  *
  *      Use tmfCloseMessageFile to close the file
- *      again and free all resources. This thing
- *      can allocate quite a bit of memory.
+ *      again and free all resources.
  *
  *      Returns:
  *
@@ -414,26 +388,25 @@ APIRET tmfOpenMessageFile(const char *pcszMessageFile, // in: fully q'fied .TMF 
 
 STATIC VOID FreeInternalMem(PTMFMSGFILE pTmf)
 {
-    LONG   cItems;
+    LONG    cItems;
     TREE**  papNodes;
 
-    if (cItems = pTmf->cIDs)
+    if (    (cItems = pTmf->cIDs)
+         && (papNodes = treeBuildArray(pTmf->IDsTreeRoot,
+                                       &cItems))
+       )
     {
-        if (papNodes = treeBuildArray(pTmf->IDsTreeRoot,
-                                      &cItems))
+        ULONG ul;
+        for (ul = 0; ul < cItems; ul++)
         {
-            ULONG ul;
-            for (ul = 0; ul < cItems; ul++)
-            {
-                PMSGENTRY pNodeThis = (PMSGENTRY)(papNodes[ul]);
+            PMSGENTRY pNodeThis = (PMSGENTRY)(papNodes[ul]);
 
-                xstrClear(&pNodeThis->strID);
+            xstrClear(&pNodeThis->strID);
 
-                free(pNodeThis);
-            }
-
-            free(papNodes);
+            free(pNodeThis);
         }
+
+        free(papNodes);
     }
 }
 
@@ -463,7 +436,7 @@ APIRET tmfCloseMessageFile(PTMFMSGFILE *ppMsgFile)
         return NO_ERROR;
     }
 
-    return (ERROR_INVALID_PARAMETER);
+    return ERROR_INVALID_PARAMETER;
 }
 
 /*
@@ -502,102 +475,100 @@ APIRET tmfGetMessage(PTMFMSGFILE pMsgFile,      // in: msg file opened by tmfOpe
                      PCSZ *pTable,              // in: replacement table or NULL
                      ULONG cTableEntries)       // in: count of items in pTable or null
 {
-    APIRET arc = NO_ERROR;
+    APIRET  arc;
+    ULONG   cbFile;
+    PXFILE  pFile;
 
     if (    (!pMsgFile)
          || (!pMsgFile->pszFilename)
        )
-        arc = ERROR_INVALID_PARAMETER;
-    else
+        return ERROR_INVALID_PARAMETER;
+
+    // open the file again V0.9.20 (2002-07-19) [umoeller]
+    if (!(arc = doshOpen(pMsgFile->pszFilename,
+                         XOPEN_READ_EXISTING,
+                         &cbFile,
+                         &pFile)))
     {
-        // open the file again V0.9.20 (2002-07-19) [umoeller]
-        ULONG   cbFile;
-        PXFILE  pFile;
-        if (!(arc = doshOpen(pMsgFile->pszFilename,
-                             XOPEN_READ_EXISTING,
-                             &cbFile,
-                             &pFile)))
+        // check if last-write date/time changed compared
+        // to the last time we opened the thing...
+        // V0.9.18 (2002-03-24) [umoeller]
+        FILESTATUS3 fs3;
+        if (!(arc = DosQueryFileInfo(pFile->hf,
+                                     FIL_STANDARD,
+                                     &fs3,
+                                     sizeof(fs3))))
         {
-            // check if last-write date/time changed compared
-            // to the last time we opened the thing...
-            // V0.9.18 (2002-03-24) [umoeller]
-            FILESTATUS3 fs3;
-            if (!(arc = DosQueryFileInfo(pFile->hf,
-                                         FIL_STANDARD,
-                                         &fs3,
-                                         sizeof(fs3))))
+            CHAR szTemp[30];
+            dtCreateFileTimeStamp(szTemp,
+                                  &fs3.fdateLastWrite,
+                                  &fs3.ftimeLastWrite);
+            if (strcmp(szTemp, pMsgFile->szTimestamp))
             {
-                CHAR szTemp[30];
-                dtCreateFileTimeStamp(szTemp,
-                                      &fs3.fdateLastWrite,
-                                      &fs3.ftimeLastWrite);
-                if (strcmp(szTemp, pMsgFile->szTimestamp))
-                {
-                    // last write date changed:
-                    _Pmpf((__FUNCTION__ ": timestamp changed, recompiling"));
-                    FreeInternalMem(pMsgFile);
+                // last write date changed:
+                _Pmpf((__FUNCTION__ ": timestamp changed, recompiling"));
+                FreeInternalMem(pMsgFile);
 
-                    if (!(arc = LoadAndCompile(pMsgFile, pFile)))
-                        strcpy(pMsgFile->szTimestamp, szTemp);
-                }
+                if (!(arc = LoadAndCompile(pMsgFile, pFile)))
+                    strcpy(pMsgFile->szTimestamp, szTemp);
             }
+        }
 
-            if (!arc)
+        if (!arc)
+        {
+            // go find the message in the tree
+            PMSGENTRY pEntry;
+            if (!(pEntry = (PMSGENTRY)treeFind(pMsgFile->IDsTreeRoot,
+                                               (ULONG)pcszMessageName,
+                                               treeCompareStrings)))
+                arc = ERROR_MR_MID_NOT_FOUND;
+            else
             {
-                // go find the message in the tree
-                PMSGENTRY pEntry;
-                if (!(pEntry = (PMSGENTRY)treeFind(pMsgFile->IDsTreeRoot,
-                                                   (ULONG)pcszMessageName,
-                                                   treeCompareStrings)))
-                    arc = ERROR_MR_MID_NOT_FOUND;
-                else
+                PSZ     pszMsg;
+                ULONG   cbRead = pEntry->cbText;
+
+                if (!(pszMsg = (PSZ)malloc(cbRead + 1)))
+                    arc = ERROR_NOT_ENOUGH_MEMORY;
+                else if (!(arc = doshReadAt(pFile,
+                                            pEntry->ulOfsText,
+                                            &cbRead,
+                                            pszMsg,
+                                            DRFL_NOCACHE | DRFL_FAILIFLESS)))
                 {
-                    PSZ     pszMsg;
-                    ULONG   cbRead = pEntry->cbText;
+                    // null-terminate
+                    pszMsg[cbRead] = '\0';
+                    xstrset2(pstr,
+                             pszMsg,
+                             cbRead);
 
-                    if (!(pszMsg = (PSZ)malloc(cbRead + 1)))
-                        arc = ERROR_NOT_ENOUGH_MEMORY;
-                    else if (!(arc = doshReadAt(pFile,
-                                                pEntry->ulOfsText,
-                                                &cbRead,
-                                                pszMsg,
-                                                DRFL_NOCACHE | DRFL_FAILIFLESS)))
+                    // kick out \r\n
+                    xstrConvertLineFormat(pstr,
+                                          CRLF2LF);
+
+                    // now replace strings from the table
+                    if (cTableEntries && pTable)
                     {
-                        // null-terminate
-                        pszMsg[cbRead] = '\0';
-                        xstrset2(pstr,
-                                 pszMsg,
-                                 cbRead);
-
-                        // kick out \r\n
-                        xstrConvertLineFormat(pstr,
-                                              CRLF2LF);
-
-                        // now replace strings from the table
-                        if (cTableEntries && pTable)
+                        CHAR szFind[10] = "%0";
+                        ULONG ul;
+                        for (ul = 0;
+                             ul < cTableEntries;
+                             ul++)
                         {
-                            CHAR szFind[10] = "%0";
-                            ULONG ul;
-                            for (ul = 0;
-                                 ul < cTableEntries;
-                                 ul++)
-                            {
-                                ULONG ulOfs = 0;
+                            ULONG ulOfs = 0;
 
-                                _ultoa(ul + 1, szFind + 1, 10);
-                                while (xstrFindReplaceC(pstr,
-                                                        &ulOfs,
-                                                        szFind,
-                                                        pTable[ul]))
-                                    ;
-                            }
+                            _ultoa(ul + 1, szFind + 1, 10);
+                            while (xstrFindReplaceC(pstr,
+                                                    &ulOfs,
+                                                    szFind,
+                                                    pTable[ul]))
+                                ;
                         }
                     }
                 }
             }
-
-            doshClose(&pFile);
         }
+
+        doshClose(&pFile);
     }
 
     return arc;

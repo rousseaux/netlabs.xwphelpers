@@ -411,10 +411,10 @@ BOOL ctlProgressBarFromStatic(HWND hwndChart, ULONG ulAttr)
         pData->OldStaticProc = OldStaticProc;
 
         WinSetWindowULong(hwndChart, QWL_USER, (ULONG)pData);
-        return (TRUE);
+        return TRUE;
     }
 
-    return (FALSE);
+    return FALSE;
 }
 
 

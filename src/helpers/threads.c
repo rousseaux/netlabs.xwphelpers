@@ -389,7 +389,7 @@ ULONG thrCreate(PTHREADINFO pti,     // out: THREADINFO data
         }
     }
 
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -476,7 +476,7 @@ ULONG thrRunSync(HAB hab,               // in: anchor block of calling thread
         WinDestroyWindow(hwndNotify);
     }
 
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -525,7 +525,7 @@ PTHREADINFO thrListThreads(PULONG pcThreads)
         UnlockThreadInfos();
     }
 
-    return (pArray);
+    return pArray;
 }
 
 /*
@@ -576,9 +576,9 @@ BOOL thrClose(PTHREADINFO pti)
     if (pti)
     {
         pti->fExit = TRUE;
-        return (TRUE);
+        return TRUE;
     }
-    return (FALSE);
+    return FALSE;
 }
 
 /*
@@ -604,9 +604,9 @@ BOOL thrWait(PTHREADINFO pti)
         {
             DosWaitThread(&pti->tid, DCWW_WAIT);
             pti->tid = NULLHANDLE;
-            return (TRUE);
+            return TRUE;
         }
-    return (FALSE);
+    return FALSE;
 }
 
 /*
@@ -623,7 +623,7 @@ BOOL thrFree(PTHREADINFO pti)
         thrClose(pti);
         thrWait(pti);
     }
-    return (TRUE);
+    return TRUE;
 }
 
 /*
@@ -648,7 +648,7 @@ BOOL thrKill(PTHREADINFO pti)
             // system might hang
         DosKillThread(pti->tid);
     }
-    return (TRUE);
+    return TRUE;
 }
 
 /*
@@ -661,9 +661,9 @@ BOOL thrKill(PTHREADINFO pti)
 TID thrQueryID(const THREADINFO* pti)
 {
     if (pti)
-        return (pti->tid);
+        return pti->tid;
 
-    return (NULLHANDLE);
+    return NULLHANDLE;
 }
 
 /*
@@ -690,8 +690,8 @@ ULONG thrQueryPriority(VOID)
     if (DosGetInfoBlocks(&ptib, &ppib) == NO_ERROR)
         if (ptib)
             if (ptib->tib_ptib2)
-                return (ptib->tib_ptib2->tib2_ulpri);
-    return (0);
+                return ptib->tib_ptib2->tib2_ulpri;
+    return 0;
 }
 
 

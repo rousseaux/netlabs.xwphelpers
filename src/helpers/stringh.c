@@ -219,7 +219,8 @@ PSZ strhdupDebug(PCSZ pcszSource,
 /*
  *@@ strhdup:
  *      like strdup, but this one doesn't crash if pszSource
- *      is NULL, but returns NULL also. In addition, this
+ *      is NULL. Instead, this returns NULL if pcszSource is
+ *      NULL or points to a null byte. In addition, this
  *      can report the length of the string (V0.9.16).
  *
  *@@added V0.9.0 [umoeller]
@@ -406,7 +407,7 @@ ULONG strhlen(PCSZ pcsz)
 ULONG strhSize(PCSZ pcsz)
 {
     if (pcsz) //  && *pcsz) // V0.9.18 (2002-03-27) [umoeller]
-        return (strlen(pcsz) + 1);
+        return strlen(pcsz) + 1;
 
     return 0;
 }
@@ -1027,7 +1028,7 @@ PSZ strhFindEOL(PCSZ pcszSearchIn,        // in: where to search
     if ((pulOffset) && (prc))
         *pulOffset = prc - pcszSearchIn;
 
-    return ((PSZ)prc);
+    return (PSZ)prc;
 }
 
 /*
@@ -1854,7 +1855,7 @@ void* strhmemfind(const void *in_block,     // in: block containing data
         return NULL;                  //  Otherwise it's not found
 
     if (pattern_size == 0)              //  Empty patterns match at start
-        return ((void *)block);
+        return (void*)block;
 
     //  Build the shift table unless we're continuing a previous search
 
@@ -1900,7 +1901,7 @@ void* strhmemfind(const void *in_block,     // in: block containing data
 
             // If we found a match, return the start address
             if (match_size >= pattern_size)
-                return ((void*)(match_base));
+                return (void*)match_base;
 
         }
     }
@@ -1958,7 +1959,7 @@ char* strhtxtfind (const char *string,            //  String containing data
         return NULL;                  //  Otherwise it cannot be found
 
     if (pattern_size == 0)              //  Empty string matches at start
-        return (char *) string;
+        return (char*)string;
 
     //  Build the shift table
 
@@ -1996,7 +1997,7 @@ char* strhtxtfind (const char *string,            //  String containing data
 
             //  If we found a match, return the start address
             if (match_size >= pattern_size)
-                return ((char *)(match_base));
+                return (char*)match_base;
           }
       }
     return NULL;                      //  Found nothing

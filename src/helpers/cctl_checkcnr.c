@@ -819,7 +819,7 @@ BOOL ctlMakeCheckboxContainer(HWND hwndCnrOwner,    // in: owner (and parent) of
     if (G_hmtxCnrOwnersList == 0)
         if (DosCreateMutexSem(NULL,
                               &G_hmtxCnrOwnersList, 0, FALSE) != NO_ERROR)
-            return (FALSE);
+            return FALSE;
 
     if (G_pllCnrOwners == NULL)
         G_pllCnrOwners = lstCreate(TRUE);

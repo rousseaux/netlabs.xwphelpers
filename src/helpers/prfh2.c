@@ -108,7 +108,7 @@ ULONG prfhINIError(ULONG ulOptions,
         fflush(fLog);
     }
 
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -128,7 +128,7 @@ ULONG prfhINIError2(ULONG ulOptions,
     CHAR szError2[2000];
     sprintf(szError2, "An error occured copying the profile %s: \n%s",
             pcszINI, pszErrorString);
-    return (prfhINIError(ulOptions, fLog, fncbError, szError2));
+    return prfhINIError(ulOptions, fLog, fncbError, szError2);
 }
 
 /*
@@ -637,7 +637,7 @@ APIRET prfhSaveINIs(HAB hab,               // in:  anchor block
         fprintf(fLog, "  Done with prfhSaveINIs\n");
 
     if (ulErrorOccured != MBID_IGNORE)
-        return (999);
+        return 999;
     else
         return NO_ERROR;
 }

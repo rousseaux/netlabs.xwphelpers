@@ -51,7 +51,7 @@ HWND APIENTRY NewWinFileDlg(HWND hwndOwner,
                                 hwndOwner,
                                 pfd);
 
-    return (hwndReturn);
+    return hwndReturn;
 }
 
 /*
@@ -322,7 +322,7 @@ int main(int argc, char *argv[])
     WinDestroyMsgQueue(hmq);
     WinTerminate(hab);
 
-    return (0);
+    return 0;
 }
 
 

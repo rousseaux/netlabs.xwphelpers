@@ -471,10 +471,10 @@ BOOL sndDoesSchemeExist(PCSZ pcszScheme,
     if (pszExisting)
     {
         free(pszExisting);
-        return (TRUE);
+        return TRUE;
     }
 
-    return (FALSE);
+    return FALSE;
     */
 
 }

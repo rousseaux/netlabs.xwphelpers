@@ -198,10 +198,10 @@ BOOL memdLock(VOID)
         }
     }
     else
-        return (!DosRequestMutexSem(G_hmtxMallocList,
-                                    SEM_INDEFINITE_WAIT));
+        return !DosRequestMutexSem(G_hmtxMallocList,
+                                   SEM_INDEFINITE_WAIT);
 
-    return (FALSE);
+    return FALSE;
 }
 
 /*
@@ -245,9 +245,9 @@ STATIC VOID LogError(const char *pcszFormat,     // in: format string (like with
 
 STATIC PHEAPITEM FindHeapItem(void *p)
 {
-    return ((PHEAPITEM)treeFind(G_pHeapItemsRoot,
-                                (ULONG)p,
-                                treeCompareKeys));
+    return (PHEAPITEM)treeFind(G_pHeapItemsRoot,
+                               (ULONG)p,
+                               treeCompareKeys);
 }
 
 /*
@@ -416,7 +416,7 @@ void* memdMalloc(size_t stSize,
             memdUnlock();
         }
 
-    return (prc);
+    return prc;
 }
 
 /*
@@ -439,7 +439,7 @@ void* memdCalloc(size_t num,
                          ulLine,
                          pcszFunction);
     memset(p, 0, num * stSize);
-    return (p);
+    return p;
 }
 
 /*
@@ -546,7 +546,7 @@ void* memdRealloc(void *p,
     if (!p)
         // p == NULL: this is valid, use malloc() instead
         // V0.9.12 (2001-05-21) [umoeller]
-        return (memdMalloc(stSize, pcszSourceFile, ulLine, pcszFunction));
+        return memdMalloc(stSize, pcszSourceFile, ulLine, pcszFunction);
 
     if (memdLock())
     {
@@ -664,7 +664,7 @@ void* memdRealloc(void *p,
         memdUnlock();
     }
 
-    return (prc);
+    return prc;
 }
 
 /*
@@ -726,7 +726,7 @@ unsigned long memdReleaseFreed(void)
         memdUnlock();
     }
 
-    return (ulItemsReleased);
+    return ulItemsReleased;
 }
 
 /* ******************************************************************

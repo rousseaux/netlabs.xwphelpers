@@ -315,7 +315,7 @@ STATIC APIRET Tokenize(ULONG ulLevel,
          || (!(*ppszInput))
          || (!pllParent)
        )
-        return (ERROR_INVALID_PARAMETER);
+        return ERROR_INVALID_PARAMETER;
 
     while (!arc)
     {

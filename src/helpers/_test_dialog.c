@@ -752,5 +752,5 @@ int main (int argc, char *argv[])
     WinDestroyMsgQueue(hmq);
     WinTerminate(hab);
 
-    return (0);
+    return 0;
 }

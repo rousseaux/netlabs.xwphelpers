@@ -990,7 +990,7 @@ STATIC PFNPROCESSTAG FindTagProcessor(PSZ pszTag)
                 case 'D': // DD
                 case 'd': // DD
                     if ((*p2 == 0) && (!fEndOfTag))
-                        return (TagDD);
+                        return TagDD;
                 break;
 
                 case 'I': // DIR
@@ -1249,7 +1249,7 @@ STATIC PFNPROCESSTAG FindTagProcessor(PSZ pszTag)
         break;
     }
 
-    return (pProcessor);
+    return pProcessor;
 }
 
 /*
@@ -1862,7 +1862,7 @@ STATIC unsigned char ConvertEscape(PSZ pszTag)
         break;
     }
 
-    return (crc);
+    return crc;
 }
 
 /*

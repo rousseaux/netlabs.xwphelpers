@@ -217,7 +217,7 @@
  +              treeInsert(root,                // tree's root
  +                         p,                   // new tree node
  +                         fnCompare);          // comparison func
- +              return (p);
+ +              return p;
  +          }
  *
  *      Your comparison func receives two ulKey values to compare,
@@ -225,8 +225,8 @@
  *
  +          int TREEENTRY fnCompare(ULONG ul1, ULONG ul2)
  +          {
- +              return (strcmp((const char*)ul1,
- +                             (const char*)ul2));
+ +              return strcmp((const char*)ul1,
+ +                            (const char*)ul2);
  +          }
  *
  *      You can then use treeFind to very quickly find a node
@@ -759,7 +759,7 @@ int treeDelete(TREE **root,         // in: root of the tree
     if (plCount)
         (*plCount)--;       // V0.9.16 (2001-10-19) [umoeller]
 
-    return (STATUS_OK);
+    return STATUS_OK;
 }
 
 /*
@@ -998,7 +998,7 @@ TREE** treeBuildArray(TREE* pRoot,
         }
     }
 
-    return (papNodes);
+    return papNodes;
 }
 
 /* void main(int argc, char **argv) {

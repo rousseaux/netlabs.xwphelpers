@@ -536,7 +536,7 @@ STATIC MRESULT EXPENTRY shp_fnwpShapeRegion(HWND hwnd, ULONG msg, MPARAM mp1, MP
             // TRACE("WM_CREATE\n");
             pRgn = (PSHPREGION)PVOIDFROMMP(mp1);
             WinSetWindowPtr(hwnd, 0, (PVOID) pRgn);
-        return (MRESULT) FALSE;
+        return (MRESULT)FALSE;
 
         /*
          * WM_PAINT:
@@ -548,7 +548,7 @@ STATIC MRESULT EXPENTRY shp_fnwpShapeRegion(HWND hwnd, ULONG msg, MPARAM mp1, MP
             hps = WinBeginPaint(hwnd, NULLHANDLE, NULL);
             shprgnDraw(hps, pRgn);
             WinEndPaint(hps)  ;
-        return (MRESULT) 0;
+        return (MRESULT)0;
 
         case WM_MOUSEMOVE    :
         case WM_BUTTON1DOWN  :
@@ -1172,11 +1172,11 @@ STATIC MRESULT EXPENTRY shp_fnwpShapeMgr(HWND hwnd, ULONG msg, MPARAM mp1, MPARA
                                   (PSHPCTLDATA)PVOIDFROMMP(mp1));
 
             if (pCtrl == NULL)
-                return (MRESULT) TRUE;
+                return (MRESULT)TRUE;
 
             // store control data in window words
             WinSetWindowPtr(hwnd, 0, (PVOID) pCtrl);
-            return (MRESULT) FALSE;
+            return (MRESULT)FALSE;
 
         /*
          * WM_DESTROY:
@@ -1186,7 +1186,7 @@ STATIC MRESULT EXPENTRY shp_fnwpShapeMgr(HWND hwnd, ULONG msg, MPARAM mp1, MPARA
         case WM_DESTROY:
             // TRACE("WM_DESTORY\n");
             shpmgrWMDestroy(pCtrl);
-            return (MRESULT) 0;
+            return (MRESULT)0;
 
         /*
          * WM_ADJUSTWINDOWPOS:
@@ -1211,7 +1211,7 @@ STATIC MRESULT EXPENTRY shp_fnwpShapeMgr(HWND hwnd, ULONG msg, MPARAM mp1, MPARA
 
             // never show ourselves
             pswp->fl &= ~SWP_SHOW;
-            return (MRESULT) 0;
+            return (MRESULT)0;
 
         /*
          * SHAPEWIN_MSG_UPDATE:
@@ -1220,7 +1220,7 @@ STATIC MRESULT EXPENTRY shp_fnwpShapeMgr(HWND hwnd, ULONG msg, MPARAM mp1, MPARA
 
         case SHAPEWIN_MSG_UPDATE:
             shpmgrUpdateRegions(pCtrl, (PRECTL) PVOIDFROMMP(mp1));
-            return (MRESULT) 0;
+            return (MRESULT)0;
 
         /*
          * WM_QUERYDLGCODE:
@@ -1269,7 +1269,7 @@ STATIC MRESULT EXPENTRY shp_fnwpShapeMgr(HWND hwnd, ULONG msg, MPARAM mp1, MPARA
             // this is faster than WiNBeginPaint
             WinValidateRect(hwnd, NULL, FALSE);
             // WinEndPaint(hps);
-            return (MRESULT) 0;
+            return (MRESULT)0;
         }
 
         /*

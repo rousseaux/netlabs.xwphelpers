@@ -161,12 +161,12 @@ HMTX                G_hmtxTimers = NULLHANDLE;  // timers lock mutex
 STATIC BOOL LockTimers(VOID)
 {
     if (!G_hmtxTimers)
-        return (!DosCreateMutexSem(NULL,
-                                   &G_hmtxTimers,
-                                   0,
-                                   TRUE));      // request!
-    else
-        return !DosRequestMutexSem(G_hmtxTimers, SEM_INDEFINITE_WAIT);
+        return !DosCreateMutexSem(NULL,
+                                  &G_hmtxTimers,
+                                  0,
+                                  TRUE);      // request!
+
+    return !DosRequestMutexSem(G_hmtxTimers, SEM_INDEFINITE_WAIT);
 }
 
 /*
@@ -206,7 +206,7 @@ STATIC PXTIMER FindTimer(PXTIMERSET pSet,          // in: timer set (from tmrCre
                  && (pTimer->hwndTarget == hwnd)
                )
             {
-                return (pTimer);
+                return pTimer;
             }
 
             pNode = pNode->pNext;
@@ -393,7 +393,7 @@ PXTIMERSET tmrCreateSet(HWND hwndOwner,         // in: owner window
         pSet->pvllXTimers = (PVOID)lstCreate(TRUE);
     }
 
-    return (pSet);
+    return pSet;
 }
 
 /*
@@ -732,7 +732,7 @@ USHORT XWPENTRY tmrStartXTimer(PXTIMERSET pSet, // in: timer set (from tmrCreate
         UnlockTimers();
     }
 
-    return (usrc);
+    return usrc;
 }
 
 /*

@@ -195,7 +195,7 @@ CHAR doshGetChar(VOID)
               0, // wait
               0);
 
-    return (kki.chChar);
+    return kki.chChar;
 }
 
 /*
@@ -285,7 +285,7 @@ ULONG doshIsWarp4(VOID)
         s_fQueried = TRUE;
     }
 
-    return (s_ulrc);
+    return s_ulrc;
 }
 
 /*
@@ -352,7 +352,7 @@ ULONG doshQuerySysUptime(VOID)
                     QSV_MS_COUNT,
                     &ulms,
                     sizeof(ulms));
-    return (ulms);
+    return ulms;
 }
 
 /*
@@ -374,11 +374,11 @@ APIRET doshDevIOCtl(HFILE hf,
                     PVOID pvData,
                     ULONG cbData)
 {
-    return (DosDevIOCtl(hf,
-                        ulCategory,
-                        ulFunction,
-                        pvParams, cbParams, &cbParams,
-                        pvData, cbData, &cbData));
+    return DosDevIOCtl(hf,
+                       ulCategory,
+                       ulFunction,
+                       pvParams, cbParams, &cbParams,
+                       pvData, cbData, &cbData);
 }
 
 /*
@@ -408,7 +408,7 @@ PVOID doshMalloc(ULONG cb,
     if (!(pv = malloc(cb)))
         *parc = ERROR_NOT_ENOUGH_MEMORY;
 
-    return (pv);
+    return pv;
 }
 
 /*
@@ -466,12 +466,12 @@ PVOID doshAllocSharedMem(ULONG ulSize,      // in: requested mem block size (rou
                          const char* pcszName) // in: name of block ("\\SHAREMEM\\xxx") or NULL
 {
     PVOID   pvrc = NULL;
-    APIRET  arc = DosAllocSharedMem((PVOID*)&pvrc,
-                                    (PSZ)pcszName,
-                                    ulSize,
-                                    PAG_COMMIT | PAG_READ | PAG_WRITE);
-    if (arc == NO_ERROR)
-        return (pvrc);
+
+    if (!DosAllocSharedMem((PVOID*)&pvrc,
+                           (PSZ)pcszName,
+                           ulSize,
+                           PAG_COMMIT | PAG_READ | PAG_WRITE))
+        return pvrc;
 
     return NULL;
 }
@@ -493,11 +493,11 @@ PVOID doshAllocSharedMem(ULONG ulSize,      // in: requested mem block size (rou
 PVOID doshRequestSharedMem(PCSZ pcszName)
 {
     PVOID pvrc = NULL;
-    APIRET arc = DosGetNamedSharedMem((PVOID*)pvrc,
-                                      (PSZ)pcszName,
-                                      PAG_READ | PAG_WRITE);
-    if (arc == NO_ERROR)
-        return (pvrc);
+
+    if (!DosGetNamedSharedMem((PVOID*)pvrc,
+                              (PSZ)pcszName,
+                              PAG_READ | PAG_WRITE))
+        return pvrc;
 
     return NULL;
 }
@@ -1976,13 +1976,13 @@ APIRET doshSetDiskLabel(ULONG ulLogicalDrive,        // in:  1 for A:, 2 for B:,
     {
         strcpy(FSInfoBuf.szVolLabel, pszNewLabel);
 
-        return (DosSetFSInfo(ulLogicalDrive,
-                             FSIL_VOLSER,
-                             &FSInfoBuf,
-                             sizeof(FSInfoBuf)));
+        return DosSetFSInfo(ulLogicalDrive,
+                            FSIL_VOLSER,
+                            &FSInfoBuf,
+                            sizeof(FSInfoBuf));
     }
-    else
-        return (ERROR_LABEL_TOO_LONG);
+
+    return ERROR_LABEL_TOO_LONG;
 }
 
 /*
@@ -2168,7 +2168,7 @@ PSZ doshGetExtension(PCSZ pcszFilename)
             pReturn = (PSZ)pExtension + 1;
     }
 
-    return (pReturn);
+    return pReturn;
 }
 
 /*
@@ -3299,7 +3299,7 @@ PSZ doshCreateBackupFileName(const char* pszExisting)
         ulCount++;
     } while (!doshQueryPathSize(szFilename, &ulDummy));
 
-    return (strdup(szFilename));
+    return strdup(szFilename);
 }
 
 /*
@@ -3572,8 +3572,8 @@ BOOL doshQueryDirExist(PCSZ pcszDir)
                                  sizeof(fs3))))
         // file found:
         return ((fs3.attrFile & FILE_DIRECTORY) != 0);
-    else
-        return FALSE;
+
+    return FALSE;
 }
 
 /*
@@ -3635,7 +3635,7 @@ APIRET doshCreatePath(PCSZ pcszPath,
         cp++;
     }
 
-    return (arc0);
+    return arc0;
 }
 
 /*
@@ -3784,7 +3784,7 @@ APIRET doshDeleteDir(PCSZ pcszDir,
         // delete our directory now
         arcReturn = DosDeleteDir((PSZ)pcszDir);
 
-    return (arcReturn);
+    return arcReturn;
 }
 
 /*
@@ -4323,7 +4323,7 @@ ULONG doshMyPID(VOID)
         GetInfoSegs();
 
     // PID is at offset 0 in the local info seg
-    return (*(PUSHORT)G_pvLocalInfoSeg);
+    return *(PUSHORT)G_pvLocalInfoSeg;
 }
 
 /*
@@ -4343,7 +4343,7 @@ ULONG doshMyTID(VOID)
         GetInfoSegs();
 
     // TID is at offset 6 in the local info seg
-    return (*(PUSHORT)((PBYTE)G_pvLocalInfoSeg + 6));
+    return *(PUSHORT)((PBYTE)G_pvLocalInfoSeg + 6);
 }
 
 /*

@@ -145,10 +145,10 @@ STATIC BOOL LockSubclassedTools(VOID)
                 TRUE);      // auto-free
 
         // create mutex and request it right away
-        return (!DosCreateMutexSem(NULL,
-                                   &G_hmtxSubclassedTools,
-                                   0,
-                                   TRUE));      // request!
+        return !DosCreateMutexSem(NULL,
+                                  &G_hmtxSubclassedTools,
+                                  0,
+                                  TRUE);      // request!
     }
 
     return !DosRequestMutexSem(G_hmtxSubclassedTools, SEM_INDEFINITE_WAIT);
@@ -854,6 +854,7 @@ STATIC VOID TtmRelayEvent(HWND hwndTooltip, MPARAM mp2)
 STATIC MRESULT TtmGetDelayTime(HWND hwndTooltip, MPARAM mp1)
 {
     PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
+
     switch ((ULONG)mp1)
     {
         case TTDT_AUTOPOP:
@@ -866,7 +867,7 @@ STATIC MRESULT TtmGetDelayTime(HWND hwndTooltip, MPARAM mp1)
             return (MRESULT)pttd->ulTimeoutReshow;
     }
 
-    return (0);
+    return 0;
 }
 
 /*
@@ -1022,7 +1023,7 @@ STATIC MRESULT TtmGetToolInfo(HWND hwndTooltip, MPARAM mp2)
         }
     }
 
-    return ((MPARAM)FALSE);
+    return (MRESULT)FALSE;
 }
 
 /*

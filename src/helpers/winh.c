@@ -119,7 +119,7 @@
     MRESULT winhSendMsg(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
     {
         // put the call in brackets so the macro won't apply here
-        return ((WinSendMsg)(hwnd, msg, mp1, mp2));
+        return (WinSendMsg)(hwnd, msg, mp1, mp2);
     }
 
     /*
@@ -137,7 +137,7 @@
 
     MRESULT winhSendDlgItemMsg(HWND hwnd, ULONG id, ULONG msg, MPARAM mp1, MPARAM mp2)
     {
-        return ((WinSendDlgItemMsg)(hwnd, id, msg, mp1, mp2));
+        return (WinSendDlgItemMsg)(hwnd, id, msg, mp1, mp2);
     }
 
     /*
@@ -156,7 +156,7 @@
     BOOL winhPostMsg(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
     {
         // put the call in brackets so the macro won't apply here
-        return ((WinPostMsg)(hwnd, msg, mp1, mp2));
+        return (WinPostMsg)(hwnd, msg, mp1, mp2);
     }
 
     /*
@@ -168,7 +168,7 @@
     HWND winhWindowFromID(HWND hwnd, ULONG id)
     {
         // put the call in brackets so the macro won't apply here
-        return ((WinWindowFromID)(hwnd, id));
+        return (WinWindowFromID)(hwnd, id);
     }
 
     /*
@@ -180,7 +180,7 @@
     HWND winhQueryWindow(HWND hwnd, LONG lCode)
     {
         // put the call in brackets so the macro won't apply here
-        return ((WinQueryWindow)(hwnd, lCode));
+        return (WinQueryWindow)(hwnd, lCode);
     }
 
     /*
@@ -192,7 +192,7 @@
     PVOID winhQueryWindowPtr(HWND hwnd, LONG index)
     {
         // put the call in brackets so the macro won't apply here
-        return ((WinQueryWindowPtr)(hwnd, index));
+        return (WinQueryWindowPtr)(hwnd, index);
     }
 
     /*
@@ -2615,9 +2615,6 @@ BOOL winhAdjustControls(HWND hwndDlg,           // in: dialog (req.)
 {
     BOOL    brc = FALSE;
     ULONG   ul = 0;
-
-    /* if (!WinIsWindowVisible(hwndDlg))
-        return (FALSE); */
 
     if ((pmpFlags) && (pxac))
     {

@@ -165,7 +165,7 @@ PSZ (prfhQueryProfileDataDebug)(HINI hIni,      // in: INI handle (can be HINI_U
     if (pcbBuf)
         *pcbBuf = ulSizeOfData;
 
-    return (pData);
+    return pData;
 }
 
 #else
@@ -212,7 +212,7 @@ PSZ (prfhQueryProfileData)(HINI hIni,           // in: INI handle (can be HINI_U
     if (pcbBuf)
         *pcbBuf = ulSizeOfData;
 
-    return (pData);
+    return pData;
 }
 
 #endif
@@ -238,7 +238,7 @@ CHAR prfhQueryProfileChar(HINI hini,        // in: INI handle (can be HINI_USER 
     PrfQueryProfileString(HINI_USER, (PSZ)pcszApp, (PSZ)pcszKey,
                           szDefault,
                           szTemp, sizeof(szTemp)-1);
-    return (szTemp[0]);
+    return szTemp[0];
 }
 
 /*
@@ -259,7 +259,7 @@ LONG prfhQueryColor(const char *pcszKeyName,
                 szColor,
                 sizeof(szColor)-1);
     sscanf(szColor, "%lu %lu %lu ", &r, &g, &b);
-    return (LONG)(r*0x10000 + g*0x100 + b);
+    return (LONG)(r * 0x10000 + g * 0x100 + b);
 }
 
 /*
@@ -343,7 +343,7 @@ APIRET prfhCopyKey(HINI hiniSource,       // in: source profile (can be HINI_USE
     else
         ulrc = PRFERR_DATASIZE;
 
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -517,7 +517,7 @@ ULONG prfhRenameKey(HINI hini,
         free(pszData);
     }
 
-    return (ulrc);
+    return ulrc;
 }
 
 /*

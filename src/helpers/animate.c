@@ -495,5 +495,5 @@ VOID anmPowerOff(HPS hps,
     WinDestroyMsgQueue(hmq);
     WinTerminate(hab);
 
-    return (0);
+    return 0;
 } */

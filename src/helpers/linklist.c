@@ -112,7 +112,7 @@
 
 void* lstMalloc(size_t size)
 {
-    return (malloc(size));
+    return malloc(size);
 }
 
 /*
@@ -127,7 +127,7 @@ void* lstMalloc(size_t size)
 
 void* lstStrDup(const char *pcsz)
 {
-    return (strdup(pcsz));
+    return strdup(pcsz);
 }
 
 /*
@@ -520,9 +520,9 @@ void* lstItemFromIndex(PLINKLIST pList,
 {
     PLISTNODE pNode;
     if (pNode = lstNodeFromIndex(pList, ulIndex))
-        return (pNode->pItemData);
-    else
-        return (0);
+        return pNode->pItemData;
+
+    return NULL;
 }
 
 /*

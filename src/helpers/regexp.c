@@ -1010,7 +1010,7 @@ STATIC MTYPE repeat_type_of(int c)
         case CH_LCUR:
             return MTYPE_CREP;
         default:
-            return (MTYPE) - 1;
+            return (MTYPE)-1;
     }
 }
 

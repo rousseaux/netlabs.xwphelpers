@@ -247,10 +247,10 @@ unsigned dtMonths2Days(unsigned month)
 
 long dtYears2Days (unsigned yr)
 {
-   return ( yr * 365L
-          + yr / 4
-          - yr / 100
-          + yr / 400);
+   return (   yr * 365L
+            + yr / 4
+            - yr / 100
+            + yr / 400);
 }
 
 /*
@@ -325,7 +325,7 @@ BOOL dtIsValidDate(LONG day,      // in: day (1-31)
             case 10 :
             case 12 :
                 if (day <= 31)
-                    return (TRUE);
+                    return TRUE;
             break;
 
             case 4  :
@@ -333,12 +333,12 @@ BOOL dtIsValidDate(LONG day,      // in: day (1-31)
             case 9  :
             case 11 :
                 if (day <= 30)
-                    return (TRUE);
+                    return TRUE;
             break;
 
             case 2 :
                 if (day < 29)
-                    return (TRUE);
+                    return TRUE;
                 else
                     if (day == 29)
                         if (dtIsLeapYear(year))

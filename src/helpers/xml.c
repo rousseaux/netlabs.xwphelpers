@@ -175,112 +175,112 @@ const char* xmlDescribeError(int code)
     {
         // start of expat (parser) errors
         case ERROR_EXPAT_NO_MEMORY:
-            return ("Out of memory");
+            return "Out of memory";
 
         case ERROR_EXPAT_SYNTAX:
-            return ("Syntax error");
+            return "Syntax error";
         case ERROR_EXPAT_NO_ELEMENTS:
-            return ("No element found");
+            return "No element found";
         case ERROR_EXPAT_INVALID_TOKEN:
-            return ("Not well-formed (invalid token)");
+            return "Not well-formed (invalid token)";
         case ERROR_EXPAT_UNCLOSED_TOKEN:
-            return ("Unclosed token");
+            return "Unclosed token";
         case ERROR_EXPAT_PARTIAL_CHAR:
-            return ("Unclosed token");
+            return "Unclosed token";
         case ERROR_EXPAT_TAG_MISMATCH:
-            return ("Mismatched tag");
+            return "Mismatched tag";
         case ERROR_EXPAT_DUPLICATE_ATTRIBUTE:
-            return ("Duplicate attribute");
+            return "Duplicate attribute";
         case ERROR_EXPAT_JUNK_AFTER_DOC_ELEMENT:
-            return ("Junk after root element");
+            return "Junk after root element";
         case ERROR_EXPAT_PARAM_ENTITY_REF:
-            return ("Illegal parameter entity reference");
+            return "Illegal parameter entity reference";
         case ERROR_EXPAT_UNDEFINED_ENTITY:
-            return ("Undefined entity");
+            return "Undefined entity";
         case ERROR_EXPAT_RECURSIVE_ENTITY_REF:
-            return ("Recursive entity reference");
+            return "Recursive entity reference";
         case ERROR_EXPAT_ASYNC_ENTITY:
-            return ("Asynchronous entity");
+            return "Asynchronous entity";
         case ERROR_EXPAT_BAD_CHAR_REF:
-            return ("Reference to invalid character number");
+            return "Reference to invalid character number";
         case ERROR_EXPAT_BINARY_ENTITY_REF:
-            return ("Reference to binary entity");
+            return "Reference to binary entity";
         case ERROR_EXPAT_ATTRIBUTE_EXTERNAL_ENTITY_REF:
-            return ("Reference to external entity in attribute");
+            return "Reference to external entity in attribute";
         case ERROR_EXPAT_MISPLACED_XML_PI:
-            return ("XML processing instruction not at start of external entity");
+            return "XML processing instruction not at start of external entity";
         case ERROR_EXPAT_UNKNOWN_ENCODING:
-            return ("Unknown encoding");
+            return "Unknown encoding";
         case ERROR_EXPAT_INCORRECT_ENCODING:
-            return ("Encoding specified in XML declaration is incorrect");
+            return "Encoding specified in XML declaration is incorrect";
         case ERROR_EXPAT_UNCLOSED_CDATA_SECTION:
-            return ("Unclosed CDATA section");
+            return "Unclosed CDATA section";
         case ERROR_EXPAT_EXTERNAL_ENTITY_HANDLING:
-            return ("Error in processing external entity reference");
+            return "Error in processing external entity reference";
         case ERROR_EXPAT_NOT_STANDALONE:
-            return ("Document is not standalone");
+            return "Document is not standalone";
         case ERROR_EXPAT_UNEXPECTED_STATE:
-            return ("Unexpected parser state - please send a bug report");
+            return "Unexpected parser state - please send a bug report";
         // end of expat (parser) errors
 
         // start of validation errors
 
         case ERROR_DOM_UNDECLARED_ELEMENT:
-            return ("Element has not been declared");
+            return "Element has not been declared";
         case ERROR_DOM_ROOT_ELEMENT_MISNAMED:
-            return ("Root element name does not match DOCTYPE name");
+            return "Root element name does not match DOCTYPE name";
         case ERROR_DOM_INVALID_ROOT_ELEMENT:
-            return ("Invalid or duplicate root element");
+            return "Invalid or duplicate root element";
 
         case ERROR_DOM_INVALID_SUBELEMENT:
-            return ("Invalid sub-element in parent element");
+            return "Invalid sub-element in parent element";
         case ERROR_DOM_DUPLICATE_ELEMENT_DECL:
-            return ("Duplicate element declaration");
+            return "Duplicate element declaration";
         case ERROR_DOM_DUPLICATE_ATTRIBUTE_DECL:
-            return ("Duplicate attribute declaration");
+            return "Duplicate attribute declaration";
         case ERROR_DOM_UNDECLARED_ATTRIBUTE:
-            return ("Undeclared attribute in element");
+            return "Undeclared attribute in element";
         case ERROR_ELEMENT_CANNOT_HAVE_CONTENT:
-            return ("Element cannot have content");
+            return "Element cannot have content";
         case ERROR_DOM_INVALID_ATTRIB_VALUE:
-            return ("Invalid attribute value");
+            return "Invalid attribute value";
         case ERROR_DOM_REQUIRED_ATTRIBUTE_MISSING:
-            return ("Required attribute is missing");
+            return "Required attribute is missing";
         case ERROR_DOM_SUBELEMENT_IN_EMPTY_ELEMENT:
-            return ("Subelement in empty element");
+            return "Subelement in empty element";
 
         case ERROR_DOM_PARSING:
-            return ("Parsing error");
+            return "Parsing error";
         case ERROR_DOM_VALIDITY:
-            return ("Validity error");
+            return "Validity error";
 
         case ERROR_DOM_NODETYPE_NOT_SUPPORTED:
-            return ("DOM node type not supported");
+            return "DOM node type not supported";
         case ERROR_DOM_NO_DOCUMENT:
-            return ("No DOM document");
+            return "No DOM document";
         case ERROR_DOM_NO_ELEMENT:
-            return ("No DOM element");
+            return "No DOM element";
         case ERROR_DOM_DUPLICATE_DOCTYPE:
-            return ("Duplicate doctype");
+            return "Duplicate doctype";
         case ERROR_DOM_DOCTYPE_ROOT_NAMES_MISMATCH:
-            return ("Root element doesn't match doctype name");
+            return "Root element doesn't match doctype name";
         case ERROR_DOM_INTEGRITY:
-            return ("DOM integrity error");
+            return "DOM integrity error";
         case ERROR_DOM_DUPLICATE_ATTRIBUTE:
-            return ("Duplicate attribute");
+            return "Duplicate attribute";
 
         case ERROR_DOM_VALIDATE_INVALID_ELEMENT:
-            return ("Validation error: Undeclared element name");
+            return "Validation error: Undeclared element name";
         case ERROR_DOM_ELEMENT_DECL_OUTSIDE_DOCTYPE:
-            return ("Element declaration outside doctype");
+            return "Element declaration outside doctype";
         case ERROR_DOM_ATTLIST_DECL_OUTSIDE_DOCTYPE:
-            return ("Attlist declaration outside doctype");
+            return "Attlist declaration outside doctype";
 
         case ERROR_DOM_INCOMPLETE_ENCODING_MAP:
-            return ("Incomplete encoding map specified");
+            return "Incomplete encoding map specified";
 
         case ERROR_DOM_INVALID_EXTERNAL_HANDLER:
-            return ("Invalid 'external' handler specified");
+            return "Invalid 'external' handler specified";
     }
 
     return NULL;
@@ -345,8 +345,8 @@ VOID xmlSetError(PXMLDOM pDom,
 STATIC int TREEENTRY CompareXStrings(ULONG ul1,
                                      ULONG ul2)
 {
-    return (strhcmp(((PXSTRING)ul1)->psz,
-                    ((PXSTRING)ul2)->psz));
+    return strhcmp(((PXSTRING)ul1)->psz,
+                   ((PXSTRING)ul2)->psz);
 }
 
 /*
@@ -1382,7 +1382,7 @@ STATIC PDOMSTACKITEM PopElementStack(PXMLDOM pDom,
             *ppListNode = pParentLN;
     }
 
-    return (pStackItem);
+    return pStackItem;
 }
 
 /*
@@ -1481,12 +1481,12 @@ STATIC int EXPATENTRY UnknownEncodingHandler(void *pUserData,   // in: out PXMLD
                                 FALSE);
             }
             // return success
-            return (1);
+            return 1;
         }
     }
 
     // error
-    return (0);
+    return 0;
 }
 
 /*
@@ -2007,7 +2007,7 @@ STATIC int EXPATENTRY ExternalEntityRefHandler(void *pUserData,      // in: our 
 
     pDom->pParser = pOldParser;
 
-    return (i);
+    return i;
 }
 
 /*
@@ -2793,7 +2793,7 @@ PCMELEMENTDECLNODE xmlFindElementDecl(PXMLDOM pDom,
                                       CompareXStrings);
     }
 
-    return (pElementDecl);
+    return pElementDecl;
 }
 
 /*
@@ -2817,10 +2817,9 @@ PCMATTRIBUTEDECLBASE xmlFindAttribDeclBase(PXMLDOM pDom,
          && (pstrElementName->ulLength)
        )
     {
-        return ((PCMATTRIBUTEDECLBASE)treeFind(
-                                        pDocTypeNode->AttribDeclBasesTree,
-                                        (ULONG)pstrElementName,
-                                        CompareXStrings));
+        return (PCMATTRIBUTEDECLBASE)treeFind(pDocTypeNode->AttribDeclBasesTree,
+                                              (ULONG)pstrElementName,
+                                              CompareXStrings);
     }
 
     return NULL;
@@ -2850,10 +2849,9 @@ PCMATTRIBUTEDECL xmlFindAttribDecl(PXMLDOM pDom,
                                                       pstrElementName);
         if (*ppAttribDeclBase)
         {
-            return ((PCMATTRIBUTEDECL)treeFind(
-                                         ((**ppAttribDeclBase).AttribDeclsTree),
-                                         (ULONG)pstrAttribName,
-                                         CompareXStrings));
+            return (PCMATTRIBUTEDECL)treeFind(((**ppAttribDeclBase).AttribDeclsTree),
+                                              (ULONG)pstrAttribName,
+                                              CompareXStrings);
         }
     }
 
@@ -2887,7 +2885,7 @@ PDOMNODE xmlGetRootElement(PXMLDOM pDom)
         {
             PDOMNODE pDomNode = (PDOMNODE)pListNode->pItemData;
             if (pDomNode->NodeBase.ulNodeType == DOMNODE_ELEMENT)
-                return (pDomNode);
+                return pDomNode;
 
             pListNode = pListNode->pNext;
         }
@@ -2909,9 +2907,9 @@ PDOMNODE xmlGetFirstChild(PDOMNODE pDomNode)
 {
     PLISTNODE pListNode = lstQueryFirstNode(&pDomNode->llChildren);
     if (pListNode)
-        return ((PDOMNODE)pListNode->pItemData);
+        return (PDOMNODE)pListNode->pItemData;
 
-    return (0);
+    return 0;
 }
 
 /*
@@ -2927,9 +2925,9 @@ PDOMNODE xmlGetLastChild(PDOMNODE pDomNode)
 {
     PLISTNODE pListNode = lstQueryLastNode(&pDomNode->llChildren);
     if (pListNode)
-        return ((PDOMNODE)pListNode->pItemData);
+        return (PDOMNODE)pListNode->pItemData;
 
-    return (0);
+    return 0;
 }
 
 /*
@@ -2952,7 +2950,7 @@ PDOMNODE xmlGetFirstText(PDOMNODE pElement)
         if (    (pDomNodeThis = (PDOMNODE)pNode->pItemData)
              && (pDomNodeThis->NodeBase.ulNodeType == DOMNODE_TEXT)
            )
-            return (pDomNodeThis);
+            return pDomNodeThis;
     }
 
     return NULL;
@@ -3003,12 +3001,12 @@ PLINKLIST xmlGetElementsByTagName(PDOMNODE pParent,
         }
 
         if (cItems)
-            return (pll);
-        else
-            lstFree(&pll);
+            return pll;
+
+        lstFree(&pll);
     }
 
-    return (0);
+    return 0;
 }
 
 /*
@@ -3033,7 +3031,7 @@ const XSTRING* xmlGetAttribute(PDOMNODE pElement,
     if (pAttrNode = (PDOMNODE)treeFind(pElement->AttributesMap,
                                        (ULONG)&str,
                                        CompareXStrings))
-        return (pAttrNode->pstrNodeValue);
+        return pAttrNode->pstrNodeValue;
 
     return NULL;
 }

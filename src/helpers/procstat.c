@@ -93,7 +93,7 @@ APIRET prc16GetInfo(PQPROCSTAT16 *ppps)     // out: error, ptr can be NULL
     PQPROCSTAT16 pps = NULL;
 
     if (!ppps)
-        return (ERROR_INVALID_PARAMETER);
+        return ERROR_INVALID_PARAMETER;
 
     // changed allocation V0.9.10 (2001-04-08) [umoeller]:
     // malloc didn't guarantee that the object did not
@@ -186,7 +186,7 @@ PQPROCESS16 prc16FindProcessFromName(PQPROCSTAT16 pInfo,    // in: from prc16Get
         }
     }
 
-    return (pReturn);
+    return pReturn;
 }
 
 /*
@@ -221,7 +221,7 @@ PQPROCESS16 prc16FindProcessFromPID(PQPROCSTAT16 pInfo, // in: from prc16GetInfo
         }
     }
 
-    return (pReturn);
+    return pReturn;
 }
 
 /********************************************************************
@@ -299,7 +299,7 @@ BOOL prc16QueryProcessInfo(PQPROCSTAT16 pps,    // in: from prc16GetInfo
         }
     }
 
-    return (rc);
+    return rc;
 }
 
 /*
@@ -348,7 +348,7 @@ ULONG prc16ForEachProcess(PFNWP pfnwpCallback, HWND hwnd, ULONG ulMsg, MPARAM mp
         DosFreeMem(pps);
     }
 
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -393,7 +393,7 @@ ULONG prc16QueryThreadCount(PQPROCSTAT16 pps, // in: from prc16GetInfo
         }
     }
 
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -482,7 +482,7 @@ ULONG prc16QueryThreadPriority(PQPROCSTAT16 pps, // in: from prc16GetInfo
     ULONG ulrc = -1;
     if (prc16QueryThreadInfo(pps, usPID, usTID, &prct))
         ulrc = prct.ulPriority;
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -532,7 +532,7 @@ PQTOPLEVEL32 prc32GetInfo(APIRET *parc)     // out: error, ptr can be NULL
                 *parc = arc;
 
             if (arc == NO_ERROR)
-                return ((PQTOPLEVEL32)pBuf);
+                return (PQTOPLEVEL32)pBuf;
             else
                 DosFreeMem(pBuf);
         }
@@ -593,9 +593,9 @@ PQPROCESS32 prc32FindProcessFromName(PQTOPLEVEL32 pInfo,
     }
 
     if (pProcThis->ulRecType == 1)
-        return (pProcThis);
-    else
-        return NULL;
+        return pProcThis;
+
+    return NULL;
 }
 
 /*
@@ -648,7 +648,7 @@ PQS32SEM16 prc32FindSem16(PQTOPLEVEL32 pInfo,     // in: as returned by prc32Get
     while (pSemThis)
     {
         if (i == usSemID)
-            return (pSemThis);
+            return pSemThis;
 
         i++;
         pSemThis = pSemThis->pNext;
@@ -677,7 +677,7 @@ PQS32SEM32 prc32FindSem32(PQTOPLEVEL32 pInfo,     // in: as returned by prc32Get
     /* while (pSemThis)
     {
         if (pSemThis->usIndex == usSemID)
-            return (pSemThis);
+            return pSemThis;
 
         pSemThis = pSemThis->pNext;
     } */
@@ -703,7 +703,7 @@ PQSHRMEM32 prc32FindShrMem(PQTOPLEVEL32 pInfo,  // in: as returned by prc32GetIn
     while (pShrMem)
     {
         if (pShrMem->usHandle == usShrMemID)
-            return (pShrMem);
+            return pShrMem;
         pShrMem = pShrMem->pNext;
     }
 
@@ -758,7 +758,7 @@ PQFILEDATA32 prc32FindFileData(PQTOPLEVEL32 pInfo,  // in: as returned by prc32G
              ul++)
         {
             if (pFile->paFiles[ul].usSFN == usFileID)
-                return (pFile);
+                return pFile;
         }
 
         pFile = pFile->pNext;

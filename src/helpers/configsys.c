@@ -1180,7 +1180,7 @@ ULONG csysQuerySwapperSize(VOID)
     if (G_szSwapperFilename[0])
         doshQueryPathSize(G_szSwapperFilename, &ulrc);
 
-    return (ulrc);
+    return ulrc;
 }
 
 // testcase
@@ -1199,5 +1199,5 @@ ULONG csysQuerySwapperSize(VOID)
             printf("Value: %s", szValue);
     }
 
-    return (0);
+    return 0;
 } */

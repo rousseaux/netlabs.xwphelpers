@@ -195,12 +195,12 @@ APIRET doshIsValidFileName(const char* pcszFile,
                             lDotOfs = ul;
                             lAfterDot = 0;
                             if (ul > 7)
-                                return (ERROR_FILENAME_EXCED_RANGE);
+                                return ERROR_FILENAME_EXCED_RANGE;
                         }
                     }
                     // and check for invalid characters
                     if (strchr(pszInvalid, *pSource) != NULL)
-                        return (ERROR_INVALID_NAME);
+                        return ERROR_INVALID_NAME;
 
                     pSource++;
 
@@ -210,7 +210,7 @@ APIRET doshIsValidFileName(const char* pcszFile,
                         {
                             lAfterDot++;
                             if (lAfterDot > 3)
-                                return (ERROR_FILENAME_EXCED_RANGE);
+                                return ERROR_FILENAME_EXCED_RANGE;
                         }
                 }
 
@@ -220,7 +220,7 @@ APIRET doshIsValidFileName(const char* pcszFile,
                 if (fIsFAT)
                     if (lDotOfs == -1)  // dot not found:
                         if (cbFile > 8)
-                            return (ERROR_FILENAME_EXCED_RANGE);
+                            return ERROR_FILENAME_EXCED_RANGE;
             }
 
             // go for next component
@@ -332,21 +332,23 @@ BOOL doshMakeRealName(PSZ pszTarget,    // out: new real name
 APIRET doshSetCurrentDir(const char *pcszDir)
 {
     APIRET  arc = NO_ERROR;
-    if (!pcszDir)
-        return (ERROR_INVALID_PARAMETER);
-    {
-        if (*pcszDir != 0)
-            if (*(pcszDir+1) == ':')
-            {
-                // drive given:
-                CHAR    cDrive = toupper(*(pcszDir));
-                // change drive
-                arc = DosSetDefaultDisk( (ULONG)(cDrive - 'A' + 1) );
-                        // 1 = A:, 2 = B:, ...
-            }
 
-        arc = DosSetCurrentDir((PSZ)pcszDir);
+    if (    (!pcszDir)
+         || (!(*pcszDir))
+       )
+        return ERROR_INVALID_PARAMETER;
+
+    if (pcszDir[1] == ':')
+    {
+        // drive given:
+        CHAR    cDrive = toupper(*(pcszDir));
+        // change drive
+        arc = DosSetDefaultDisk( (ULONG)(cDrive - 'A' + 1) );
+                // 1 = A:, 2 = B:, ...
     }
+
+    if (!arc)
+        arc = DosSetCurrentDir((PSZ)pcszDir);
 
     return arc;       // V0.9.9 (2001-04-04) [umoeller]
 }
@@ -657,7 +659,7 @@ UINT doshQueryDiskCount(VOID)
 {
     USHORT usCount = 0;
     DosPhysicalDisk(INFO_COUNT_PARTITIONABLE_DISKS, &usCount, 2, 0, 0);
-    return (usCount);
+    return usCount;
 }
 
 /*
@@ -922,8 +924,8 @@ APIRET doshReadSector(USHORT disk,      // in: physical disk no. (1, 2, 3, ...)
 
 STATIC USHORT GetCyl(USHORT rBeginSecCyl)
 {
-    return (   (rBeginSecCyl & 0x00C0) << 2)
-             + ((rBeginSecCyl & 0xFF00) >> 8);
+    return   ((rBeginSecCyl & 0x00C0) << 2)
+           + ((rBeginSecCyl & 0xFF00) >> 8);
 }
 
 /*
@@ -1004,7 +1006,7 @@ APIRET doshGetBootManager(USHORT   *pusDisk,    // out: if != NULL, boot manager
         }
     }
 
-    return (ERROR_NOT_SUPPORTED);
+    return ERROR_NOT_SUPPORTED;
 }
 
 /*
@@ -1391,7 +1393,7 @@ APIRET doshGetPartitionsList(PPARTITIONSLIST *ppList,
     USHORT          cPartitions = 0;        // bootable partition count
 
     if (!ppList)
-        return (ERROR_INVALID_PARAMETER);
+        return ERROR_INVALID_PARAMETER;
 
     if (!(arc = doshQueryLVMInfo(&pLVMInfo)))
     {
@@ -1458,13 +1460,11 @@ APIRET doshGetPartitionsList(PPARTITIONSLIST *ppList,
 APIRET doshFreePartitionsList(PPARTITIONSLIST ppList)
 {
     if (!ppList)
-        return (ERROR_INVALID_PARAMETER);
-    else
-    {
-        CleanPartitionInfos(ppList->pPartitionInfo);
-        doshFreeLVMInfo(ppList->pLVMInfo);
-        free(ppList);
-    }
+        return ERROR_INVALID_PARAMETER;
+
+    CleanPartitionInfos(ppList->pPartitionInfo);
+    doshFreeLVMInfo(ppList->pLVMInfo);
+    free(ppList);
 
     return NO_ERROR;
 }
@@ -1858,7 +1858,7 @@ APIRET doshReadLVMPartitions(PLVMINFO pInfo,         // in: LVM info
     _Pmpf((__FUNCTION__ ": entering"));
 
     if (!pLVMInfo)
-        return (ERROR_INVALID_PARAMETER);
+        return ERROR_INVALID_PARAMETER;
 
     // initialize LVM engine
     pLVMInfo->Open_LVM_Engine(TRUE,
