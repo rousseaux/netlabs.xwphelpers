@@ -104,6 +104,60 @@ static HMTX     G_hmtxLCIDs = NULLHANDLE;
 
 /* ******************************************************************
  *
+ *   Rectangle helpers
+ *
+ ********************************************************************/
+
+/*
+ *@@ gpihIsPointInRect:
+ *      like WinPtInRect, but doesn't need a HAB.
+ *
+ *      NOTE: as opposed to WinPtInRect, prcl is
+ *      considered inclusive, that is, TRUE is
+ *      returned even if x or y are exactly
+ *      the same as prcl->xRight or prcl->yTop.
+ *
+ *@@added V0.9.9 (2001-02-28) [umoeller]
+ */
+
+BOOL gpihIsPointInRect(PRECTL prcl,
+                       LONG x,
+                       LONG y)
+{
+    if (prcl)
+    {
+        return (    (x >= prcl->xLeft)
+                 && (x <= prcl->xRight)
+                 && (y >= prcl->yBottom)
+                 && (y <= prcl->yTop)
+               );
+    }
+
+    return (FALSE);
+}
+
+/*
+ *@@ gpihInflateRect:
+ *      Positive l will make the rectangle larger.
+ *      Negative l will make the rectangle smaller.
+ *
+ *@@added V0.9.9 (2001-02-28) [umoeller]
+ */
+
+VOID gpihInflateRect(PRECTL prcl,
+                     LONG l)
+{
+    if (prcl && l)
+    {
+        prcl->xLeft -= l;
+        prcl->yBottom -= l;
+        prcl->xRight += l;
+        prcl->yTop += l;
+    }
+}
+
+/* ******************************************************************
+ *
  *   Device helpers
  *
  ********************************************************************/

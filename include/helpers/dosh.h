@@ -567,7 +567,7 @@ extern "C" {
 
     typedef struct _FSYSMODULE
     {
-        CHAR achModuleName[128];
+        CHAR achModuleName[256];
     } FSYSMODULE, *PFSYSMODULE;
 
     /*
@@ -580,7 +580,7 @@ extern "C" {
     {
         ULONG ulOrdinal;
         ULONG ulType;
-        CHAR achFunctionName[128];
+        CHAR achFunctionName[256];
     } FSYSFUNCTION, *PFSYSFUNCTION;
 
     /*
@@ -714,6 +714,20 @@ extern "C" {
      *
      ********************************************************************/
 
+    /*
+     *@@ LVMINFO:
+     *      informational structure created by
+     *      doshQueryLVMInfo.
+     *
+     *@@added V0.9.9 (2001-04-07) [umoeller]
+     */
+
+    typedef struct _LVMINFO
+    {
+        HMODULE hmodLVM;
+
+    } LVMINFO, *PLVMINFO;
+
     #define DOSH_PARTITIONS_LIMIT   10
 
     #define PAR_UNUSED      0x00    // Unused
@@ -786,7 +800,7 @@ extern "C" {
      *      This has the four primary partitions.
      */
 
-    typedef struct _MBR_INFO                 // MBR
+    typedef struct _MBR_INFO          // MBR
     {
         BYTE      aBootCode[0x1BE];   // abBootCode master boot executable code
         PAR_INFO  sPrtnInfo[4];       // primary partition entries
@@ -798,13 +812,13 @@ extern "C" {
      *
      */
 
-    typedef struct _SYS_INFO                 // информация о загружаемой системе
+    typedef struct _SYS_INFO
     {
-        BYTE      startable;          // & 0x80
-        BYTE      unknown[3];         // unknown
-        BYTE      bootable;           // & 0x01
-        BYTE      name[8];            // имя раздела
-        BYTE      reservd[3];         // unknown
+        BYTE      startable;
+        BYTE      unknown[3];
+        BYTE      bootable;
+        BYTE      name[8];
+        BYTE      reservd[3];
     } SYS_INFO, *PSYS_INFO;
 
     /*
@@ -812,10 +826,10 @@ extern "C" {
      *
      */
 
-    typedef struct _SYE_INFO                 // информация о загружаемой системе для
-    {                               // расширенных разделов
-        BYTE      bootable;           // & 0x01
-        BYTE      name[8];            // имя раздела
+    typedef struct _SYE_INFO
+    {
+        BYTE      bootable;
+        BYTE      name[8];
     } SYE_INFO, *PSYE_INFO;
 
     /*
@@ -872,11 +886,27 @@ extern "C" {
                               USHORT   *pusPart,
                               PAR_INFO *BmInfo);
 
-    APIRET doshGetPartitionsList(PPARTITIONINFO *ppPartitionInfo,
-                                 PUSHORT pusPartitionCount,
+    typedef struct _PARTITIONSLIST
+    {
+        PLVMINFO        pLVMInfo;           // != NULL if LVM is installed
+
+        // partitions array
+        PPARTITIONINFO  pPartitionInfo;
+        USHORT          cPartitions;
+    } PARTITIONSLIST, *PPARTITIONSLIST;
+
+    APIRET doshGetPartitionsList(PPARTITIONSLIST *ppList,
                                  PUSHORT pusContext);
 
-    APIRET doshFreePartitionsList(PPARTITIONINFO pPartitionInfo);
+    APIRET doshFreePartitionsList(PPARTITIONSLIST ppList);
+
+    APIRET doshQueryLVMInfo(PLVMINFO *ppLVMInfo);
+
+    APIRET doshReadLVMPartitions(PLVMINFO pInfo,
+                                 PPARTITIONINFO *ppPartitionInfo,
+                                 PUSHORT pcPartitions);
+
+    VOID doshFreeLVMInfo(PLVMINFO pInfo);
 
 #endif
 

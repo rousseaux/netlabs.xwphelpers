@@ -23,6 +23,18 @@
  *      are not simply linked sequentially, but instead put into
  *      a tree-like structure.
  *
+ *      While lists have "next" and "previous" pointers, trees have
+ *      "left" and "right" pointers which keep the tree sorted at
+ *      all times.
+ *
+ *      Per definition, in our trees, if you follow the "left" pointer,
+ *      you will reach an item which is "greater than" the current node.
+ *      Reversely, following the "right" pointer will lead you to a
+ *      node which is "less than" the current node.
+ *
+ *      What is considered "less" or "greater" is determined by a
+ *      comparison callback to be supplied by the caller.
+ *
  *      For this, the functions here use the TREE structure. You can
  *      easily see that this has the "left" and "right" members,
  *      which make up the tree.
@@ -30,11 +42,6 @@
  *      In addition, each tree has a "tree root" item, from which all
  *      other tree nodes can be reached by following the "left" and
  *      "right" pointers.
- *
- *      Per definition, in our trees, if you follow the "left" pointer,
- *      you will reach an item which is "greater than" the current node.
- *      Reversely, following the "right" pointer will lead you to a
- *      node which is "less than" the current node.
  *
  *      The implementation here has the following characteristics:
  *
@@ -65,7 +72,8 @@
  *      You can use any structure as elements in a tree, provided
  *      that the first member in the structure is a TREE structure
  *      (i.e. it has the left, right, parent, id, and colour members).
- *      The tree functions don't care what follows.
+ *      The tree functions don't care what follows, since they do
+ *      not manage any memory themselves.
  *
  *      So the implementation here is slightly different from the
  *      linked lists in linklist.c, because the LISTNODE structs
@@ -105,7 +113,7 @@
  *         a comparison function, but will use the "id" member of
  *         the TREE structure instead. If this flavor is used, an
  *         internal comparison function is used for comparing the
- *         "id" fields, which are plain ULONGs.
+ *         "id" fields, which are assumed to be plain ULONGs.
  *
  *      <B>Trees vs. linked lists</B>
  *
@@ -138,7 +146,7 @@
  *
  *      -- As opposed to a LISTNODE, the TREE structure (which
  *         represents a tree node) does not contain a data pointer,
- *         as said above.
+ *         as said above. The caller must do all memory management.
  *
  *@@added V0.9.5 (2000-09-29) [umoeller]
  *@@header "helpers\tree.h"
@@ -244,8 +252,8 @@ int TREEENTRY fnCompareIDs(unsigned long id1, unsigned long id2)
  +          pTreeItem->Tree.id = 1;
  +
  +          treeInsertID(&TreeRoot,
- +                     (TREE*)pTreeItem,
- +                     FALSE);
+ +                       (TREE*)pTreeItem,
+ +                       FALSE);
  *
  *      Returns:
  *
@@ -698,9 +706,8 @@ static void delete_fixup(TREE **root,
 void* treeFindEQID(TREE **root,
                    unsigned long id)
 {
-    TREE
-       *current = *root,
-       *found = NULL;
+    TREE    *current = *root,
+            *found = NULL;
 
     while (current != TREE_NULL)
         switch (fnCompareIDs(current->id, id))
@@ -724,9 +731,8 @@ void* treeFindEQID(TREE **root,
 void* treeFindGEID(TREE **root,
                    unsigned long idFind)
 {
-    TREE
-       *current = *root,
-       *found;
+    TREE    *current = *root,
+            *found;
 
     found = NULL;
     while (current != TREE_NULL)
@@ -751,9 +757,8 @@ void* treeFindEQNode(TREE **root,
                      TREE *nodeFind,
                      FNTREE_COMPARE_NODES *comp)
 {
-    TREE
-       *current = *root,
-       *found;
+    TREE    *current = *root,
+            *found;
 
     found = NULL;
     while (current != TREE_NULL)
@@ -779,9 +784,8 @@ void* treeFindGENode(TREE **root,
                      TREE *nodeFind,
                      FNTREE_COMPARE_NODES *comp)
 {
-    TREE
-       *current = *root,
-       *found;
+    TREE    *current = *root,
+            *found;
 
     found = NULL;
     while (current != TREE_NULL)
@@ -806,9 +810,8 @@ void* treeFindLTNode(TREE **root,
                      TREE *nodeFind,
                      FNTREE_COMPARE_NODES *comp)
 {
-    TREE
-       *current = *root,
-       *found;
+    TREE    *current = *root,
+            *found;
 
     found = NULL;
     while (current != TREE_NULL)
@@ -833,9 +836,8 @@ void* treeFindLENode(TREE **root,
                      TREE *nodeFind,
                      FNTREE_COMPARE_NODES *comp)
 {
-    TREE
-       *current = *root,
-       *found;
+    TREE    *current = *root,
+            *found;
 
     found = NULL;
     while (current != TREE_NULL)
@@ -860,9 +862,8 @@ void* treeFindGTNode(TREE **root,
                      TREE *nodeFind,
                      FNTREE_COMPARE_NODES *comp)
 {
-    TREE
-       *current = *root,
-       *found;
+    TREE    *current = *root,
+            *found;
 
     found = NULL;
     while (current != TREE_NULL)

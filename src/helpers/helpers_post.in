@@ -102,7 +102,7 @@ $(OUTPUTDIR)\dosh.obj:      $(@B).c $(HLPINC)\$(@B).h \
 
 $(OUTPUTDIR)\dosh2.obj:      $(@B).c $(HLPINC)\dosh.h \
                $(PROJECTINC)\setup.h \
-               $(HLPINC)\stringh.h
+               $(HLPINC)\ensure.h $(HLPINC)\standards.h $(HLPINC)\stringh.h
 
 $(OUTPUTDIR)\eah.obj:       $(@B).c $(HLPINC)\$(@B).h \
                $(PROJECTINC)\setup.h
