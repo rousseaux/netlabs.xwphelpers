@@ -382,6 +382,42 @@ extern "C" {
     #define CHTN_ENTER                  1003
 
     /*
+     *@@ CHTN_SETFOCUS:
+     *      WM_CONTROL notification code sent (!)
+     *      by a chart control to its owner when
+     *      gaining focus.
+     *
+     *      Parameters:
+     *
+     *      --  USHORT SHORT1FROMMP(mp1): usid (control ID).
+     *      --  USHORT SHORT2FROMMP(mp1): CHTN_SETFOCUS.
+     *
+     *      --  mp2: pointer to EMPHASISNOTIFY structure.
+     *
+     *@@added V0.9.20 (2002-07-17) [pr]
+     */
+
+    #define CHTN_SETFOCUS               1004
+
+    /*
+     *@@ CHTN_KILLFOCUS:
+     *      WM_CONTROL notification code sent (!)
+     *      by a chart control to its owner when
+     *      losing focus.
+     *
+     *      Parameters:
+     *
+     *      --  USHORT SHORT1FROMMP(mp1): usid (control ID).
+     *      --  USHORT SHORT2FROMMP(mp1): CHTN_KILLFOCUS.
+     *
+     *      --  mp2: pointer to EMPHASISNOTIFY structure.
+     *
+     *@@added V0.9.20 (2002-07-17) [pr]
+     */
+
+    #define CHTN_KILLFOCUS              1005
+
+    /*
      *@@ EMPHASISNOTIFY:
      *      structure used with CHTN_EMPHASISCHANGED,
      *      CHTN_ENTER, and CHTN_CONTEXTMENU.

@@ -1891,6 +1891,7 @@ APIRET gpihLoadBitmapFile(HBITMAP *phbm,        // out: bitmap if NO_ERROR
             arc = ERROR_NOT_ENOUGH_MEMORY;
         else
         {
+            // read in the ENTIRE file
             if (!(arc = DosRead(pFile->hf,
                                 pData,
                                 cbFile,

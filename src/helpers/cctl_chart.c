@@ -1575,6 +1575,7 @@ static BOOL SetEmphasis(HWND hwndChart,
  *@@changed V0.9.2 (2000-02-29) [umoeller]: added resize support
  *@@changed V0.9.2 (2000-02-29) [umoeller]: fixed baaad PM resource leaks, the bitmap was never freed
  *@@changed V0.9.12 (2001-05-03) [umoeller]: added WM_CONTEXTMENU support
+ *@@changed V0.9.20 (2002-07-17) [pr]: added CHTN_SETFOCUS and CHTN_KILLFOCUS support
  */
 
 MRESULT EXPENTRY ctl_fnwpChart(HWND hwndChart, ULONG msg, MPARAM mp1, MPARAM mp2)
@@ -1781,6 +1782,14 @@ MRESULT EXPENTRY ctl_fnwpChart(HWND hwndChart, ULONG msg, MPARAM mp1, MPARAM mp2
                     if (pChtCData->lSelected != -1)
                         WinInvalidateRect(hwndChart, NULL, FALSE);
                 }
+
+                // 0.9.20 (2002-07-17) [pr]
+                SendWMControl(hwndChart,
+                              (MPARAM)-1,
+                              (BOOL)mp2 ? CHTN_SETFOCUS : CHTN_KILLFOCUS,
+                              pChtCData->lSourceEmphasis,
+                              pChtCData->lSelected);
+
             break;
 
             /*
