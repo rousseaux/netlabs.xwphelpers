@@ -249,6 +249,11 @@ VOID AdjustPMTimer(PXTIMERSET pSet)
 {
     PLINKLIST pllXTimers = (PLINKLIST)pSet->pvllXTimers;
     ULONG   cTimers = lstCountItems(pllXTimers);
+
+    #ifdef DEBUG_XTIMERS
+        _Pmpf((__FUNCTION__ ": entering"));
+    #endif
+
     if (!cTimers)
     {
         // no XTimers running:
@@ -277,6 +282,10 @@ VOID AdjustPMTimer(PXTIMERSET pSet)
         {
             // only one timer:
             // that's easy
+            #ifdef DEBUG_XTIMERS
+                _Pmpf(("  got 1 timer"));
+            #endif
+
             pSet->ulPMTimeout = pTimer1->ulTimeout;
         }
         else if (cTimers == 2)
@@ -284,6 +293,9 @@ VOID AdjustPMTimer(PXTIMERSET pSet)
             // exactly two timers:
             // find the greatest common denominator
             PXTIMER pTimer2 = (PXTIMER)pNode->pNext->pItemData;
+            #ifdef DEBUG_XTIMERS
+                _Pmpf(("  got 2 timers"));
+            #endif
 
             pSet->ulPMTimeout = mathGCD(pTimer1->ulTimeout,
                                         pTimer2->ulTimeout);
@@ -296,7 +308,9 @@ VOID AdjustPMTimer(PXTIMERSET pSet)
             int     *paInts = (int*)_alloca(sizeof(int) * cTimers),
                     i = 0;
 
-            // _Pmpf(("Recalculating, got %d timers", cTimers));
+            #ifdef DEBUG_XTIMERS
+                _Pmpf(("  got %d timers", cTimers));
+            #endif
 
             // fill an array of integers with the
             // timer frequencies
@@ -304,7 +318,9 @@ VOID AdjustPMTimer(PXTIMERSET pSet)
             {
                 pTimer1 = (PXTIMER)pNode->pItemData;
 
-                // _Pmpf(("  timeout %d is %d", i, pTimer1->ulTimeout));
+                #ifdef DEBUG_XTIMERS
+                    _Pmpf(("    timeout %d is %d", i, pTimer1->ulTimeout));
+                #endif
 
                 paInts[i++] = pTimer1->ulTimeout;
 
@@ -313,17 +329,22 @@ VOID AdjustPMTimer(PXTIMERSET pSet)
 
             pSet->ulPMTimeout = mathGCDMulti(paInts,
                                              cTimers);
-            // _Pmpf(("--> GCD is %d", pSet->ulPMTimeout));
         }
+
+        #ifdef DEBUG_XTIMERS
+            _Pmpf(("--> GCD is %d", pSet->ulPMTimeout));
+        #endif
 
         if (    (!pSet->idPMTimerRunning)       // timer not running?
              || (pSet->ulPMTimeout != ulOldPMTimeout) // timeout changed?
            )
+        {
             // start or restart PM timer
             pSet->idPMTimerRunning = WinStartTimer(pSet->hab,
                                                    pSet->hwndOwner,
                                                    pSet->idPMTimer,
                                                    pSet->ulPMTimeout);
+        }
     }
 }
 
@@ -433,6 +454,7 @@ VOID tmrDestroySet(PXTIMERSET pSet)     // in: timer set (from tmrCreateSet)
  *@@changed V0.9.12 (2001-05-12) [umoeller]: added mutex protection
  *@@changed V0.9.12 (2001-05-24) [umoeller]: fixed crash if this got called during tmrTimerTick
  *@@changed V0.9.14 (2001-08-01) [umoeller]: fixed mem overwrite which might have caused crashes if this got called during tmrTimerTick
+ *@@changed V0.9.14 (2001-08-03) [umoeller]: fixed "half frequency" regression caused by frequency optimizations
  */
 
 VOID tmrTimerTick(PXTIMERSET pSet)      // in: timer set (from tmrCreateSet)
@@ -474,6 +496,10 @@ VOID tmrTimerTick(PXTIMERSET pSet)      // in: timer set (from tmrCreateSet)
                     DosQuerySysInfo(QSV_MS_COUNT, QSV_MS_COUNT,
                                     &ulTimeNow, sizeof(ulTimeNow));
 
+                    #ifdef DEBUG_XTIMERS
+                        _Pmpf((__FUNCTION__ ": ulTimeNow = %d", ulTimeNow));
+                    #endif
+
                     while (pTimerNode)
                     {
                         // get next node first because the
@@ -483,12 +509,31 @@ VOID tmrTimerTick(PXTIMERSET pSet)      // in: timer set (from tmrCreateSet)
 
                         PXTIMER pTimer = (PXTIMER)pTimerNode->pItemData;
 
+                        #ifdef DEBUG_XTIMERS
+                            _Pmpf(("   timer %d: ulNextFire = %d",
+                                    lstIndexFromItem(pllXTimers, pTimer),
+                                    pTimer->ulNextFire));
+                        #endif
+
                         if (    (pTimer)
-                             && (pTimer->ulNextFire < ulTimeNow)
+                             // && (pTimer->ulNextFire < ulTimeNow)
+                                // V0.9.14 (2001-08-01) [umoeller]
+                                // use <= because otherwise we'll get
+                                // only half the frequency...
+                                // we get here frequently where the
+                                // two values are EXACTLY equal due
+                                // to the above optimization (DosQuerySysInfo
+                                // called once only for the entire loop)
+                             && (pTimer->ulNextFire <= ulTimeNow)
                            )
                         {
                             // this timer has elapsed:
                             // fire!
+
+                            #ifdef DEBUG_XTIMERS
+                                _Pmpf(("   --> fire!"));
+                            #endif
+
                             if (WinIsWindow(pSet->hab,
                                             pTimer->hwndTarget))
                             {

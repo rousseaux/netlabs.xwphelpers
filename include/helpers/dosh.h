@@ -724,17 +724,20 @@ extern "C" {
         ULONG               cbDosExeHeader;
 
         // New Executable (NE) header, if ulExeFormat == EXEFORMAT_NE
+#ifndef __STRIP_DOWN_EXECUTABLE__       // for mini stubs in warpin, to reduce code size
         PNEHEADER           pNEHeader;
         ULONG               cbNEHeader;
+#endif
 
         // Linear Executable (LX) header, if ulExeFormat == EXEFORMAT_LX
         PLXHEADER           pLXHeader;
         ULONG               cbLXHeader;
 
         // Portable Executable (PE) header, if ulExeFormat == EXEFORMAT_PE
+#ifndef __STRIP_DOWN_EXECUTABLE__       // for mini stubs in warpin, to reduce code size
         PPEHEADER           pPEHeader;
         ULONG               cbPEHeader;
-
+#endif
         // module analysis (always set):
         ULONG               ulExeFormat;
                 // one of:

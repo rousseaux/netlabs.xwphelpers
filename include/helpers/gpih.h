@@ -78,6 +78,47 @@ extern "C" {
     #define RGBCOL_DARKYELLOW       0x00808000
     #define RGBCOL_DARKGRAY         0x00808080
 
+    /*
+     *@@ GET_BLUE:
+     *      gets the BLUE (first) byte from a
+     *      LONG RGB value.
+     *
+     *@@added V0.9.14 (2001-08-03) [umoeller]
+     */
+
+    #define GET_BLUE(lcol)  *( ((PBYTE)(&(lcol))) )
+
+    /*
+     *@@ GET_GREEN:
+     *      gets the GREEN (second) byte from a
+     *      LONG RGB value.
+     *
+     *@@added V0.9.14 (2001-08-03) [umoeller]
+     */
+
+    #define GET_GREEN(lcol) *( ((PBYTE)(&(lcol))) + 1 )
+
+    /*
+     *@@ GET_RED:
+     *      gets the RED (third) byte from a
+     *      LONG RGB value.
+     *
+     *@@added V0.9.14 (2001-08-03) [umoeller]
+     */
+
+    #define GET_RED(lcol)   *( ((PBYTE)(&(lcol))) + 2 )
+
+    /*
+     *@@ MAKE_RGB:
+     *      composes a LONG color value from
+     *      three BYTE values for red, green,
+     *      and blue.
+     *
+     *@@added V0.9.14 (2001-08-03) [umoeller]
+     */
+
+    #define MAKE_RGB(r, g, b) (LONG)((BYTE)(b)) + (((LONG)((BYTE)(g))) << 8) + (((LONG)((BYTE)(r))) << 16)
+
     VOID XWPENTRY gpihManipulateRGB(PLONG plColor, double dFactor);
     typedef VOID XWPENTRY GPIHMANIPULATERGB(PLONG plColor, double dFactor);
     typedef GPIHMANIPULATERGB *PGPIHMANIPULATERGB;

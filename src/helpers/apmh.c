@@ -14,7 +14,7 @@
  *      Note: Version numbering in this file relates to XWorkplace version
  *            numbering.
  *
- *@@header "helpers\apm.h"
+ *@@header "helpers\apmh.h"
  *@@added V0.9.14 (2001-08-01) [umoeller]
  */
 
