@@ -243,6 +243,9 @@ extern "C" {
                     PCSZ pcszFormat,
                     ...);
 
+    VOID xstrCatf(XSTRING *pstr,
+                  PCSZ pcszFormat,
+                  ...);
 #endif
 
 #if __cplusplus

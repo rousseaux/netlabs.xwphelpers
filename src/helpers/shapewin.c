@@ -1354,23 +1354,23 @@ BOOL shpLoadBitmap(HAB hab, // in: anchor block
 
     psb->hab = hab;
 
-    psb->hdc = DevOpenDC(hab, OD_MEMORY, "*", 0, NULL, NULLHANDLE);
-    if (psb->hdc)
+    if (psb->hdc = DevOpenDC(hab, OD_MEMORY, "*", 0, NULL, NULLHANDLE))
     {
         siz.cx = siz.cy = 0;
-        psb->hps = GpiCreatePS(hab, psb->hdc, &siz,
-                PU_PELS | GPIF_DEFAULT | GPIT_MICRO | GPIA_ASSOC);
-
-        if (psb->hps)
+        if (psb->hps = GpiCreatePS(hab,
+                                   psb->hdc,
+                                   &siz,
+                                   PU_PELS | GPIF_DEFAULT | GPIT_MICRO | GPIA_ASSOC))
         {
             if (pszBitmapFile)
             {
                 // load bitmap file
-                ULONG ulError;
-                psb->hbm = gpihLoadBitmapFile(psb->hps,
-                                              pszBitmapFile,
-                                              &ulError);
-            } else
+                if (gpihLoadBitmapFile(&psb->hbm,
+                                       psb->hps,
+                                       pszBitmapFile))
+                    psb->hbm = NULLHANDLE;
+            }
+            else
                 // load resource bitmap
                 psb->hbm = GpiLoadBitmap(psb->hps,
                                          hmodResource,

@@ -57,6 +57,7 @@
 #ifdef WINH_STANDARDWRAPPERS
 #undef WINH_STANDARDWRAPPERS
 #endif
+#include "helpers\dosh.h"
 #include "helpers\winh.h"
 #include "helpers\gpih.h"
 
@@ -170,7 +171,7 @@ VOID gpihInflateRect(PRECTL prcl,
 /*
  *@@ gpihQueryDisplayCaps:
  *      this returns certain device capabilities of
- *      the Display device. ulIndex must be one of
+ *      the display device. ulIndex must be one of
  *      the indices as described in DevQueryCaps.
  *
  *      This function will load all the device capabilities
@@ -1667,54 +1668,360 @@ HBITMAP gpihCreateHalftonedBitmap(HAB hab,              // in: anchor block
  *      the given HPS. Note that the bitmap is _not_
  *      yet selected into the HPS.
  *
- *      This function can currently only handle OS/2 1.3
- *      bitmaps.
+ *      If the file contains only a single bitmap,
+ *      this bitmap is used.
  *
- *      Returns the new bitmap handle or NULL upon errors
- *      (e.g. if an OS/2 2.0 bitmap was accessed).
+ *      If it contains a bitmap array, we use the
+ *      "best bitmap" in the array, which is determined
+ *      from the following criteria (in this order):
  *
- *      In the latter case, *pulError is set to one of
- *      the following:
- *      --  -1:      file not found
- *      --  -2:      malloc failed
- *      --  -3:      the bitmap data could not be read (fopen failed)
- *      --  -4:      file format not recognized (maybe OS/2 2.0 bitmap)
- *      --  -5:      GpiCreateBitmap error (maybe file corrupt)
+ *      --  a device-dependent bitmap, if its device
+ *          resolution is not too large and the given
+ *          HPS can display all its colors;
+ *
+ *      --  a device-dependent bitmap, if its device
+ *          resolution is not too large, even if the
+ *          given HPS cannot display all its colors;
+ *
+ *      --  a device-independent bitmap, if the given
+ *          HPS can display all its colors;
+ *
+ *      --  the first device-independent bitmap in
+ *          the file;
+ *
+ *      --  the first bitmap in the file.
+ *
+ *      Support for bitmap arrays was added with V0.9.19.
+ *      I'm not quite sure if the above is the same way
+ *      of selecting the "best bitmap" that GpiLoadBitmap
+ *      would do, but without any documentation, who is
+ *      supposed to know.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR: *phbm has received new HBITMAP,
+ *          to be freed with GpiDeleteBitmap.
+ *
+ *      --  ERROR_INVALID_PARAMETER
+ *
+ *      --  ERROR_INVALID_DATA: file exists, but we
+ *          can't understand its format.
+ *
+ *      plus the error codes from doshOpen and DosRead.
  *
  *@@changed V0.9.4 (2000-08-03) [umoeller]: this didn't return NULLHANDLE on errors
+ *@@changed V0.9.19 (2002-04-14) [umoeller]: rewritten to support bitmap arrays, prototype changed
  */
 
-HBITMAP gpihLoadBitmapFile(HPS hps,             // in: HPS for bmp
-                           PSZ pszBmpFile,      // in: bitmap filename
-                           PULONG pulError)     // out: error code if FALSE is returned
+APIRET gpihLoadBitmapFile(HBITMAP *phbm,        // out: bitmap if NO_ERROR
+                          HPS hps,              // in: HPS for bmp
+                          PCSZ pcszBmpFile)     // in: bitmap filename
 {
-    HBITMAP hbm = NULLHANDLE;
-    PBITMAPFILEHEADER2  pbfh;
+    APIRET arc;
+    PXFILE pFile;
+    ULONG cbFile = 0;
 
-    struct stat st;
-    PBYTE       pBmpData;
-    FILE        *BmpFile;
+    if (!hps || !pcszBmpFile || !phbm)
+        return ERROR_INVALID_PARAMETER;
 
-    if (stat(pszBmpFile, &st) == 0)
+    if (!(arc = doshOpen(pcszBmpFile,
+                         XOPEN_READ_EXISTING | XOPEN_BINARY,
+                         &cbFile,
+                         &pFile)))
+    {
+        PBYTE   pData;
+        if (!(pData = (PBYTE)malloc(cbFile)))
+            arc = ERROR_NOT_ENOUGH_MEMORY;
+        else
+        {
+            if (!(arc = DosRead(pFile->hf,
+                                pData,
+                                cbFile,
+                                &cbFile)))
+            {
+                // check bitmap magic codes
+                PBITMAPFILEHEADER2  pbfh = (PBITMAPFILEHEADER2)pData;
+
+                switch (pbfh->usType)
+                {
+                    case BFT_BMAP:     // "BM"
+                        // single bitmap in file (no array):
+                        if (!(*phbm = GpiCreateBitmap(hps,
+                                                      &pbfh->bmp2,
+                                                      CBM_INIT,
+                                                      (PBYTE)pbfh + pbfh->offBits,
+                                                      (PBITMAPINFO2)&pbfh->bmp2)))
+                            arc = ERROR_INVALID_DATA;
+                    break;
+
+                    case BFT_BITMAPARRAY:   // "BA"
+                    {
+
+/*
+ typedef struct _BITMAPARRAYFILEHEADER {
+   USHORT               usType;     //  Type of structure.
+   ULONG                cbSize;     //  Size of the BITMAPARRAYFILEHEADER structure in bytes.
+   ULONG                offNext;    //  Offset of the next BITMAPARRAYFILEHEADER structure from the start of the file.
+   USHORT               cxDisplay;  //  Device width, in pels.
+   USHORT               cyDisplay;  //  Device height, in pels.
+   BITMAPFILEHEADER     bfh;        //  Bitmap file header structure.
+ } BITMAPARRAYFILEHEADER;
+
+ typedef struct _BITMAPARRAYFILEHEADER2 {
+   USHORT                usType;     //  Type of structure.
+   ULONG                 cbSize;     //  Size of the BITMAPARRAYFILEHEADER2 structure in bytes.
+   ULONG                 offNext;    //  Offset of the next BITMAPARRAYFILEHEADER2 structure from the start of the file.
+   USHORT                cxDisplay;  //  Device width, in pels.
+   USHORT                cyDisplay;  //  Device height, in pels.
+   BITMAPFILEHEADER2     bfh2;       //  Bitmap file header structure.
+ } BITMAPARRAYFILEHEADER2;
+
+    These two are binarily the same, except for the file header that is contained.
+*/
+
+/*      OLD FORMAT
+
+ typedef struct _BITMAPFILEHEADER {
+   USHORT               usType;    //  Type of resource the file contains.
+   ULONG                cbSize;    //  Size of the BITMAPFILEHEADER structure in bytes.
+   SHORT                xHotspot;  //  Width of hotspot for icons and pointers.
+   SHORT                yHotspot;  //  Height of hotspot for icons and pointers.
+   USHORT               offBits;   //  Offset in bytes.
+   BITMAPINFOHEADER     bmp;       //  Bitmap information header structure.
+
+          typedef struct _BITMAPINFOHEADER {
+            ULONG      cbFix;      //  Length of structure.
+            USHORT     cx;         //  Bitmap width in pels.
+            USHORT     cy;         //  Bitmap height in pels.
+            USHORT     cPlanes;    //  Number of bit planes.
+            USHORT     cBitCount;  //  Number of bits per pel within a plane.
+          } BITMAPINFOHEADER;
+
+ } BITMAPFILEHEADER;
+*/
+
+/*      NEW FORMAT
+
+ typedef struct _BITMAPFILEHEADER2 {
+   USHORT                usType;    //  Type of resource the file contains.
+   ULONG                 cbSize;    //  Size of the BITMAPFILEHEADER2 structure in bytes.
+   SHORT                 xHotspot;  //  Width of hotspot for icons and pointers.
+   SHORT                 yHotspot;  //  Height of hotspot for icons and pointers.
+   USHORT                offBits;   //  Offset in bytes.
+   BITMAPINFOHEADER2     bmp2;      //  Bitmap information header structure.
+
+            typedef struct _BITMAPINFOHEADER2 {
+              ULONG      cbFix;            //  Length of structure.
+              ULONG      cx;               //  Bitmap width in pels.
+              ULONG      cy;               //  Bitmap height in pels.
+              USHORT     cPlanes;          //  Number of bit planes.
+              USHORT     cBitCount;        //  Number of bits per pel within a plane.
+              ULONG      ulCompression;    //  Compression scheme used to store the bit map.
+              ULONG      cbImage;          //  Length of bitmap storage data, in bytes.
+              ULONG      cxResolution;     //  Horizontal component of the resolution of target device.
+              ULONG      cyResolution;     //  Vertical component of the resolution of target device.
+              ULONG      cclrUsed;         //  Number of color indexes used.
+              ULONG      cclrImportant;    //  Minimum number of color indexes for satisfactory appearance of the bit map.
+              USHORT     usUnits;          //  Units of measure.
+              USHORT     usReserved;       //  Reserved.
+              USHORT     usRecording;      //  Recording algorithm.
+              USHORT     usRendering;      //  Halftoning algorithm.
+              ULONG      cSize1;           //  Size value 1.
+              ULONG      cSize2;           //  Size value 2.
+              ULONG      ulColorEncoding;  //  Color encoding.
+              ULONG      ulIdentifier;     //  Reserved for application use.
+            } BITMAPINFOHEADER2;
+
+    Because of the unfortunate replacement of USHORTs with ULONGs for
+    cx and cy in the info header, the cx, cy, and cBitCount data is
+    NOT the same between old and new formats. Well, IBM, good job.
+    And ICONEDIT _still_ writes the old format, unfortunately.
+
+ } BITMAPFILEHEADER2;
+
+*/
+                        // define a handy union for all the above bullshit
+                        typedef union
+                        {
+                            BITMAPFILEHEADER    Old;
+                            BITMAPFILEHEADER2   New;
+                        } BMPUNION, *PBMPUNION;
+
+                        PBMPUNION       puFirstDI = NULL,   // first device-independent bitmap
+                                        puBestDI = NULL,    // best device-independent bitmap
+                                        puFirstDD = NULL,   // first device-dependent bitmap
+                                        puBestDD = NULL,    // best device-dependent bitmap
+                                        puFirstAny = NULL,  // first bitmap of any type
+                                        puUse;
+
+                        // get device resolution for this HPS
+                        // so we can select the "best bitmap"
+                        #define GET_CAPS_FIRST  CAPS_WIDTH
+                        #define GET_CAPS_LAST   CAPS_COLOR_BITCOUNT
+                        #define GET_NO_CAPS     GET_CAPS_LAST - GET_CAPS_FIRST + 1
+
+                        LONG alCaps[GET_NO_CAPS];
+                        PBITMAPARRAYFILEHEADER2 pba = (PBITMAPARRAYFILEHEADER2)pData;
+
+                        DevQueryCaps(GpiQueryDevice(hps),
+                                     GET_CAPS_FIRST,
+                                     GET_NO_CAPS,
+                                     alCaps);
+
+                        #define BITCOUNT    alCaps[CAPS_COLOR_BITCOUNT - GET_CAPS_FIRST]
+                        #define WIDTH       alCaps[CAPS_WIDTH - GET_CAPS_FIRST]
+                        #define HEIGHT      alCaps[CAPS_HEIGHT - GET_CAPS_FIRST]
+
+                        // for-all-bitmaps-in-array loop
+                        while (pba)
+                        {
+                            PBMPUNION puThis = (PBMPUNION)&pba->bfh2;
+
+                            LONG cx = 0,
+                                 cy,
+                                 cBitCount;
+
+                            // ignore this if the type isn't "BM"
+                            if (puThis->Old.usType == BFT_BMAP)
+                            {
+                                // fill the three, but watch out, the offsets are
+                                // different between old and new formats
+                                if (puThis->Old.bmp.cbFix == sizeof(BITMAPINFOHEADER))
+                                {
+                                    // old format:
+                                    cx = puThis->Old.bmp.cx;
+                                    cy = puThis->Old.bmp.cy;
+                                    cBitCount = puThis->Old.bmp.cBitCount;
+                                }
+                                else if (puThis->Old.bmp.cbFix == sizeof(BITMAPINFOHEADER2))
+                                {
+                                    // new format:
+                                    cx = puThis->New.bmp2.cx;
+                                    cy = puThis->New.bmp2.cy;
+                                    cBitCount = puThis->New.bmp2.cBitCount;
+                                }
+                            }
+
+                            if (cx)
+                            {
+                                _Pmpf(("found bmp cxDisplay %d, cyDisplay %d",
+                                            pba->cxDisplay,
+                                            pba->cyDisplay));
+                                _Pmpf(("   cx %d, cy %d, cBitCount %d",
+                                            cx, cy, cBitCount));
+
+                                // store first bitmap of any type
+                                if (!puFirstAny)
+                                    puFirstAny = puThis;
+
+                                // check device resolution... device-independent
+                                // one has cxDisplay and cyDisplay set to 0
+                                if (    (!pba->cxDisplay)
+                                     && (!pba->cyDisplay)
+                                   )
+                                {
+                                    // device-independent:
+
+                                    // store first device-independent bmp
+                                    if (!puFirstDI)
+                                        puFirstDI = puThis;
+
+                                    if (cBitCount <= BITCOUNT)
+                                        // we can display all the colors:
+                                        puBestDI = puThis;
+                                }
+                                else
+                                {
+                                    // device-dependent:
+                                    // ignore if device resolution is too large
+                                    if (    (pba->cxDisplay <= WIDTH)
+                                         && (pba->cyDisplay <= HEIGHT)
+                                       )
+                                    {
+                                        if (!puFirstDD)
+                                            puFirstDD = puThis;
+
+                                        if (cBitCount <= BITCOUNT)
+                                            puBestDD = puThis;
+                                    }
+                                }
+                            } // end if cx
+
+                            // go for next bmp in array
+                            if (pba->offNext)
+                                // another one coming up:
+                                // this ofs is from the beginning of the file
+                                pba = (PBITMAPARRAYFILEHEADER2)(pData + pba->offNext);
+                            else
+                                // no more bitmaps:
+                                break;
+                        } // end while (pba)
+
+                        if (    (puUse = puBestDD)
+                             || (puUse = puFirstDD)
+                             || (puUse = puBestDI)
+                             || (puUse = puFirstDI)
+                             || (puUse = puFirstAny)
+                           )
+                        {
+                            PBITMAPINFOHEADER2 pbih2;
+                            PBYTE pbInitData;
+
+                            if (puUse->Old.bmp.cbFix == sizeof(BITMAPINFOHEADER))
+                            {
+                                // old format:
+                                pbih2 = (PBITMAPINFOHEADER2)&puUse->Old.bmp;
+                                pbInitData = (PBYTE)pData + puUse->Old.offBits;
+                            }
+                            else
+                            {
+                                // new format:
+                                pbih2 = &puUse->New.bmp2;
+                                pbInitData = (PBYTE)pData + puUse->New.offBits;
+                            }
+
+                            if (!(*phbm = GpiCreateBitmap(hps,
+                                                          pbih2,
+                                                          CBM_INIT,
+                                                          pbInitData,
+                                                          (PBITMAPINFO2)pbih2)))
+                                arc = ERROR_INVALID_DATA;
+                        }
+                        else
+                            arc = ERROR_INVALID_DATA;
+                    }
+                    break;
+                }
+            }
+
+            free(pData);
+        }
+
+        doshClose(&pFile);
+    }
+
+    return arc;
+
+    /* if (stat(pszBmpFile, &st) == 0)
     {
 
-        if ((pBmpData = (PBYTE)malloc(st.st_size)))
+        if ((pData = (PBYTE)malloc(st.st_size)))
         {
             // open bmp file
             if ((BmpFile = fopen(pszBmpFile, "rb")))
             {
                 // read bmp data
-                fread(pBmpData, 1, st.st_size, BmpFile);
+                fread(pData, 1, st.st_size, BmpFile);
                 fclose(BmpFile);
 
                 // check bitmap magic codes
-                if (pBmpData[0] == 'B' && pBmpData[1] == 'M')
+                if (pData[0] == 'B' && pData[1] == 'M')
                 {
-                    pbfh = (PBITMAPFILEHEADER2)pBmpData;
+                    pbfh = (PBITMAPFILEHEADER2)pData;
                     hbm = GpiCreateBitmap(hps,
                                           &pbfh->bmp2,
                                           CBM_INIT,
-                                          (pBmpData + pbfh->offBits),
+                                          (pData + pbfh->offBits),
                                           (PBITMAPINFO2)&pbfh->bmp2);
 
                     if (hbm == NULLHANDLE)
@@ -1730,7 +2037,7 @@ HBITMAP gpihLoadBitmapFile(HPS hps,             // in: HPS for bmp
             else if (pulError)
                     *pulError = -3;
 
-            free(pBmpData);
+            free(pData);
         }
         else if (pulError)
                 *pulError = -2;
@@ -1738,7 +2045,7 @@ HBITMAP gpihLoadBitmapFile(HPS hps,             // in: HPS for bmp
     else if (pulError)
             *pulError = -1;
 
-    return (hbm);
+    return (hbm);*/
 }
 
 /*

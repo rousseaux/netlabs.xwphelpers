@@ -3427,7 +3427,7 @@ APIRET doshDeleteDir(PCSZ pcszDir,
     if (arcReturn == NO_ERROR)
         // success so far:
         // delete our directory now
-        arc = DosDeleteDir((PSZ)pcszDir);
+        arcReturn = DosDeleteDir((PSZ)pcszDir);
 
     return (arcReturn);
 }

@@ -1548,6 +1548,27 @@ VOID xstrPrintf(XSTRING *pstr,       // in/out: string buffer (must be init'ed)
     xstrcpy(pstr, szBuf, 0);
 }
 
+/*
+ *@@ xstrCatf:
+ *      like xstrPrintf, but appends to the
+ *      given XSTRING.
+ *
+ *@@added V0.9.19 (2002-04-14) [umoeller]
+ */
+
+VOID xstrCatf(XSTRING *pstr,       // in/out: string buffer (must be init'ed)
+              PCSZ pcszFormat,     // in: format string (like with printf)
+              ...)                 // in: additional stuff (like with printf)
+{
+    va_list     args;
+    CHAR        szBuf[2000];
+
+    va_start(args, pcszFormat);
+    vsprintf(szBuf, pcszFormat, args);
+    va_end(args);
+
+    xstrcat(pstr, szBuf, 0);
+}
 
 // test case
 

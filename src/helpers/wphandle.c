@@ -851,11 +851,13 @@ APIRET wphQueryHandleFromPath(HINI hiniUser,      // in: HINI_USER or other INI 
  *      helper for wphComposePath recursion.
  *
  *@@added V0.9.16 (2001-10-02) [umoeller]
+ *@@changed V0.9.19 (2002-04-14) [umoeller]: fixed wrong error for parent handles
  */
 
 static APIRET ComposeThis(PHANDLESBUF pHandlesBuf,
                           USHORT usHandle,         // in: handle to search for
                           PXSTRING pstrFilename,   // in/out: filename
+                          ULONG ulLevel,           // in: recursion level (initially 0)
                           PNODE *ppNode)           // out: node found (ptr can be NULL)
 {
     APIRET          arc = NO_ERROR;
@@ -870,17 +872,11 @@ static APIRET ComposeThis(PHANDLESBUF pHandlesBuf,
         {
             // node has parent:
             // recurse first
-            if (arc = ComposeThis(pHandlesBuf,
-                                  pNode->usParentHandle,
-                                  pstrFilename,
-                                  ppNode))
-            {
-                if (arc == ERROR_INVALID_HANDLE)
-                    // parent handle not found:
-                    arc = ERROR_WPH_INVALID_PARENT_HANDLE;
-                // else leave the APIRET, this might be dangerous
-            }
-            else
+            if (!(arc = ComposeThis(pHandlesBuf,
+                                    pNode->usParentHandle,
+                                    pstrFilename,
+                                    ulLevel + 1,
+                                    ppNode)))
             {
                 // no error:
                 xstrcatc(pstrFilename, '\\');
@@ -892,7 +888,11 @@ static APIRET ComposeThis(PHANDLESBUF pHandlesBuf,
             xstrcpy(pstrFilename, pNode->szName, pNode->usNameSize);
     }
     else
-        arc = ERROR_INVALID_HANDLE;
+        // handle not found:
+        if (ulLevel == 0)       // V0.9.19 (2002-04-14) [umoeller]
+            arc = ERROR_INVALID_HANDLE;
+        else
+            arc = ERROR_WPH_INVALID_PARENT_HANDLE;
 
     if (!arc)
         if (ppNode)
@@ -952,6 +952,7 @@ APIRET wphComposePath(HHANDLES hHandles,
                 if (!(arc = ComposeThis(pHandlesBuf,
                                         usHandle,
                                         &str,
+                                        0,      // initial recursion level
                                         ppNode)))
                     if (str.ulLength > cbFilename - 1)
                         arc = ERROR_BUFFER_OVERFLOW;

@@ -2352,7 +2352,7 @@ BOOL winhRestoreWindowPos(HWND hwnd,   // in: window to restore
  *      having to write dozens of WinSetWindowPos calls oneself.
  *
  *@@added V0.9.0 [umoeller]
- *@@changed V0.9.19 (2001-04-13) [umoeller]: added correlation for entry field repositioning, this was always off
+ *@@changed V0.9.19 (2002-04-13) [umoeller]: added correlation for entry field repositioning, this was always off
  */
 
 BOOL winhAdjustControls(HWND hwndDlg,           // in: dialog (req.)
@@ -2374,7 +2374,7 @@ BOOL winhAdjustControls(HWND hwndDlg,           // in: dialog (req.)
         LONG    ldcx, ldcy;
         ULONG   cWindows = 0;
 
-        // V0.9.19 (2001-04-13) [umoeller]
+        // V0.9.19 (2002-04-13) [umoeller]
         LONG cxMarginEF = 3 * WinQuerySysValue(HWND_DESKTOP, SV_CXBORDER);
         LONG cyMarginEF = 3 * WinQuerySysValue(HWND_DESKTOP, SV_CYBORDER);
 
@@ -2402,7 +2402,7 @@ BOOL winhAdjustControls(HWND hwndDlg,           // in: dialog (req.)
                     WinQueryWindowPos(hwndThis, pswpThis);
 
                     // correlate the stupid repositioning of entry fields
-                    // V0.9.19 (2001-04-13) [umoeller]
+                    // V0.9.19 (2002-04-13) [umoeller]
                     if (    (WinQueryClassName(hwndThis, sizeof(szClass), szClass)
                          && (!strcmp(szClass, "#6"))
                          && (WinQueryWindowULong(hwndThis, QWL_STYLE) & ES_MARGIN))

@@ -5,6 +5,10 @@
  *
  *      See encCreateCodec for an introduction.
  *
+ *      Be warned, compilation of this file takes a long
+ *      file because this includes all the complex codepage
+ *      from include\encodings.
+ *
  *@@header "encodings\base.h"
  *@@added V0.9.9 (2001-02-14) [umoeller]
  */
@@ -149,9 +153,9 @@ static int FindEntry(ENCID id,
  *@@added V0.9.18 (2002-03-08) [umoeller]
  */
 
-ENCID encFindIdForCodepage(unsigned short usCodepage,
+ENCID encFindIdForCodepage(unsigned short usCodepage,       // in: codepage to find
                            const char **ppcszDescription,   // out: codepage description; ptr can be NULL
-                           ENCBYTECOUNT *pByteCount)
+                           ENCBYTECOUNT *pByteCount)        // out: SINGLE or DOUBLE
 {
     unsigned long ul;
     for (ul = 0;
@@ -197,7 +201,7 @@ ENCID encFindIdForCodepage(unsigned short usCodepage,
  *      n * sizeof(USHORT) bytes, where n is the highest
  *      Unicode character used in the codepage.
  *
- *      Remarks:
+ *      Codec remarks:
  *
  *      --  All codepages share the first 128 characters
  *          (0-0x7F) with ASCII.
