@@ -1361,15 +1361,22 @@ VOID winhSetDlgItemSpinData(HWND hwndDlg,       // in: dlg window
  *      For example, if you specify 100 for the grid and call
  *      this func after you have received SPBN_UP/DOWNARROW,
  *      the spin button's value will always in/decrease
- *      in steps of 100.
+ *      so that the spin button's value is a multiple of 100.
+ *
+ *      By contrast, if (lGrid < 0), this will not really
+ *      snap the value to a multiple of -lGrid, but instead
+ *      in/decrease the value by -lGrid. The value will not
+ *      necessarily be a multiple of the grid. (0.9.14)
  *
  *      This returns the "snapped" value to which the spin
  *      button was set.
  *
  *      If you specify lGrid == 0, this returns the spin
- *      button's value only (V0.9.0).
+ *      button's value only without snapping (V0.9.0).
  *
  *@@changed V0.9.0 [umoeller]: added check for lGrid == 0 (caused division by zero previously)
+ *@@changed V0.9.14 (2001-08-03) [umoeller]: added fixes for age-old problems with wrap around
+ *@@changed V0.9.14 (2001-08-03) [umoeller]: added lGrid < 0 mode
  */
 
 LONG winhAdjustDlgItemSpinData(HWND hwndDlg,     // in: dlg window
@@ -1379,6 +1386,7 @@ LONG winhAdjustDlgItemSpinData(HWND hwndDlg,     // in: dlg window
 {
     HWND hwndSpin = WinWindowFromID(hwndDlg, usItemID);
     LONG lBottom, lTop, lValue;
+
     // get value, which has already increased /
     // decreased by 1
     WinSendMsg(hwndSpin,
@@ -1396,11 +1404,35 @@ LONG winhAdjustDlgItemSpinData(HWND hwndDlg,     // in: dlg window
         // snap to the nearest grid; if the user
         // manually enters something (SPBN_CHANGE),
         // we'll accept that value
-        lValue = (lValue / lGrid) * lGrid;
-        // add /subtract grid
-        if (usNotifyCode == SPBN_UPARROW)
-            lValue += lGrid;
-        // else we'll have -= lGrid already
+        LONG lChanged = (usNotifyCode == SPBN_UPARROW)
+                            // if the spin button went up, subtract 1
+                            ? -1
+                            : +1;
+        LONG lPrev  = lValue + lChanged;
+
+        // if grid is negative, it is assumed to
+        // not be a "real" grid but jump in those
+        // steps only
+        if (lGrid < 0)
+        {
+            // add /subtract grid
+            if (usNotifyCode == SPBN_UPARROW)
+                lValue = lPrev - lGrid;
+            else
+                lValue = lPrev + lGrid;
+
+            // lValue = (lValue / lGrid) * lGrid;
+        }
+        else
+        {
+            // add /subtract grid
+            if (usNotifyCode == SPBN_UPARROW)
+                lValue = lPrev + lGrid;
+            else
+                lValue = lPrev - lGrid;
+
+            lValue = (lValue / lGrid) * lGrid;
+        }
 
         // balance with spin button limits
         WinSendMsg(hwndSpin,

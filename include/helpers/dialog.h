@@ -49,6 +49,7 @@ extern "C" {
     #define DLGERR_INVALID_CODE                 (DLGERR_FIRST + 4)
     #define DLGERR_TABLE_NOT_CLOSED             (DLGERR_FIRST + 5)
     #define DLGERR_TOO_MANY_TABLES_CLOSED       (DLGERR_FIRST + 6)
+    #define DLGERR_CANNOT_CREATE_CONTROL        (DLGERR_FIRST + 7)
 
     /* ******************************************************************
      *
@@ -171,6 +172,48 @@ extern "C" {
                 // -- with TYPE_START_NEW_ROW: ROW_* formatting flags.
                 // -- with TYPE_CONTROL_DEF: _CONTROLDEF pointer to a control definition
     } DLGHITEM, *PDLGHITEM;
+
+    /* ******************************************************************
+     *
+     *   Macros
+     *
+     ********************************************************************/
+
+    #define CONTROLDEF_GROUP(pcsz, id) { WC_STATIC, pcsz, \
+            WS_VISIBLE | SS_GROUPBOX | DT_MNEMONIC, \
+            id, CTL_COMMON_FONT, 0, { -1, -1 }, 0 }
+
+    #define CONTROLDEF_TEXT(pcsz, id, cx, cy) { WC_STATIC, pcsz, \
+            WS_VISIBLE | SS_TEXT | DT_LEFT | DT_VCENTER | DT_MNEMONIC, \
+            id, CTL_COMMON_FONT,  0, {cx, cy}, 5 }
+
+    #define CONTROLDEF_DEFPUSHBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
+            WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_DEFAULT, \
+            id, CTL_COMMON_FONT, 0, {cx, cy}, 5 }
+
+    #define CONTROLDEF_PUSHBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
+            WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, \
+            id, CTL_COMMON_FONT, 0, {cx, cy}, 5 }
+
+    #define CONTROLDEF_AUTOCHECKBOX(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
+            WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, \
+            id, CTL_COMMON_FONT, 0, { cx, cy }, 5 }
+
+    #define CONTROLDEF_FIRST_AUTORADIO(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
+            WS_VISIBLE | WS_TABSTOP | BS_AUTORADIOBUTTON | WS_GROUP, \
+            id, CTL_COMMON_FONT, 0, { cx, cy }, 5 }
+
+    #define CONTROLDEF_NEXT_AUTORADIO(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
+            WS_VISIBLE | WS_TABSTOP | BS_AUTORADIOBUTTON, \
+            id, CTL_COMMON_FONT, 0, { cx, cy }, 5 }
+
+    #define CONTROLDEF_ENTRYFIELD(pcsz, id, cx, cy) { WC_ENTRYFIELD, pcsz, \
+            WS_VISIBLE | WS_TABSTOP | ES_MARGIN, \
+            id, CTL_COMMON_FONT, 0, { cx, cy }, 5 }
+
+    #define CONTROLDEF_SPINBUTTON(id, cx, cy) { WC_SPINBUTTON, NULL, \
+            WS_VISIBLE | WS_TABSTOP | SPBS_MASTER | SPBS_NUMERICONLY | SPBS_JUSTCENTER | SPBS_FASTSPIN, \
+            id, CTL_COMMON_FONT, 0, {cx, cy}, 5 }
 
     /* ******************************************************************
      *

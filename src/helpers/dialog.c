@@ -217,10 +217,10 @@ typedef enum _PROCESSMODE
 #define PM_GROUP_SPACING_X          10
 #define PM_GROUP_SPACING_TOP        20
 
-VOID ProcessTable(PTABLEDEF pTableDef,
-                  const CONTROLPOS *pcpTable,
-                  PROCESSMODE ProcessMode,
-                  PDLGPRIVATE pDlgData);
+APIRET ProcessTable(PTABLEDEF pTableDef,
+                    const CONTROLPOS *pcpTable,
+                    PROCESSMODE ProcessMode,
+                    PDLGPRIVATE pDlgData);
 
 /*
  *@@ CalcAutoSizeText:
@@ -435,12 +435,14 @@ VOID CalcAutoSize(PCONTROLDEF pControlDef,
  *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed font problems
  */
 
-VOID ProcessColumn(PCOLUMNDEF pColumnDef,
-                   PROWDEF pOwningRow,          // in: current row from ProcessRow
-                   PROCESSMODE ProcessMode,     // in: processing mode (see ProcessAll)
-                   PLONG plX,                   // in/out: PROCESS_CALC_POSITIONS only
-                   PDLGPRIVATE pDlgData)
+APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
+                     PROWDEF pOwningRow,          // in: current row from ProcessRow
+                     PROCESSMODE ProcessMode,     // in: processing mode (see ProcessAll)
+                     PLONG plX,                   // in/out: PROCESS_CALC_POSITIONS only
+                     PDLGPRIVATE pDlgData)
 {
+    APIRET arc = NO_ERROR;
+
     pColumnDef->pOwningRow = pOwningRow;
 
     switch (ProcessMode)
@@ -603,22 +605,25 @@ VOID ProcessColumn(PCOLUMNDEF pColumnDef,
                 PTABLEDEF pTableDef = (PTABLEDEF)pColumnDef->pvDefinition;
 
                 // recurse!!
-                ProcessTable(pTableDef,
-                             NULL,
-                             ProcessMode,
-                             pDlgData);
-
-                // should we create a PM control around the table?
-                // (do this AFTER the other controls from recursing,
-                // otherwise the stupid container doesn't show up)
-                if (pTableDef->pCtlDef)
+                if (!(arc = ProcessTable(pTableDef,
+                                         NULL,
+                                         ProcessMode,
+                                         pDlgData)))
                 {
-                    // yes:
-                    pcp  = &pColumnDef->cpColumn;  // !! not control
-                    pControlDef = pTableDef->pCtlDef;
-                    pcszTitle = pControlDef->pcszText;
-                    flStyle = pControlDef->flStyle;
+                    // should we create a PM control around the table?
+                    // (do this AFTER the other controls from recursing,
+                    // otherwise the stupid container doesn't show up)
+                    if (pTableDef->pCtlDef)
+                    {
+                        // yes:
+                        pcp  = &pColumnDef->cpColumn;  // !! not control
+                        pControlDef = pTableDef->pCtlDef;
+                        pcszTitle = pControlDef->pcszText;
+                        flStyle = pControlDef->flStyle;
+                    }
                 }
+                else
+                    break;
             }
             else
             {
@@ -661,7 +666,7 @@ VOID ProcessColumn(PCOLUMNDEF pColumnDef,
                                        strlen(pcszFont),
                                        (PVOID)pcszFont); */
 
-                pColumnDef->hwndControl
+                if (pColumnDef->hwndControl
                     = WinCreateWindow(pDlgData->hwndDlg,   // parent
                                       (PSZ)pControlDef->pcszClass,
                                       (pcszTitle)   // hacked
@@ -676,36 +681,34 @@ VOID ProcessColumn(PCOLUMNDEF pColumnDef,
                                       HWND_BOTTOM,
                                       pControlDef->usID,
                                       pControlDef->pvCtlData,
-                                      NULL); // ppp);
-
-                if ((pColumnDef->hwndControl) && (lHandleSet))
+                                      NULL))
                 {
-                    // subclass the damn static
-                    if ((flOld & 0x0F) == SS_ICON)
-                        // this was a static:
-                        ctlPrepareStaticIcon(pColumnDef->hwndControl,
-                                             1);
+                    if (lHandleSet)
+                    {
+                        // subclass the damn static
+                        if ((flOld & 0x0F) == SS_ICON)
+                            // this was a static:
+                            ctlPrepareStaticIcon(pColumnDef->hwndControl,
+                                                 1);
+                        else
+                            // this was a bitmap:
+                            ctlPrepareStretchedBitmap(pColumnDef->hwndControl,
+                                                      TRUE);
+
+                        WinSendMsg(pColumnDef->hwndControl,
+                                   SM_SETHANDLE,
+                                   (MPARAM)lHandleSet,
+                                   0);
+                    }
                     else
-                        // this was a bitmap:
-                        ctlPrepareStretchedBitmap(pColumnDef->hwndControl,
-                                                  TRUE);
+                        if (pcszFont)
+                            // we must set the font explicitly here...
+                            // doesn't always work with WinCreateWindow
+                            // presparams parameter, for some reason
+                            // V0.9.12 (2001-05-31) [umoeller]
+                            winhSetWindowFont(pColumnDef->hwndControl,
+                                              pcszFont);
 
-                    WinSendMsg(pColumnDef->hwndControl,
-                               SM_SETHANDLE,
-                               (MPARAM)lHandleSet,
-                               0);
-                }
-                else
-                    if (pcszFont)
-                        // we must set the font explicitly here...
-                        // doesn't always work with WinCreateWindow
-                        // presparams parameter, for some reason
-                        // V0.9.12 (2001-05-31) [umoeller]
-                        winhSetWindowFont(pColumnDef->hwndControl,
-                                          pcszFont);
-
-                if (pColumnDef->hwndControl)
-                {
                     lstAppendItem(&pDlgData->llControls,
                                   pColumnDef);
 
@@ -716,10 +719,14 @@ VOID ProcessColumn(PCOLUMNDEF pColumnDef,
                        )
                         pDlgData->hwndFirstFocus = pColumnDef->hwndControl;
                 }
+                else
+                    // V0.9.14 (2001-08-03) [umoeller]
+                    arc = DLGERR_CANNOT_CREATE_CONTROL;
             }
         break; }
     }
 
+    return (arc);
 }
 
 /*
@@ -731,13 +738,13 @@ VOID ProcessColumn(PCOLUMNDEF pColumnDef,
  *      See ProcessAll for the meaning of ProcessMode.
  */
 
-VOID ProcessRow(PROWDEF pRowDef,
-                PTABLEDEF pOwningTable,     // in: current table from ProcessTable
-                PROCESSMODE ProcessMode,    // in: processing mode (see ProcessAll)
-                PLONG plY,                  // in/out: current y position (decremented)
-                PDLGPRIVATE pDlgData)
+APIRET ProcessRow(PROWDEF pRowDef,
+                  PTABLEDEF pOwningTable,     // in: current table from ProcessTable
+                  PROCESSMODE ProcessMode,    // in: processing mode (see ProcessAll)
+                  PLONG plY,                  // in/out: current y position (decremented)
+                  PDLGPRIVATE pDlgData)
 {
-    // ULONG   ul;
+    APIRET  arc = NO_ERROR;
     LONG    lX;
     PLISTNODE pNode;
 
@@ -766,18 +773,21 @@ VOID ProcessRow(PROWDEF pRowDef,
     {
         PCOLUMNDEF  pColumnDefThis = (PCOLUMNDEF)pNode->pItemData;
 
-        ProcessColumn(pColumnDefThis, pRowDef, ProcessMode, &lX, pDlgData);
-
-        if (ProcessMode == PROCESS_CALC_SIZES)
+        if (!(arc = ProcessColumn(pColumnDefThis, pRowDef, ProcessMode, &lX, pDlgData)))
         {
-            // row width = sum of all columns
-            pRowDef->cpRow.cx += pColumnDefThis->cpColumn.cx;
+            if (ProcessMode == PROCESS_CALC_SIZES)
+            {
+                // row width = sum of all columns
+                pRowDef->cpRow.cx += pColumnDefThis->cpColumn.cx;
 
-            // row height = maximum height of a column
-            if (pRowDef->cpRow.cy < pColumnDefThis->cpColumn.cy)
-                pRowDef->cpRow.cy = pColumnDefThis->cpColumn.cy;
+                // row height = maximum height of a column
+                if (pRowDef->cpRow.cy < pColumnDefThis->cpColumn.cy)
+                    pRowDef->cpRow.cy = pColumnDefThis->cpColumn.cy;
+            }
         }
     }
+
+    return (arc);
 }
 
 /*
@@ -801,12 +811,12 @@ VOID ProcessRow(PROWDEF pRowDef,
  *
  */
 
-VOID ProcessTable(PTABLEDEF pTableDef,
-                  const CONTROLPOS *pcpTable,       // in: table position with PROCESS_CALC_POSITIONS
-                  PROCESSMODE ProcessMode,          // in: processing mode (see ProcessAll)
-                  PDLGPRIVATE pDlgData)
+APIRET ProcessTable(PTABLEDEF pTableDef,
+                    const CONTROLPOS *pcpTable,       // in: table position with PROCESS_CALC_POSITIONS
+                    PROCESSMODE ProcessMode,          // in: processing mode (see ProcessAll)
+                    PDLGPRIVATE pDlgData)
 {
-    // ULONG   ul;
+    APIRET  arc = NO_ERROR;
     LONG    lY;
     PLISTNODE pNode;
 
@@ -828,18 +838,23 @@ VOID ProcessTable(PTABLEDEF pTableDef,
     {
         PROWDEF pRowDefThis = (PROWDEF)pNode->pItemData;
 
-        ProcessRow(pRowDefThis, pTableDef, ProcessMode, &lY, pDlgData);
-
-        if (ProcessMode == PROCESS_CALC_SIZES)
+        if (!(arc = ProcessRow(pRowDefThis, pTableDef, ProcessMode, &lY, pDlgData)))
         {
-            // table width = maximum width of a row
-            if (pTableDef->cpTable.cx < pRowDefThis->cpRow.cx)
-                pTableDef->cpTable.cx = pRowDefThis->cpRow.cx;
+            if (ProcessMode == PROCESS_CALC_SIZES)
+            {
+                // table width = maximum width of a row
+                if (pTableDef->cpTable.cx < pRowDefThis->cpRow.cx)
+                    pTableDef->cpTable.cx = pRowDefThis->cpRow.cx;
 
-            // table height = sum of all rows
-            pTableDef->cpTable.cy += pRowDefThis->cpRow.cy;
+                // table height = sum of all rows
+                pTableDef->cpTable.cy += pRowDefThis->cpRow.cy;
+            }
         }
+        else
+            break;
     }
+
+    return (arc);
 }
 
 /*
@@ -875,11 +890,11 @@ VOID ProcessTable(PTABLEDEF pTableDef,
  *      just as if it were a regular control.
  */
 
-VOID ProcessAll(PDLGPRIVATE pDlgData,
-                PSIZEL pszlClient,
-                PROCESSMODE ProcessMode)
+APIRET ProcessAll(PDLGPRIVATE pDlgData,
+                  PSIZEL pszlClient,
+                  PROCESSMODE ProcessMode)
 {
-    // ULONG ul;
+    APIRET arc = NO_ERROR;
     PLISTNODE pNode;
     CONTROLPOS cpTable;
     ZERO(&cpTable);
@@ -907,17 +922,20 @@ VOID ProcessAll(PDLGPRIVATE pDlgData,
             cpTable.y -= pTableDefThis->cpTable.cy;
         }
 
-        ProcessTable(pTableDefThis,
-                     &cpTable,      // start pos
-                     ProcessMode,
-                     pDlgData);
-
-        if (ProcessMode == PROCESS_CALC_SIZES)
+        if (!(arc = ProcessTable(pTableDefThis,
+                                 &cpTable,      // start pos
+                                 ProcessMode,
+                                 pDlgData)))
         {
-            pszlClient->cx += pTableDefThis->cpTable.cx;
-            pszlClient->cy += pTableDefThis->cpTable.cy;
+            if (ProcessMode == PROCESS_CALC_SIZES)
+            {
+                pszlClient->cx += pTableDefThis->cpTable.cx;
+                pszlClient->cy += pTableDefThis->cpTable.cy;
+            }
         }
     }
+
+    return (arc);
 }
 
 /*

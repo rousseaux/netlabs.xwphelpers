@@ -569,6 +569,7 @@ VOID CallBatchCorrectly(PPROGDETAILS pProgDetails,
  *
  *@@added V0.9.9 (2001-03-07) [umoeller]
  *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from winh.c to apps.c
+ *@@changed V0.9.14 (2001-08-07) [pr]: use FAPPTYP_* constants
  */
 
 APIRET appQueryAppType(const char *pcszExecutable,
@@ -582,26 +583,26 @@ APIRET appQueryAppType(const char *pcszExecutable,
 
         if (_ulDosAppType == 0)
             *pulWinAppType = PROG_FULLSCREEN;
-        else if (_ulDosAppType & 0x40)
+        else if (_ulDosAppType & FAPPTYP_PHYSDRV)       // 0x40
             *pulWinAppType = PROG_PDD;
-        else if (_ulDosAppType & 0x80)
+        else if (_ulDosAppType & FAPPTYP_VIRTDRV)       // 0x80)
             *pulWinAppType = PROG_VDD;
-        else if ((_ulDosAppType & 0xF0) == 0x10)
+        else if ((_ulDosAppType & 0xF0) == FAPPTYP_DLL) // 0x10)
             // DLL bit set
             *pulWinAppType = PROG_XWP_DLL;
-        else if (_ulDosAppType & 0x20)
+        else if (_ulDosAppType & FAPPTYP_DOS)           // 0x20)
             // DOS bit set?
             *pulWinAppType = PROG_WINDOWEDVDM;
-        else if ((_ulDosAppType & 0x0003) == 0x0003) // "Window-API" == PM
+        else if ((_ulDosAppType & FAPPTYP_WINDOWAPI) == FAPPTYP_WINDOWAPI) // 0x0003) // "Window-API" == PM
             *pulWinAppType = PROG_PM;
-        else if (   ((_ulDosAppType & 0xFFFF) == 0x1000) // windows program (?!?)
-                 || ((_ulDosAppType & 0xFFFF) == 0x0400) // windows program (?!?)
+        else if (   ((_ulDosAppType & 0xFFFF) == FAPPTYP_WINDOWSPROT31) // 0x1000) // windows program (?!?)
+                 || ((_ulDosAppType & 0xFFFF) == FAPPTYP_WINDOWSPROT) // ) // windows program (?!?)
                 )
-            *pulWinAppType = PROG_31_ENH;
+            *pulWinAppType = PROG_31_ENHSEAMLESSCOMMON;  // PROG_31_ENH;
             // *pulWinAppType = PROG_31_ENHSEAMLESSVDM;
-        else if ((_ulDosAppType & 0x03) == 0x02)
+        else if ((_ulDosAppType & FAPPTYP_WINDOWAPI /* 0x03 */ ) == FAPPTYP_WINDOWCOMPAT) // 0x02)
             *pulWinAppType = PROG_WINDOWABLEVIO;
-        else if ((_ulDosAppType & 0x03) == 0x01)
+        else if ((_ulDosAppType & FAPPTYP_WINDOWAPI /* 0x03 */ ) == FAPPTYP_NOTWINDOWCOMPAT) // 0x01)
             *pulWinAppType = PROG_FULLSCREEN;
     }
 
@@ -761,6 +762,7 @@ PSZ appQueryDefaultWin31Environment(VOID)
  *@@changed V0.9.9 (2001-01-27) [umoeller]: crashed if PROGDETAILS.pszExecutable was NULL
  *@@changed V0.9.12 (2001-05-26) [umoeller]: fixed PROG_DEFAULT
  *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from winh.c to apps.c
+ *@@changed V0.9.14 (2001-08-07) [pr]: removed some env. strings for Win. apps.
  */
 
 HAPP appStartApp(HWND hwndNotify,                  // in: notify window (as with WinStartApp)
@@ -930,6 +932,10 @@ HAPP appStartApp(HWND hwndNotify,                  // in: notify window (as with
                 appSetEnvironmentVar(&Env,
                                      "KBD_CTRL_BYPASS=CTRL_ESC",
                                      FALSE);        // add last
+                /*
+                 * These should be set by the default environment. It is
+                 * not our business to override them really. V0.9.14
+                 *
                 appSetEnvironmentVar(&Env,
                                      "KBD_ALTHOME_BYPASS=1",
                                      FALSE);        // add last
@@ -951,6 +957,7 @@ HAPP appStartApp(HWND hwndNotify,                  // in: notify window (as with
                 appSetEnvironmentVar(&Env,
                                      "VIDEO_8514A_XGA_IOTRAP=0",
                                      FALSE);        // add last
+                 */
 
                 if (!appConvertEnvironment(&Env,
                                            &pszWinOS2Env,   // freed at bottom

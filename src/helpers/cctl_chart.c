@@ -49,7 +49,7 @@
  *      total chart control size, proportionally to the item's value
  *      against the sum of all values. In other words,
  *
- +          (dValue / dTotal) == (sizeSlize / sizeTotal).
+ +          (dValue / dTotal) == (sizeSlice / sizeTotal).
  *
  *      The display depends on whether the chart control operates in
  *      "pie chart" or "bar chart" mode.
@@ -650,9 +650,7 @@ VOID PaintPieChart(HPS hpsMem,
         //    The center of the arc will later be
         //    specified with GpiPartialArc (while GpiFullArc
         //    uses the current pen position...
-        //    Who created these APIs?!? This might be a most
-        //    flexible way to do things, but where's the
-        //    simple stuff?!?)
+        //    Who created these APIs?!?)
         ap.lP = ptlCenter.x;        // X-axis X
         ap.lS = 0;                  // X-axis Y
         ap.lR = 0;                  // Y-axis X
