@@ -1199,35 +1199,38 @@ APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
 
                 ProgDetails.pszParameters = strParamsPatched.psz;
 
-                /*  _Pmpf(("progt.progc: %d", ProgDetails.progt.progc));
-                _Pmpf(("progt.fbVisible: 0x%lX", ProgDetails.progt.fbVisible));
-                _Pmpf(("progt.pszTitle: \"%s\"", (ProgDetails.pszTitle) ? ProgDetails.pszTitle : "NULL"));
-                _Pmpf(("exec: \"%s\"", (ProgDetails.pszExecutable) ? ProgDetails.pszExecutable : "NULL"));
-                _Pmpf(("params: \"%s\"", (ProgDetails.pszParameters) ? ProgDetails.pszParameters : "NULL"));
-                _Pmpf(("startup: \"%s\"", (ProgDetails.pszStartupDir) ? ProgDetails.pszStartupDir : "NULL"));
-                _Pmpf(("pszIcon: \"%s\"", (ProgDetails.pszIcon) ? ProgDetails.pszIcon : "NULL"));
-                _Pmpf(("environment: "));
+                _Pmpf((__FUNCTION__ ": progt.progc: %d", ProgDetails.progt.progc));
+                _Pmpf(("    progt.fbVisible: 0x%lX", ProgDetails.progt.fbVisible));
+                _Pmpf(("    progt.pszTitle: \"%s\"", (ProgDetails.pszTitle) ? ProgDetails.pszTitle : "NULL"));
+                _Pmpf(("    exec: \"%s\"", (ProgDetails.pszExecutable) ? ProgDetails.pszExecutable : "NULL"));
+                _Pmpf(("    params: \"%s\"", (ProgDetails.pszParameters) ? ProgDetails.pszParameters : "NULL"));
+                _Pmpf(("    startup: \"%s\"", (ProgDetails.pszStartupDir) ? ProgDetails.pszStartupDir : "NULL"));
+                _Pmpf(("    pszIcon: \"%s\"", (ProgDetails.pszIcon) ? ProgDetails.pszIcon : "NULL"));
+                /* _Pmpf(("    environment: "));
                 {
                     PSZ pszThis = ProgDetails.pszEnvironment;
                     while (pszThis && *pszThis)
                     {
-                        _Pmpf(("  \"%s\"", pszThis));
+                        _Pmpf(("      \"%s\"", pszThis));
                         pszThis += strlen(pszThis) + 1;
                     }
                 }
+                   */
 
-                _Pmpf(("swpInitial.fl = 0x%lX, x = %d, y = %d, cx = %d, cy = %d:",
+                _Pmpf(("    swpInitial.fl = 0x%lX, x = %d, y = %d, cx = %d, cy = %d:",
                             ProgDetails.swpInitial.fl,
                             ProgDetails.swpInitial.x,
                             ProgDetails.swpInitial.y,
                             ProgDetails.swpInitial.cx,
                             ProgDetails.swpInitial.cy));
-                _Pmpf(("  behind = %d, hwnd = %d, res1 = %d, res2 = %d",
+                _Pmpf(("    behind = %d, hwnd = %d, res1 = %d, res2 = %d",
                             ProgDetails.swpInitial.hwndInsertBehind,
                             ProgDetails.swpInitial.hwnd,
                             ProgDetails.swpInitial.ulReserved1,
                             ProgDetails.swpInitial.ulReserved2));
-                    */
+
+                if (pszFailingName)
+                    strhncpy0(pszFailingName, ProgDetails.pszExecutable, cbFailingName);
 
                 /* if (WinMessageBox(HWND_DESKTOP,
                                   NULLHANDLE,
@@ -1235,106 +1238,112 @@ APIRET appStartApp(HWND hwndNotify,        // in: notify window or NULLHANDLE
                                   "Start?",
                                   0,
                                   MB_YESNO | MB_MOVEABLE)
-                          == MBID_YES) */
-
-                if (pszFailingName)
-                    strhncpy0(pszFailingName, ProgDetails.pszExecutable, cbFailingName);
-
-                if (!(*phapp = WinStartApp(hwndNotify,
-                                                    // receives WM_APPTERMINATENOTIFY
-                                           &ProgDetails,
-                                           strParamsPatched.psz,
-                                           NULL,            // "reserved", PMREF says...
-                                           SAF_INSTALLEDCMDLINE)))
-                                                // we MUST use SAF_INSTALLEDCMDLINE
-                                                // or no Win-OS/2 session will start...
-                                                // whatever is going on here... Warp 4 FP11
-
-                                                // do not use SAF_STARTCHILDAPP, or the
-                                                // app will be terminated automatically
-                                                // when the WPS terminates!
+                          != MBID_YES)
+                    arc = ERROR_INTERRUPT;
+                else */
                 {
-                    // cannot start app: unfortunately WinStartApp doesn't
-                    // return meaningful codes like DosStartSession, so
-                    // try to see what happened
-                    switch (ERRORIDERROR(WinGetLastError(0)))
+                    if (!(*phapp = WinStartApp(hwndNotify,
+                                                        // receives WM_APPTERMINATENOTIFY
+                                               &ProgDetails,
+                                               strParamsPatched.psz,
+                                               NULL,            // "reserved", PMREF says...
+                                               SAF_INSTALLEDCMDLINE)))
+                                                    // we MUST use SAF_INSTALLEDCMDLINE
+                                                    // or no Win-OS/2 session will start...
+                                                    // whatever is going on here... Warp 4 FP11
+
+                                                    // do not use SAF_STARTCHILDAPP, or the
+                                                    // app will be terminated automatically
+                                                    // when the WPS terminates!
                     {
-                        case PMERR_DOS_ERROR: //  (0x1200)
+                        // cannot start app:
+                        _Pmpf((__FUNCTION__ ": WinStartApp failed"));
+                        arc = ERROR_FILE_NOT_FOUND;
+                        // unfortunately WinStartApp doesn't
+                        // return meaningful codes like DosStartSession, so
+                        // try to see what happened
+                        /*
+                        switch (ERRORIDERROR(WinGetLastError(0)))
                         {
-                            // this is probably the case where the module
-                            // couldn't be loaded, so try DosStartSession
-                            // to get a meaningful return code... note that
-                            // this cannot handle hwndNotify then
-                            RESULTCODES result;
-                            arc = DosExecPgm(pszFailingName,
-                                             cbFailingName,
-                                             EXEC_ASYNC,
-                                             NULL, // ProgDetails.pszParameters,
-                                             NULL, // ProgDetails.pszEnvironment,
-                                             &result,
-                                             ProgDetails.pszExecutable);
+                            case PMERR_DOS_ERROR: //  (0x1200)
+                            {
+                                arc = ERROR_FILE_NOT_FOUND;
 
-                            /* ULONG sid, pid;
-                            STARTDATA   SData;
-                            SData.Length  = sizeof(STARTDATA);
-                            SData.Related = SSF_RELATED_CHILD; //INDEPENDENT;
-                            SData.FgBg    = SSF_FGBG_FORE;
-                            SData.TraceOpt = SSF_TRACEOPT_NONE;
+                                // this is probably the case where the module
+                                // couldn't be loaded, so try DosStartSession
+                                // to get a meaningful return code... note that
+                                // this cannot handle hwndNotify then
+                                /* RESULTCODES result;
+                                arc = DosExecPgm(pszFailingName,
+                                                 cbFailingName,
+                                                 EXEC_ASYNC,
+                                                 NULL, // ProgDetails.pszParameters,
+                                                 NULL, // ProgDetails.pszEnvironment,
+                                                 &result,
+                                                 ProgDetails.pszExecutable);
+                                   */
+                                /* ULONG sid, pid;
+                                STARTDATA   SData;
+                                SData.Length  = sizeof(STARTDATA);
+                                SData.Related = SSF_RELATED_CHILD; //INDEPENDENT;
+                                SData.FgBg    = SSF_FGBG_FORE;
+                                SData.TraceOpt = SSF_TRACEOPT_NONE;
 
-                            SData.PgmTitle = ProgDetails.pszTitle;
-                            SData.PgmName = ProgDetails.pszExecutable;
-                            SData.PgmInputs = ProgDetails.pszParameters;
+                                SData.PgmTitle = ProgDetails.pszTitle;
+                                SData.PgmName = ProgDetails.pszExecutable;
+                                SData.PgmInputs = ProgDetails.pszParameters;
 
-                            SData.TermQ = NULL;
-                            SData.Environment = ProgDetails.pszEnvironment;
-                            SData.InheritOpt = SSF_INHERTOPT_PARENT;    // ignored
-                            SData.SessionType = SSF_TYPE_DEFAULT;
-                            SData.IconFile = 0;
-                            SData.PgmHandle = 0;
+                                SData.TermQ = NULL;
+                                SData.Environment = ProgDetails.pszEnvironment;
+                                SData.InheritOpt = SSF_INHERTOPT_PARENT;    // ignored
+                                SData.SessionType = SSF_TYPE_DEFAULT;
+                                SData.IconFile = 0;
+                                SData.PgmHandle = 0;
 
-                            SData.PgmControl = SSF_CONTROL_VISIBLE;
+                                SData.PgmControl = SSF_CONTROL_VISIBLE;
 
-                            SData.InitXPos  = 30;
-                            SData.InitYPos  = 40;
-                            SData.InitXSize = 200;
-                            SData.InitYSize = 140;
-                            SData.Reserved = 0;
-                            SData.ObjectBuffer  = pszFailingName;
-                            SData.ObjectBuffLen = cbFailingName;
+                                SData.InitXPos  = 30;
+                                SData.InitYPos  = 40;
+                                SData.InitXSize = 200;
+                                SData.InitYSize = 140;
+                                SData.Reserved = 0;
+                                SData.ObjectBuffer  = pszFailingName;
+                                SData.ObjectBuffLen = cbFailingName;
 
-                            arc = DosStartSession(&SData, &sid, &pid);
-                            */
+                                arc = DosStartSession(&SData, &sid, &pid);
+                            }
+                            break;
+
+                            case PMERR_INVALID_APPL: //  (0x1530)
+                                    // Attempted to start an application whose type is not
+                                    // recognized by OS/2.
+                                arc = ERROR_INVALID_EXE_SIGNATURE;
+                            break;
+
+                            case PMERR_INVALID_PARAMETERS: //  (0x1208)
+                                    // An application parameter value is invalid for
+                                    // its converted PM type. For  example: a 4-byte
+                                    // value outside the range -32 768 to +32 767 cannot be
+                                    // converted to a SHORT, and a negative number cannot
+                                    // be converted to a ULONG or USHORT.
+                                arc = ERROR_INVALID_DATA;
+                            break;
+
+                            case PMERR_STARTED_IN_BACKGROUND: //  (0x1532)
+                                    // The application started a new session in the
+                                    // background.
+                                arc = ERROR_SMG_START_IN_BACKGROUND;
+                            break;
+
+                            case PMERR_INVALID_WINDOW: // (0x1206)
+                                    // The window specified with a Window List call
+                                    // is not a valid frame window.
+
+                            default:
+                                arc = ERROR_BAD_FORMAT;
+                            break;
                         }
-                        break;
-
-                        case PMERR_INVALID_APPL: //  (0x1530)
-                                // Attempted to start an application whose type is not
-                                // recognized by OS/2.
-                            arc = ERROR_INVALID_EXE_SIGNATURE;
-                        break;
-
-                        case PMERR_INVALID_PARAMETERS: //  (0x1208)
-                                // An application parameter value is invalid for
-                                // its converted PM type. For  example: a 4-byte
-                                // value outside the range -32 768 to +32 767 cannot be
-                                // converted to a SHORT, and a negative number cannot
-                                // be converted to a ULONG or USHORT.
-                            arc = ERROR_INVALID_DATA;
-                        break;
-
-                        case PMERR_STARTED_IN_BACKGROUND: //  (0x1532)
-                                // The application started a new session in the
-                                // background.
-                            arc = ERROR_SMG_START_IN_BACKGROUND;
-                        break;
-
-                        case PMERR_INVALID_WINDOW: // (0x1206)
-                                // The window specified with a Window List call
-                                // is not a valid frame window.
-
-                        default:
-                            arc = ERROR_BAD_FORMAT;
-                        break;
+                        */
                     }
                 }
             }

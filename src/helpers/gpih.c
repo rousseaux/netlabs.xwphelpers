@@ -77,16 +77,18 @@ BOOL            G_fCapsQueried = FALSE;
  *      OS/2 PM (and GPI) uses two types of rectangles. This is rarely
  *      mentioned in the documentation, so a word is in order here.
  *
- *      In general, graphics operations
- *      involving device coordinates (such as regions, bit maps and
- *      bit blts, and window management) use inclusive-exclusive
- *      rectangles.  All other graphics operations, such as GPI
- *      functions that define paths, use inclusive-inclusive rectangles.
+ *      In general, graphics operations involving device coordinates
+ *      (such as regions, bit maps and bit blts, and window management)
+ *      use inclusive-exclusive rectangles. In other words, with
+ *      those rectangles, xRight - xLeft is the same as the width
+ *      of the rectangle (and yTop - yBottom = height).
+ *
+ *      All other graphics operations, such as GPI functions that
+ *      define paths, use inclusive-inclusive rectangles.
  *
  *      This can be a problem with mixing Win and Gpi functions. For
  *      example, WinQueryWindowRect returns an inclusive-exclusive
- *      rectangle (so that the xRight value is the same as the window
- *      width -- tested V0.9.7 (2000-12-20) [umoeller]).
+ *      rectangle (tested V0.9.7 (2000-12-20) [umoeller]).
  *
  *      WinFillRect expects an inclusive-exclusive rectangle, so it
  *      will work with a rectangle from WinQueryWindowRect directly.
@@ -266,7 +268,7 @@ VOID gpihManipulateRGB(PLONG plColor,       // in/out: RGB color
  *
  +          GpiCreateLogColorTable(hps, 0, LCOLF_RGB, 0, 0, NULL);
  *
- *@@changed V0.9.7 (2001-01-15) [umoeller]: turned macro into function
+ *@@changed V0.9.7 (2001-01-15) [umoeller]: turned macro into function to reduce fixups
  */
 
 BOOL gpihSwitchToRGB(HPS hps)

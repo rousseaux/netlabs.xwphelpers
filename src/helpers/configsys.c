@@ -91,7 +91,8 @@ APIRET csysLoadConfigSys(const char *pcszFile,     // in: CONFIG.SYS filename or
     }
 
     if (!(arc = doshLoadTextFile(pcszFile,
-                                 ppszContents)))
+                                 ppszContents,
+                                 NULL)))
     {
         // convert all \r\n to \n
         XSTRING     strBuf;

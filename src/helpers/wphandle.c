@@ -374,16 +374,21 @@ APIRET wphRebuildNodeHashTable(HHANDLES hHandles)
                             arc = ERROR_WPH_NODE_BEFORE_DRIV;
 
                     if (!arc)
-                        if (treeInsert(ppTree,
-                                       pcChildren,
-                                       (TREE*)pNew,
-                                       treeCompareStrings))
-                            ; // @@todo if this fails, there are
+                        if (!treeInsert(ppTree,
+                                        pcChildren,
+                                        (TREE*)pNew,
+                                        treeCompareStrings))
+                            // store PNODE in hash table
+                            pHandlesBuf->NodeHashTable[pNode->usHandle] = pNew;
+                        else
+                            ;
+                            // @@todo if this fails, there are
                             // several handles for short name!!!
                             // arc = ERROR_WPH_NODE_TREEINSERT_FAILED;
 
-                    // store PNODE in hash table
-                    pHandlesBuf->NodeHashTable[pNode->usHandle] = pNew;
+                    if (arc)
+                        free(pNew);
+
                 }
 
                 pCur += sizeof(NODE) + pNode->usNameSize;
@@ -932,6 +937,7 @@ APIRET wphComposePath(HHANDLES hHandles,
                         memcpy(pszFilename,
                                str.psz,
                                str.ulLength + 1);
+                xstrClear(&str);
             }
         }
         CATCH(excpt1)

@@ -167,21 +167,24 @@ VOID cnrhSetFieldInfo(PFIELDINFO *ppFieldInfo2,  // in/out: double ptr to FIELDI
                       ULONG ulOrientation,       // in: vertical and horizontal orientation (CFA_* flags)
                       BOOL fDrawLines)           // in: if TRUE, we'll draw lines around the columns
 {
-    if (ppFieldInfo2)
-        if (*ppFieldInfo2)
-        {
-            ULONG flData = ulDataType | ulOrientation;
-            if (fDrawLines)
-                flData |= CFA_HORZSEPARATOR | CFA_SEPARATOR;
+    PFIELDINFO pInfo;
+    if (    (ppFieldInfo2)
+         && (pInfo = *ppFieldInfo2)
+       )
+    {
+        ULONG flData = ulDataType | ulOrientation;
+        if (fDrawLines)
+            flData |= CFA_HORZSEPARATOR | CFA_SEPARATOR;
 
-            (*ppFieldInfo2)->cb = sizeof(FIELDINFO);
-            (*ppFieldInfo2)->flData = flData;
-            (*ppFieldInfo2)->flTitle = CFA_FITITLEREADONLY | ulOrientation;
-            (*ppFieldInfo2)->offStruct = ulFieldOffset;
-            (*ppFieldInfo2)->pTitleData = pszColumnTitle;   // strdup removed, V0.9.1 (99-12-18) [umoeller]
-            (*ppFieldInfo2)->pUserData   = NULL;
-            *ppFieldInfo2 = (*ppFieldInfo2)->pNextFieldInfo;
-        }
+        pInfo->cb = sizeof(FIELDINFO);
+        pInfo->flData = flData;
+        pInfo->flTitle = CFA_FITITLEREADONLY | ulOrientation;
+        pInfo->offStruct = ulFieldOffset;
+        pInfo->pTitleData = pszColumnTitle;   // strdup removed, V0.9.1 (99-12-18) [umoeller]
+        pInfo->pUserData   = NULL;
+        pInfo->cxWidth = 0;
+        *ppFieldInfo2 = pInfo->pNextFieldInfo;
+    }
 }
 
 /*

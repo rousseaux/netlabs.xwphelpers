@@ -1813,6 +1813,8 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
                 pFile->cbInitial
                 = pFile->cbCurrent
                 = *pcbFile;
+
+                pFile->pszFilename = strdup(pcszFilename);
             }
             else
                  _Pmpf((__FUNCTION__ ": DosOpen returned %d for %s",
@@ -1877,6 +1879,17 @@ APIRET doshUnlockFile(PXFILE pFile)
  *      be from the beginning of the file (FILE_BEGIN
  *      method).
  *
+ *      This implements a small cache so that several
+ *      calls with a near offset will not touch the
+ *      disk always. The cache has been optimized for
+ *      the exeh* functions and works quite nicely
+ *      there.
+ *
+ *      Note that the position of the file pointer is
+ *      undefined after calling this function because
+ *      the data might have been returned from the
+ *      cache.
+ *
  *@@added V0.9.13 (2001-06-14) [umoeller]
  *@@changed V0.9.16 (2001-12-18) [umoeller]: now with XFILE, and always using FILE_BEGIN
  */
@@ -1894,16 +1907,130 @@ APIRET doshReadAt(PXFILE pFile,
     {
         *pcb = 0;
 
-        if (!(arc = DosSetFilePtr(pFile->hf,
-                                  (LONG)ulOffset,
-                                  FILE_BEGIN,
-                                  &ulDummy)))
+        // check if we have the data in the cache already;
+
+        if (    (pFile->pbCache)
+                // first byte must be in cache
+             && (ulOffset >= pFile->ulReadFrom)
+                // last byte must be in cache
+             && (    ulOffset + cb
+                  <= pFile->ulReadFrom + pFile->cbCache
+                )
+           )
         {
-            if (!(arc = DosRead(pFile->hf,
-                                pbData,
-                                cb,
-                                &ulDummy)))
-                *pcb = ulDummy;     // bytes read
+            // alright, return data from cache simply
+            ULONG ulOfsInCache = ulOffset - pFile->ulReadFrom;
+
+            memcpy(pbData,
+                   pFile->pbCache + ulOfsInCache,
+                   cb);
+            *pcb = cb;
+
+            _Pmpf((__FUNCTION__ " %s: data is fully in cache",
+                        pFile->pszFilename));
+            _Pmpf(("  caller wants %d bytes from %d",
+                        cb, ulOffset));
+            _Pmpf(("  we got %d bytes from %d",
+                        pFile->cbCache, pFile->ulReadFrom));
+            _Pmpf(("  so copied %d bytes from cache ofs %d",
+                        cb, ulOfsInCache));
+
+            // still, advance the file pointer because
+            // caller might run plain DosRead next
+            /* DosSetFilePtr(pFile->hf,
+                          (LONG)ulOffset + cb,
+                          FILE_BEGIN,
+                          &ulDummy); */
+        }
+        else
+        {
+            // data is not in cache:
+            // check how much it is... for small amounts,
+            // we load the cache first
+            if (cb <= 4096 - 512)
+            {
+                _Pmpf((__FUNCTION__ " %s: filling cache anew",
+                        pFile->pszFilename));
+                _Pmpf(("  caller wants %d bytes from %d",
+                            cb, ulOffset));
+
+                // OK, then fix the offset to read from
+                // to a multiple of 512 to get a full sector
+                pFile->ulReadFrom = ulOffset / 512L * 512L;
+                // and read 4096 bytes always plus the
+                // value we cut off above
+                pFile->cbCache = 4096;
+
+                _Pmpf(("  getting %d bytes from %d",
+                            pFile->cbCache, pFile->ulReadFrom));
+
+                // free old cache
+                if (pFile->pbCache)
+                    free(pFile->pbCache);
+
+                // allocate new cache
+                if (!(pFile->pbCache = (PBYTE)malloc(pFile->cbCache)))
+                    arc = ERROR_NOT_ENOUGH_MEMORY;
+                else
+                {
+                    if (!(arc = DosSetFilePtr(pFile->hf,
+                                              (LONG)pFile->ulReadFrom,
+                                              FILE_BEGIN,
+                                              &ulDummy)))
+                    {
+                        if (!(arc = DosRead(pFile->hf,
+                                            pFile->pbCache,
+                                            pFile->cbCache,
+                                            &ulDummy)))
+                        {
+                            // got data:
+                            ULONG ulOfsInCache;
+
+                            _Pmpf(("        %d bytes read", ulDummy));
+                            pFile->cbCache = ulDummy;
+
+                            // copy to caller
+                            ulOfsInCache = ulOffset - pFile->ulReadFrom;
+                            memcpy(pbData,
+                                   pFile->pbCache + ulOfsInCache,
+                                   cb);
+                            *pcb = cb;
+
+                            _Pmpf(("  so copied %d bytes from cache ofs %d",
+                                        cb, ulOfsInCache));
+
+                            // still, advance the file pointer because
+                            // caller might run plain DosRead next
+                            /* DosSetFilePtr(pFile->hf,
+                                          (LONG)ulOffset + cb,
+                                          FILE_BEGIN,
+                                          &ulDummy); */
+                        }
+                    }
+
+                    if (arc)
+                        FREE(pFile->pbCache);
+                }
+            }
+            else
+            {
+                // read uncached:
+                _Pmpf(("  " __FUNCTION__ " %s: reading uncached",
+                            pFile->pszFilename));
+                _Pmpf(("      caller wants %d bytes from %d",
+                            cb, ulOffset));
+                if (!(arc = DosSetFilePtr(pFile->hf,
+                                          (LONG)ulOffset,
+                                          FILE_BEGIN,
+                                          &ulDummy)))
+                {
+                    if (!(arc = DosRead(pFile->hf,
+                                        pbData,
+                                        cb,
+                                        &ulDummy)))
+                        *pcb = ulDummy;     // bytes read
+                }
+            }
         }
 
         doshUnlockFile(pFile);
@@ -2002,7 +2129,11 @@ APIRET doshWrite(PXFILE pFile,
                                                 : (PSZ)pbData,
                                          cb,
                                          &cbWritten)))
+                    {
                         pFile->cbCurrent += cbWritten;
+                        // invalidate the cache
+                        FREE(pFile->pbCache);
+                    }
 
                     doshUnlockFile(pFile);
                 }
@@ -2136,6 +2267,9 @@ APIRET doshClose(PXFILE *ppFile)
             // set the ptr to NULL
             *ppFile = NULL;
 
+            FREE(pFile->pbCache);
+            FREE(pFile->pszFilename);
+
             if (pFile->hf)
             {
                 DosSetFileSize(pFile->hf, pFile->cbCurrent);
@@ -2161,17 +2295,62 @@ APIRET doshClose(PXFILE *ppFile)
  *      via malloc() and sets a pointer to this
  *      buffer (or NULL upon errors).
  *
+ *      This allocates one extra byte to make the
+ *      buffer null-terminated always. The buffer
+ *      is _not_ converted WRT the line format.
+ *
  *      This returns the APIRET of DosOpen and DosRead.
  *      If any error occured, no buffer was allocated.
  *      Otherwise, you should free() the buffer when
  *      no longer needed.
  *
  *@@changed V0.9.7 (2001-01-15) [umoeller]: renamed from doshReadTextFile
+ *@@changed V0.9.16 (2002-01-05) [umoeller]: added pcbRead
+ *@@changed V0.9.16 (2002-01-05) [umoeller]: rewritten using doshOpen
  */
 
-APIRET doshLoadTextFile(PCSZ pcszFile,  // in: file name to read
-                        PSZ* ppszContent)      // out: newly allocated buffer with file's content
+APIRET doshLoadTextFile(PCSZ pcszFile,      // in: file name to read
+                        PSZ* ppszContent,   // out: newly allocated buffer with file's content
+                        PULONG pcbRead)     // out: size of that buffer including null byte (ptr can be NULL)
 {
+    APIRET  arc;
+
+    ULONG   cbFile = 0;
+    PXFILE  pFile = NULL;
+
+    if (!(arc = doshOpen(pcszFile,
+                         XOPEN_READ_EXISTING,
+                         &cbFile,
+                         &pFile)))
+    {
+        PSZ pszContent;
+        if (!(pszContent = (PSZ)malloc(cbFile + 1)))
+            arc = ERROR_NOT_ENOUGH_MEMORY;
+        else
+        {
+            ULONG cbRead = 0;
+            if (!(arc = DosRead(pFile->hf,
+                                pszContent,
+                                cbFile,
+                                &cbRead)))
+            {
+                if (cbRead != cbFile)
+                    arc = ERROR_NO_DATA;
+                else
+                {
+                    pszContent[cbRead] = '\0';
+                    *ppszContent = pszContent;
+                }
+            }
+
+            if (arc)
+                free(pszContent);
+        }
+
+        doshClose(&pFile);
+    }
+
+    /*
     ULONG   ulSize,
             ulBytesRead = 0,
             ulAction, ulLocal;
@@ -2209,6 +2388,9 @@ APIRET doshLoadTextFile(PCSZ pcszFile,  // in: file name to read
                     *(pszContent+ulBytesRead) = 0;
                     // set output buffer pointer
                     *ppszContent = pszContent;
+
+                    if (pcbRead)
+                        *pcbRead = ulBytesRead + 1;
                 }
 
             if (arc)
@@ -2216,6 +2398,7 @@ APIRET doshLoadTextFile(PCSZ pcszFile,  // in: file name to read
         }
         DosClose(hFile);
     }
+    */
 
     return (arc);
 }
@@ -2818,9 +3001,7 @@ APIRET doshResolveImports(PSZ pszModuleName,    // in: DLL to load
  *      Note: This API is not supported on all OS/2
  *      versions. I believe it came up with some Warp 4
  *      fixpak. The API is resolved dynamically by
- *      this function (using DosQueryProcAddr). Only
- *      if NO_ERROR is returned, you may call doshPerfGet
- *      afterwards.
+ *      this function (using DosQueryProcAddr).
  *
  *      This properly initializes the internal counters
  *      which the OS/2 kernel uses for this API. Apparently,
@@ -2834,26 +3015,35 @@ APIRET doshResolveImports(PSZ pszModuleName,    // in: DLL to load
  *      All pointers in DOSHPERFSYS then point to arrays
  *      which have exactly cProcessors array items.
  *
+ *      So after NO_ERROR was returned here, you can keep
+ *      calling doshPerfGet to get a current snapshot of the
+ *      IRQ and user loads for each CPU. Note that interrupts
+ *      are only processed on CPU 0 on SMP systems.
+ *
  *      Call doshPerfClose to clean up resources allocated
  *      by this function.
+ *
+ *      For more sample code, take a look at the "Pulse" widget
+ *      in the XWorkplace sources (src\xcenter\w_pulse.c).
  *
  *      Example code:
  *
  +      PDOSHPERFSYS pPerf = NULL;
- +      APIRET arc = doshPerfOpen(&pPerf);
- +      if (arc == NO_ERROR)
+ +      APIRET arc;
+ +      if (!(arc = arc = doshPerfOpen(&pPerf)))
  +      {
- +          // this should really be in a timer
+ +          // this should really be in a timer,
+ +          // e.g. once per second
  +          ULONG   ulCPU;
- +          arc = doshPerfGet(&pPerf);
- +          // go thru all CPUs
- +          for (ulCPU = 0; ulCPU < pPerf->cProcessors; ulCPU++)
+ +          if (!(arc = doshPerfGet(&pPerf)))
  +          {
- +              LONG lLoadThis = pPerf->palLoads[ulCPU];
- +              ...
+ +              // go thru all CPUs
+ +              for (ulCPU = 0; ulCPU < pPerf->cProcessors; ulCPU++)
+ +              {
+ +                  LONG lUserLoadThis = pPerf->palLoads[ulCPU];
+ +                  ...
+ +              }
  +          }
- +
- +          ...
  +
  +          // clean up
  +          doshPerfClose(&pPerf);
@@ -3013,8 +3203,8 @@ APIRET doshPerfGet(PDOSHPERFSYS pPerfSys)
                 double      *pdIntrPrevThis = &pPerfSys->padIntrPrev[ul];
 
                 // avoid division by zero
-                double      dTimeDelta = (dTime - *pdTimePrevThis);
-                if (dTimeDelta)
+                double      dTimeDelta;
+                if (dTimeDelta = (dTime - *pdTimePrevThis))
                 {
                     pPerfSys->palLoads[ul]
                         = (LONG)( (double)(   (dBusy - *pdBusyPrevThis)
@@ -3059,8 +3249,10 @@ APIRET doshPerfGet(PDOSHPERFSYS pPerfSys)
 APIRET doshPerfClose(PDOSHPERFSYS *ppPerfSys)
 {
     APIRET arc = NO_ERROR;
-    PDOSHPERFSYS pPerfSys = *ppPerfSys;
-    if (!pPerfSys)
+    PDOSHPERFSYS pPerfSys;
+    if (    (!ppPerfSys)
+         || (!(pPerfSys = *ppPerfSys))
+       )
         arc = ERROR_INVALID_PARAMETER;
     else
     {

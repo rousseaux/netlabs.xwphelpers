@@ -229,6 +229,51 @@ void xstrInitSet(PXSTRING pxstr,
     }
 }
 
+#ifdef __DEBUG_MALLOC_ENABLED__
+
+/*
+ *@@ xstrInitCopyDebug:
+ *
+ *@@added V0.9.16 (2002-01-05) [umoeller]
+ */
+
+void XWPENTRY xstrInitCopyDebug(PXSTRING pxstr,
+                                const char *pcszSource,
+                                ULONG ulExtraAllocate,
+                                const char *file,
+                                unsigned long line,
+                                const char *function)
+{
+    if (pxstr)
+    {
+        memset(pxstr, 0, sizeof(XSTRING));
+
+        if (pcszSource)
+        {
+            pxstr->ulLength = strlen(pcszSource);
+
+            if (pxstr->ulLength)
+            {
+                // we do have a source string:
+                pxstr->cbAllocated = pxstr->ulLength + 1 + ulExtraAllocate;
+                pxstr->psz = (PSZ)memdMalloc(pxstr->cbAllocated,
+                                             file,
+                                             line,
+                                             function);
+                // V0.9.16 (2002-01-05) [umoeller]
+                memcpy(pxstr->psz,
+                       pcszSource,
+                       pxstr->ulLength);
+                pxstr->psz[pxstr->ulLength] = '\0';
+
+                pxstr->ulDelta = pxstr->cbAllocated * 10 / 100;
+            }
+        }
+    }
+}
+
+#endif
+
 /*
  *@@ xstrInitCopy:
  *      this can be used instead of xstrInit if you
@@ -251,6 +296,7 @@ void xstrInitSet(PXSTRING pxstr,
  *@@added V0.9.6 (2000-11-01) [umoeller]
  *@@changed V0.9.7 (2000-12-31) [umoeller]: added ulExtraAllocate
  *@@changed V0.9.9 (2001-03-09) [umoeller]: added ulDelta
+ *@@changed V0.9.16 (2002-01-05) [umoeller]: use memcpy instead of strcpy
  */
 
 void xstrInitCopy(PXSTRING pxstr,
@@ -270,7 +316,11 @@ void xstrInitCopy(PXSTRING pxstr,
                 // we do have a source string:
                 pxstr->cbAllocated = pxstr->ulLength + 1 + ulExtraAllocate;
                 pxstr->psz = (PSZ)malloc(pxstr->cbAllocated);
-                strcpy(pxstr->psz, pcszSource);
+                // V0.9.16 (2002-01-05) [umoeller]
+                memcpy(pxstr->psz,
+                       pcszSource,
+                       pxstr->ulLength);
+                pxstr->psz[pxstr->ulLength] = '\0';
 
                 pxstr->ulDelta = pxstr->cbAllocated * 10 / 100;
             }

@@ -2865,7 +2865,7 @@ BOOL winhStorePresParam(PPRESPARAMS *pppp,      // in: data pointer (modified)
 LONG winhQueryPresColor(HWND    hwnd,       // in: window to query
                         ULONG   ulPP,       // in: PP_* index
                         BOOL    fInherit,   // in: search parent windows too?
-                        LONG    lSysColor)  // in: SYSCLR_* index
+                        LONG    lSysColor)  // in: SYSCLR_* index or -1
 {
     ULONG   ul,
             attrFound,
@@ -3233,8 +3233,8 @@ VOID winhFree(PVOID p)
 
 VOID winhSleep(ULONG ulSleep)    // in: sleep time in milliseconds
 {
-    HWND hwnd = winhCreateObjectWindow(WC_STATIC, NULL);
-    if (hwnd)
+    HWND hwnd;
+    if (hwnd = winhCreateObjectWindow(WC_STATIC, NULL))
     {
         QMSG qmsg;
         HAB hab = WinQueryAnchorBlock(hwnd);

@@ -153,7 +153,8 @@ APIRET tmfOpenMessageFile(const char *pcszMessageFile, // in: fully q'fied .TMF 
     PSZ pszContent = NULL;
 
     if (!(arc = doshLoadTextFile(pcszMessageFile,
-                                 &pszContent)))
+                                 &pszContent,
+                                 NULL)))
     {
         // file loaded:
         // create a TMFMSGFILE entry

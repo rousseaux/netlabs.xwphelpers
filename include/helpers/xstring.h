@@ -90,9 +90,26 @@ extern "C" {
     typedef void XWPENTRY XSTRINITSET(PXSTRING pxstr, PSZ pszNew);
     typedef XSTRINITSET *PXSTRINITSET;
 
-    void XWPENTRY xstrInitCopy(PXSTRING pxstr, const char *pcszSource, ULONG ulExtraAllocate);
-    typedef void XWPENTRY XSTRINITCOPY(PXSTRING pxstr, const char *pcszSource, ULONG ulExtraAllocate);
-    typedef XSTRINITCOPY *PXSTRINITCOPY;
+    #if defined(__DEBUG_MALLOC_ENABLED__) && !defined(DONT_REPLACE_XSTR_MALLOC) // setup.h, helpers\memdebug.c
+        #define xstrInitCopy(a, b, c) xstrInitCopyDebug((a), (b), (c), __FILE__, __LINE__, __FUNCTION__)
+        void XWPENTRY xstrInitCopyDebug(PXSTRING pxstr,
+                                        const char *pcszSource,
+                                        ULONG ulExtraAllocate,
+                                        const char *file,
+                                        unsigned long line,
+                                        const char *function);
+        typedef void XWPENTRY XSTRINITCOPYDEBUG(PXSTRING pxstr,
+                                                const char *pcszSource,
+                                                ULONG ulExtraAllocate,
+                                                const char *file,
+                                                unsigned long line,
+                                                const char *function);
+        typedef XSTRINITCOPYDEBUG *PXSTRINITCOPYDEBUG;
+    #else
+        void XWPENTRY xstrInitCopy(PXSTRING pxstr, const char *pcszSource, ULONG ulExtraAllocate);
+        typedef void XWPENTRY XSTRINITCOPY(PXSTRING pxstr, const char *pcszSource, ULONG ulExtraAllocate);
+        typedef XSTRINITCOPY *PXSTRINITCOPY;
+    #endif
 
     void XWPENTRY xstrClear(PXSTRING pxstr);
     typedef void XWPENTRY XSTRCLEAR(PXSTRING pxstr);

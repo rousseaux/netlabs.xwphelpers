@@ -105,6 +105,16 @@
 
     #define ARRAYITEMCOUNT(array) sizeof(array) / sizeof(array[0])
 
+    /*
+     *@@ STRINGORNULL:
+     *      helpful macro to avoid passing null strings
+     *      to debugging printf calls.
+     *
+     *@@added V0.9.16 (2002-01-05) [umoeller]
+     */
+
+    #define STRINGORNULL(s) (s) ? (s) : "NULL"
+
 #endif
 
 
