@@ -38,6 +38,10 @@ extern "C" {
         #error cnrh.h requires INCL_WINSTDCNR to be defined.
     #endif
 
+    /*
+     *@@category: Helpers\PM helpers\Container helpers\Details view helpers
+     */
+
     /* ******************************************************************
      *
      *   Details view field infos
@@ -106,6 +110,10 @@ extern "C" {
                                  BOOL fDrawLines,
                                  ULONG ulFieldReturn);
 
+    /*
+     *@@category: Helpers\PM helpers\Container helpers\Record core helpers
+     */
+
     /* ******************************************************************
      *
      *   Record core management
@@ -173,6 +181,10 @@ extern "C" {
     #define cnrhInvalidateAll(hwndCnr) \
         WinSendMsg(hwndCnr, CM_INVALIDATERECORD, NULL, MPFROM2SHORT(0, CMA_ERASE | CMA_REPOSITION | CMA_TEXTCHANGED))
 
+    /*
+     *@@category: Helpers\PM helpers\Container helpers\View management
+     */
+
     /* ******************************************************************
      *
      *   CNRINFO management
@@ -185,6 +197,7 @@ extern "C" {
      *      in the specified variable, which must
      *      be a PCNRINFO.
      *      Example:
+     *
      +          CNRINFO CnrInfo;
      +          cnrhQueryCnrInfo(&CnrInfo);
      *
@@ -198,8 +211,33 @@ extern "C" {
 
     /*
      *@@ BEGIN_CNRINFO:
-     *      this func starts a "container info" block for the
-     *      following functions.
+     *      this macro starts a "container info" block. In such
+     *      a block, you may use the following macros:
+     *
+     *      -- cnrhSetTitle
+     *
+     *      -- cnrhSetSplitBarAfter
+     *
+     *      -- cnrhSetSplitBarPos
+     *
+     *      -- cnrhSetTreeBmpOrIconSize
+     *
+     *      -- cnrhSetBmpOrIconSize
+     *
+     *      -- cnrhSetView (most frequently)
+     *
+     *      -- cnrhSetTreeIndent
+     *
+     *      -- cnrhSetSortFunc
+     *
+     *      Typical usage is like this:
+     *
+     +          BEGIN_CNRINFO()
+     +          {
+     +              cnrhSetTreeIndent(20);
+     +              cnrhSetView(CV_TREE | CV_ICON | CA_TREELINE);
+     +          } END_CNRINFO(hwndCnr);
+     *
      *      This must always be followed by END_CNRINFO(),
      *      or you'll get funny compilation errors.
      *
@@ -214,8 +252,8 @@ extern "C" {
 
     /*
      *@@ END_CNRINFO:
-     *      this ends a "container info" block started by
-     *      BEGIN_CNRINFO.
+     *      this macro ends a "container info" block.
+     *      See BEGIN_CNRINFO.
      *
      *@@added V0.9.0
      */
@@ -227,9 +265,11 @@ extern "C" {
 
     /*
      *@@ cnrhSetTitle:
-     *      this sets the container title to the specified
+     *      this macro sets the container title to the specified
      *      text. You must specify CA_CONTAINERTITLE with
      *      cnrhSetView then.
+     *
+     *      This can only be used after BEGIN_CNRINFO().
      *
      *@@added V0.9.1 (99-12-18) [umoeller]
      */
@@ -277,6 +317,8 @@ extern "C" {
      *      or icons used for the "+" and "-" signs in
      *      tree views.
      *      The default is the system icon size (32 or 40).
+     *
+     *      This can only be used after BEGIN_CNRINFO().
      */
 
     #define cnrhSetTreeBmpOrIconSize(cxNew, cyNew)                  \
@@ -303,9 +345,14 @@ extern "C" {
 
     /*
      *@@ cnrhSetView:
-     *      this sets the container view attributes (CNRINFO.flWindowAttr).
+     *      this macro sets the container view attributes (CNRINFO.flWindowAttr).
      *
-     *      This can only be used after BEGIN_CNRINFO().
+     *      This can only be used after BEGIN_CNRINFO(), like this:
+     *
+     +          BEGIN_CNRINFO()
+     +          {
+     +              cnrhSetView(CV_TEXT | CV_FLOW);
+     +          } END_CNRINFO(hwndCnr);
      *
      *      The following combinations are useful for flWindowAttr.
      *
@@ -381,8 +428,10 @@ extern "C" {
 
     /*
      *@@ cnrhSetTreeIndent:
-     *      this sets the horizontal spacing between levels
+     *      this macro sets the horizontal spacing between levels
      *      in Tree views.
+     *
+     *      This can only be used after BEGIN_CNRINFO().
      *
      *@@added V0.9.0
      */
@@ -393,7 +442,8 @@ extern "C" {
 
     /*
      *@@ cnrhSetSortFunc:
-     *      this sets the sort function for a container.
+     *      this macro sets the sort function for a container.
+     *
      *      This can only be used after BEGIN_CNRINFO().
      *
      *@@added V0.9.0
@@ -471,6 +521,10 @@ extern "C" {
 
     PRECORDCORE cnrhQueryNextSelectedRecord(HWND hwndCnr,
                                             PRECORDCORE preccCurrent);
+
+    /*
+     *@@category: Helpers\PM helpers\Container helpers\Record relations/iteration
+     */
 
     /* ******************************************************************
      *

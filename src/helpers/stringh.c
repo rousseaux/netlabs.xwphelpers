@@ -58,6 +58,12 @@
 
 /*
  *@@category: Helpers\C helpers\String management
+ *      See stringh.c and xstring.c.
+ */
+
+/*
+ *@@category: Helpers\C helpers\String management\C string helpers
+ *      See stringh.c.
  */
 
 /*
@@ -987,11 +993,11 @@ PSZ strhFindWord(const char *pszBuf,
  *@@added V0.9.4 (2000-07-01) [umoeller]
  */
 
-PSZ strhFindEOL(PSZ pszSearchIn,        // in: where to search
+PSZ strhFindEOL(const char *pcszSearchIn,        // in: where to search
                 PULONG pulOffset)       // out: offset (ptr can be NULL)
 {
-    PSZ     p = pszSearchIn,
-            prc = NULL;
+    const char *p = pcszSearchIn,
+               *prc = 0;
     while (TRUE)
     {
         if ( (*p == '\r') || (*p == '\n') || (*p == 0) )
@@ -1003,8 +1009,9 @@ PSZ strhFindEOL(PSZ pszSearchIn,        // in: where to search
     }
 
     if (pulOffset)
-        *pulOffset = prc - pszSearchIn;
-    return (prc);
+        *pulOffset = prc - pcszSearchIn;
+
+    return ((PSZ)prc);
 }
 
 /*

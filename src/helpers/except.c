@@ -263,6 +263,7 @@ BOOL            G_fBeepOnException = TRUE;
 
 /*
  *@@category: Helpers\Control program helpers\Exceptions/debugging
+ *      See except.c.
  */
 
 /* ******************************************************************

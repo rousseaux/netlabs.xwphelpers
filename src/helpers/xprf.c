@@ -108,6 +108,7 @@
 
 /*
  *@@category: Helpers\Profile (INI) replacement functions
+ *      See xprf.c.
  */
 
 /* ******************************************************************

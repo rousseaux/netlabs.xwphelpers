@@ -65,6 +65,10 @@ extern "C" {
     typedef void XWPENTRY XSTRCLEAR(PXSTRING pxstr);
     typedef XSTRCLEAR *PXSTRCLEAR;
 
+    ULONG XWPENTRY xstrReserve(PXSTRING pxstr, ULONG ulBytes);
+    typedef ULONG XWPENTRY XSTRRESERVE(PXSTRING pxstr, ULONG ulBytes);
+    typedef XSTRRESERVE *PXSTRRESERVE;
+
     PXSTRING XWPENTRY xstrCreate(ULONG ulPreAllocate);
     typedef PXSTRING XWPENTRY XSTRCREATE(ULONG ulPreAllocate);
     typedef XSTRCREATE *PXSTRCREATE;

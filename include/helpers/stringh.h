@@ -124,7 +124,7 @@ extern "C" {
                      const char *pcszBeginChars,
                      const char *pcszEndChars);
 
-    PSZ strhFindEOL(PSZ pszSearchIn, ULONG *pulOffset);
+    PSZ strhFindEOL(const char *pcszSearchIn, ULONG *pulOffset);
 
     PSZ strhFindNextLine(PSZ pszSearchIn, PULONG pulOffset);
 

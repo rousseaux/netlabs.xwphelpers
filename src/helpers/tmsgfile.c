@@ -83,6 +83,7 @@
 
 /*
  *@@category: Helpers\Control program helpers\Text message files (TMF)
+ *      see tmsgfile.c.
  */
 
 /* ******************************************************************

@@ -90,6 +90,7 @@
 
 /*
  *@@category: Helpers\PM helpers\Timer replacements
+ *      see timer.c.
  */
 
 /* ******************************************************************

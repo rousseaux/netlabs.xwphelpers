@@ -345,6 +345,8 @@ APIRET doshSetCurrentDir(const char *pcszDir)
 
 /*
  *@@category: Helpers\Control program helpers\Environment management
+ *      helpers for managing those ugly environment string arrays
+ *      that are used with DosStartSession and WinStartApp.
  */
 
 /* ******************************************************************
@@ -748,6 +750,8 @@ APIRET doshFreeEnvironment(PDOSENVIRONMENT pEnv)
 
 /*
  *@@category: Helpers\Control program helpers\Executable info
+ *      these functions can retrieve BLDLEVEL information from
+ *      any executable module. See doshExecOpen.
  */
 
 /********************************************************************
@@ -1194,6 +1198,8 @@ APIRET doshExecQueryBldLevel(PEXECUTABLE pExec)
 
 /*
  *@@category: Helpers\Control program helpers\Partitions info
+ *      functions for retrieving partition information directly
+ *      from the partition tables on the disk. See doshGetPartitionsList.
  */
 
 /********************************************************************

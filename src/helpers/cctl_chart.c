@@ -80,6 +80,7 @@
 
 /*
  *@@category: Helpers\PM helpers\Window classes\Chart control
+ *      See cctl_chart.c.
  */
 
 /* ******************************************************************

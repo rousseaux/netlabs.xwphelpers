@@ -78,6 +78,7 @@
 
 /*
  *@@category: Helpers\C helpers\Linked lists
+ *      See linklist.c.
  */
 
 /* ******************************************************************

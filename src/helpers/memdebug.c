@@ -130,6 +130,7 @@
 
 /*
  *@@category: Helpers\C helpers\Heap debugging
+ *      See memdebug.c.
  */
 
 /* ******************************************************************

@@ -97,6 +97,7 @@
 
 /*
  *@@category: Helpers\Control program helpers\Extended attributes
+ *      See eah.c.
  */
 
 /********************************************************************
@@ -403,6 +404,8 @@ APIRET eaPathDeleteOne(const char *pcszPath, const char *pcszEAName)
 
 /*
  *@@category: Helpers\Control program helpers\Extended attributes\Translation helpers
+ *      these functions are built on top of the regular EA helpers
+ *      (see eah.c) to convert standard types to EAs.
  */
 
 /********************************************************************

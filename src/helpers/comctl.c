@@ -123,6 +123,7 @@
 
 /*
  *@@category: Helpers\PM helpers\Window classes\Menu buttons
+ *      See comctl.c and ctlMakeMenuButton.
  */
 
 /* ******************************************************************
@@ -494,6 +495,7 @@ BOOL ctlMakeMenuButton(HWND hwndButton,      // in: button to subclass
 
 /*
  *@@category: Helpers\PM helpers\Window classes\Static bitmaps
+ *      See comctl.c and ctl_fnwpBitmapStatic.
  */
 
 /* ******************************************************************
@@ -977,6 +979,7 @@ BOOL ctlStopAnimation(HWND hwndStatic)
 
 /*
  *@@category: Helpers\PM helpers\Window classes\Stretched bitmaps
+ *      See comctl.c and ctlPrepareStretchedBitmap.
  */
 
 /* ******************************************************************
@@ -1060,6 +1063,7 @@ PANIMATIONDATA ctlPrepareStretchedBitmap(HWND hwndStatic,
 
 /*
  *@@category: Helpers\PM helpers\Window classes\Hotkey entry field
+ *      See comctl.c and ctl_fnwpObjectHotkeyEntryField.
  */
 
 /* ******************************************************************

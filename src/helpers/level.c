@@ -49,6 +49,7 @@
 
 /*
  *@@category: Helpers\Control program helpers\SYSLEVEL parsing
+ *      helpers for parsing SYSLEVEL files. See lvlOpenLevelFile.
  */
 
 /* ******************************************************************

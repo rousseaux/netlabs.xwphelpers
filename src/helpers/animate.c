@@ -64,6 +64,7 @@
 
 /*
  *@@category: Helpers\PM helpers\Animation helpers
+ *      See animate.c.
  */
 
 /*

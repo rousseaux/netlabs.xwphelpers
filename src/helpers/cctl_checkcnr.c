@@ -80,6 +80,7 @@
 
 /*
  *@@category: Helpers\PM helpers\Window classes\Checkbox containers
+ *      See cctl_checkcnr.c.
  */
 
 /* ******************************************************************

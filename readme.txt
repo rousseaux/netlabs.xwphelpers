@@ -1,6 +1,6 @@
-XWP Helpers 0.9.6 README
+XWP Helpers 0.9.7 README
 (W) Ulrich M”ller, October 26, 2000
-Last updated December 11, 2000, Ulrich M”ller
+Last updated January 6, 2001, Ulrich M”ller
 
 
 0. CONTENTS OF THIS FILE
@@ -130,7 +130,7 @@ Last updated December 11, 2000, Ulrich M”ller
     See the top of src\helpers\makefile for additional variables.
 
     Of course, nothing stops you from writing your own makefile
-    if you find all this to complicated. However, if you choose
+    if you find all this too complicated. However, if you choose
     to use my makefile from within your own project, you can
     then simply change to the src\helpers directory and start a
     second nmake from your own makefile like this:
@@ -158,6 +158,11 @@ Last updated December 11, 2000, Ulrich M”ller
     directory must be in your include path, or this won't
     compile.
 
+    I have a "flat" include policy, meaning that include files
+    may not include other files. Instead, #include's may only
+    occur in C files. This makes makefile dependencies easier
+    to maintain.
+
     Besides, the helpers C code expects a file called "setup.h"
     in your include path somewhere. This is included by _all_
     the C files so you can (re)define certain macros there.
@@ -177,6 +182,7 @@ Last updated December 11, 2000, Ulrich M”ller
         #elif defined (__IBMCPP__) || defined (__IBMC__)
             // with VAC, use _Optlink; that's faster than _System
             #define XWPENTRY _Optlink
+            // or: #define XWPENTRY _System
         #endif
 
 

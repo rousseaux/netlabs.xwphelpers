@@ -112,7 +112,8 @@
 #include "helpers\xstring.h"            // extended string helpers
 
 /*
- *@@category: Helpers\C helpers\String management
+ *@@category: Helpers\C helpers\String management\XStrings (with memory management)
+ *      See xstring.c.
  */
 
 /*
@@ -239,6 +240,56 @@ void xstrClear(PXSTRING pxstr)              // in/out: string
     if (pxstr->psz)
         free(pxstr->psz);
     memset(pxstr, 0, sizeof(XSTRING));
+}
+
+/*
+ *@@ xstrReserve:
+ *      this function makes sure that the specified
+ *      XSTRING has at least ulBytes bytes allocated.
+ *
+ *      This function is useful if you plan to do
+ *      a lot of string replacements or appends and
+ *      want to avoid that the buffer is reallocated
+ *      with each operation. Before those operations,
+ *      call this function to make room for the operations.
+ *
+ *      If ulBytes is smaller than the current allocation,
+ *      this function does nothing.
+ *
+ *      The XSTRING must be initialized before the
+ *      call.
+ *
+ *      Returns the new total no. of allocated bytes.
+ *
+ *@@added V0.9.7 (2001-01-07) [umoeller]
+ */
+
+ULONG xstrReserve(PXSTRING pxstr,
+                  ULONG ulBytes)
+{
+    ULONG   cbNeeded = ulBytes;
+
+    if (cbNeeded > pxstr->cbAllocated)
+    {
+        // we need more memory than we have previously
+        // allocated:
+        if (pxstr->cbAllocated)
+            // appendee already had memory:
+            // reallocate
+            pxstr->psz = (PSZ)realloc(pxstr->psz,
+                                      cbNeeded);
+        else
+        {
+            // appendee has no memory:
+            pxstr->psz = (PSZ)malloc(cbNeeded);
+            *(pxstr->psz) = 0;
+        }
+
+        pxstr->cbAllocated = cbNeeded;
+                // ulLength is unchanged
+    }
+
+    return (pxstr->cbAllocated);
 }
 
 /*

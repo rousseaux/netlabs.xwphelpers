@@ -212,6 +212,7 @@
 
 /*
  *@@category: Helpers\PM helpers\Window classes\Shaped windows (transparency)
+ *      see shapewin.c.
  */
 
 /* ******************************************************************

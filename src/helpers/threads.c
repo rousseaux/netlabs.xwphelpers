@@ -5,6 +5,8 @@
  *      synchronizing threads, including PM threads with a
  *      message queue which is created automatically.
  *
+ *      See thrCreate() for how to start such a thread.
+ *
  *      Usage: All OS/2 programs.
  *
  *      Function prefixes (new with V0.81):
@@ -12,8 +14,6 @@
  *
  *      This file is new with V0.81 and contains all the thread
  *      functions that used to be in helpers.c.
- *
- *      Use thrCreate() to start a thread.
  *
  *      Note: Version numbering in this file relates to XWorkplace version
  *            numbering.
@@ -55,6 +55,7 @@
 
 /*
  *@@category: Helpers\Control program helpers\Thread management
+ *      see threads.c.
  */
 
 /*

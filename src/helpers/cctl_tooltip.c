@@ -80,6 +80,7 @@
 
 /*
  *@@category: Helpers\PM helpers\Window classes\Tooltips
+ *      See cctl_tooltip.c.
  */
 
 /* ******************************************************************
@@ -1288,10 +1289,10 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
                     // TTN_NEEDTEXT notification desired:
                     // compose values for that msg
                     TOOLTIPTEXT ttt = {0};
-                    _Pmpf(("TTM_GETTEXT: PSZ_TEXTCALLBACK"));
+                    _Pmpf(("TTM_GETTEXT: PSZ_TEXTCALLBACK... sending TTN_NEEDTEXT"));
                     ttt.hwndTooltip = hwndTooltip;
                     ttt.hwndTool = pti->hwndTool;
-                    WinSendMsg(pti->hwndTool,
+                    WinSendMsg(pti->hwndToolOwner,
                                WM_CONTROL,
                                MPFROM2SHORT(pttd->ulTooltipID,  // tooltip control wnd ID
                                             TTN_NEEDTEXT),

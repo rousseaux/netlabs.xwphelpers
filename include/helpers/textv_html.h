@@ -65,6 +65,7 @@ extern "C" {
         {
             PSZ         pszTitle;           // contents of TITLE tag (must be freed)
             LINKLIST    llLinks;            // list of XHTMLLINK structures; empty if none
+                                            // (auto-free mode; use lstClear)
         } XHTMLDATA, *PXHTMLDATA;
     #endif
 

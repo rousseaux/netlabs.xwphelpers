@@ -2468,23 +2468,23 @@ VOID CallBatchCorrectly(PPROGDETAILS pProgDetails,
  *@@ winhStartApp:
  *      wrapper around WinStartApp which fixes the
  *      specified PROGDETAILS to (hopefully) work
- *      work with all executable types:
+ *      work with all executable types.
  *
- *      1.  This fixes the executable info to support:
+ *      This fixes the executable info to support:
  *
- *          -- starting "*" executables (command prompts
- *             for OS/2, DOS, Win-OS/2);
+ *      -- starting "*" executables (command prompts
+ *         for OS/2, DOS, Win-OS/2);
  *
- *          -- starting ".CMD" and ".BAT" files as
- *             PROGDETAILS.pszExecutable.
+ *      -- starting ".CMD" and ".BAT" files as
+ *         PROGDETAILS.pszExecutable.
  *
- *      2.  Handles and merges special and default
- *          environments for the app to be started.
- *          If PROGDETAILS.pszEnvironment is empty
- *          and the application is a Win-OS/2 app,
- *          this uses the default Win-OS/2 settings
- *          as specified in the "Win-OS/2" WPS settings
- *          object.
+ *      This also handles and merges special and default
+ *      environments for the app to be started.
+ *      If PROGDETAILS.pszEnvironment is empty
+ *      and the application is a Win-OS/2 app,
+ *      this uses the default Win-OS/2 settings
+ *      as specified in the "Win-OS/2" WPS settings
+ *      object.
  *
  *      Even though this isn't clearly said in PMREF,
  *      PROGDETAILS.swpInitial is important:

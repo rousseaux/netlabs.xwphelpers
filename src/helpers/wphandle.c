@@ -68,6 +68,7 @@ PNODE wphFindPartName(PBYTE pHandlesBuffer, ULONG ulBufSize, USHORT usID, PSZ ps
 
 /*
  *@@category: Helpers\PM helpers\Workplace Shell\Handles (OS2SYS.INI)
+ *      See wphandle.c.
  */
 
 /* ******************************************************************

@@ -80,6 +80,7 @@
 
 /*
  *@@category: Helpers\PM helpers\Window classes\Progress bars
+ *      See cctl_progbar.c.
  */
 
 /* ******************************************************************

@@ -72,6 +72,8 @@ const CHAR  G_acDriveLetters[28] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 /*
  *@@category: Helpers\Control program helpers\Miscellaneous
+ *      Miscellaneous helpers in dosh.c that didn't fit into any other
+ *      category.
  */
 
 /* ******************************************************************
@@ -214,7 +216,8 @@ PSZ doshQuerySysErrorMsg(APIRET arc)    // in: DOS error code
 }
 
 /*
- *@@category: Helpers\Control program helpers\Memory management
+ *@@category: Helpers\Control program helpers\Shared memory management
+ *      helpers for allocating and requesting shared memory.
  */
 
 /* ******************************************************************
@@ -285,6 +288,8 @@ PVOID doshRequestSharedMem(const char *pcszName)
 
 /*
  *@@category: Helpers\Control program helpers\Drive management
+ *      functions for managing drives... enumerating, testing,
+ *      querying etc.
  */
 
 /* ******************************************************************
@@ -1296,6 +1301,7 @@ APIRET doshWriteToLogFile(HFILE hfLog, const char* pcsz)
 
 /*
  *@@category: Helpers\Control program helpers\Directory management
+ *      directory helpers (querying, creating, deleting etc.).
  */
 
 /* ******************************************************************
@@ -1533,6 +1539,7 @@ APIRET doshDeleteDir(const char *pcszDir,
 
 /*
  *@@category: Helpers\Control program helpers\Module handling
+ *      helpers for importing functions from a module (DLL).
  */
 
 /* ******************************************************************
@@ -1590,6 +1597,7 @@ APIRET doshResolveImports(PSZ pszModuleName,    // in: DLL to load
 
 /*
  *@@category: Helpers\Control program helpers\Performance (CPU load) helpers
+ *      helpers around DosPerfSysCall.
  */
 
 /* ******************************************************************
@@ -1851,6 +1859,7 @@ APIRET doshPerfClose(PDOSHPERFSYS *ppPerfSys)
 
 /*
  *@@category: Helpers\Control program helpers\Process management
+ *      helpers for starting subprocesses.
  */
 
 /* ******************************************************************

@@ -87,6 +87,7 @@
 
 /*
  *@@category: Helpers\Control program helpers\Exceptions/debugging
+ *      See except.c and debug.c.
  */
 
 /* ******************************************************************

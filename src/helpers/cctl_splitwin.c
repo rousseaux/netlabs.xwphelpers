@@ -80,6 +80,7 @@
 
 /*
  *@@category: Helpers\PM helpers\Window classes\Split windows
+ *      See cctl_splitwin.c.
  */
 
 /* ******************************************************************

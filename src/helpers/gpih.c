@@ -78,6 +78,11 @@ LONG            DisplayCaps[CAPS_DEVICE_POLYSET_POINTS] = {0};
 BOOL            fCapsQueried = FALSE;
 
 /*
+ *@@category: Helpers\PM helpers\GPI helpers
+ *      See gpih.c.
+ */
+
+/*
  *@@category: Helpers\PM helpers\GPI helpers\Devices
  */
 

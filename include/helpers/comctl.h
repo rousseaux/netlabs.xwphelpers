@@ -439,11 +439,11 @@ extern "C" {
 
     // TOOLINFO.uFlags flags (ORed)
     // #define TTF_IDISHWND            0x0001
-                // V0.9.7 (2001-01-03) [umoeller]: removed this win95 bullshit
+                // V0.9.7 (2001-01-03) [umoeller]: removed this win95 crap
     #define TTF_CENTERBELOW         0x0002
     #define TTF_CENTERABOVE         0x0004
     // #define TTF_RTLREADING          0x0004
-                // V0.9.7 (2001-01-03) [umoeller]: removed this win95 bullshit
+                // V0.9.7 (2001-01-03) [umoeller]: removed this win95 crap
     #define TTF_SUBCLASS            0x0008
     // non-Win95 flags
     #define TTF_SHYMOUSE            0x0010
@@ -459,7 +459,7 @@ extern "C" {
      *      tooltip control. Used with TTM_ADDTOOL
      *      and many other TTM_* messages.
      *
-     *@@changed V0.9.7 (2001-01-03) [umoeller]: removed all that win95 bullshit
+     *@@changed V0.9.7 (2001-01-03) [umoeller]: removed all that win95 crap
      */
 
     typedef struct _TOOLINFO
@@ -525,7 +525,7 @@ extern "C" {
      *
      *      This structure is used with the TTN_NEEDTEXT notification.
      *
-     *@@changed V0.9.7 (2001-01-03) [umoeller]: got rid of this win95 bullshit
+     *@@changed V0.9.7 (2001-01-03) [umoeller]: got rid of this win95 crap
      */
 
     typedef struct _TOOLTIPTEXT

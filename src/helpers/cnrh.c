@@ -62,7 +62,14 @@
 #pragma hdrstop
 
 /*
+ *@@category: Helpers\PM helpers\Container helpers
+ *      See cnrh.c.
+ */
+
+/*
  *@@category: Helpers\PM helpers\Container helpers\Details view helpers
+ *      these functions aid you in setting up the FIELDINFO structures
+ *      for a container Details view. Use cnrhSetFieldInfos for that.
  */
 
 /* ******************************************************************
@@ -342,6 +349,10 @@ PFIELDINFO cnrhSetFieldInfos(HWND hwndCnr,            // in: container hwnd
 
 /*
  *@@category: Helpers\PM helpers\Container helpers\Record core helpers
+ *      functions for allocating and inserting records more easily.
+ *
+ *      Use cnrhAllocRecords first to allocate, then cnrhInsertRecords
+ *      to insert the records.
  */
 
 /* ******************************************************************
@@ -741,6 +752,11 @@ BOOL cnrhMoveTree(HWND hwndCnr,          // in: container control
 
 /*
  *@@category: Helpers\PM helpers\Container helpers\View management
+ *      functions for easily managing container views.
+ *
+ *      Most importantly, this has the BEGIN_CNRINFO and END_CNRINFO
+ *      macros which make CNRINFO handling easier. Also see
+ *      cnrhSetView for that.
  */
 
 /* ******************************************************************
@@ -811,8 +827,10 @@ ULONG cnrhSelectAll(HWND hwndCnr,
  *      container.
  *
  *      With fl, specify any or none of the following:
+ *
  *      --  FRFP_RIGHTSPLITWINDOW: test right split Details view
  *              instead of main cnr.
+ *
  *      --  FRFP_SCREENCOORDS: *pptl specifies the point to
  *              check in _screen_ coordinates, instead of
  *              container ccordinates.
@@ -1309,6 +1327,8 @@ PRECORDCORE cnrhQueryNextSelectedRecord(HWND hwndCnr,
 
 /*
  *@@category: Helpers\PM helpers\Container helpers\Record relations/iteration
+ *      functions for querying the relation of records and
+ *      iterating through records.
  */
 
 /* ******************************************************************
@@ -1395,11 +1415,11 @@ BOOL cnrhIsChildOf(HWND hwndCnr,
         {
             // first call: get parent of precTest;
             // subsequent calls: climb up
-            precParentThis = WinSendMsg(hwndCnr,
-                                        CM_QUERYRECORD,
-                                        precParentThis,
-                                        MPFROM2SHORT(CMA_PARENT,
-                                                     CMA_ITEMORDER));
+            precParentThis = (PRECORDCORE)WinSendMsg(hwndCnr,
+                                                     CM_QUERYRECORD,
+                                                     precParentThis,
+                                                     MPFROM2SHORT(CMA_PARENT,
+                                                                  CMA_ITEMORDER));
             if (precParentThis == (PRECORDCORE)-1)
                 break;
             else

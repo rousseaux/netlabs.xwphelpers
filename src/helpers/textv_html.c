@@ -55,6 +55,7 @@
 
 /*
  *@@category: Helpers\PM helpers\Window classes\XTextView control\HTML conversion
+ *      see textv_html.c.
  */
 
 /* ******************************************************************
@@ -2059,6 +2060,8 @@ BOOL txvConvertFromHTML(char **ppszText,
 
     ULONG   cbSource = strlen(*ppszText);
 
+    XHTMLDATA xhtmlTemp = {0};
+    BOOL fUsingTemp = FALSE;
     COPYTARGET  ct = {0};
 
     lstInit(&ct.llLists,
@@ -2068,6 +2071,13 @@ BOOL txvConvertFromHTML(char **ppszText,
     // skip leading spaces
     ct.fSkipNextSpace = TRUE;
     ct.pxhtml = (PXHTMLDATA)pxhtml;
+    if (ct.pxhtml == NULL)  // not specified:
+    {
+        ct.pxhtml = &xhtmlTemp;
+        fUsingTemp = TRUE;
+    }
+
+    lstInit(&ct.pxhtml->llLinks, TRUE);       // auto-free
 
     // step 2:
     // actual tags formatting
@@ -2216,6 +2226,14 @@ BOOL txvConvertFromHTML(char **ppszText,
     *ppszText = ct.pszNew;
 
     lstClear(&ct.llLists);
+
+    if (fUsingTemp)
+    {
+        if (xhtmlTemp.pszTitle)
+            free(xhtmlTemp.pszTitle);
+        lstClear(&xhtmlTemp.llLinks);
+                // ### better really clear this... there are PSZ's inside
+    }
 
     return (brc);
 }
