@@ -781,6 +781,7 @@ const char* doshType2FSName(unsigned char bFSType)  // in: FS type
  *      calling this function for the first time,
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.20 (2002-08-10) [umoeller]: fixed truncated LVM names
  */
 
 static APIRET AppendPartition(PARTITIONINFO **pppiFirst,
@@ -795,17 +796,21 @@ static APIRET AppendPartition(PARTITIONINFO **pppiFirst,
                               ULONG ulSectors)             // in: no. of sectors
 {
     APIRET arc = NO_ERROR;
-    PPARTITIONINFO ppiNew = NEW(PARTITIONINFO);
-    if (ppiNew)
+    PPARTITIONINFO ppiNew;
+    if (ppiNew = NEW(PARTITIONINFO))
     {
         ZERO(ppiNew);
 
         // store data
         ppiNew->bDisk = bDisk;
-        if ((fBootable) && (pszBootName) )
+        if (    (fBootable)
+             && (pszBootName)
+           )
         {
-            memcpy(ppiNew->szBootName, pszBootName, 8);
-            ppiNew->szBootName[8] = 0;
+            // fixed truncated LVM names V0.9.20 (2002-08-10) [umoeller]
+            strhncpy0(ppiNew->szBootName,
+                      pszBootName,
+                      sizeof(ppiNew->szBootName));
         }
         else
             ppiNew->szBootName[0] = 0;

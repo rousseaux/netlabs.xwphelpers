@@ -4393,8 +4393,8 @@ ULONG winhDrawFormattedText(HPS hps,     // in: presentation space; its settings
 
     ulCharHeight = gpihQueryLineSpacing(hps);
 
-    while (   (lDrawn)
-           && (lTotalDrawn < ulTextLen)
+    while (    (lDrawn)
+            && (lTotalDrawn < ulTextLen)
           )
     {
         memcpy(&rcl2, prcl, sizeof(rcl2));

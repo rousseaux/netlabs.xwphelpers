@@ -2379,10 +2379,10 @@ LONG gpihStretchBitmap(HPS hpsTarget,       // in: memory PS to copy bitmap to
         aptl[1].y = prclTarget->yTop;
     }
 
-    return GpiWCBitBlt(hpsTarget,     // target HPS (bmp selected)
+    return GpiWCBitBlt(hpsTarget,       // target HPS (bmp selected)
                        hbmSource,
-                       4L,             // must always be 4
-                       &aptl[0],       // points array
+                       4L,              // must always be 4
+                       &aptl[0],        // points array
                        ROP_SRCCOPY,
                        BBO_IGNORE);
                                 // ignore eliminated rows or

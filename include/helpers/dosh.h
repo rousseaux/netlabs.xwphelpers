@@ -842,16 +842,17 @@ extern "C" {
 
     typedef struct _PARTITIONINFO
     {
-        BYTE    bDisk;                 // drive number
-        CHAR    cLetter;               // probable drive letter or ' ' if none
-        BYTE    bFSType;               // file system type
-        PCSZ    pcszFSType;            // file system name (as returned by
-                                       // doshType2FSName, can be NULL!)
-        BOOL    fPrimary;              // primary partition?
-        BOOL    fBootable;             // bootable by Boot Manager?
-        CHAR    szBootName[9];         // Boot Manager name, if (fBootable)
-        ULONG   ulSize;                // size MBytes
-        PPARTITIONINFO pNext;        // next info or NULL if last
+        BYTE    bDisk;                  // drive number
+        CHAR    cLetter;                // probable drive letter or ' ' if none
+        BYTE    bFSType;                // file system type
+        PCSZ    pcszFSType;             // file system name (as returned by
+                                        // doshType2FSName, can be NULL!)
+        BOOL    fPrimary;               // primary partition?
+        BOOL    fBootable;              // bootable by Boot Manager?
+        CHAR    szBootName[21];         // Boot Manager name, if (fBootable)
+                                        // extended for LVM names V0.9.20 (2002-08-10) [umoeller]
+        ULONG   ulSize;                 // size MBytes
+        PPARTITIONINFO pNext;           // next info or NULL if last
     } PARTITIONINFO;
 
     UINT doshQueryDiskCount(VOID);
