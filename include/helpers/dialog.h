@@ -197,6 +197,14 @@ extern "C" {
             WS_VISIBLE | SS_TEXT | DT_LEFT | DT_TOP | DT_WORDBREAK, \
             id, CTL_COMMON_FONT,  0, {cx, -1}, COMMON_SPACING }
 
+    #define CONTROLDEF_ICON(hptr, id) { WC_STATIC, (PCSZ)(hptr), \
+            WS_VISIBLE | SS_ICON | DT_LEFT | DT_VCENTER, \
+            id, CTL_COMMON_FONT, 0, {-1, -1}, COMMON_SPACING }
+
+    #define CONTROLDEF_BITMAP(hbm, id) { WC_STATIC, (PCSZ)(hbm), \
+            WS_VISIBLE | SS_BITMAP | DT_LEFT | DT_VCENTER, \
+            id, CTL_COMMON_FONT, 0, {-1, -1}, COMMON_SPACING }
+
     #define CONTROLDEF_DEFPUSHBUTTON(pcsz, id, cx, cy) { WC_BUTTON, pcsz, \
             WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_DEFAULT, \
             id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }

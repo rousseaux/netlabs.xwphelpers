@@ -679,13 +679,13 @@ APIRET xmlCreateElementNode(PDOMNODE pParent,         // in: parent node (either
                             PDOMNODE *ppNew)
 {
     PDOMNODE pNew = NULL;
-    APIRET arc = xmlCreateDomNode(pParent,
-                                  DOMNODE_ELEMENT,
-                                  pcszElement,
-                                  0,
-                                  &pNew);
+    APIRET arc;
 
-    if (arc == NO_ERROR)
+    if (!(arc = xmlCreateDomNode(pParent,
+                                 DOMNODE_ELEMENT,
+                                 pcszElement,
+                                 0,
+                                 &pNew)))
         *ppNew = pNew;
 
     return (arc);
@@ -716,19 +716,18 @@ APIRET xmlCreateAttributeNode(PDOMNODE pElement,        // in: element node
 {
     APIRET arc = NO_ERROR;
 
-    if (    !pElement
-         || pElement->NodeBase.ulNodeType != DOMNODE_ELEMENT
+    if (    (!pElement)
+         || (pElement->NodeBase.ulNodeType != DOMNODE_ELEMENT)
        )
         arc = ERROR_DOM_NO_ELEMENT;
     else
     {
         PDOMNODE pNew = NULL;
-        arc = xmlCreateDomNode(pElement,          // this takes care of adding to the list
-                            DOMNODE_ATTRIBUTE,
-                            pcszName,
-                            0,
-                            &pNew);
-        if (arc == NO_ERROR)
+        if (!(arc = xmlCreateDomNode(pElement,          // this takes care of adding to the list
+                                     DOMNODE_ATTRIBUTE,
+                                     pcszName,
+                                     0,
+                                     &pNew)))
         {
             pNew->pstrNodeValue = xstrCreate(0);
             xstrcpy(pNew->pstrNodeValue, pcszValue, 0);
@@ -757,20 +756,16 @@ APIRET xmlCreateTextNode(PDOMNODE pParent,         // in: parent element node
                          PDOMNODE *ppNew)
 {
     PDOMNODE pNew = NULL;
-    APIRET arc = xmlCreateDomNode(pParent,
-                                  DOMNODE_TEXT,
-                                  NULL,
-                                  0,
-                                  &pNew);
-    if (arc == NO_ERROR)
+    APIRET arc;
+
+    if (!(arc = xmlCreateDomNode(pParent,
+                                 DOMNODE_TEXT,
+                                 NULL,
+                                 0,
+                                 &pNew)))
     {
-        PSZ pszNodeValue = (PSZ)malloc(ulLength + 1);
-        if (!pszNodeValue)
-        {
-            arc = ERROR_NOT_ENOUGH_MEMORY;
-            xmlDeleteNode((PNODEBASE)pNew);
-        }
-        else
+        PSZ pszNodeValue;
+        if (pszNodeValue = (PSZ)malloc(ulLength + 1))
         {
             memcpy(pszNodeValue, pcszText, ulLength);
             pszNodeValue[ulLength] = '\0';
@@ -778,6 +773,11 @@ APIRET xmlCreateTextNode(PDOMNODE pParent,         // in: parent element node
             xstrset(pNew->pstrNodeValue, pszNodeValue);
 
             *ppNew = pNew;
+        }
+        else
+        {
+            arc = ERROR_NOT_ENOUGH_MEMORY;
+            xmlDeleteNode((PNODEBASE)pNew);
         }
     }
 
@@ -797,12 +797,12 @@ APIRET xmlCreateCommentNode(PDOMNODE pParent,         // in: parent element node
                             PDOMNODE *ppNew)
 {
     PDOMNODE pNew = NULL;
-    APIRET arc = xmlCreateDomNode(pParent,
-                                  DOMNODE_COMMENT,
-                                  NULL,
-                                  0,
-                                  &pNew);
-    if (arc == NO_ERROR)
+    APIRET arc;
+    if (!(arc = xmlCreateDomNode(pParent,
+                                 DOMNODE_COMMENT,
+                                 NULL,
+                                 0,
+                                 &pNew)))
     {
         pNew->pstrNodeValue = xstrCreate(0);
         xstrcpy(pNew->pstrNodeValue, pcszText, 0);
@@ -826,12 +826,13 @@ APIRET xmlCreatePINode(PDOMNODE pParent,         // in: parent element node
                        PDOMNODE *ppNew)
 {
     PDOMNODE pNew = NULL;
-    APIRET arc = xmlCreateDomNode(pParent,
-                               DOMNODE_PROCESSING_INSTRUCTION,
-                               pcszTarget,
-                               0,
-                               &pNew);
-    if (arc == NO_ERROR)
+    APIRET arc;
+
+    if (!(arc = xmlCreateDomNode(pParent,
+                                 DOMNODE_PROCESSING_INSTRUCTION,
+                                 pcszTarget,
+                                 0,
+                                 &pNew)))
     {
         pNew->pstrNodeValue = xstrCreate(0);
         xstrcpy(pNew->pstrNodeValue, pcszData, 0);
@@ -866,13 +867,11 @@ APIRET xmlCreateDocumentTypeNode(PDOMDOCUMENTNODE pDocumentNode,            // i
     {
         // create doctype node
         PDOMDOCTYPENODE pNew = NULL;
-        arc = xmlCreateDomNode((PDOMNODE)pDocumentNode,
-                               DOMNODE_DOCUMENT_TYPE,
-                               pcszDoctypeName,
-                               0,
-                               (PDOMNODE*)&pNew);
-
-        if (!arc)
+        if (!(arc = xmlCreateDomNode((PDOMNODE)pDocumentNode,
+                                     DOMNODE_DOCUMENT_TYPE,
+                                     pcszDoctypeName,
+                                     0,
+                                     (PDOMNODE*)&pNew)))
         {
             // the node has already been added to the children
             // list of the document node... in addition, set
@@ -962,18 +961,15 @@ APIRET SetupParticleAndSubs(PCMELEMENTPARTICLE pParticle,
         {
             PXMLCONTENT pSubModel = &pModel->children[ul];
             PCMELEMENTPARTICLE pSubNew = NULL;
-            arc = xmlCreateNodeBase(TYPE_UNKNOWN, //       node type... for now
-                                    sizeof(CMELEMENTPARTICLE),
-                                    0,
-                                    0,
-                                    (PNODEBASE*)&pSubNew);
-            if (!arc)
+            if (!(arc = xmlCreateNodeBase(TYPE_UNKNOWN, //       node type... for now
+                                          sizeof(CMELEMENTPARTICLE),
+                                          0,
+                                          0,
+                                          (PNODEBASE*)&pSubNew)))
             {
-                arc = SetupParticleAndSubs(pSubNew,
-                                           pSubModel,
-                                           ppElementNamesTree);
-
-                if (!arc)
+                if (!(arc = SetupParticleAndSubs(pSubNew,
+                                                 pSubModel,
+                                                 ppElementNamesTree)))
                 {
                     // no error: append sub-particle to this particle's
                     // children list
@@ -1014,22 +1010,18 @@ APIRET xmlCreateElementDecl(const char *pcszName,
     APIRET arc = NO_ERROR;
     PCMELEMENTDECLNODE pNew = NULL;
 
-    arc = xmlCreateNodeBase(TYPE_UNKNOWN,      // for now
-                            sizeof(CMELEMENTDECLNODE),
-                            pcszName,
-                            0,
-                            (PNODEBASE*)&pNew);
-
-    if (!arc)
+    if (!(arc = xmlCreateNodeBase(TYPE_UNKNOWN,      // for now
+                                  sizeof(CMELEMENTDECLNODE),
+                                  pcszName,
+                                  0,
+                                  (PNODEBASE*)&pNew)))
     {
         treeInit(&pNew->ParticleNamesTree, NULL);
 
         // set up the "particle" member and recurse into sub-particles
-        arc = SetupParticleAndSubs(&pNew->Particle,
-                                   pModel,
-                                   &pNew->ParticleNamesTree);
-
-        if (!arc)
+        if (!(arc = SetupParticleAndSubs(&pNew->Particle,
+                                         pModel,
+                                         &pNew->ParticleNamesTree)))
             *ppNew = pNew;
         else
             free(pNew);
@@ -1520,11 +1512,9 @@ void EXPATENTRY StartElementHandler(void *pUserData,      // in: our PXMLDOM rea
             PDOMNODE    pParent = pSI->pDomNode,
                         pNew = NULL;
 
-            pDom->arcDOM = xmlCreateElementNode(pParent,
-                                                pcszElement,
-                                                &pNew);
-
-            if (!pDom->arcDOM)
+            if (!(pDom->arcDOM = xmlCreateElementNode(pParent,
+                                                      pcszElement,
+                                                      &pNew)))
                 // OK, node is valid:
                 // push this on the stack so we can add child elements
                 PushElementStack(pDom,
@@ -1555,22 +1545,23 @@ void EXPATENTRY StartElementHandler(void *pUserData,      // in: our PXMLDOM rea
                      i += 2)
                 {
                     PDOMNODE pAttrib;
-                    pDom->arcDOM = xmlCreateAttributeNode(pNew,                    // element,
-                                                          papcszAttribs[i],        // attr name
-                                                          papcszAttribs[i + 1],    // attr value
-                                                          &pAttrib);
-
-                    if (pDom->arcDOM)
-                        xmlSetError(pDom,
-                                    pDom->arcDOM,
-                                    papcszAttribs[i],
-                                    TRUE);      // validation
-                    else
+                    if (!(pDom->arcDOM = xmlCreateAttributeNode(pNew,                  // element,
+                                                                papcszAttribs[i],      // attr name
+                                                                papcszAttribs[i + 1],  // attr value
+                                                                &pAttrib)))
                         // shall we validate?
                         if (pDom->pDocTypeNode)
                             ValidateAttributeType(pDom,
                                                   pAttrib,
                                                   &pAttribDeclBase);
+                    else
+                    {
+                        xmlSetError(pDom,
+                                    pDom->arcDOM,
+                                    papcszAttribs[i],
+                                    TRUE);      // validation
+                        break;
+                    }
                 }
 
                 // OK, now we got all attributes:
@@ -1639,102 +1630,96 @@ void EXPATENTRY CharacterDataHandler(void *pUserData,      // in: our PXMLDOM re
     PXMLDOM     pDom = (PXMLDOM)pUserData;
 
     // continue parsing only if we had no errors so far
-    if (!pDom->arcDOM)
+    if (    (!pDom->arcDOM)
+         && (len)
+       )
     {
-        if (len)
+        // we need a new text node:
+        PDOMSTACKITEM pSI = PopElementStack(pDom,
+                                            NULL);     // no free
+        if (!pDom->arcDOM)
         {
-            // we need a new text node:
-            PDOMSTACKITEM pSI = PopElementStack(pDom,
-                                                NULL);     // no free
-            if (!pDom->arcDOM)
+            PDOMNODE    pParent = pSI->pDomNode;
+                        // pNew = NULL;
+
+            BOOL fIsWhitespace = FALSE;
+
+            // shall we validate?
+            if (pDom->pDocTypeNode)
             {
-                PDOMNODE    pParent = pSI->pDomNode;
-                            // pNew = NULL;
+                // yes: check if the parent element allows
+                // for content at all (must be "mixed" model)
 
-                BOOL fIsWhitespace = FALSE;
-
-                // shall we validate?
-                if (pDom->pDocTypeNode)
+                // get the element decl from the tree
+                PCMELEMENTDECLNODE pElementDecl;
+                if (pElementDecl = pSI->pElementDecl)
                 {
-                    // yes: check if the parent element allows
-                    // for content at all (must be "mixed" model)
-
-                    // get the element decl from the tree
-                    PCMELEMENTDECLNODE pElementDecl = pSI->pElementDecl;
-
-                    if (pElementDecl)
+                    switch (pElementDecl->Particle.NodeBase.ulNodeType)
                     {
-                        switch (pElementDecl->Particle.NodeBase.ulNodeType)
+                        case ELEMENTPARTICLE_ANY:
+                        case ELEMENTPARTICLE_MIXED:
+                            // those two are okay
+                        break;
+
+                        case ELEMENTPARTICLE_EMPTY:
+                            // that's an error for sure
+                            pDom->arcDOM = ERROR_ELEMENT_CANNOT_HAVE_CONTENT;
+                        break;
+
+                        default:
                         {
-                            case ELEMENTPARTICLE_ANY:
-                            case ELEMENTPARTICLE_MIXED:
-                                // those two are okay
-                            break;
+                            // ELEMENTPARTICLE_CHOICE:
+                            // ELEMENTPARTICLE_SEQ:
+                            // with these two, we accept whitespace, but nothing
+                            // else... so if we have characters other than
+                            // whitespace, terminate
+                            ULONG ul;
+                            const char *p = s;
 
-                            case ELEMENTPARTICLE_EMPTY:
-                                // that's an error for sure
-                                pDom->arcDOM = ERROR_ELEMENT_CANNOT_HAVE_CONTENT;
-                            break;
+                            if (pDom->flParserFlags & DF_DROP_WHITESPACE)
+                                fIsWhitespace = TRUE;
 
-                            default:
-                            {
-                                // ELEMENTPARTICLE_CHOICE:
-                                // ELEMENTPARTICLE_SEQ:
-                                // with these two, we accept whitespace, but nothing
-                                // else... so if we have characters other than
-                                // whitespace, terminate
-                                ULONG ul;
-                                const char *p = s;
-
-                                if (pDom->flParserFlags & DF_DROP_WHITESPACE)
-                                    fIsWhitespace = TRUE;
-
-                                for (ul = 0;
-                                     ul < len;
-                                     ul++, p++)
-                                    if (!strchr("\r\n\t ", *p))
-                                    {
-                                        // other character:
-                                        xmlSetError(pDom,
-                                                    ERROR_ELEMENT_CANNOT_HAVE_CONTENT,
-                                                    pParent->NodeBase.strNodeName.psz,
-                                                    TRUE);
-                                        fIsWhitespace = FALSE;
-                                        break;
-                                    }
-                            }
+                            for (ul = 0;
+                                 ul < len;
+                                 ul++, p++)
+                                if (!strchr("\r\n\t ", *p))
+                                {
+                                    // other character:
+                                    xmlSetError(pDom,
+                                                ERROR_ELEMENT_CANNOT_HAVE_CONTENT,
+                                                pParent->NodeBase.strNodeName.psz,
+                                                TRUE);
+                                    fIsWhitespace = FALSE;
+                                    break;
+                                }
                         }
                     }
-
-                } // end if (pDom->pDocTypeNode)
-
-                if (!fIsWhitespace)
-                    // this is false if any of the following
-                    // is true:
-                    // --  we are not validating at all
-                    // --  we are validating, but the the element
-                    //     can have mixed content
-                    // --  we are validating and the element does
-                    //     _not_ have mixed content and DF_DROP_WHITESPACE
-                    //     is set, but the string is whitespace only
-                    //     --> drop it then
-
-                if (pDom->pLastWasTextNode)
-                {
-                    // we had a text node, and no elements or other
-                    // stuff in between:
-                    xstrcat(pDom->pLastWasTextNode->pstrNodeValue,
-                            s,
-                            len);
                 }
-                else
-                {
-                    pDom->arcDOM = xmlCreateTextNode(pParent,
-                                                     s,
-                                                     len,
-                                                     &pDom->pLastWasTextNode);
-                }
-            }
+
+            } // end if (pDom->pDocTypeNode)
+
+            if (!fIsWhitespace)
+                // this is false if any of the following
+                // is true:
+                // --  we are not validating at all
+                // --  we are validating, but the the element
+                //     can have mixed content
+                // --  we are validating and the element does
+                //     _not_ have mixed content and DF_DROP_WHITESPACE
+                //     is set, but the string is whitespace only
+                //     --> drop it then
+
+            if (pDom->pLastWasTextNode)
+                // we had a text node, and no elements or other
+                // stuff in between:
+                xstrcat(pDom->pLastWasTextNode->pstrNodeValue,
+                        s,
+                        len);
+            else
+                pDom->arcDOM = xmlCreateTextNode(pParent,
+                                                 s,
+                                                 len,
+                                                 &pDom->pLastWasTextNode);
         }
     }
 }
@@ -1805,14 +1790,12 @@ void EXPATENTRY StartDoctypeDeclHandler(void *pUserData,
             if (pDom->pDocTypeNode)
                 pDom->arcDOM = ERROR_DOM_DUPLICATE_DOCTYPE;
             else
-            {
                 pDom->arcDOM = xmlCreateDocumentTypeNode(pDocumentNode,
                                                          pcszDoctypeName,
                                                          pcszSysid,
                                                          pcszPubid,
                                                          fHasInternalSubset,
                                                          &pDom->pDocTypeNode);
-            }
         }
     }
 }
@@ -2020,13 +2003,11 @@ void EXPATENTRY ElementDeclHandler(void *pUserData,      // in: our PXMLDOM real
             // create an element declaration and push it unto the
             // declarations tree
             PCMELEMENTDECLNODE pNew = NULL;
-            pDom->arcDOM = xmlCreateElementDecl(pcszName,
-                                                pModel,
-                                                &pNew);
+            if (!(pDom->arcDOM = xmlCreateElementDecl(pcszName,
+                                                      pModel,
+                                                      &pNew)))
                                     // this recurses!!
                                     // after this, pModel is invalid
-
-            if (pDom->arcDOM == NO_ERROR)
             {
                 // add this to the doctype's declarations tree
                 if (treeInsert(&pDocType->ElementDeclsTree,
@@ -2057,12 +2038,13 @@ APIRET AddEnum(PCMATTRIBUTEDECL pDecl,
 {
     // PSZ pszType = strhSubstr(p, pNext);
     PNODEBASE pNew = NULL;
-    APIRET arc = xmlCreateNodeBase(ATTRIBUTE_DECLARATION_ENUM,
-                                   sizeof(NODEBASE),
-                                   p,
-                                   (pNext - p),
-                                   &pNew);
-    if (!arc)
+    APIRET arc;
+
+    if (!(arc = xmlCreateNodeBase(ATTRIBUTE_DECLARATION_ENUM,
+                                  sizeof(NODEBASE),
+                                  p,
+                                  (pNext - p),
+                                  &pNew)))
         treeInsert(&pDecl->ValuesTree,
                    NULL,
                    (TREE*)pNew,
@@ -2174,12 +2156,11 @@ void EXPATENTRY AttlistDeclHandler(void *pUserData,      // in: our PXMLDOM real
                 // pThis now has either an existing or a new CMATTRIBUTEDECLBASE;
                 // add a new attribute def (CMATTRIBUTEDEDECL) to that
                 PCMATTRIBUTEDECL  pNew = NULL;
-                pDom->arcDOM = xmlCreateNodeBase(ATTRIBUTE_DECLARATION,
-                                                 sizeof(CMATTRIBUTEDECL),
-                                                 pcszAttribName,
-                                                 0,
-                                                 (PNODEBASE*)&pNew);
-                if (!pDom->arcDOM)
+                if (!(pDom->arcDOM = xmlCreateNodeBase(ATTRIBUTE_DECLARATION,
+                                                       sizeof(CMATTRIBUTEDECL),
+                                                       pcszAttribName,
+                                                       0,
+                                                       (PNODEBASE*)&pNew)))
                 {
                     treeInit(&pNew->ValuesTree, NULL);
 
@@ -2367,7 +2348,7 @@ void EXPATENTRY EntityDeclHandler(void *pUserData,      // in: our PXMLDOM reall
  *          The callback will only be called once for each
  *          document if the "encoding" attribute of the
  *          XML @text_declaration starts with "cp" (e.g.
- *          "cp850") and will then receives the following
+ *          "cp850") and will then receive the following
  *          parameters:
  *
  *          --  "pDom" will be the XMLDOM created by this function.

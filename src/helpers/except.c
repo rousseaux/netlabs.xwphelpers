@@ -612,7 +612,9 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
         break;
     }
 
-    if (DosGetInfoBlocks(&ptib, &ppib) == NO_ERROR)
+    // V0.9.16 (2001-11-02) [pr]: We already got this info. above - this overwrites the
+    // original values before the priority change, which is rather confusing.
+    // if (DosGetInfoBlocks(&ptib, &ppib) == NO_ERROR)
     {
         /*
          * process info:
@@ -646,7 +648,7 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
                     "\n    Process ID:      0x%lX"
                     "\n    Process module:  0x%lX (%s)"
                     "\n    Trapping module: 0x%lX (%s)"
-                    "\n    Object: %lu\n",
+                    "\n    Object: %ld\n",  // V0.9.16 (2001-11-02) [pr]: make this display signed
                     ppib->pib_ulpid,
                     hMod1, szMod1,
                     hMod2, szMod2,

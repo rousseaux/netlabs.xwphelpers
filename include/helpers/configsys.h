@@ -118,6 +118,27 @@ extern "C" {
                               PBOOL pfDirty,
                               PXSTRING pstrChanged);
     #endif
+
+    /* ******************************************************************
+     *
+     *   Swappath
+     *
+     ********************************************************************/
+
+    BOOL XWPENTRY csysParseSwapPath(const char *pcszConfigSys,
+                                    PSZ pszSwapPath,
+                                    PULONG pulMinFree,
+                                    PULONG pulMinSize);
+    typedef BOOL XWPENTRY CSYSPARSESWAPPATH(const char *pcszConfigSys,
+                                            PSZ pszSwapPath,
+                                            PULONG pulMinFree,
+                                            PULONG pulMinSize);
+    typedef CSYSPARSESWAPPATH *PCSYSPARSESWAPPATH;
+
+    ULONG XWPENTRY csysQuerySwapperSize(VOID);
+    typedef ULONG XWPENTRY CSYSQUERYSWAPPERSIZE(VOID);
+    typedef CSYSQUERYSWAPPERSIZE *PCSYSQUERYSWAPPERSIZE;
+
 #endif
 
 #if __cplusplus
