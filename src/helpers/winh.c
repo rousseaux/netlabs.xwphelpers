@@ -282,7 +282,7 @@ VOID winhOffsetRect(PRECTL prcl,
 
 ULONG winhQueryWindowStyle(HWND hwnd)
 {
-    return (WinQueryWindowULong(hwnd, QWL_STYLE));
+    return WinQueryWindowULong(hwnd, QWL_STYLE);
 }
 
 /*
@@ -295,7 +295,7 @@ BOOL winhEnableDlgItem(HWND hwndDlg,
                        SHORT id,
                        BOOL fEnable)
 {
-    return (WinEnableWindow(WinWindowFromID(hwndDlg, id), fEnable));
+    return WinEnableWindow(WinWindowFromID(hwndDlg, id), fEnable);
 }
 
 /*
@@ -307,7 +307,7 @@ BOOL winhEnableDlgItem(HWND hwndDlg,
 BOOL winhIsDlgItemEnabled(HWND hwndDlg,
                           SHORT id)
 {
-    return (WinIsWindowEnabled(WinWindowFromID(hwndDlg, id)));
+    return WinIsWindowEnabled(WinWindowFromID(hwndDlg, id));
 }
 
 
@@ -333,10 +333,10 @@ BOOL winhQueryMenuItem(HWND hwndMenu,
                        BOOL fSearchSubmenus,
                        PMENUITEM pmi)           // out: MENUITEM data
 {
-    return ((BOOL)WinSendMsg(hwndMenu,
-                             MM_QUERYITEM,
-                             MPFROM2SHORT(usItemID, fSearchSubmenus),
-                             (MPARAM)pmi));
+    return (BOOL)WinSendMsg(hwndMenu,
+                            MM_QUERYITEM,
+                            MPFROM2SHORT(usItemID, fSearchSubmenus),
+                            (MPARAM)pmi);
 }
 
 /*
@@ -426,7 +426,6 @@ SHORT winhInsertMenuItem(HWND hwndMenu,     // in:  menu to insert item into
                             //          another menu on the action bar or by pressing the escape key.
 {
     MENUITEM mi;
-    SHORT    src = MIT_ERROR;
 
     mi.iPosition = iPosition;
     mi.afStyle = afStyle;
@@ -434,11 +433,11 @@ SHORT winhInsertMenuItem(HWND hwndMenu,     // in:  menu to insert item into
     mi.id = sItemId;
     mi.hwndSubMenu = 0;
     mi.hItem = 0;
-    src = SHORT1FROMMR(WinSendMsg(hwndMenu,
-                                  MM_INSERTITEM,
-                                  (MPARAM)&mi,
-                                  (MPARAM)pcszItemTitle));
-    return (src);
+
+    return SHORT1FROMMR(WinSendMsg(hwndMenu,
+                                   MM_INSERTITEM,
+                                   (MPARAM)&mi,
+                                   (MPARAM)pcszItemTitle));
 }
 
 /*
@@ -510,7 +509,7 @@ HWND winhInsertSubmenu(HWND hwndMenu,       // in: menu to add submenu to
             }
         }
     }
-    return (hwndNewMenu);
+    return hwndNewMenu;
 }
 
 /*
@@ -620,10 +619,10 @@ SHORT winhInsertMenuSeparator(HWND hMenu,       // in: menu to add separator to
     mi.hwndSubMenu = 0;
     mi.hItem = 0;
 
-    return (SHORT1FROMMR(WinSendMsg(hMenu,
-                                    MM_INSERTITEM,
-                                    (MPARAM)&mi,
-                                    (MPARAM)"")));
+    return SHORT1FROMMR(WinSendMsg(hMenu,
+                                   MM_INSERTITEM,
+                                   (MPARAM)&mi,
+                                   (MPARAM)""));
 }
 
 /*
@@ -855,7 +854,7 @@ HWND winhMergeIntoSubMenu(HWND hmenuTarget,         // in: menu where to create 
         }
     }
 
-    return (hwndNewSubmenu);
+    return hwndNewSubmenu;
 }
 
 /*
@@ -891,7 +890,7 @@ ULONG winhMergeMenus(HWND hmenuTarget,         // in: menu to copy items to
     {
         SHORT id = SHORT1FROMMR(WinSendMsg(hmenuSource,
                                            MM_ITEMIDFROMPOSITION,
-                                           MPFROMSHORT(i),
+                                           MPFROM2SHORT(i, 0),
                                            0));
         winhCopyMenuItem2(hmenuTarget,
                           hmenuSource,
@@ -901,6 +900,49 @@ ULONG winhMergeMenus(HWND hmenuTarget,         // in: menu to copy items to
     }
 
     return i;
+}
+
+/*
+ *@@ winhClearMenu:
+ *      removes all menu items from the given (sub)menu.
+ *      The menu itself is not destroyed, but is empty
+ *      after calling this function.
+ *
+ *@@added V0.9.21 (2002-08-31) [umoeller]
+ */
+
+ULONG winhClearMenu(HWND hwndMenu)
+{
+    ULONG   cDeleted = 0;
+    SHORT   sID;
+
+    // what we do is getting the menu item count
+    // and then delete the first item in the menu
+    // x times because there is no "delete menu item
+    // from position" message, and there might be
+    // duplicate IDs in the menu... this should
+    // work always
+
+    SHORT   cMenuItems = SHORT1FROMMR(WinSendMsg(hwndMenu,
+                                                 MM_QUERYITEMCOUNT,
+                                                 0,
+                                                 0));
+    while (cMenuItems-- > 0)
+    {
+        sID = (SHORT)WinSendMsg(hwndMenu,
+                                MM_ITEMIDFROMPOSITION,
+                                MPFROMSHORT(0),
+                                MPNULL);
+
+        WinSendMsg(hwndMenu,
+                   MM_DELETEITEM,
+                   MPFROM2SHORT(sID, FALSE),
+                   0);
+
+        ++cDeleted;
+    }
+
+    return cDeleted;
 }
 
 /*
@@ -939,7 +981,7 @@ PSZ winhQueryMenuItemText(HWND hwndMenu,
                    (MPARAM)prc);
     }
 
-    return (prc);
+    return prc;
 }
 
 /*
@@ -1035,11 +1077,12 @@ SHORT winhQueryItemUnderMouse(HWND hwndMenu,      // in: menu handle
                    MPFROM2SHORT(sItemId, FALSE),
                    (MPARAM)prtlItem);
         if (WinPtInRect(habDesktop, prtlItem, pptlMouse))
-            return (sItemId);
+            return sItemId;
     }
     /* sItemId = (SHORT)WinSendMsg(hwndMenu, MM_ITEMIDFROMPOSITION, (MPARAM)(sItemCount-1), MPNULL);
     return (sItemId); */
-    return (-1); // error: no valid menu item
+
+    return -1; // error: no valid menu item
 }
 
 /*
@@ -1217,7 +1260,7 @@ HWND winhReplaceWithLinearSlider(HWND hwndParent,   // in: parent of old control
         }
     }
 
-    return (hwndSlider);
+    return hwndSlider;
 }
 
 /*
@@ -1481,7 +1524,7 @@ HWND winhReplaceWithCircularSlider(HWND hwndParent,   // in: parent of old contr
         }
     }
 
-    return (hwndSlider);
+    return hwndSlider;
 }
 
 /*
@@ -1618,7 +1661,7 @@ LONG winhAdjustDlgItemSpinData(HWND hwndDlg,     // in: dlg window
                    (MPARAM)(lValue),
                    MPNULL);
     }
-    return (lValue);
+    return lValue;
 }
 
 /*
@@ -1661,7 +1704,7 @@ PSZ winhQueryLboxItemText(HWND hwndListbox,
                    (MPARAM)pszReturn);
     }
 
-    return (pszReturn);
+    return pszReturn;
 }
 
 /*
@@ -1749,7 +1792,7 @@ ULONG winhLboxSelectAll(HWND hwndListBox,   // in: list box
                    (MPARAM)fSelect);
     }
 
-    return (lItemCount);
+    return lItemCount;
 }
 
 /*
@@ -1778,11 +1821,11 @@ ULONG winhLboxFindItemFromHandle(HWND hwndListBox,
         {
             if (ulHandle == winhQueryLboxItemHandle(hwndListBox,
                                                     ul))
-                return (ul);
+                return ul;
         }
     }
 
-    return (-1);
+    return -1;
 }
 
 /*
@@ -2118,7 +2161,7 @@ BOOL winhHandleScrollMsg(HWND hwnd2Scroll,          // in: client window to scro
 
     // _Pmpf(("End of winhHandleScrollMsg"));
 
-    return (TRUE);
+    return TRUE;
 }
 
 /*
@@ -2273,7 +2316,7 @@ BOOL winhProcessScrollChars(HWND hwndClient,    // in: client window
 
     // _Pmpf(("End of  winhProcessScrollChars"));
 
-    return (fProcessed);
+    return fProcessed;
 }
 
 /*
@@ -2711,7 +2754,7 @@ ULONG winhCenteredDlgBox(HWND hwndParent,
     winhCenterWindow(hwndDlg);
     ulReply = WinProcessDlg(hwndDlg);
     WinDestroyWindow(hwndDlg);
-    return (ulReply);
+    return ulReply;
 }
 
 /*
@@ -2817,7 +2860,7 @@ HWND winhFindWindowBelow(HWND hwndFind)
         WinEndEnumWindows(henum);
     }
 
-    return (hwnd);
+    return hwnd;
 }
 
 /*
@@ -2852,7 +2895,7 @@ PSZ winhQueryWindowFont(HWND hwnd)
                       (PVOID)&szNewFont,
                       QPF_NOINHERIT);
     if (szNewFont[0] != 0)
-        return (strdup(szNewFont));
+        return strdup(szNewFont);
 
     return NULL;
 }
@@ -2887,10 +2930,10 @@ BOOL winhSetWindowFont(HWND hwnd,
     else
         strhncpy0(szFont, pcszFont, sizeof(szFont));
 
-    return (WinSetPresParam(hwnd,
-                            PP_FONTNAMESIZE,
-                            strlen(szFont)+1,
-                            szFont));
+    return WinSetPresParam(hwnd,
+                           PP_FONTNAMESIZE,
+                           strlen(szFont)+1,
+                           szFont);
 }
 
 /*
@@ -2927,7 +2970,8 @@ ULONG winhSetControlsFont(HWND hwndDlg,      // in: dlg to set
     }
     else
         strhncpy0(szFont, pcszFont, sizeof(szFont));
-    cbFont = strlen(szFont)+1;
+
+    cbFont = strlen(szFont) + 1;
 
     // set font for all the dialog controls
     henum = WinBeginEnumWindows(hwndDlg);
@@ -2945,7 +2989,8 @@ ULONG winhSetControlsFont(HWND hwndDlg,      // in: dlg to set
                 ulrc++;
     }
     WinEndEnumWindows(henum);
-    return (ulrc);
+
+    return ulrc;
 }
 
 /*
@@ -3189,10 +3234,10 @@ BOOL winhSetPresColor(HWND hwnd,
                       ULONG ulIndex,
                       LONG lColor)
 {
-    return (WinSetPresParam(hwnd,
-                            ulIndex,
-                            sizeof(LONG),
-                            &lColor));
+    return WinSetPresParam(hwnd,
+                           ulIndex,
+                           sizeof(LONG),
+                           &lColor);
 }
 
 /*
@@ -3276,7 +3321,7 @@ HWND winhCreateHelp(HWND hwndFrame,      // in: app's frame window handle; can b
         WinAssociateHelpInstance(hwndHelp, hwndFrame);
     }
 
-    return (hwndHelp);
+    return hwndHelp;
 }
 
 /*
@@ -3296,12 +3341,12 @@ HWND winhCreateHelp(HWND hwndFrame,      // in: app's frame window handle; can b
 ULONG winhDisplayHelpPanel(HWND hwndHelpInstance,   // in: from winhCreateHelp
                            ULONG ulHelpPanel)       // in: help panel ID
 {
-    return (ULONG)(WinSendMsg(hwndHelpInstance,
-                              HM_DISPLAY_HELP,
-                              (MPARAM)ulHelpPanel,
-                              (MPARAM)(    (ulHelpPanel != 0)
-                                           ? HM_RESOURCEID
-                                           : 0)));
+    return (ULONG)WinSendMsg(hwndHelpInstance,
+                             HM_DISPLAY_HELP,
+                             (MPARAM)ulHelpPanel,
+                             (MPARAM)(    (ulHelpPanel != 0)
+                                          ? HM_RESOURCEID
+                                          : 0));
 }
 
 /*
@@ -3370,7 +3415,7 @@ BOOL winhAnotherInstance(const char *pcszSemName,    // in: semaphore ID
               == NO_ERROR)
         // semapore created: this doesn't happen if the semaphore
         // exists already, so no other instance is running
-        return (FALSE);
+        return FALSE;
 
     // else: instance running
     hmtx = NULLHANDLE;
@@ -3398,7 +3443,7 @@ BOOL winhAnotherInstance(const char *pcszSemName,    // in: semaphore ID
         }
     }
 
-    return (TRUE);      // another instance exists
+    return TRUE;      // another instance exists
 }
 
 /*
@@ -3437,7 +3482,7 @@ HSWITCH winhAddToTasklist(HWND hwnd,       // in: window to add
                    (MPARAM)hIcon,
                    NULL);
 
-    return (hswitch);
+    return hswitch;
 }
 
 /*
@@ -3480,7 +3525,7 @@ HAB winhMyAnchorBlock(VOID)
         WinDestroyWindow(hwnd);
     }
 
-    return (hab);
+    return hab;
 }
 
 /*
@@ -3675,10 +3720,10 @@ BOOL winhFileDlg(HWND hwndOwner,    // in: owner for file dlg
 
         strcpy(pszFile, fd.szFullFile);
 
-        return (TRUE);
+        return TRUE;
     }
 
-    return (FALSE);
+    return FALSE;
 }
 
 /*
@@ -3699,7 +3744,7 @@ HPOINTER winhSetWaitPointer(VOID)
                   WinQuerySysPointer(HWND_DESKTOP,
                                      SPTR_WAIT,
                                      FALSE));   // no copy
-    return (hptr);
+    return hptr;
 }
 
 /*
@@ -3723,7 +3768,7 @@ PSZ winhQueryWindowText(HWND hwnd)
                                cbText + 1,
                                pszText);
     }
-    return (pszText);
+    return pszText;
 }
 
 /*
@@ -3748,8 +3793,8 @@ BOOL winhSetWindowText(HWND hwnd,
     i = vsprintf(szBuf, pcszFormat, args);
     va_end(args);
 
-    return (WinSetWindowText(hwnd,
-                             szBuf));
+    return WinSetWindowText(hwnd,
+                            szBuf);
 }
 
 /*
@@ -3840,7 +3885,8 @@ ULONG winhEnableControls(HWND hwndDlg,                  // in: dialog window
         }
     }
     WinEndEnumWindows(henum1);
-    return (ulCount);
+
+    return ulCount;
 }
 
 /*
@@ -3971,7 +4017,8 @@ HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
             }
         }
     }
-    return (hwndFrame);
+
+    return hwndFrame;
 }
 
 /*
@@ -3991,16 +4038,16 @@ HWND winhCreateStdWindow(HWND hwndFrameParent,      // in: normally HWND_DESKTOP
 HWND winhCreateObjectWindow(const char *pcszWindowClass,    // in: PM window class name
                             PVOID pvCreateParam)            // in: create param
 {
-    return (WinCreateWindow(HWND_OBJECT,
-                            (PSZ)pcszWindowClass,
-                            (PSZ)"",
-                            0,
-                            0,0,0,0,
-                            0,
-                            HWND_BOTTOM,
-                            0,
-                            pvCreateParam,
-                            NULL));
+    return WinCreateWindow(HWND_OBJECT,
+                           (PSZ)pcszWindowClass,
+                           (PSZ)"",
+                           0,
+                           0,0,0,0,
+                           0,
+                           HWND_BOTTOM,
+                           0,
+                           pvCreateParam,
+                           NULL);
 }
 
 /*
@@ -4095,7 +4142,7 @@ HMQ winhFindMsgQueue(PID pid,           // in: process ID
     }
     WinEndEnumWindows(henum);
 
-    return (rc);
+    return rc;
 }
 
 /*
@@ -4219,18 +4266,18 @@ HWND winhCreateFakeDesktop(HWND hwndSibling)
     background.rgb.bGreen= (CHAR2FROMMP(lDesktopColor));
     background.rgb.bRed  = (CHAR3FROMMP(lDesktopColor));
 
-    return (WinCreateWindow(HWND_DESKTOP,  // parent window
-                            WC_FRAME,      // class name
-                            "",            // window text
-                            WS_VISIBLE,    // window style
-                            0, 0,          // position and size
-                            WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN),
-                            WinQuerySysValue(HWND_DESKTOP, SV_CYSCREEN),
-                            NULLHANDLE,    // owner window
-                            hwndSibling,   // sibling window
-                            1,             // window id
-                            NULL,          // control data
-                            &background)); // presentation parms
+    return WinCreateWindow(HWND_DESKTOP,  // parent window
+                           WC_FRAME,      // class name
+                           "",            // window text
+                           WS_VISIBLE,    // window style
+                           0, 0,          // position and size
+                           WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN),
+                           WinQuerySysValue(HWND_DESKTOP, SV_CYSCREEN),
+                           NULLHANDLE,    // owner window
+                           hwndSibling,   // sibling window
+                           1,             // window id
+                           NULL,          // control data
+                           &background); // presentation parms
 }
 
 /*
@@ -4451,7 +4498,7 @@ ULONG winhDrawFormattedText(HPS hps,     // in: presentation space; its settings
     prcl->yBottom = prcl->yTop;
     prcl->yTop = lOrigYTop;
 
-    return (lLineCount);
+    return lLineCount;
 }
 
 /*
@@ -4486,7 +4533,7 @@ PSWBLOCK winhQuerySwitchList(HAB hab)
         }
     }
 
-    return (pSwBlock);
+    return pSwBlock;
 }
 
 typedef HSWITCH APIENTRY WINHSWITCHFROMHAPP(HAPP happ);
@@ -4526,10 +4573,11 @@ HSWITCH winhHSWITCHfromHAPP(HAPP happ)
 HWND winhQueryTasklistWindow(VOID)
 {
     SWBLOCK  swblock;
-    // HWND     hwndTasklist = winhQueryTasklistWindow();
+
     // the tasklist has entry #0 in the SWBLOCK
     WinQuerySwitchList(NULLHANDLE, &swblock, sizeof(SWBLOCK));
-    return (swblock.aswentry[0].swctl.hwnd);
+
+    return swblock.aswentry[0].swctl.hwnd;
 }
 
 /*
@@ -4637,7 +4685,7 @@ ULONG winhQueryPendingSpoolJobs(VOID)
         }
     } // end if Q level given
 
-    return (ulTotalJobCount);
+    return ulTotalJobCount;
 }
 
 /*
@@ -4759,6 +4807,57 @@ BOOL winhSetClipboardText(HAB hab,
  ********************************************************************/
 
 /*
+ *@@ winhCalcExtFrameRect:
+ *      implementation for WM_CALCFRAMERECT in fnwpSubclExtFrame.
+ *      This is exported so it can be used independently
+ *      (XWorkplace status bars).
+ *
+ *@@added V0.9.21 (2002-08-28) [umoeller]
+ */
+
+VOID winhCalcExtFrameRect(MPARAM mp1,
+                          MPARAM mp2,
+                          LONG lStatusBarHeight)
+{
+    PRECTL prclPassed = (PRECTL)mp1;
+
+    // mp2 == TRUE:  Frame rectangle provided, calculate client
+    // mp2 == FALSE: Client area rectangle provided, calculate frame
+    if (mp2)
+    {
+        //  TRUE: calculate the rectl of the client;
+        //  call default window procedure to subtract child frame
+        //  controls from the rectangle's height
+        LONG lClientHeight;
+
+        //  position the static text frame extension below the client
+        lClientHeight = prclPassed->yTop - prclPassed->yBottom;
+        if (lStatusBarHeight > lClientHeight)
+            // extension is taller than client, so set client height to 0
+            prclPassed->yTop = prclPassed->yBottom;
+        else
+        {
+            //  set the origin of the client and shrink it based upon the
+            //  static text control's height
+            prclPassed->yBottom += lStatusBarHeight;
+            prclPassed->yTop -= lStatusBarHeight;
+        }
+    }
+    else
+    {
+        //  FALSE: calculate the rectl of the frame;
+        //  call default window procedure to subtract child frame
+        //  controls from the rectangle's height;
+        //  set the origin of the frame and increase it based upon the
+        //  static text control's height
+        prclPassed->yBottom -= lStatusBarHeight;
+        prclPassed->yTop += lStatusBarHeight;
+    }
+}
+
+#define STATUS_BAR_HEIGHT       20
+
+/*
  *@@ fnwpSubclExtFrame:
  *      subclassed frame window proc.
  *
@@ -4797,11 +4896,10 @@ MRESULT EXPENTRY fnwpSubclExtFrame(HWND hwndFrame, ULONG msg, MPARAM mp1, MPARAM
 
             for (ul = 0; ul < ulCount; ul++)
             {
-                if (WinQueryWindowUShort( swpArr[ul].hwnd, QWS_ID ) == 0x8008 )
+                if (WinQueryWindowUShort(swpArr[ul].hwnd, QWS_ID) == 0x8008)
                                                                  // FID_CLIENT
                 {
                     POINTL      ptlBorderSizes;
-                    ULONG       ulStatusBarHeight = 20;
                     WinSendMsg(hwndFrame,
                                WM_QUERYBORDERSIZE,
                                (MPARAM)&ptlBorderSizes,
@@ -4816,7 +4914,7 @@ MRESULT EXPENTRY fnwpSubclExtFrame(HWND hwndFrame, ULONG msg, MPARAM mp1, MPARAM
                     swpArr[ulCount].x  = ptlBorderSizes.x;
                     swpArr[ulCount].y  = ptlBorderSizes.y;
                     swpArr[ulCount].cx = swpArr[ul].cx;  // same as cnr's width
-                    swpArr[ulCount].cy = ulStatusBarHeight;
+                    swpArr[ulCount].cy = STATUS_BAR_HEIGHT;
                     swpArr[ulCount].hwndInsertBehind = HWND_BOTTOM; // HWND_TOP;
                     swpArr[ulCount].hwnd = WinWindowFromID(hwndFrame, FID_STATUSBAR);
 
@@ -4834,12 +4932,12 @@ MRESULT EXPENTRY fnwpSubclExtFrame(HWND hwndFrame, ULONG msg, MPARAM mp1, MPARAM
         break;
 
         case WM_CALCFRAMERECT:
-        {
             mrc = pData->pfnwpOrig(hwndFrame, msg, mp1, mp2);
 
             // we have a status bar: calculate its rectangle
-            // CalcFrameRect(mp1, mp2);
-        }
+            winhCalcExtFrameRect(mp1,
+                                 mp2,
+                                 STATUS_BAR_HEIGHT);
         break;
 
         case WM_DESTROY:
@@ -4875,11 +4973,26 @@ HWND winhCreateStatusBar(HWND hwndFrame,
     // create status bar
     HWND        hwndReturn = NULLHANDLE;
     PPRESPARAMS ppp = NULL;
-    winhStorePresParam(&ppp, PP_FONTNAMESIZE, strlen(pcszFont)+1, (PVOID)pcszFont);
-    lColor = WinQuerySysColor(HWND_DESKTOP, SYSCLR_DIALOGBACKGROUND, 0);
-    winhStorePresParam(&ppp, PP_BACKGROUNDCOLOR, sizeof(lColor), &lColor);
+
+    winhStorePresParam(&ppp,
+                       PP_FONTNAMESIZE,
+                       strlen(pcszFont) + 1,
+                       (PVOID)pcszFont);
+
+    lColor = WinQuerySysColor(HWND_DESKTOP,
+                              SYSCLR_DIALOGBACKGROUND,
+                              0);
+    winhStorePresParam(&ppp,
+                       PP_BACKGROUNDCOLOR,
+                       sizeof(lColor),
+                       &lColor);
+
     lColor = CLR_BLACK;
-    winhStorePresParam(&ppp, PP_FOREGROUNDCOLOR, sizeof(lColor), &lColor);
+    winhStorePresParam(&ppp,
+                       PP_FOREGROUNDCOLOR,
+                       sizeof(lColor),
+                       &lColor);
+
     hwndReturn = WinCreateWindow(hwndFrame,
                                  WC_STATIC,
                                  (PSZ)pcszText,
@@ -4891,7 +5004,8 @@ HWND winhCreateStatusBar(HWND hwndFrame,
                                  NULL,
                                  ppp);
     free(ppp);
-    return (hwndReturn);
+
+    return hwndReturn;
 }
 
 /*
@@ -4957,7 +5071,7 @@ HWND winhCreateExtStdWindow(PEXTFRAMECDATA pData,        // in: extended frame d
         }
     }
 
-    return (hwndFrame);
+    return hwndFrame;
 }
 
 /*
@@ -5050,7 +5164,7 @@ PBYTE winhQueryWPSClass(PBYTE pObjClass,  // in: buffer returned by
         pocThis = pocThis->pNext;
     } // end while (pocThis)
 
-    return (pbReturn);
+    return pbReturn;
 }
 
 /*
@@ -5214,5 +5328,5 @@ ULONG winhResetWPS(HAB hab)
     else
         ulrc = 4;
 
-    return (ulrc);
+    return ulrc;
 }

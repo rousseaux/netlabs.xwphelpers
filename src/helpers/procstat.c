@@ -557,6 +557,7 @@ VOID prc32FreeInfo(PQTOPLEVEL32 pInfo)
  *@@ prc32FindProcessFromName:
  *
  *@@added V0.9.2 (2000-03-05) [umoeller]
+ *@@changed V0.9.21 (2002-08-16) [pr]: optimized
  */
 
 PQPROCESS32 prc32FindProcessFromName(PQTOPLEVEL32 pInfo,
@@ -565,7 +566,6 @@ PQPROCESS32 prc32FindProcessFromName(PQTOPLEVEL32 pInfo,
     PQPROCESS32 pProcThis = pInfo->pProcessData;
     while (pProcThis && pProcThis->ulRecType == 1)
     {
-        int i;
         PQTHREAD32  t = pProcThis->pThreads;
         PQMODULE32  pModule;
 
@@ -588,11 +588,7 @@ PQPROCESS32 prc32FindProcessFromName(PQTOPLEVEL32 pInfo,
         // for next process, skip the threads info;
         // the next process block comes after the
         // threads
-        for (i=0;
-             i < pProcThis->usThreadCount;
-             i++,t++)
-            ;
-
+        t += pProcThis->usThreadCount;
         pProcThis = (PQPROCESS32)t;
     }
 
@@ -606,6 +602,7 @@ PQPROCESS32 prc32FindProcessFromName(PQTOPLEVEL32 pInfo,
  *@@ prc32FindProcessFromPID:
  *
  *@@added V0.9.21 (2002-08-12) [umoeller]
+ *@@changed V0.9.21 (2002-08-16) [pr]: optimized
  */
 
 PQPROCESS32 prc32FindProcessFromPID(PQTOPLEVEL32 pInfo,
@@ -614,7 +611,6 @@ PQPROCESS32 prc32FindProcessFromPID(PQTOPLEVEL32 pInfo,
     PQPROCESS32 pProcThis = pInfo->pProcessData;
     while (pProcThis && pProcThis->ulRecType == 1)
     {
-        int i;
         PQTHREAD32  t = pProcThis->pThreads;
 
         if (pProcThis->usPID == pid)
@@ -623,11 +619,7 @@ PQPROCESS32 prc32FindProcessFromPID(PQTOPLEVEL32 pInfo,
         // for next process, skip the threads info;
         // the next process block comes after the
         // threads
-        for (i=0;
-             i < pProcThis->usThreadCount;
-             i++, t++)
-            ;
-
+        t += pProcThis->usThreadCount;
         pProcThis = (PQPROCESS32)t;
     }
 

@@ -319,6 +319,8 @@ extern "C" {
                                           ULONG fl);
     typedef WINHMERGEMENUS *PWINHMERGEMENUS;
 
+    ULONG XWPENTRY winhClearMenu(HWND hwndMenu);
+
     PSZ XWPENTRY winhQueryMenuItemText(HWND hwndMenu,
                                        USHORT usItemID);
 
@@ -924,6 +926,10 @@ extern "C" {
 
     #define FID_STATUSBAR           0x8100
 
+    VOID winhCalcExtFrameRect(MPARAM mp1,
+                              MPARAM mp2,
+                              LONG lStatusBarHeight);
+
     /*
      *@@ EXTFRAMECDATA:
      *
@@ -932,16 +938,16 @@ extern "C" {
 
     typedef struct _EXTFRAMECDATA
     {
-        PSWP        pswpFrame;            // in: frame wnd pos
-        ULONG       flFrameCreateFlags;  // in: FCF_* flags
-        ULONG       flExtFlags;          // in: XFCF_* flags
-        ULONG       ulFrameStyle;        // in: WS_* flags (e.g. WS_VISIBLE, WS_ANIMATE)
-        const char  *pcszFrameTitle; // in: frame title (title bar)
-        ULONG       ulResourcesID;       // in: according to FCF_* flags
-        const char  *pcszClassClient; // in: client class name
-        ULONG       flStyleClient;       // in: client style
-        ULONG       ulID;                // in: frame window ID
-        PVOID       pClientCtlData;      // in: pCtlData structure pointer for client
+        PSWP        pswpFrame;          // in: frame wnd pos
+        ULONG       flFrameCreateFlags; // in: FCF_* flags
+        ULONG       flExtFlags;         // in: XFCF_* flags
+        ULONG       ulFrameStyle;       // in: WS_* flags (e.g. WS_VISIBLE, WS_ANIMATE)
+        const char  *pcszFrameTitle;    // in: frame title (title bar)
+        ULONG       ulResourcesID;      // in: according to FCF_* flags
+        const char  *pcszClassClient;   // in: client class name
+        ULONG       flStyleClient;      // in: client style
+        ULONG       ulID;               // in: frame window ID
+        PVOID       pClientCtlData;     // in: pCtlData structure pointer for client
     } EXTFRAMECDATA, *PEXTFRAMECDATA;
 
     /*
