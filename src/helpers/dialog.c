@@ -72,6 +72,10 @@
 #include "helpers\winh.h"
 #include "helpers\xstring.h"
 
+#pragma hdrstop
+
+// #define DEBUG_DIALOG_WINDOWS 1
+
 /*
  *@@category: Helpers\PM helpers\Dialog templates
  */
@@ -108,11 +112,14 @@ typedef struct _DLGPRIVATE
                                  // in the order in which windows were
                                  // created
 
-    const char  *pcszControlsFont;  // from dlghCreateDlg
+    PCSZ        pcszControlsFont;  // from dlghCreateDlg
 
-    // V0.9.14 (2001-08-01) [umoeller]
+    // size of the client to be created
+    SIZEL       szlClient;
+
+    // various cached data V0.9.14 (2001-08-01) [umoeller]
     HPS         hps;
-    const char  *pcszFontLast;
+    PCSZ        pcszFontLast;
     LONG        lcidLast;
     FONTMETRICS fmLast;
 
@@ -189,6 +196,8 @@ typedef struct _ROWDEF
 
 typedef struct _TABLEDEF
 {
+    PCOLUMNDEF  pOwningColumn;      // != NULL if this is a nested table
+
     LINKLIST    llRows;             // contains ROWDEF structs, no auto-free
 
     PCONTROLDEF pCtlDef;            // if != NULL, we create a PM control around the table
@@ -204,9 +213,11 @@ typedef struct _TABLEDEF
 
 typedef enum _PROCESSMODE
 {
-    PROCESS_CALC_SIZES,             // step 1
-    PROCESS_CALC_POSITIONS,         // step 3
-    PROCESS_CREATE_CONTROLS         // step 4
+    PROCESS_1_CALC_SIZES,             // step 1
+    PROCESS_2_CALC_SIZES_FROM_TABLES, // step 2
+    PROCESS_3_CALC_FINAL_TABLE_SIZES, // step 3
+    PROCESS_4_CALC_POSITIONS,         // step 4
+    PROCESS_5_CREATE_CONTROLS         // step 5
 } PROCESSMODE;
 
 /* ******************************************************************
@@ -216,7 +227,7 @@ typedef enum _PROCESSMODE
  ********************************************************************/
 
 #define PM_GROUP_SPACING_X          16
-#define PM_GROUP_SPACING_TOP        20
+#define PM_GROUP_SPACING_TOP        16
 
 APIRET ProcessTable(PTABLEDEF pTableDef,
                     const CONTROLPOS *pcpTable,
@@ -292,10 +303,12 @@ VOID SetDlgFont(PCONTROLDEF pControlDef,
  *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed broken fonts
  *@@changed V0.9.14 (2001-08-01) [umoeller]: now caching fonts, which is significantly faster
  *@@changed V0.9.16 (2001-10-15) [umoeller]: added APIRET
+ *@@changed V0.9.16 (2002-02-02) [umoeller]: added ulWidth
  */
 
 APIRET CalcAutoSizeText(PCONTROLDEF pControlDef,
                         BOOL fMultiLine,          // in: if TRUE, multiple lines
+                        ULONG ulWidth,            // in: proposed width of control
                         PSIZEL pszlAuto,          // out: computed size
                         PDLGPRIVATE pDlgData)
 {
@@ -316,10 +329,13 @@ APIRET CalcAutoSizeText(PCONTROLDEF pControlDef,
         if (fMultiLine)
         {
             RECTL rcl = {0, 0, 0, 0};
+            /*
             if (pControlDef->szlControlProposed.cx > 0)
                 rcl.xRight = pControlDef->szlControlProposed.cx;   // V0.9.12 (2001-05-31) [umoeller]
             else
                 rcl.xRight = winhQueryScreenCX() * 2 / 3;
+            */
+            rcl.xRight = ulWidth;
             if (pControlDef->szlControlProposed.cy > 0)
                 rcl.yTop = pControlDef->szlControlProposed.cy;   // V0.9.12 (2001-05-31) [umoeller]
             else
@@ -357,6 +373,7 @@ APIRET CalcAutoSizeText(PCONTROLDEF pControlDef,
  */
 
 APIRET CalcAutoSize(PCONTROLDEF pControlDef,
+                    ULONG ulWidth,            // in: proposed width of control
                     PSIZEL pszlAuto,          // out: computed size
                     PDLGPRIVATE pDlgData)
 {
@@ -371,6 +388,7 @@ APIRET CalcAutoSize(PCONTROLDEF pControlDef,
         case 0xffff0003L: // WC_BUTTON:
             if (!(arc = CalcAutoSizeText(pControlDef,
                                          FALSE,         // no multiline
+                                         ulWidth,
                                          pszlAuto,
                                          pDlgData)))
             {
@@ -403,6 +421,7 @@ APIRET CalcAutoSize(PCONTROLDEF pControlDef,
             if ((pControlDef->flStyle & 0x0F) == SS_TEXT)
                 arc = CalcAutoSizeText(pControlDef,
                                        ((pControlDef->flStyle & DT_WORDBREAK) != 0),
+                                       ulWidth,
                                        pszlAuto,
                                        pDlgData);
             else if ((pControlDef->flStyle & 0x0F) == SS_BITMAP)
@@ -436,7 +455,7 @@ APIRET CalcAutoSize(PCONTROLDEF pControlDef,
             pszlAuto->cx = 50;
             pszlAuto->cy =   pDlgData->fmLast.lMaxBaselineExt
                            + pDlgData->fmLast.lExternalLeading
-                           + 5;         // some space
+                           + 7;         // some space
     }
 
     return (arc);
@@ -444,8 +463,11 @@ APIRET CalcAutoSize(PCONTROLDEF pControlDef,
 
 /*
  *@@ ColumnCalcSizes:
- *      implementation for PROCESS_CALC_SIZES in
+ *      implementation for PROCESS_1_CALC_SIZES in
  *      ProcessColumn.
+ *
+ *      This gets called a second time for
+ *      PROCESS_3_CALC_FINAL_TABLE_SIZES (V0.9.16).
  *
  *@@added V0.9.15 (2001-08-26) [umoeller]
  *@@changed V0.9.16 (2001-10-15) [umoeller]: fixed ugly group table spacings
@@ -454,19 +476,20 @@ APIRET CalcAutoSize(PCONTROLDEF pControlDef,
  */
 
 APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
+                       PROCESSMODE ProcessMode,     // in: PROCESS_1_CALC_SIZES or PROCESS_3_CALC_FINAL_TABLE_SIZES
                        PDLGPRIVATE pDlgData)
 {
     APIRET arc = NO_ERROR;
 
-    ULONG       ulXSpacing = 0,
-                ulYSpacing = 0;
+    ULONG       ulExtraCX = 0,
+                ulExtraCY = 0;
     if (pColumnDef->fIsNestedTable)
     {
         // nested table: recurse!!
         PTABLEDEF pTableDef = (PTABLEDEF)pColumnDef->pvDefinition;
         if (!(arc = ProcessTable(pTableDef,
                                  NULL,
-                                 PROCESS_CALC_SIZES,
+                                 ProcessMode,
                                  pDlgData)))
         {
             // store the size of the sub-table
@@ -490,9 +513,8 @@ APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
                     pColumnDef->cpControl.cy = pTableDef->pCtlDef->szlControlProposed.cy;
 
                 // in any case, make this wider
-                ulXSpacing =    2 * PM_GROUP_SPACING_X;
-                ulYSpacing =    // 3 * PM_GROUP_SPACING_X;
-                            (PM_GROUP_SPACING_X + PM_GROUP_SPACING_TOP);
+                ulExtraCX =    2 * PM_GROUP_SPACING_X;
+                ulExtraCY =    (PM_GROUP_SPACING_X + PM_GROUP_SPACING_TOP);
             }
         }
     }
@@ -500,59 +522,79 @@ APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
     {
         // no nested table, but control:
         PCONTROLDEF pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
-        PSIZEL      pszl = &pControlDef->szlControlProposed;
         SIZEL       szlAuto;
 
-        if (    (pszl->cx < -1)
-             && (pszl->cx >= -100)
-           )
+        // do auto-size calculations only on the first loop
+        // V0.9.16 (2002-02-02) [umoeller]
+        if (ProcessMode == PROCESS_1_CALC_SIZES)
         {
-            // other negative CX value:
-            // this is then a percentage of the row width... ignore for now
-            // V0.9.16 (2002-02-02) [umoeller]
-            szlAuto.cx = 0;
-            szlAuto.cy = 0;
-        }
-        else if (    (pszl->cx == -1)
-                  || (pszl->cy == -1)
-                )
-        {
-            arc = CalcAutoSize(pControlDef,
-                               &szlAuto,
-                               pDlgData);
-        }
+            if (    (pControlDef->szlControlProposed.cx == -1)
+                 || (pControlDef->szlControlProposed.cy == -1)
+               )
+            {
+                ULONG ulWidth;
+                if (pControlDef->szlControlProposed.cx == -1)
+                    ulWidth = 1000;
+                else
+                    ulWidth = pControlDef->szlControlProposed.cx;
+                arc = CalcAutoSize(pControlDef,
+                                   ulWidth,
+                                   &szlAuto,
+                                   pDlgData);
+            }
 
-        if (!arc)
-        {
-            if (pszl->cx < 0)
-                pColumnDef->cpControl.cx = szlAuto.cx;
-            else
-                pColumnDef->cpControl.cx = pszl->cx;
+            if (    (pControlDef->szlControlProposed.cx < -1)
+                 && (pControlDef->szlControlProposed.cx >= -100)
+               )
+            {
+                // other negative CX value:
+                // this is then a percentage of the table width... ignore for now
+                // V0.9.16 (2002-02-02) [umoeller]
+                szlAuto.cx = 0;
+            }
 
-            if (pszl->cy < 0)
-                pColumnDef->cpControl.cy = szlAuto.cy;
-            else
-                pColumnDef->cpControl.cy = pszl->cy;
+            if (    (pControlDef->szlControlProposed.cy < -1)
+                 && (pControlDef->szlControlProposed.cy >= -100)
+               )
+            {
+                // other negative CY value:
+                // this is then a percentage of the row height... ignore for now
+                // V0.9.16 (2002-02-02) [umoeller]
+                szlAuto.cy = 0;
+            }
 
-            // @@todo hack sizes
+            if (!arc)
+            {
+                if (pControlDef->szlControlProposed.cx < 0)
+                    pColumnDef->cpControl.cx = szlAuto.cx;
+                else
+                    pColumnDef->cpControl.cx = pControlDef->szlControlProposed.cx;
 
-            ulXSpacing
-            = ulYSpacing
-            = (2 * pControlDef->ulSpacing);
-        }
+                if (pControlDef->szlControlProposed.cy < 0)
+                    pColumnDef->cpControl.cy = szlAuto.cy;
+                else
+                    pColumnDef->cpControl.cy = pControlDef->szlControlProposed.cy;
+            }
+
+        } // end if (ProcessMode == PROCESS_1_CALC_SIZES)
+
+
+        ulExtraCX
+        = ulExtraCY
+        = (2 * pControlDef->ulSpacing);
     }
 
     pColumnDef->cpColumn.cx =   pColumnDef->cpControl.cx
-                               + ulXSpacing;
+                               + ulExtraCX;
     pColumnDef->cpColumn.cy =   pColumnDef->cpControl.cy
-                               + ulYSpacing;
+                               + ulExtraCY;
 
     return (arc);
 }
 
 /*
  *@@ ColumnCalcPositions:
- *      implementation for PROCESS_CALC_POSITIONS in
+ *      implementation for PROCESS_4_CALC_POSITIONS in
  *      ProcessColumn.
  *
  *@@added V0.9.15 (2001-08-26) [umoeller]
@@ -561,13 +603,14 @@ APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
 
 APIRET ColumnCalcPositions(PCOLUMNDEF pColumnDef,
                            PROWDEF pOwningRow,          // in: current row from ProcessRow
-                           PLONG plX,                   // in/out: PROCESS_CALC_POSITIONS only
+                           PLONG plX,                   // in/out: PROCESS_4_CALC_POSITIONS only
                            PDLGPRIVATE pDlgData)
 {
     APIRET arc = NO_ERROR;
 
     // calculate column position: this includes spacing
-    ULONG ulSpacing = 0;
+    LONG   lSpacingX = 0,
+           lSpacingY = 0;
 
     // column position = *plX on ProcessRow stack
     pColumnDef->cpColumn.x = *plX;
@@ -598,24 +641,27 @@ APIRET ColumnCalcPositions(PCOLUMNDEF pColumnDef,
         PTABLEDEF pTableDef = (PTABLEDEF)pColumnDef->pvDefinition;
         // should we create a PM control around the table?
         if (pTableDef->pCtlDef)
+        {
             // yes:
-            ulSpacing = PM_GROUP_SPACING_X / 2;     // V0.9.16 (2001-10-15) [umoeller]
+            lSpacingX = PM_GROUP_SPACING_X;     // V0.9.16 (2001-10-15) [umoeller]
+            lSpacingY = PM_GROUP_SPACING_X;     // V0.9.16 (2001-10-15) [umoeller]
+        }
     }
     else
     {
         // no nested table, but control:
         PCONTROLDEF pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
-        ulSpacing = pControlDef->ulSpacing;
+        lSpacingX = lSpacingY = pControlDef->ulSpacing;
     }
 
     // increase plX by column width
     *plX += pColumnDef->cpColumn.cx;
 
     // calculate CONTROL pos from COLUMN pos by applying spacing
-    pColumnDef->cpControl.x =   pColumnDef->cpColumn.x
-                              + ulSpacing;
-    pColumnDef->cpControl.y =   pColumnDef->cpColumn.y
-                              + ulSpacing;
+    pColumnDef->cpControl.x =   (LONG)pColumnDef->cpColumn.x
+                              + lSpacingX;
+    pColumnDef->cpControl.y =   (LONG)pColumnDef->cpColumn.y
+                              + lSpacingY;
 
     if (pColumnDef->fIsNestedTable)
     {
@@ -625,7 +671,7 @@ APIRET ColumnCalcPositions(PCOLUMNDEF pColumnDef,
         // recurse!! to create windows for the sub-table
         arc = ProcessTable(pTableDef,
                            &pColumnDef->cpControl,   // start pos for new table
-                           PROCESS_CALC_POSITIONS,
+                           PROCESS_4_CALC_POSITIONS,
                            pDlgData);
     }
 
@@ -634,7 +680,7 @@ APIRET ColumnCalcPositions(PCOLUMNDEF pColumnDef,
 
 /*
  *@@ ColumnCreateControls:
- *      implementation for PROCESS_CREATE_CONTROLS in
+ *      implementation for PROCESS_5_CREATE_CONTROLS in
  *      ProcessColumn.
  *
  *@@added V0.9.15 (2001-08-26) [umoeller]
@@ -647,9 +693,10 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
 {
     APIRET      arc = NO_ERROR;
 
-    PCONTROLPOS pcp = NULL;
     PCONTROLDEF pControlDef = NULL;
-    const char  *pcszTitle = NULL;
+
+    PCSZ        pcszClass = NULL;
+    PCSZ        pcszTitle = NULL;
     ULONG       flStyle = 0;
     LHANDLE     lHandleSet = NULLHANDLE;
     ULONG       flOld = 0;
@@ -664,7 +711,7 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
         // recurse!!
         if (!(arc = ProcessTable(pTableDef,
                                  NULL,
-                                 PROCESS_CREATE_CONTROLS,
+                                 PROCESS_5_CREATE_CONTROLS,
                                  pDlgData)))
         {
             // should we create a PM control around the table?
@@ -673,33 +720,68 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
             if (pTableDef->pCtlDef)
             {
                 // yes:
-                pcp  = &pColumnDef->cpColumn;  // !! not control
+                // pcp  = &pColumnDef->cpColumn;  // !! not control
                 pControlDef = pTableDef->pCtlDef;
+                pcszClass = pControlDef->pcszClass;
                 pcszTitle = pControlDef->pcszText;
                 flStyle = pControlDef->flStyle;
 
-                x = pcp->x + pDlgData->ptlTotalOfs.x;
-                cx = pcp->cx - PM_GROUP_SPACING_X;
+                x  =   pColumnDef->cpColumn.x
+                     + pDlgData->ptlTotalOfs.x
+                     + PM_GROUP_SPACING_X / 2;
+                cx =   pColumnDef->cpColumn.cx
+                     - PM_GROUP_SPACING_X;
                     // note, just one spacing: for the _column_ size,
                     // we have specified 2 X spacings
-                y = pcp->y + pDlgData->ptlTotalOfs.y;
+                y  =   pColumnDef->cpColumn.y
+                     + pDlgData->ptlTotalOfs.y
+                     + PM_GROUP_SPACING_X / 2;
                 // cy = pcp->cy - PM_GROUP_SPACING_X;
-                cy = pcp->cy - /* PM_GROUP_SPACING_X - */ PM_GROUP_SPACING_TOP / 2;
+                // cy = pcp->cy - /* PM_GROUP_SPACING_X - */ PM_GROUP_SPACING_TOP;
+                cy =   pColumnDef->cpColumn.cy
+                     - PM_GROUP_SPACING_X / 2; //  - PM_GROUP_SPACING_TOP / 2;
             }
+
+#ifdef DEBUG_DIALOG_WINDOWS
+            {
+                HWND hwndDebug;
+                // debug: create a frame with the exact size
+                // of the _column_ (not the control), so this
+                // includes spacing
+                hwndDebug =
+                   WinCreateWindow(pDlgData->hwndDlg,   // parent
+                                WC_STATIC,
+                                "",
+                                WS_VISIBLE | SS_FGNDFRAME,
+                                pTableDef->cpTable.x + pDlgData->ptlTotalOfs.x,
+                                pTableDef->cpTable.y + pDlgData->ptlTotalOfs.y,
+                                pTableDef->cpTable.cx,
+                                pTableDef->cpTable.cy,
+                                pDlgData->hwndDlg,   // owner
+                                HWND_BOTTOM,
+                                -1,
+                                NULL,
+                                NULL);
+                winhSetPresColor(hwndDebug, PP_FOREGROUNDCOLOR, RGBCOL_BLUE);
+            }
+#endif
         }
     }
     else
     {
         // no nested table, but control:
         pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
-        pcp = &pColumnDef->cpControl;
+        // pcp = &pColumnDef->cpControl;
+        pcszClass = pControlDef->pcszClass;
         pcszTitle = pControlDef->pcszText;
         flStyle = pControlDef->flStyle;
 
-        x = pcp->x + pDlgData->ptlTotalOfs.x;
-        cx = pcp->cx;
-        y = pcp->y + pDlgData->ptlTotalOfs.y;
-        cy = pcp->cy;
+        x  =   pColumnDef->cpControl.x
+             + pDlgData->ptlTotalOfs.x;
+        cx =   pColumnDef->cpControl.cx;
+        y  =   pColumnDef->cpControl.y
+             + pDlgData->ptlTotalOfs.y;
+        cy =   pColumnDef->cpControl.cy;
 
         // now implement hacks for certain controls
         switch ((ULONG)pControlDef->pcszClass)
@@ -733,6 +815,7 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
             break;
 
             case 0xffff0006L:   // entry field
+            case 0xffff000AL:   // MLE:
                 // the stupid entry field resizes itself if it has
                 // the ES_MARGIN style, so correlate that too... dammit
                 // V0.9.16 (2001-12-08) [umoeller]
@@ -742,31 +825,26 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
                     LONG cyMargin = 3 * WinQuerySysValue(HWND_DESKTOP, SV_CYBORDER);
 
                     x += cxMargin;
-                    y += cxMargin;
+                    y += cyMargin;
+                    cx -= 2 * cxMargin;
+                    cy -= 2 * cyMargin;
+                    // cy -= cxMargin;
                 }
             break;
         } // end switch ((ULONG)pControlDef->pcszClass)
     }
 
-    if (pcp && pControlDef)
+    if (pControlDef)
     {
         // create something:
-        // PPRESPARAMS ppp = NULL;
-
-        const char  *pcszFont = pControlDef->pcszFont;
+        PCSZ pcszFont = pControlDef->pcszFont;
                         // can be NULL, or CTL_COMMON_FONT
         if (pcszFont == CTL_COMMON_FONT)
             pcszFont = pDlgData->pcszControlsFont;
 
-        /* if (pcszFont)
-            winhStorePresParam(&ppp,
-                               PP_FONTNAMESIZE,
-                               strlen(pcszFont),
-                               (PVOID)pcszFont); */
-
         if (pColumnDef->hwndControl
             = WinCreateWindow(pDlgData->hwndDlg,   // parent
-                              (PSZ)pControlDef->pcszClass,
+                              (PSZ)pcszClass,   // hacked
                               (pcszTitle)   // hacked
                                     ? (PSZ)pcszTitle
                                     : "",
@@ -781,6 +859,30 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
                               pControlDef->pvCtlData,
                               NULL))
         {
+#ifdef DEBUG_DIALOG_WINDOWS
+            {
+                HWND hwndDebug;
+                // debug: create a frame with the exact size
+                // of the _column_ (not the control), so this
+                // includes spacing
+                hwndDebug =
+                   WinCreateWindow(pDlgData->hwndDlg,   // parent
+                                WC_STATIC,
+                                "",
+                                WS_VISIBLE | SS_FGNDFRAME,
+                                pColumnDef->cpColumn.x + pDlgData->ptlTotalOfs.x,
+                                pColumnDef->cpColumn.y + pDlgData->ptlTotalOfs.y,
+                                pColumnDef->cpColumn.cx,
+                                pColumnDef->cpColumn.cy,
+                                pDlgData->hwndDlg,   // owner
+                                HWND_BOTTOM,
+                                -1,
+                                NULL,
+                                NULL);
+                winhSetPresColor(hwndDebug, PP_FOREGROUNDCOLOR, RGBCOL_RED);
+            }
+#endif
+
             if (lHandleSet)
             {
                 // subclass the damn static
@@ -849,12 +951,12 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
  *
  *      This does the following:
  *
- *      -- PROCESS_CALC_SIZES: size is taken from control def,
+ *      -- PROCESS_1_CALC_SIZES: size is taken from control def,
  *         or for tables, this produces a recursive ProcessTable
  *         call.
  *         Preconditions: none.
  *
- *      -- PROCESS_CALC_POSITIONS: position of each column
+ *      -- PROCESS_4_CALC_POSITIONS: position of each column
  *         is taken from *plX, which is increased by the
  *         column width by this call.
  *
@@ -864,7 +966,7 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
  *         in the row and will be incremented by the columns
  *         size here.
  *
- *      -- PROCESS_CREATE_CONTROLS: well, creates the controls.
+ *      -- PROCESS_5_CREATE_CONTROLS: well, creates the controls.
  *
  *         For tables, this recurses again. If the table has
  *         a string assigned, this also produces a group box
@@ -877,7 +979,7 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
 APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
                      PROWDEF pOwningRow,          // in: current row from ProcessRow
                      PROCESSMODE ProcessMode,     // in: processing mode (see ProcessAll)
-                     PLONG plX,                   // in/out: PROCESS_CALC_POSITIONS only
+                     PLONG plX,                   // in/out: PROCESS_4_CALC_POSITIONS only
                      PDLGPRIVATE pDlgData)
 {
     APIRET arc = NO_ERROR;
@@ -887,21 +989,114 @@ APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
     switch (ProcessMode)
     {
         /*
-         * PROCESS_CALC_SIZES:
+         * PROCESS_1_CALC_SIZES:
          *      step 1.
          */
 
-        case PROCESS_CALC_SIZES:
+        case PROCESS_1_CALC_SIZES:
             arc = ColumnCalcSizes(pColumnDef,
+                                  ProcessMode,
                                   pDlgData);
         break;
 
         /*
-         * PROCESS_CALC_POSITIONS:
-         *      step 2.
+         * PROCESS_2_CALC_SIZES_FROM_TABLES:
+         *
          */
 
-        case PROCESS_CALC_POSITIONS:
+        case PROCESS_2_CALC_SIZES_FROM_TABLES:
+            if (pColumnDef->fIsNestedTable)
+            {
+                PTABLEDEF pTableDef = (PTABLEDEF)pColumnDef->pvDefinition;
+                if (!(arc = ProcessTable(pTableDef,
+                                         NULL,
+                                         PROCESS_2_CALC_SIZES_FROM_TABLES,
+                                         pDlgData)))
+                    ;
+            }
+            else
+            {
+                // no nested table, but control:
+                PCONTROLDEF pControlDef = (PCONTROLDEF)pColumnDef->pvDefinition;
+
+                if (    (pControlDef->szlControlProposed.cx < -1)
+                     && (pControlDef->szlControlProposed.cx >= -100)
+                   )
+                {
+                    // other negative CX value:
+                    // this we ignored during PROCESS_1_CALC_SIZES
+                    // (see ColumnCalcSizes); now set it to the
+                    // table width!
+                    ULONG cxThis = pOwningRow->pOwningTable->cpTable.cx
+                                    * -pControlDef->szlControlProposed.cx / 100;
+
+                    // but the table already has spacing applied,
+                    // so reduce that
+                    pColumnDef->cpControl.cx = cxThis
+                                            - (2 * pControlDef->ulSpacing);
+
+                    pColumnDef->cpColumn.cx = cxThis;
+
+                    // now we might have to re-compute auto-size
+                    if (pControlDef->szlControlProposed.cy == -1)
+                    {
+                        SIZEL   szlAuto;
+                        if (!(arc = CalcAutoSize(pControlDef,
+                                                 // now that we now the width,
+                                                 // use that!
+                                                 pColumnDef->cpControl.cx,
+                                                 &szlAuto,
+                                                 pDlgData)))
+                        {
+                            LONG cyColumnOld = pColumnDef->cpColumn.cy;
+                            LONG lDelta;
+                            PROWDEF pRowThis;
+
+                            pColumnDef->cpControl.cy = szlAuto.cy;
+                            pColumnDef->cpColumn.cy = szlAuto.cy
+                                        + (2 * pControlDef->ulSpacing);
+                        }
+                    }
+                }
+
+                if (    (pControlDef->szlControlProposed.cy < -1)
+                     && (pControlDef->szlControlProposed.cy >= -100)
+                   )
+                {
+                    // same thing for CY, but this time we
+                    // take the row height
+                    ULONG cyThis = pOwningRow->cpRow.cy
+                                    * -pControlDef->szlControlProposed.cy / 100;
+
+                    // but the table already has spacing applied,
+                    // so reduce that
+                    pColumnDef->cpControl.cy = cyThis
+                                            - (2 * pControlDef->ulSpacing);
+
+                    pColumnDef->cpColumn.cy = cyThis;
+                }
+            }
+        break;
+
+        /*
+         * PROCESS_3_CALC_FINAL_TABLE_SIZES:
+         *
+         */
+
+        case PROCESS_3_CALC_FINAL_TABLE_SIZES:
+            // re-run calc sizes since we now know all
+            // the auto-size items
+            arc = ColumnCalcSizes(pColumnDef,
+                                  ProcessMode,
+                                  pDlgData);
+        break;
+
+        /*
+         * PROCESS_4_CALC_POSITIONS:
+         *      step 4.
+         */
+
+        case PROCESS_4_CALC_POSITIONS:
             arc = ColumnCalcPositions(pColumnDef,
                                       pOwningRow,
                                       plX,
@@ -909,11 +1104,11 @@ APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
         break;
 
         /*
-         * PROCESS_CREATE_CONTROLS:
-         *      step 3.
+         * PROCESS_5_CREATE_CONTROLS:
+         *      step 5.
          */
 
-        case PROCESS_CREATE_CONTROLS:
+        case PROCESS_5_CREATE_CONTROLS:
             arc = ColumnCreateControls(pColumnDef,
                                        pDlgData);
         break;
@@ -943,12 +1138,14 @@ APIRET ProcessRow(PROWDEF pRowDef,
 
     pRowDef->pOwningTable = pOwningTable;
 
-    if (ProcessMode == PROCESS_CALC_SIZES)
+    if (    (ProcessMode == PROCESS_1_CALC_SIZES)
+         || (ProcessMode == PROCESS_3_CALC_FINAL_TABLE_SIZES)
+       )
     {
         pRowDef->cpRow.cx = 0;
         pRowDef->cpRow.cy = 0;
     }
-    else if (ProcessMode == PROCESS_CALC_POSITIONS)
+    else if (ProcessMode == PROCESS_4_CALC_POSITIONS)
     {
         // set up x and y so that the columns can
         // base on that
@@ -968,7 +1165,9 @@ APIRET ProcessRow(PROWDEF pRowDef,
 
         if (!(arc = ProcessColumn(pColumnDefThis, pRowDef, ProcessMode, &lX, pDlgData)))
         {
-            if (ProcessMode == PROCESS_CALC_SIZES)
+            if (    (ProcessMode == PROCESS_1_CALC_SIZES)
+                 || (ProcessMode == PROCESS_3_CALC_FINAL_TABLE_SIZES)
+               )
             {
                 // row width = sum of all columns
                 pRowDef->cpRow.cx += pColumnDefThis->cpColumn.cx;
@@ -996,7 +1195,7 @@ APIRET ProcessRow(PROWDEF pRowDef,
  *      called recursively from ProcessColumn (!) if a
  *      nested table is found in a COLUMNDEF.
  *
- *      With PROCESS_CALC_POSITIONS, pptl must specify
+ *      With PROCESS_4_CALC_POSITIONS, pptl must specify
  *      the lower left corner of the table. For the
  *      root call, this will be {0, 0}; for nested calls,
  *      this must be the lower left corner of the column
@@ -1005,7 +1204,7 @@ APIRET ProcessRow(PROWDEF pRowDef,
  */
 
 APIRET ProcessTable(PTABLEDEF pTableDef,
-                    const CONTROLPOS *pcpTable,       // in: table position with PROCESS_CALC_POSITIONS
+                    const CONTROLPOS *pcpTable,       // in: table position with PROCESS_4_CALC_POSITIONS
                     PROCESSMODE ProcessMode,          // in: processing mode (see ProcessAll)
                     PDLGPRIVATE pDlgData)
 {
@@ -1013,18 +1212,21 @@ APIRET ProcessTable(PTABLEDEF pTableDef,
     LONG    lY;
     PLISTNODE pNode;
 
-    if (ProcessMode == PROCESS_CALC_SIZES)
+    switch (ProcessMode)
     {
-        pTableDef->cpTable.cx = 0;
-        pTableDef->cpTable.cy = 0;
-    }
-    else if (ProcessMode == PROCESS_CALC_POSITIONS)
-    {
-        pTableDef->cpTable.x = pcpTable->x;
-        pTableDef->cpTable.y = pcpTable->y;
+        case PROCESS_1_CALC_SIZES:
+        case PROCESS_3_CALC_FINAL_TABLE_SIZES:
+            pTableDef->cpTable.cx = 0;
+            pTableDef->cpTable.cy = 0;
+        break;
 
-        // start the rows on top
-        lY = pcpTable->y + pTableDef->cpTable.cy;
+        case PROCESS_4_CALC_POSITIONS:
+            pTableDef->cpTable.x = pcpTable->x;
+            pTableDef->cpTable.y = pcpTable->y;
+
+            // start the rows on top
+            lY = pcpTable->y + pTableDef->cpTable.cy;
+        break;
     }
 
     FOR_ALL_NODES(&pTableDef->llRows, pNode)
@@ -1033,7 +1235,9 @@ APIRET ProcessTable(PTABLEDEF pTableDef,
 
         if (!(arc = ProcessRow(pRowDefThis, pTableDef, ProcessMode, &lY, pDlgData)))
         {
-            if (ProcessMode == PROCESS_CALC_SIZES)
+            if (    (ProcessMode == PROCESS_1_CALC_SIZES)
+                 || (ProcessMode == PROCESS_3_CALC_FINAL_TABLE_SIZES)
+               )
             {
                 // table width = maximum width of a row
                 if (pTableDef->cpTable.cx < pRowDefThis->cpRow.cx)
@@ -1063,17 +1267,27 @@ APIRET ProcessTable(PTABLEDEF pTableDef,
  *      times, with ProcessMode being set to one of the
  *      following for each call (in this order):
  *
- *      -- PROCESS_CALC_SIZES: calculates the sizes
- *         of all tables, rows, columns, and controls.
+ *      --  PROCESS_1_CALC_SIZES: calculates the preliminary
+ *          sizes of all tables, rows, columns, and controls
+ *          except those controls that have specified that
+ *          their size should depend on others.
  *
- *         After this first call, we know all the sizes
- *         only and can then calculate the positions.
+ *      --  PROCESS_2_CALC_SIZES_FROM_TABLES: calculates the
+ *          sizes of those controls that want to depend on
+ *          others.
  *
- *      -- PROCESS_CALC_POSITIONS: calculates the positions
- *         based on the sizes calculated before.
+ *      --  PROCESS_3_CALC_FINAL_TABLE_SIZES: since the table
+ *          and row sizes might have changed during
+ *          PROCESS_2_CALC_SIZES_FROM_TABLES, we need to re-run
+ *          to re-calculate the size of all rows and tables.
+ *          After this first call, we know _all_ the sizes
+ *          and can then calculate the positions.
  *
- *      -- PROCESS_CREATE_CONTROLS: creates the controls with the
- *         positions and sizes calculated before.
+ *      --  PROCESS_4_CALC_POSITIONS: calculates the positions
+ *          based on the sizes calculated before.
+ *
+ *      --  PROCESS_5_CREATE_CONTROLS: creates the controls with the
+ *          positions and sizes calculated before.
  *
  *      The second trick is the precondition that tables may
  *      nest by allowing another table definition in a column.
@@ -1083,7 +1297,6 @@ APIRET ProcessTable(PTABLEDEF pTableDef,
  */
 
 APIRET ProcessAll(PDLGPRIVATE pDlgData,
-                  PSIZEL pszlClient,
                   PROCESSMODE ProcessMode)
 {
     APIRET arc = NO_ERROR;
@@ -1093,14 +1306,15 @@ APIRET ProcessAll(PDLGPRIVATE pDlgData,
 
     switch (ProcessMode)
     {
-        case PROCESS_CALC_SIZES:
-            pszlClient->cx = 0;
-            pszlClient->cy = 0;
+        case PROCESS_1_CALC_SIZES:
+        case PROCESS_3_CALC_FINAL_TABLE_SIZES:
+            pDlgData->szlClient.cx = 0;
+            pDlgData->szlClient.cy = 0;
         break;
 
-        case PROCESS_CALC_POSITIONS:
+        case PROCESS_4_CALC_POSITIONS:
             // start with the table on top
-            cpTable.y = pszlClient->cy;
+            cpTable.y = pDlgData->szlClient.cy;
         break;
     }
 
@@ -1108,7 +1322,7 @@ APIRET ProcessAll(PDLGPRIVATE pDlgData,
     {
         PTABLEDEF pTableDefThis = (PTABLEDEF)pNode->pItemData;
 
-        if (ProcessMode == PROCESS_CALC_POSITIONS)
+        if (ProcessMode == PROCESS_4_CALC_POSITIONS)
         {
             cpTable.x = 0;
             cpTable.y -= pTableDefThis->cpTable.cy;
@@ -1119,11 +1333,13 @@ APIRET ProcessAll(PDLGPRIVATE pDlgData,
                                  ProcessMode,
                                  pDlgData)))
         {
-            if (ProcessMode == PROCESS_CALC_SIZES)
+            if (    (ProcessMode == PROCESS_2_CALC_SIZES_FROM_TABLES)
+                 || (ProcessMode == PROCESS_3_CALC_FINAL_TABLE_SIZES)
+               )
             {
                 // all sizes have now been computed:
-                pszlClient->cx += pTableDefThis->cpTable.cx;
-                pszlClient->cy += pTableDefThis->cpTable.cy;
+                pDlgData->szlClient.cx += pTableDefThis->cpTable.cx;
+                pDlgData->szlClient.cy += pTableDefThis->cpTable.cy;
             }
         }
     }
@@ -1334,8 +1550,11 @@ APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
                                                  TRUE,        // nested table
                                                  pCurrentTable,
                                                  &pColumnDef)))
+                        {
+                            pCurrentTable->pOwningColumn = pColumnDef;
                             lstAppendItem(&pCurrentRow->llColumns,
                                           pColumnDef);
+                        }
                     }
                 }
 
@@ -1426,16 +1645,23 @@ APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
 /*
  *@@ Dlg2_CalcSizes:
  *
+ *      After this, DLGPRIVATE.szlClient is valid.
+ *
  *@@added V0.9.15 (2001-08-26) [umoeller]
  */
 
-APIRET Dlg2_CalcSizes(PDLGPRIVATE pDlgData,
-                      PSIZEL pszlClient)          // out: dialog's client size
+APIRET Dlg2_CalcSizes(PDLGPRIVATE pDlgData)
 {
-    APIRET arc = ProcessAll(pDlgData,
-                            pszlClient,
-                            PROCESS_CALC_SIZES);
+    APIRET arc;
+
+    if (!(arc = ProcessAll(pDlgData,
+                           PROCESS_1_CALC_SIZES)))
                      // this goes into major recursions...
+        // run again to compute sizes that depend on tables
+        if (!(arc = ProcessAll(pDlgData,
+                               PROCESS_2_CALC_SIZES_FROM_TABLES)))
+            arc = ProcessAll(pDlgData,
+                             PROCESS_3_CALC_FINAL_TABLE_SIZES);
 
     // free the cached font resources that
     // might have been created here
@@ -1460,7 +1686,6 @@ APIRET Dlg2_CalcSizes(PDLGPRIVATE pDlgData,
  */
 
 APIRET Dlg3_PositionAndCreate(PDLGPRIVATE pDlgData,
-                              PSIZEL pszlClient,          // in: dialog's client size
                               HWND *phwndFocusItem)       // out: item to give focus to
 {
     APIRET arc = NO_ERROR;
@@ -1471,8 +1696,7 @@ APIRET Dlg3_PositionAndCreate(PDLGPRIVATE pDlgData,
      */
 
     ProcessAll(pDlgData,
-               pszlClient,
-               PROCESS_CALC_POSITIONS);
+               PROCESS_4_CALC_POSITIONS);
 
     /*
      *  6) create control windows, finally
@@ -1484,8 +1708,7 @@ APIRET Dlg3_PositionAndCreate(PDLGPRIVATE pDlgData,
     = SPACING;
 
     ProcessAll(pDlgData,
-               pszlClient,
-               PROCESS_CREATE_CONTROLS);
+               PROCESS_5_CREATE_CONTROLS);
 
     if (pDlgData->hwndDefPushbutton)
     {
@@ -1563,7 +1786,8 @@ VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *      the control _sizes_, and all positions are computed
  *      automatically here. Even better, for many controls,
  *      auto-sizing is supported according to the control's
- *      text (e.g. for statics and checkboxes).
+ *      text (e.g. for statics and checkboxes). In a way,
+ *      this is a bit similar to HTML tables.
  *
  *      A regular standard dialog would use something like
  *
@@ -1599,7 +1823,7 @@ VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *      and each control which is specified must be a column
  *      in some table. Tables may also nest (see below).
  *
- *      The macros are:
+ *      The DLGHITEM macros are:
  *
  *      --  START_TABLE starts a new table. The tables may nest,
  *          but must each be properly terminated with END_TABLE.
@@ -1652,35 +1876,35 @@ VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *      --  After START_TABLE or START_GROUP_TABLE, there must
  *          always be a START_ROW first.
  *
+ *      While it is possible to set up the CONTROLDEFs manually
+ *      as static structures, I recommend using the bunch of
+ *      other macros that were defined in dialog.h for this.
+ *      For example, you can use CONTROLDEF_PUSHBUTTON to create
+ *      a push button, and many more.
+ *
  *      To create a dialog, set up arrays like the following:
  *
  +          // control definitions referenced by DlgTemplate:
  +          CONTROLDEF
- +      (1)             GroupDef = {
- +                                  WC_STATIC, "", ....,
- +                                  { 0, 0 },       // size, ignored for groups
- +                                  5               // spacing
- +                               },
- +      (2)             CnrDef = {
- +                                  WC_CONTAINER, "", ....,
- +                                  { 50, 50 },     // size
- +                                  5               // spacing
- +                               },
- +      (3)             Static = {
- +                                  WC_STATIC, "Static below cnr", ...,
- +                                  { SZL_AUTOSIZE, SZL_AUTOSIZE },     // size
- +                                  5               // spacing
- +                               },
- +      (4)             OKButton = {
- +                                  WC_STATIC, "~OK", ...,
- +                                  { 100, 30 },    // size
- +                                  5               // spacing
- +                               },
- +      (5)             CancelButton = {
- +                                  WC_STATIC, "~Cancel", ...,
- +                                  { 100, 30 },    // size
- +                                  5               // spacing
- +                               };
+ +      (1)             GroupDef = CONTROLDEF_GROUP("Group",
+ +                                                  -1,     // ID
+ +                                                  SZL_AUTOSIZE,
+ +                                                  SZL_AUTOSIZE),
+ +      (2)             CnrDef = CONTROLDEF_CONTAINER(-1,   // ID,
+ +                                                  50,
+ +                                                  50),
+ +      (3)             Static = CONTROLDEF_TEXT("Static below cnr",
+ +                                                  -1,     // ID
+ +                                                  SZL_AUTOSIZE,
+ +                                                  SZL_AUTOSIZE),
+ +      (4)             OKButton = CONTROLDEF_DEFPUSHBUTTON("~OK",
+ +                                                  DID_OK,
+ +                                                  SZL_AUTOSIZE,
+ +                                                  SZL_AUTOSIZE),
+ +      (5)             CancelButton = CONTROLDEF_PUSHBUTTON("~Cancel",
+ +                                                  DID_CANCEL,
+ +                                                  SZL_AUTOSIZE,
+ +                                                  SZL_AUTOSIZE);
  +
  +          DLGHITEM DlgTemplate[] =
  +              {
@@ -1722,6 +1946,26 @@ VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  +          บ                                   บ
  +          ศอออออออออออออออออออออออออออออออออออผ
  *
+ *      <B>Example:</B>
+ *
+ *      The typical calling sequence would be:
+ *
+ +          HWND hwndDlg = NULLHANDLE;
+ +          if (NO_ERROR == dlghCreateDlg(&hwndDlg,
+ +                                        hwndOwner,
+ +                                        FCF_TITLEBAR | FCF_SYSMENU
+ +                                           | FCF_DLGBORDER | FCF_NOBYTEALIGN,
+ +                                        fnwpMyDlgProc,
+ +                                        "My Dlg Title",
+ +                                        DlgTemplate,      // DLGHITEM array
+ +                                        ARRAYITEMCOUNT(DlgTemplate),
+ +                                        NULL,             // mp2 for WM_INITDLG
+ +                                        "9.WarpSans"))    // default font
+ +          {
+ +              ULONG idReturn = WinProcessDlg(hwndDlg);
+ +              WinDestroyWindow(hwndDlg);
+ +          }
+ *
  *      <B>Errors:</B>
  *
  *      This does not return a HWND, but an APIRET. This will be
@@ -1754,24 +1998,15 @@ VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *          improper nesting of TYPE_START_NEW_TABLE and
  *          TYPE_END_TABLE fields.
  *
- *      <B>Example:</B>
+ *      --  DLGERR_CANNOT_CREATE_CONTROL: creation of some
+ *          sub-control failed. Maybe an invalid window class
+ *          was specified.
  *
- *      The typical calling sequence would be:
+ *      --  DLGERR_INVALID_CONTROL_TITLE: bad window title in
+ *          control.
  *
- +          HWND hwndDlg = NULLHANDLE;
- +          if (NO_ERROR == dlghCreateDlg(&hwndDlg,
- +                                        hwndOwner,
- +                                        FCF_DLGBORDER | FCF_NOBYTEALIGN,
- +                                        fnwpMyDlgProc,
- +                                        "My Dlg Title",
- +                                        DlgTemplate,      // DLGHITEM array
- +                                        ARRAYITEMCOUNT(DlgTemplate),
- +                                        NULL,             // mp2 for WM_INITDLG
- +                                        "9.WarpSans"))    // default font
- +          {
- +              ULONG idReturn = WinProcessDlg(hwndDlg);
- +              WinDestroyWindow(hwndDlg);
- +          }
+ *      --  DLGERR_INVALID_STATIC_BITMAP: static bitmap contains
+ *          an invalid bitmap handle.
  *
  *@@changed V0.9.14 (2001-07-07) [umoeller]: fixed disabled mouse with hwndOwner == HWND_DESKTOP
  *@@changed V0.9.14 (2001-08-01) [umoeller]: fixed major memory leaks with nested tables
@@ -1859,7 +2094,6 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
             {
                 HWND    hwndDlg = pDlgData->hwndDlg;
                 HWND    hwndFocusItem = NULLHANDLE;
-                SIZEL   szlClient = {0};
                 RECTL   rclClient;
 
                 /*
@@ -1867,8 +2101,7 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                  *
                  */
 
-                if (!(arc = Dlg2_CalcSizes(pDlgData,
-                                           &szlClient)))
+                if (!(arc = Dlg2_CalcSizes(pDlgData)))
                 {
                     WinSubclassWindow(hwndDlg, pfnwpDialogProc);
 
@@ -1880,8 +2113,8 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                     // calculate the frame size from the client size
                     rclClient.xLeft = 10;
                     rclClient.yBottom = 10;
-                    rclClient.xRight = szlClient.cx + 2 * SPACING;
-                    rclClient.yTop = szlClient.cy + 2 * SPACING;
+                    rclClient.xRight = pDlgData->szlClient.cx + 2 * SPACING;
+                    rclClient.yTop = pDlgData->szlClient.cy + 2 * SPACING;
                     WinCalcFrameRect(hwndDlg,
                                      &rclClient,
                                      FALSE);            // frame from client
@@ -1895,7 +2128,6 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                                     SWP_MOVE | SWP_SIZE | SWP_NOADJUST);
 
                     arc = Dlg3_PositionAndCreate(pDlgData,
-                                                 &szlClient,
                                                  &hwndFocusItem);
 
                     /*
@@ -2020,8 +2252,7 @@ APIRET dlghFormatDlg(HWND hwndDlg,              // in: dialog frame to work on
              *
              */
 
-            Dlg2_CalcSizes(pDlgData,
-                           &szlClient);
+            Dlg2_CalcSizes(pDlgData);
 
             // WinSubclassWindow(hwndDlg, pfnwpDialogProc);
 
@@ -2053,7 +2284,6 @@ APIRET dlghFormatDlg(HWND hwndDlg,              // in: dialog frame to work on
             if (flFlags & DFFL_CREATECONTROLS)
             {
                 if (!(arc = Dlg3_PositionAndCreate(pDlgData,
-                                                   &szlClient,
                                                    &hwndFocusItem)))
                     WinSetFocus(HWND_DESKTOP, hwndFocusItem);
             }
@@ -2358,9 +2588,9 @@ APIRET dlghCreateMessageBox(HWND *phwndDlg,
 
     ULONG flButtons = flFlags & 0xF;        // low nibble contains MB_YESNO etc.
 
-    const char  *p0 = "Error",
-                *p1 = NULL,
-                *p2 = NULL;
+    PCSZ        p0 = "Error",
+                p1 = NULL,
+                p2 = NULL;
 
     Icon.pcszText = (PCSZ)hptrIcon;
     InfoText.pcszText = pcszMessage;
@@ -2671,7 +2901,7 @@ PSZ dlghTextEntryBox(HWND hwndOwner,
                             999,
                             CTL_COMMON_FONT,
                             0,
-                            { 300, 20 },     // size
+                            { 300, SZL_AUTOSIZE },     // size
                             5               // spacing
                          },
                 OKButton = {

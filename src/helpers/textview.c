@@ -807,7 +807,6 @@ PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current position; 
         break;
 
         case 6:     // A or /A HREF= (link)
-        {
             // four characters with hex anchor index (>=1)
             // or "####"
             if (  *( (*ppCurrent)+2 )
@@ -824,7 +823,7 @@ PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current position; 
             }
 
             ulSkip = 6;
-        break; }
+        break;
 
         case 7:     // A NAME= (anchor name)
         {
@@ -833,8 +832,8 @@ PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current position; 
             // here and just skip the anchor name, this is
             // only used with TXM_JUMPTOANCHORNAME, which then
             // searches the buffer
-            PSZ pEnd = strchr((*ppCurrent)+2, 0xFF);
-            if (pEnd)
+            PSZ pEnd;
+            if (pEnd = strchr((*ppCurrent)+2, 0xFF))
             {
                 ulSkip = pEnd - *ppCurrent + 1;
                 // store this with the other words so we can
@@ -843,7 +842,8 @@ PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current position; 
                 // and store this with the rectangles
                 fPaintEscapeWord = TRUE;
             }
-        break; }
+        }
+        break;
 
         case 0x10:  // relative point size in percent
             // three characters follow specifying the
@@ -1154,10 +1154,9 @@ VOID txvFormatText(HPS hps,             // in: HPS whose font is used for
                         lPointSizeLast = flbuf.lPointSize;
                     }
 
-                    pWord = txvCreateWord(hps,
-                                          &pCurrent, // advanced to next word
-                                          &flbuf);
-                    if (pWord)
+                    if (pWord = txvCreateWord(hps,
+                                              &pCurrent, // advanced to next word
+                                              &flbuf))
                     {
                         lstAppendItem(&pxfd->llWords, pWord);
 
@@ -2278,8 +2277,7 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
             mrc = (MPARAM)TRUE;     // error
 
             // allocate TEXTVIEWWINDATA for QWL_USER
-            ptxvd = (PTEXTVIEWWINDATA)malloc(sizeof(TEXTVIEWWINDATA));
-            if (ptxvd)
+            if (ptxvd = (PTEXTVIEWWINDATA)malloc(sizeof(TEXTVIEWWINDATA)))
             {
                 SIZEL   szlPage = {0, 0};
                 BOOL    fShow = FALSE;
@@ -2379,7 +2377,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
 
                 mrc = (MPARAM)FALSE;        // OK
             }
-        break; }
+        }
+        break;
 
         /*
          * WM_SETWINDOWPARAMS:
@@ -2391,8 +2390,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
 
         case WM_SETWINDOWPARAMS:
         {
-            WNDPARAMS *pwndParams = (WNDPARAMS *)mp1;
-            if (pwndParams)
+            WNDPARAMS *pwndParams;
+            if (pwndParams = (WNDPARAMS *)mp1)
             {
                 if (pwndParams->fsStatus & WPM_TEXT)
                 {
@@ -2411,7 +2410,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                                       TRUE);        // full format
                 }
             }
-        break; }
+        }
+        break;
 
         /*
          * WM_WINDOWPOSCHANGED:
@@ -2441,7 +2441,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                                       FALSE);   // quick format
                 }
             }
-        break; }
+        }
+        break;
 
         /*
          * WM_PAINT:
@@ -2537,7 +2538,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
             }
 
             // WinEndPaint(hps);
-        break; }
+        }
+        break;
 
         /*
          * WM_PRESPARAMCHANGED:
@@ -2576,7 +2578,6 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
          */
 
         case WM_VSCROLL:
-        {
             if (ptxvd->fVScrollVisible)
             {
                 winhHandleScrollMsg(hwndTextView,
@@ -2588,7 +2589,7 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                                     msg,
                                     mp2);
             }
-        break; }
+        break;
 
         /*
          * WM_HSCROLL:
@@ -2596,7 +2597,6 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
          */
 
         case WM_HSCROLL:
-        {
             if (ptxvd->fHScrollVisible)
             {
                 winhHandleScrollMsg(hwndTextView,
@@ -2608,7 +2608,7 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                                     msg,
                                     mp2);
             }
-        break; }
+        break;
 
         /*
          * WM_SETFOCUS:
@@ -2623,7 +2623,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                            ptxvd,
                            (mp2 != 0));
             WinReleasePS(hps);
-        break; }
+        }
+        break;
 
         /*
          * WM_MOUSEMOVE:
@@ -2632,8 +2633,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
 
         case WM_MOUSEMOVE:
         {
-            HWND    hwndOwner = WinQueryWindow(hwndTextView, QW_OWNER);
-            if (hwndOwner)
+            HWND    hwndOwner;
+            if (hwndOwner = WinQueryWindow(hwndTextView, QW_OWNER))
             {
                 HPOINTER hptrSet
                     = (HPOINTER)WinSendMsg(hwndOwner,
@@ -2645,7 +2646,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                                                                       FALSE));
                 WinSetPointer(HWND_DESKTOP, hptrSet);
             }
-        break; }
+        }
+        break;
 
         /*
          * WM_BUTTON1DOWN:
@@ -2655,7 +2657,7 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
         case WM_BUTTON1DOWN:
         {
             POINTL ptlPos;
-            PLISTNODE pWordNodeClicked = NULL;
+            PLISTNODE pWordNodeClicked;
 
             ptlPos.x = SHORT1FROMMP(mp1) + ptxvd->ulViewXOfs;
             ptlPos.y = SHORT2FROMMP(mp1) - ptxvd->ulViewYOfs;
@@ -2665,10 +2667,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
 
             ptxvd->usLastAnchorClicked = 0;
 
-            pWordNodeClicked = txvFindWordFromPoint(&ptxvd->xfd,
-                                                    &ptlPos);
-
-            if (pWordNodeClicked)
+            if (pWordNodeClicked = txvFindWordFromPoint(&ptxvd->xfd,
+                                                        &ptlPos))
             {
                 PTXVWORD pWordClicked = (PTXVWORD)pWordNodeClicked->pItemData;
 
@@ -2708,7 +2708,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
 
             WinSetCapture(HWND_DESKTOP, hwndTextView);
             mrc = (MPARAM)TRUE;
-        break; }
+        }
+        break;
 
         /*
          * WM_BUTTON1UP:
@@ -2731,8 +2732,7 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                               ptxvd->lForeColor);
 
                 // nofify owner
-                hwndOwner = WinQueryWindow(hwndTextView, QW_OWNER);
-                if (hwndOwner)
+                if (hwndOwner = WinQueryWindow(hwndTextView, QW_OWNER))
                     WinPostMsg(hwndOwner,
                                WM_CONTROL,
                                MPFROM2SHORT(WinQueryWindowUShort(hwndTextView,
@@ -2742,7 +2742,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
             }
 
             mrc = (MPARAM)TRUE;
-        break; }
+        }
+        break;
 
         /*
          * WM_CHAR:
@@ -2855,7 +2856,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                         // sends to owner
             else
                 mrc = (MPARAM)TRUE;
-        break; }
+        }
+        break;
 
         /*
          *@@ TXM_QUERYPARFORMAT:
@@ -2892,7 +2894,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                 memcpy(mp2, pFmt, sizeof(XFMTPARAGRAPH));
                 mrc = (MPARAM)TRUE;
             }
-        break; }
+        }
+        break;
 
         /*
          *@@ TXM_SETPARFORMAT:
@@ -2941,7 +2944,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
 
                 mrc = (MPARAM)TRUE;
             }
-        break; }
+        }
+        break;
 
         /*
          *@@ TXM_SETWORDWRAP:
@@ -2961,7 +2965,8 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                                   ptxvd,
                                   FALSE,
                                   FALSE);       // quick format
-        break; }
+        }
+        break;
 
         /*
          *@@ TXM_QUERYCDATA:
@@ -3019,7 +3024,6 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
          */
 
         case TXM_JUMPTOANCHORNAME:
-        {
             if (mp1)
             {
                 PLISTNODE pWordNode = txvFindWordFromAnchor(&ptxvd->xfd,
@@ -3057,7 +3061,7 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                     }
                 }
             }
-        break; }
+        break;
 
         /*
          * WM_DESTROY:

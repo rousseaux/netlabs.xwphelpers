@@ -61,7 +61,6 @@ extern "C" {
      ********************************************************************/
 
     #define SZL_AUTOSIZE                (-1)
-    #define SZL_LARGEST_ROW_WIDTH       (-2)
 
     #define CTL_COMMON_FONT             ((PCSZ)-1)
 
@@ -114,8 +113,10 @@ extern "C" {
                 //    table. For example, -50 would mean 50% of
                 //    the largest row in the table. This is valid
                 //    for the CX field only.
-                // This field is IGNORED if the CONTROLDEF appears
-                // with a START_NEW_TABLE type in _DLGHITEM.
+                // If the CONTROLDEF appears with a START_NEW_TABLE
+                // type in _DLGHITEM (to specify a group table)
+                // and they are not SZL_AUTOSIZE, they specify the
+                // table size (to override the automatic formatting).
 
         ULONG       ulSpacing;          // spacing around control
 
@@ -241,18 +242,26 @@ extern "C" {
 
     #define CONTROLDEF_ENTRYFIELD(pcsz, id, cx, cy) { WC_ENTRYFIELD, pcsz, \
             WS_VISIBLE | WS_TABSTOP | ES_MARGIN | ES_AUTOSCROLL, \
-            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING + 5 }
+            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
 
     #define CONTROLDEF_ENTRYFIELD_RO(pcsz, id, cx, cy) { WC_ENTRYFIELD, pcsz, \
             WS_VISIBLE | WS_TABSTOP | ES_MARGIN | ES_READONLY | ES_AUTOSCROLL, \
-            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING + 5 }
+            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
 
     #define CONTROLDEF_MLE(pcsz, id, cx, cy) { WC_MLE, pcsz, \
             WS_VISIBLE | WS_TABSTOP | MLS_BORDER | MLS_IGNORETAB | MLS_WORDWRAP, \
             id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
 
+    #define CONTROLDEF_LISTBOX(id, cx, cy) { WC_LISTBOX, NULL, \
+            WS_VISIBLE | WS_TABSTOP | LS_HORZSCROLL | LS_NOADJUSTPOS, \
+            id, CTL_COMMON_FONT, 0, { cx, cy }, COMMON_SPACING }
+
     #define CONTROLDEF_SPINBUTTON(id, cx, cy) { WC_SPINBUTTON, NULL, \
             WS_VISIBLE | WS_TABSTOP | SPBS_MASTER | SPBS_NUMERICONLY | SPBS_JUSTCENTER | SPBS_FASTSPIN, \
+            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
+
+    #define CONTROLDEF_CONTAINER(id, cx, cy) { WC_CONTAINER, NULL, \
+            WS_VISIBLE | WS_TABSTOP | 0, \
             id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING }
 
     /* ******************************************************************

@@ -70,6 +70,7 @@ $(OUTPUTDIR)\semaphores.obj \
 $(OUTPUTDIR)\stringh.obj \
 $(OUTPUTDIR)\syssound.obj \
 $(OUTPUTDIR)\tmsgfile.obj \
+$(OUTPUTDIR)\vcard.obj \
 $(OUTPUTDIR)\wphandle.obj \
 $(OUTPUTDIR)\xprf.obj \
 $(OUTPUTDIR)\xprf2.obj \

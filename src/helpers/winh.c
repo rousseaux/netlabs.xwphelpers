@@ -3948,6 +3948,8 @@ HWND winhCreateFakeDesktop(HWND hwndSibling)
  *      with both Warp 3 and Warp 4. This should be executed
  *      in WM_INITDLG of the notebook dlg function if the app
  *      has determined that it is running on Warp 4.
+ *
+ *@@changed V0.9.16 (2002-02-02) [umoeller]: fixed entry fields
  */
 
 BOOL winhAssertWarp4Notebook(HWND hwndDlg,
@@ -3992,12 +3994,23 @@ BOOL winhAssertWarp4Notebook(HWND hwndDlg,
                 // if desired
                 if (ulDownUnits)
                 {
+                    CHAR szClass[10];
                     SWP swp;
-                    // _Pmpf(("Moving downwards %d pixels", ptl.y));
+                    LONG lDeltaX = 0,
+                         lDeltaY = 0;
+                    // special handling for entry fields
+                    // V0.9.16 (2002-02-02) [umoeller]
+                    WinQueryClassName(hwndItem, sizeof(szClass), szClass);
+                    if (!strcmp(szClass, "#6"))
+                    {
+                        lDeltaX = 3 * WinQuerySysValue(HWND_DESKTOP, SV_CXBORDER);
+                        lDeltaY = 3 * WinQuerySysValue(HWND_DESKTOP, SV_CYBORDER);
+                    }
+
                     WinQueryWindowPos(hwndItem, &swp);
                     WinSetWindowPos(hwndItem, 0,
-                                    swp.x,
-                                    swp.y - ptl.y,
+                                    swp.x + lDeltaX,
+                                    swp.y - ptl.y + lDeltaY,
                                     0, 0,
                                     SWP_MOVE);
                 }

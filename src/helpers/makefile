@@ -141,6 +141,60 @@ dep:
     $(RUN_FASTDEP) *.c
     @echo ----- Leaving $(MAKEDIR)
 
+# "test" target: for test cases
+TESTCASE_DIR = testcase
+
+TESTCASE_CC = icc /c /ti+ /w2 /ss /se /i$(HELPERS_BASE)\include /DDEBUG_DIALOG_WINDOWS /Fo$(TESTCASE_DIR)\$(@B).obj $(@B).c
+
+.c.{$(TESTCASE_DIR)}.obj:
+    @echo $(MAKEDIR)\makefile: Compiling $(@B).c
+    $(TESTCASE_CC)
+
+# testcase executables
+TESTCASE_TARGETS = \
+    dosh.exe \
+    dialog.exe \
+    vcard.exe \
+
+# dosh.exe
+DOSH_TEST_OBJS = \
+    $(TESTCASE_DIR)\dosh.obj \
+    $(TESTCASE_DIR)\_test_dosh.obj
+
+dosh.exe: $(DOSH_TEST_OBJS)
+    ilink /debug /optfunc /pmtype:vio $(DOSH_TEST_OBJS) /o:$@
+
+# dialog.exe
+DIALOG_TEST_OBJS = \
+    $(TESTCASE_DIR)\dialog.obj \
+    $(TESTCASE_DIR)\_test_dialog.obj \
+    $(TESTCASE_DIR)\winh.obj \
+    $(TESTCASE_DIR)\xstring.obj \
+    $(TESTCASE_DIR)\linklist.obj \
+    $(TESTCASE_DIR)\comctl.obj \
+    $(TESTCASE_DIR)\stringh.obj \
+    $(TESTCASE_DIR)\dosh.obj \
+    $(TESTCASE_DIR)\gpih.obj
+
+dialog.exe: $(DIALOG_TEST_OBJS)
+    ilink /debug /optfunc /pmtype:pm $(DIALOG_TEST_OBJS) /o:$@
+
+# vcard.exe
+VCARD_TEST_OBJS = \
+    $(TESTCASE_DIR)\vcard.obj \
+    $(TESTCASE_DIR)\_test_vcard.obj \
+    $(TESTCASE_DIR)\xstring.obj \
+    $(TESTCASE_DIR)\stringh.obj \
+    $(TESTCASE_DIR)\linklist.obj \
+    $(TESTCASE_DIR)\dosh.obj \
+    $(TESTCASE_DIR)\prfh.obj \
+    $(TESTCASE_DIR)\nls.obj
+
+vcard.exe: $(VCARD_TEST_OBJS)
+    ilink /debug /pmtype:vio $(VCARD_TEST_OBJS) /o:$@
+
+test: $(TESTCASE_TARGETS)
+
 # Define the main dependency between the output HELPERS.LIB and
 # all the object files.
 # $? represents the names of all dependent files that are

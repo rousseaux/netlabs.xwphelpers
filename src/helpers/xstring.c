@@ -477,8 +477,8 @@ void XWPENTRY xstrShrink(PXSTRING pxstr)
 
 PXSTRING xstrCreate(ULONG ulPreAllocate)
 {
-    PXSTRING pxstr = (PXSTRING)malloc(sizeof(XSTRING));
-    if (pxstr)
+    PXSTRING pxstr;
+    if (pxstr = (PXSTRING)malloc(sizeof(XSTRING)))
         xstrInit(pxstr, ulPreAllocate);
 
     return (pxstr);
@@ -1403,9 +1403,11 @@ ULONG xstrEncode(PXSTRING pxstr,            // in/out: string to convert
  *
  *@@added V0.9.9 (2001-02-28) [umoeller]
  *@@changed V0.9.9 (2001-03-06) [lafaix]: removed memory allocation
+ *@@changed V0.9.16 (2002-02-02) [umoeller]: added cKey
  */
 
-ULONG xstrDecode(PXSTRING pxstr)       // in/out: string to be decoded
+ULONG xstrDecode2(PXSTRING pxstr,       // in/out: string to be decoded
+                  CHAR cKey)            // in: encoding key (normally '%')
 {
     ULONG   ulrc = 0;
 
@@ -1422,7 +1424,7 @@ ULONG xstrDecode(PXSTRING pxstr)       // in/out: string to be decoded
         {
             // pSource points to next char now
 
-            if (c == '%')
+            if (c == cKey)
             {
                 static char ach[] = "0123456789ABCDEF";
 
@@ -1452,7 +1454,7 @@ ULONG xstrDecode(PXSTRING pxstr)       // in/out: string to be decoded
             }
 
             // not encoding, or null after '%', or invalid encoding:
-            // just copy this
+            // just leave thisalone
             *pDest++ = c;
         } // while ((ch = *pSource++))
 
@@ -1464,6 +1466,18 @@ ULONG xstrDecode(PXSTRING pxstr)       // in/out: string to be decoded
     }
 
     return (ulrc);
+}
+
+/*
+ *@@ xstrDecode:
+ *      added for compatibility with exports.
+ *
+ *@@added V0.9.16 (2002-02-02) [umoeller]
+ */
+
+ULONG xstrDecode(PXSTRING pxstr)
+{
+    return (xstrDecode2(pxstr, '%'));
 }
 
 /*
