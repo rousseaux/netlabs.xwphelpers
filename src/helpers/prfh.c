@@ -303,10 +303,10 @@ LONG prfhQueryColor(const char *pcszKeyName,
  */
 
 ULONG prfhCopyKey(HINI hiniSource,       // in: source profile (can be HINI_USER or HINI_SYSTEM)
-                 const char *pcszSourceApp,      // in: source application
-                 const char *pcszKey,            // in: source/target key
-                 HINI hiniTarget,       // in: target profile (can be HINI_USER or HINI_SYSTEM)
-                 const char *pcszTargetApp)      // in: target app
+                  const char *pcszSourceApp,      // in: source application
+                  const char *pcszKey,            // in: source/target key
+                  HINI hiniTarget,       // in: target profile (can be HINI_USER or HINI_SYSTEM)
+                  const char *pcszTargetApp)      // in: target app
 {
     ULONG   ulSizeOfData = 0,
             ulrc = 0;       // return: no error
@@ -390,11 +390,17 @@ ULONG prfhCopyKey(HINI hiniSource,       // in: source profile (can be HINI_USER
  *      No check is made for this.
  *
  *      Returns:
+ *
  *      --  0: no error
+ *
  *      --  PRFERR_KEYSLIST: couldn't query keys for pszSourceApp
+ *
  *      --  PRFERR_DATASIZE: couldn't query data size for key
+ *
  *      --  PRFERR_MEMORY: couldn't allocate memory
+ *
  *      --  PRFERR_READ: couldn't read data from source (PrfQueryProfileData error)
+ *
  *      --  PRFERR_WRITE: couldn't write data to target (PrfWriteProfileData error)
  *
  *@@added V0.9.0 [umoeller]
@@ -439,6 +445,85 @@ ULONG prfhCopyApp(HINI hiniSource,   // in: source profile (can be HINI_USER or 
     }
     else
         ulrc = PRFERR_KEYSLIST;
+
+    return (ulrc);
+}
+
+/*
+ *@@ prfhRenameKey:
+ *      renames a key in an INI file.
+ *
+ *      Since there's no such thing as a PrfRename,
+ *      what we do here is load the old data, write
+ *      it under a new key, and delete the old data.
+ *
+ *      Returns:
+ *
+ *      --  0: no error
+ *
+ *      --  PRFERR_INVALID_KEY: pcszApp or pcszOldKey do not exist.
+ *
+ *      --  PRFERR_KEY_EXISTS: pcszNewApp/pcszNewKey is already occupied.
+ *
+ *      --  PRFERR_WRITE: couldn't write data to target (PrfWriteProfileData error)
+ *
+ *@@added V0.9.9 (2000-02-06) [umoeller]
+ */
+
+ULONG prfhRenameKey(HINI hini,
+                    const char *pcszOldApp,
+                    const char *pcszOldKey, // in: key to rename
+                    const char *pcszNewApp, // in: new app (if NULL, pcszOldApp is used)
+                    const char *pcszNewKey) // in: new name for pcszOldKey
+{
+    ULONG ulrc = 0;
+
+    ULONG   cbData = 0;
+    PSZ pszData = prfhQueryProfileData(hini,
+                                       pcszOldApp,
+                                       pcszOldKey,
+                                       &cbData);
+    if (!pszData)
+        // not found:
+        ulrc = PRFERR_INVALID_KEY;
+    else
+    {
+        ULONG   cb;
+
+        if (!pcszNewApp)
+            // is NULL:
+            pcszNewApp = pcszOldApp;
+
+        // make sure target doesn't exist
+        if (    (PrfQueryProfileSize(hini,
+                                     (PSZ)pcszNewApp,
+                                     (PSZ)pcszNewKey,
+                                     &cb))
+             && (cb)
+           )
+            ulrc = PRFERR_KEY_EXISTS;
+        else
+        {
+            if (!PrfWriteProfileData(hini,
+                                     (PSZ)pcszNewApp,
+                                     (PSZ)pcszNewKey,
+                                     pszData,
+                                     cbData))
+                ulrc = PRFERR_WRITE;
+            else
+            {
+                // success writing:
+                // delete old
+                PrfWriteProfileData(hini,
+                                    (PSZ)pcszOldApp,
+                                    (PSZ)pcszOldKey,
+                                    NULL,
+                                    0);
+            }
+        }
+
+        free(pszData);
+    }
 
     return (ulrc);
 }

@@ -181,6 +181,9 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
  *         allocated from the heap internally, but not visible
  *         to the caller.
  *
+ *      This now (V0.9.9) returns the TID of the new thread or
+ *      null on errors.
+ *
  *@@changed V0.9.0 [umoeller]: default stack size raised for Watcom (thanks, Rdiger Ihle)
  *@@changed V0.9.0 [umoeller]: _beginthread is now only called after all variables have been set (thanks, Rdiger Ihle)
  *@@changed V0.9.2 (2000-03-04) [umoeller]: added stack size parameter
@@ -189,24 +192,23 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
  *@@changed V0.9.3 (2000-05-01) [umoeller]: added pbRunning and flFlags
  *@@changed V0.9.5 (2000-08-26) [umoeller]: now using PTHREADINFO
  *@@changed V0.9.7 (2000-12-18) [lafaix]: THRF_TRANSIENT support added
+ *@@changed V0.9.9 (2000-02-06) [umoeller]: now returning TID
  */
 
-BOOL thrCreate(PTHREADINFO pti,     // out: THREADINFO data
-               PTHREADFUNC pfn,     // in: _Optlink thread function
-               PBOOL pfRunning,     // out: variable set to TRUE while thread is running;
-                                    // ptr can be NULL
-               ULONG flFlags,       // in: THRF_* flags
-               ULONG ulData)        // in: user data to be stored in THREADINFO
+ULONG thrCreate(PTHREADINFO pti,     // out: THREADINFO data
+                PTHREADFUNC pfn,     // in: _Optlink thread function
+                PBOOL pfRunning,     // out: variable set to TRUE while thread is running;
+                                     // ptr can be NULL
+                ULONG flFlags,       // in: THRF_* flags
+                ULONG ulData)        // in: user data to be stored in THREADINFO
 {
-    BOOL            rc = FALSE;
+    ULONG ulrc = 0;     // V0.9.9 (2000-02-06) [umoeller]
 
     // (2000-12-18) [lafaix] TRANSIENT
     if (flFlags & THRF_TRANSIENT)
     {
         if (pti == NULL)
             pti = (PTHREADINFO) malloc(sizeof(THREADINFO));
-        else
-            return (rc);
     }
 
     if (pti)
@@ -222,8 +224,6 @@ BOOL thrCreate(PTHREADINFO pti,     // out: THREADINFO data
         pti->flFlags = flFlags;
         pti->ulData = ulData;
 
-        rc = TRUE;
-
         if (flFlags & THRF_WAIT)
             // "Wait" flag set: create an event semaphore which
             // will be posted by thr_fntGeneric
@@ -232,20 +232,24 @@ BOOL thrCreate(PTHREADINFO pti,     // out: THREADINFO data
                                   0,        // unshared
                                   FALSE)    // not posted (reset)
                     != NO_ERROR)
-                rc = FALSE;
+            {
+                if (flFlags & THRF_TRANSIENT)
+                    free(pti);
 
-        pti->fExit = FALSE;
+                // stop right here
+                pti = NULL;
+            }
 
-        if (rc)
+        if (pti)
         {
             pti->tid = _beginthread(        // moved, V0.9.0 (hint: Rdiger Ihle)
                                     thr_fntGeneric, // changed V0.9.2 (2000-03-06) [umoeller]
                                     0,      // unused compatibility param
                                     3*96000, // plenty of stack
                                     pti);   // parameter passed to thread
-            rc = (pti->tid != 0);
+            ulrc = pti->tid;
 
-            if (rc)
+            if (ulrc)
                 if (flFlags & THRF_WAIT)
                 {
                     // "Wait" flag set: wait on event semaphore
@@ -256,7 +260,7 @@ BOOL thrCreate(PTHREADINFO pti,     // out: THREADINFO data
         }
     }
 
-    return (rc);
+    return (ulrc);
 }
 
 /*

@@ -1827,6 +1827,7 @@ APIRET doshPerfGet(PDOSHPERFSYS pPerfSys)
  *      frees all resources allocated by doshPerfOpen.
  *
  *@@added V0.9.7 (2000-12-02) [umoeller]
+ *@@changed V0.9.9 (2000-02-06) [umoeller]: removed disable; this broke the WarpCenter
  */
 
 APIRET doshPerfClose(PDOSHPERFSYS *ppPerfSys)
@@ -1837,9 +1838,9 @@ APIRET doshPerfClose(PDOSHPERFSYS *ppPerfSys)
         arc = ERROR_INVALID_PARAMETER;
     else
     {
-        if (pPerfSys->fInitialized)
+        /* if (pPerfSys->fInitialized)
             pPerfSys->pDosPerfSysCall(CMD_KI_DISABLE,
-                                      0, 0, 0);
+                                      0, 0, 0); */
 
         if (pPerfSys->paCPUUtils)
             free(pPerfSys->paCPUUtils);

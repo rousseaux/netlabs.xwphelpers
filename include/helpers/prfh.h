@@ -38,14 +38,16 @@ extern "C" {
 
     /* common error codes used by the prfh* functions */
 
-    #define PRFERR_DATASIZE 10001   // couldn't query data size for key
-    #define PRFERR_READ     10003   // couldn't read data from source (PrfQueryProfileData error)
-    #define PRFERR_WRITE    10004   // couldn't write data to target (PrfWriteProfileData error)
-    #define PRFERR_APPSLIST 10005   // couldn't query apps list
-    #define PRFERR_KEYSLIST 10006   // couldn't query keys list
-    #define PRFERR_ABORTED  10007   // aborted by user
-    #define PRFERR_QUERY    10007   // PrfQueryProfile failed
+    #define PRFERR_DATASIZE     10001   // couldn't query data size for key
+    #define PRFERR_READ         10003   // couldn't read data from source (PrfQueryProfileData error)
+    #define PRFERR_WRITE        10004   // couldn't write data to target (PrfWriteProfileData error)
+    #define PRFERR_APPSLIST     10005   // couldn't query apps list
+    #define PRFERR_KEYSLIST     10006   // couldn't query keys list
+    #define PRFERR_ABORTED      10007   // aborted by user
+    #define PRFERR_QUERY        10007   // PrfQueryProfile failed
     #define PRFERR_INVALID_FILE_NAME  10008   // profile names don't contain .INI
+    #define PRFERR_INVALID_KEY  10009
+    #define PRFERR_KEY_EXISTS   10010
 
     PSZ prfhQueryKeysForApp(HINI hIni,
                             const char *pcszApp);
@@ -114,6 +116,12 @@ extern "C" {
                       HINI hiniTarget,
                       const char *pcszTargetApp,
                       PSZ pszErrorKey);
+
+    ULONG prfhRenameKey(HINI hini,
+                        const char *pcszOldApp,
+                        const char *pcszOldKey,
+                        const char *pcszNewApp,
+                        const char *pcszNewKey);
 
     BOOL prfhSetUserProfile(HAB hab,
                             const char *pcszUserProfile);

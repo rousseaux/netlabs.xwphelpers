@@ -69,11 +69,11 @@ extern "C" {
     typedef void _Optlink THREADFUNC (PTHREADINFO);
     typedef THREADFUNC *PTHREADFUNC;
 
-    BOOL thrCreate(PTHREADINFO pti,
-                   PTHREADFUNC pfn,
-                   PBOOL pfRunning,
-                   ULONG flFlags,
-                   ULONG ulData);
+    ULONG thrCreate(PTHREADINFO pti,
+                    PTHREADFUNC pfn,
+                    PBOOL pfRunning,
+                    ULONG flFlags,
+                    ULONG ulData);
 
     ULONG thrRunSync(HAB hab,
                      PTHREADFUNC pfn,

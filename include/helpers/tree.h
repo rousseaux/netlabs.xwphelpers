@@ -106,7 +106,6 @@ extern "C" {
     // --   0: t1 == t2
     // --  -1: t1 < t2
     // --  +1: t1 > t2
-    typedef int (FNTREE_COMPARE_IDS) (unsigned long id1, unsigned long id2);
     typedef int (FNTREE_COMPARE_NODES) (TREE *t1, TREE *t2);
     typedef int (FNTREE_COMPARE_DATA) (TREE *t1, void *pData);
 
@@ -121,7 +120,6 @@ extern "C" {
 
     int treeInsertID(TREE **root,
                      TREE *tree,
-                     FNTREE_COMPARE_IDS *comp,
                      BOOL fAllowDuplicates);
 
     int treeInsertNode(TREE **root,
@@ -131,13 +129,6 @@ extern "C" {
 
     int treeDelete(TREE **root,
                    TREE *tree);
-
-    /* void *treeFindEQID  (TREE **root,
-                       TREE *tree,
-                       TREE_COMPARE *comp); */
-    /* void *treeFindGEID  (TREE **root,
-                       TREE *tree,
-                       FNTREE_COMPARE_IDS *comp); */
 
     void* treeFindEQNode(TREE **root,
                          TREE *nodeFind,
@@ -156,20 +147,15 @@ extern "C" {
                          FNTREE_COMPARE_NODES *comp);
 
     void* treeFindEQID(TREE **root,
-                       unsigned long idFind,
-                       FNTREE_COMPARE_IDS *comp);
+                       unsigned long idFind);
     void* treeFindLTID(TREE **root,
-                       unsigned long idFind,
-                       FNTREE_COMPARE_IDS *comp);
+                       unsigned long idFind);
     void* treeFindLEID(TREE **root,
-                       unsigned long idFind,
-                       FNTREE_COMPARE_IDS *comp);
+                       unsigned long idFind);
     void* treeFindGTID(TREE **root,
-                       unsigned long idFind,
-                       FNTREE_COMPARE_IDS *comp);
+                       unsigned long idFind);
     void* treeFindGEID(TREE **root,
-                       unsigned long idFind,
-                       FNTREE_COMPARE_IDS *comp);
+                       unsigned long idFind);
 
     void* treeFindEQData(TREE **root,
                          void *pData,

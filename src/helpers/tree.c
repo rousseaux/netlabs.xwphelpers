@@ -17,6 +17,49 @@
  *      tree sorting/comparison. This implementation is released
  *      under the GPL.
  *
+ *      <B>Introduction</B>
+ *
+ *      Binary trees are different from linked lists in that items
+ *      are not simply linked sequentially, but instead put into
+ *      a tree-like structure.
+ *
+ *      For this, the functions here use the TREE structure. You can
+ *      easily see that this has the "left" and "right" members,
+ *      which make up the tree.
+ *
+ *      In addition, each tree has a "tree root" item, from which all
+ *      other tree nodes can be reached by following the "left" and
+ *      "right" pointers.
+ *
+ *      Per definition, in our trees, if you follow the "left" pointer,
+ *      you will reach an item which is "greater than" the current node.
+ *      Reversely, following the "right" pointer will lead you to a
+ *      node which is "less than" the current node.
+ *
+ *      The implementation here has the following characteristics:
+ *
+ *      -- We have "binary" trees. That is, there are only "left" and
+ *         "right" pointers.
+ *
+ *      -- The tree is always "balanced". The tree gets completely
+ *         reordered when items are added/removed to ensure that
+ *         all paths through the tree are approximately the same
+ *         length. This avoids the "worst case" scenario that some
+ *         paths grow terribly long while others remain short, which
+ *         can make searching very inefficient.
+ *
+ *      -- The tree nodes are marked as either "red" or "black", which
+ *         is an algorithm to allow the implementation of 2-3-4 trees
+ *         using a binary tree only. I don't fully understand how this
+ *         works, but essentially, "red" nodes represent a 3 or 4 node,
+ *         while "black" nodes are plain binary nodes.
+ *
+ *      As much as I understand about all this, red-black balanced
+ *      binary trees are the most efficient tree algorithm known to
+ *      mankind. As long as you are sure that trees are more efficient
+ *      in your situation than a linked list in the first place (see
+ *      below for comparisons), use the functions in here.
+ *
  *      <B>Using binary trees</B>
  *
  *      You can use any structure as elements in a tree, provided
@@ -30,16 +73,6 @@
  *      are expected to contain the data themselves. See treeInsertID()
  *      for a sample.
  *
- *      Each TREE node does not only contain data, but also an
- *      "id" field. The order of nodes in the tree is determined
- *      by calling a node comparison function provided by the caller
- *      (which you must write). This takes two "id" values and must
- *      return:
- *
- +           0: id1 == id2
- +          -1: id1 < id2
- +          +1: id1 > id2
- *
  *      Initialize the root of the tree with treeInit(). Then
  *      add nodes to the tree with treeInsertID() and remove nodes
  *      with treeDelete().
@@ -47,11 +80,36 @@
  *      You can test whether a tree is empty by comparing its
  *      root with TREE_NULL.
  *
+ *      Most functions in here come in two flavors.
+ *
+ *      -- You can provide a comparison function and use the "Node"
+ *         flavors of these functions. This is useful, for example,
+ *         if you are storing strings. You can then write a short
+ *         comparison function which does a strcmp() on the data
+ *         of tree nodes.
+ *
+ *         The order of nodes in the tree is determined by calling a
+ *         node comparison function provided by the caller
+ *         (which you must write). This takes two TREE pointers and
+ *         must return:
+ *
+ +           0: tree1 == tree2
+ +          -1: tree1 < tree2
+ +          +1: tree1 > tree2
+ *
+ *      -- The "ID" functions (e.g. treeInsertID) do not require
+ *         a comparison function, but will use the "id" member of
+ *         the TREE structure instead. If this flavor is used, an
+ *         internal comparison function is used for comparing the
+ *         "id" fields, which are plain ULONGs.
+ *
+ *      <B>Trees vs. linked lists</B>
+ *
  *      Compared to linked lists (as implemented by linklist.c),
  *      trees allow for much faster searching.
  *
- *      Assuming a linked list contains N items, then searching the
- *      list for an item will take an average of N/2 comparisons
+ *      Assuming a linked list contains N items, then searching a
+ *      linked list for an item will take an average of N/2 comparisons
  *      and even N comparisons if the item cannot be found (unless
  *      you keep the list sorted, but linklist.c doesn't do this).
  *
@@ -71,8 +129,8 @@
  *         a node changes. By contrast, trees are much faster finding
  *         nodes because the tree is always sorted.
  *
- *      -- You must always supply a comparison function to allow the
- *         tree functions to sort the tree.
+ *      -- If you are not using the "ID" flavors, you must supply a
+ *         comparison function to allow the tree functions to sort the tree.
  *
  *      -- As opposed to a LISTNODE, the TREE structure (which
  *         represents a tree node) does not contain a data pointer,
@@ -133,6 +191,21 @@ void treeInit(TREE **root)
 }
 
 /*
+ * fnCompareIDs:
+ *
+ *added V0.9.9 (2000-02-06) [umoeller]
+ */
+
+int fnCompareIDs(unsigned long id1, unsigned long id2)
+{
+    if (id1 < id2)
+        return -1;
+    if (id1 > id2)
+        return +1;
+    return (0);
+}
+
+/*
  *@@ treeInsertID:
  *      inserts a node into an existing tree.
  *
@@ -168,7 +241,6 @@ void treeInit(TREE **root)
  +
  +          treeInsertID(&TreeRoot,
  +                     (TREE*)pTreeItem,
- +                     fnCompare,       // your comparison function
  +                     FALSE);
  *
  *      Returns:
@@ -178,11 +250,12 @@ void treeInit(TREE **root)
  *      -- TREE_DUPLICATE: if (fAllowDuplicates == FALSE), this is
  *          returned if a tree item with the specified ID already
  *          exists.
+ *
+ *@@changed V0.9.9 (2000-02-06) [umoeller]: removed comparison func
  */
 
 int treeInsertID(TREE **root,             // in: root of tree
                  TREE *tree,              // in: new tree node
-                 FNTREE_COMPARE_IDS *comp,      // in: comparison function
                  BOOL fAllowDuplicates)   // in: whether duplicates with the same ID are allowed
 {
     TREE
@@ -197,7 +270,7 @@ int treeInsertID(TREE **root,             // in: root of tree
     while (current != TREE_NULL)
     {
         parent  = current;
-        last_comp = comp(tree->id, current->id);
+        last_comp = fnCompareIDs(tree->id, current->id);
         switch (last_comp)
         {
             case -1: current = current->left;  break;
@@ -210,11 +283,11 @@ int treeInsertID(TREE **root,             // in: root of tree
         }
     }
 
-    // setup new node
-    ((TREE *) tree)->parent = parent;
-    ((TREE *) tree)->left   = TREE_NULL;
-    ((TREE *) tree)->right  = TREE_NULL;
-    ((TREE *) tree)->colour = RED;
+    // set up new node
+    ((TREE*)tree)->parent = parent;
+    ((TREE*)tree)->left   = TREE_NULL;
+    ((TREE*)tree)->right  = TREE_NULL;
+    ((TREE*)tree)->colour = RED;
 
     // insert node in tree
     if (parent)
@@ -267,11 +340,11 @@ int treeInsertNode(TREE **root,             // in: root of tree
         }
     }
 
-    // setup new node
-    ((TREE *) tree)->parent = parent;
-    ((TREE *) tree)->left   = TREE_NULL;
-    ((TREE *) tree)->right  = TREE_NULL;
-    ((TREE *) tree)->colour = RED;
+    // set up new node
+    ((TREE*)tree)->parent = parent;
+    ((TREE*)tree)->left   = TREE_NULL;
+    ((TREE*)tree)->right  = TREE_NULL;
+    ((TREE*)tree)->colour = RED;
 
     // insert node in tree
     if (parent)
@@ -463,15 +536,15 @@ int treeDelete(TREE **root,     // in: root of tree
        )
         return TREE_INVALID_NODE;
 
-    if (    (((TREE *) tree)->left  == TREE_NULL)
-         || (((TREE *) tree)->right == TREE_NULL)
+    if (    (((TREE*)tree)->left  == TREE_NULL)
+         || (((TREE*)tree)->right == TREE_NULL)
        )
         // descendent has a TREE_NULL node as a child
         descendent = tree;
     else
   {
         // find tree successor with a TREE_NULL node as a child
-        descendent = ((TREE *) tree)->right;
+        descendent = ((TREE*)tree)->right;
         while (descendent->left != TREE_NULL)
             descendent = descendent->left;
   }
@@ -498,22 +571,22 @@ int treeDelete(TREE **root,     // in: root of tree
     colour = descendent->colour;
 
     if (descendent != (TREE *) tree)
-  {
+    {
         // Conceptually what we are doing here is moving the data from
         // descendent to tree.  In fact we do this by linking descendent
         // into the structure in the place of tree.
-        descendent->left   = ((TREE *) tree)->left;
-        descendent->right  = ((TREE *) tree)->right;
-        descendent->parent = ((TREE *) tree)->parent;
-        descendent->colour = ((TREE *) tree)->colour;
+        descendent->left   = ((TREE*)tree)->left;
+        descendent->right  = ((TREE*)tree)->right;
+        descendent->parent = ((TREE*)tree)->parent;
+        descendent->colour = ((TREE*)tree)->colour;
 
         if (descendent->parent)
-      {
+        {
             if (tree == descendent->parent->left)
                 descendent->parent->left  = descendent;
             else
                 descendent->parent->right = descendent;
-      }
+        }
         else
             *root = descendent;
 
@@ -617,13 +690,10 @@ static void delete_fixup(TREE **root,
 /*
  *@@ treeFindEQID:
  *      finds a node with ID exactly matching that provided.
- *      To find a tree node, your comparison function must
- *      compare the tree node IDs.
  */
 
 void* treeFindEQID(TREE **root,
-                   unsigned long id,
-                   FNTREE_COMPARE_IDS *comp)
+                   unsigned long id)
 {
     TREE
        *current = *root,
@@ -631,7 +701,7 @@ void* treeFindEQID(TREE **root,
 
     found = NULL;
     while (current != TREE_NULL)
-        switch (comp(current->id, id))
+        switch (fnCompareIDs(current->id, id))
         {
             case -1: current = current->right; break;
             case  1: current = current->left;  break;
@@ -650,8 +720,7 @@ void* treeFindEQID(TREE **root,
  */
 
 void* treeFindGEID(TREE **root,
-                   unsigned long idFind,
-                   FNTREE_COMPARE_IDS *comp)
+                   unsigned long idFind)
 {
     TREE
        *current = *root,
@@ -659,7 +728,7 @@ void* treeFindGEID(TREE **root,
 
     found = NULL;
     while (current != TREE_NULL)
-        switch (comp(current->id, idFind))
+        switch (fnCompareIDs(current->id, idFind))
         {
             case -1: current = current->right; break;
             default: found = current;
@@ -872,20 +941,20 @@ void treeTraverse(TREE *tree,               // in: root of tree
     if (method == 1)
     {
         process(tree, pUser);
-        treeTraverse (((TREE *) tree)->left,  process, pUser, method);
-        treeTraverse (((TREE *) tree)->right, process, pUser, method);
+        treeTraverse (((TREE*)tree)->left,  process, pUser, method);
+        treeTraverse (((TREE*)tree)->right, process, pUser, method);
     }
     else if (method == 2)
     {
-        treeTraverse (((TREE *) tree)->left,  process, pUser, method);
-        treeTraverse (((TREE *) tree)->right, process, pUser, method);
+        treeTraverse (((TREE*)tree)->left,  process, pUser, method);
+        treeTraverse (((TREE*)tree)->right, process, pUser, method);
         process(tree, pUser);
     }
     else
     {
-        treeTraverse (((TREE *) tree)->left,  process, pUser, method);
+        treeTraverse (((TREE*)tree)->left,  process, pUser, method);
         process(tree, pUser);
-        treeTraverse (((TREE *) tree)->right, process, pUser, method);
+        treeTraverse (((TREE*)tree)->right, process, pUser, method);
     }
 }
 
