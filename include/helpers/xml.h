@@ -36,6 +36,12 @@ extern "C" {
         #define __SIMPLES_DEFINED
     #endif
 
+    /* ******************************************************************
+     *
+     *   Error handling
+     *
+     ********************************************************************/
+
     typedef enum _DOMERROR
     {
         // validity errors:
@@ -71,11 +77,18 @@ extern "C" {
                 // cannot find document node
         ERROR_DOM_NO_ELEMENT,
         ERROR_DOM_DUPLICATE_DOCTYPE,
-        ERROR_DOM_DOCTYPE_STRUCTURE,
+        ERROR_DOM_DOCTYPE_ROOT_NAMES_MISMATCH,
                 // DOCTYPE is given and root element name does not match doctype name
         ERROR_DOM_INTEGRITY,
-        ERROR_DOM_DUPLICATE_ATTRIBUTE
+        ERROR_DOM_DUPLICATE_ATTRIBUTE,
+
+        // @@@todo these
+        ERROR_DOM_VALIDATE_INVALID_ELEMENT,
+        ERROR_DOM_ELEMENT_DECL_OUTSIDE_DOCTYPE,
+        ERROR_DOM_ATTLIST_DECL_OUTSIDE_DOCTYPE
     } DOMERROR;
+
+    const char* xmlDescribeError(int code);
 
     /* ******************************************************************
      *
@@ -184,7 +197,7 @@ extern "C" {
      +                    |             |              |            |
      +      --------------+-------------+--------------+------------+--------------
      +                    |             |              |            |
-     +      ELEMENT       | tag name    | 0          8  | ELEMENT    | ATTRIBUTE
+     +      ELEMENT       | tag name    | 0            | ELEMENT    | ATTRIBUTE
      +                    |             |              | nodes      | nodes
      +                    |             |              |            |
      +      --------------+-------------+--------------+------------+--------------
@@ -305,6 +318,42 @@ extern "C" {
                             PDOMNODE *ppNew);
 
     VOID xmlDeleteNode(PNODEBASE pNode);
+
+    /* ******************************************************************
+     *
+     *   Specific DOM node constructors
+     *
+     ********************************************************************/
+
+    APIRET xmlCreateElementNode(PDOMNODE pParent,
+                                const char *pcszElement,
+                                PDOMNODE *ppNew);
+
+    APIRET xmlCreateAttributeNode(PDOMNODE pElement,
+                                  const char *pcszName,
+                                  const char *pcszValue,
+                                  PDOMNODE *ppNew);
+
+    APIRET xmlCreateTextNode(PDOMNODE pParent,
+                             const char *pcszText,
+                             ULONG ulLength,
+                             PDOMNODE *ppNew);
+
+    APIRET xmlCreateCommentNode(PDOMNODE pParent,
+                                const char *pcszText,
+                                PDOMNODE *ppNew);
+
+    APIRET xmlCreatePINode(PDOMNODE pParent,
+                           const char *pcszTarget,
+                           const char *pcszData,
+                           PDOMNODE *ppNew);
+
+    APIRET xmlCreateDocumentTypeNode(PDOMDOCUMENTNODE pDocumentNode,
+                                     const char *pcszDoctypeName,
+                                     const char *pcszSysid,
+                                     const char *pcszPubid,
+                                     int fHasInternalSubset,
+                                     PDOMDOCTYPENODE *ppNew);
 
     /* ******************************************************************
      *
@@ -540,6 +589,10 @@ extern "C" {
         NODEBASE          NodeBase;
     } CMNOTATIONDECLNODE, *PCMNOTATIONDECLNODE;
 
+    APIRET xmlCreateElementDecl(const char *pcszName,
+                                PXMLCONTENT pModel,
+                                PCMELEMENTDECLNODE *ppNew);
+
     /* ******************************************************************
      *
      *   DOM APIs
@@ -560,6 +613,7 @@ extern "C" {
          */
 
         PDOMDOCUMENTNODE pDocumentNode;
+                        // document node (contains all the elements)
 
         PDOMDOCTYPENODE pDocTypeNode;
                         // != NULL only if the document has a DOCTYPE
@@ -592,6 +646,7 @@ extern "C" {
 
     #define DF_PARSECOMMENTS        0x0001
     #define DF_PARSEDTD             0x0002
+    #define DF_FAIL_IF_NO_DTD       0x0004
 
     APIRET xmlCreateDOM(ULONG flParserFlags,
                         PXMLDOM *ppDom);
@@ -603,16 +658,36 @@ extern "C" {
 
     APIRET xmlFreeDOM(PXMLDOM pDom);
 
+    /* ******************************************************************
+     *
+     *   DOM lookup
+     *
+     ********************************************************************/
+
     PCMELEMENTDECLNODE xmlFindElementDecl(PXMLDOM pDom,
                                           const XSTRING *pstrElementName);
 
     PCMATTRIBUTEDECLBASE xmlFindAttribDeclBase(PXMLDOM pDom,
-                                                 const XSTRING *pstrElementName);
+                                               const XSTRING *pstrElementName);
 
     PCMATTRIBUTEDECL xmlFindAttribDecl(PXMLDOM pDom,
                                        const XSTRING *pstrElementName,
                                        const XSTRING *pstrAttribName,
                                        PCMATTRIBUTEDECLBASE *ppAttribDeclBase);
+
+    PDOMNODE xmlGetRootElement(PXMLDOM pDom);
+
+    PDOMNODE xmlGetFirstChild(PDOMNODE pDomNode);
+
+    PDOMNODE xmlGetLastChild(PDOMNODE pDomNode);
+
+    PDOMNODE xmlGetFirstText(PDOMNODE pElement);
+
+    PLINKLIST xmlGetElementsByTagName(PDOMNODE pParent,
+                                      const char *pcszName);
+
+    const XSTRING* xmlGetAttribute(PDOMNODE pElement,
+                                   const char *pcszAttribName);
 
 #endif
 

@@ -3,7 +3,7 @@
  *@@sourcefile xprf.h:
  *      header file for xprf.c. See remarks there.
  *
- *      This file is new with V0.82.
+ *      This file was new with V0.9.5 (?).
  *
  *      Note: Version numbering in this file relates to XWorkplace version
  *            numbering.

@@ -117,6 +117,11 @@ extern "C" {
      *
      ********************************************************************/
 
+    VOID _Optlink excExplainException(FILE *file,
+                                      PSZ pszHandlerName,
+                                      PEXCEPTIONREPORTRECORD pReportRec,
+                                      PCONTEXTRECORD pContextRec);
+
     VOID excRegisterHooks(PFNEXCOPENFILE pfnExcOpenFileNew,
                           PFNEXCHOOK pfnExcHookNew,
                           PFNEXCHOOKERROR pfnExcHookError,

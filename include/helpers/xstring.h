@@ -115,11 +115,13 @@ extern "C" {
     ULONG XWPENTRY xstrrpl(PXSTRING pxstr,
                            ULONG ulFirstReplOfs,
                            ULONG cReplLen,
-                           const XSTRING *pstrReplaceWith);
+                           const char *pcszReplaceWith,
+                           ULONG cReplaceWithLen);
     typedef ULONG XWPENTRY XSTRRPL(PXSTRING pxstr,
                                    ULONG ulFirstReplOfs,
                                    ULONG cReplLen,
-                                   const XSTRING *pstrReplaceWith);
+                                   const char *pcszReplaceWith,
+                                   ULONG cReplaceWithLen);
     typedef XSTRRPL *PXSTRRPL;
 
     PSZ XWPENTRY xstrFindWord(const XSTRING *pxstr,

@@ -572,7 +572,7 @@ extern "C" {
     /*
      *@@ QS32EVENT:
      *
-     *@@added V [umoeller]
+     *@@added V0.9.10 (2001-04-08) [umoeller]
      */
 
     typedef struct _QS32EVENT {    /* qsevent */

@@ -2361,6 +2361,132 @@ APIRET doshExecFreeResources(PFSYSRESOURCE paResources)
 }
 
 /*
+ * FindFile:
+ *      helper for doshFindExecutable.
+ *
+ *added V0.9.11 (2001-04-25) [umoeller]
+ */
+
+APIRET FindFile(const char *pcszCommand,      // in: command (e.g. "lvm")
+                PSZ pszExecutable,            // out: full path (e.g. "F:\os2\lvm.exe")
+                ULONG cbExecutable)           // in: sizeof (*pszExecutable)
+{
+    APIRET arc = NO_ERROR;
+    FILESTATUS3 fs3;
+
+    if (    (strchr(pcszCommand, '\\'))
+         || (strchr(pcszCommand, ':'))
+       )
+    {
+        // looks like this is qualified:
+        arc = DosQueryPathInfo((PSZ)pcszCommand,
+                               FIL_STANDARD,
+                               &fs3,
+                               sizeof(fs3));
+        if (!arc)
+            if (!(fs3.attrFile & FILE_DIRECTORY))
+                strhncpy0(pszExecutable,
+                          pcszCommand,
+                          cbExecutable);
+            else
+                // directory:
+                arc = ERROR_INVALID_EXE_SIGNATURE;
+    }
+    else
+        // non-qualified:
+        arc = DosSearchPath(SEARCH_IGNORENETERRS | SEARCH_ENVIRONMENT | SEARCH_CUR_DIRECTORY,
+                            "PATH",
+                            (PSZ)pcszCommand,
+                            pszExecutable,
+                            cbExecutable);
+
+    return (arc);
+}
+
+/*
+ *@@ doshFindExecutable:
+ *      this attempts to find an executable by doing the
+ *      following:
+ *
+ *      1)  If pcszCommand appears to be qualified (i.e. contains
+ *          a backslash), this checks for whether the file exists.
+ *
+ *      2)  If pcszCommand contains no backslash, this calls
+ *          DosSearchPath in order to find the full path of the
+ *          executable.
+ *
+ *      papcszExtensions determines if additional searches are to be
+ *      performed if the file doesn't exist (case 1) or DosSearchPath
+ *      returned ERROR_FILE_NOT_FOUND (case 2).
+ *      This must point to an array of strings specifying the extra
+ *      extensions to search for.
+ *
+ *      If both papcszExtensions and cExtensions are null, no
+ *      extra searches are performed.
+ *
+ *      If this returns NO_ERROR, pszExecutable receives
+ *      the full path of the executable found by DosSearchPath.
+ *      Otherwise ERROR_FILE_NOT_FOUND is returned.
+ *
+ *      Example:
+ *
+ +      const char *aExtensions[] = {  "EXE",
+ +                                     "COM",
+ +                                     "CMD"
+ +                                  };
+ +      CHAR szExecutable[CCHMAXPATH];
+ +      APIRET arc = doshFindExecutable("lvm",
+ +                                      szExecutable,
+ +                                      sizeof(szExecutable),
+ +                                      aExtensions,
+ +                                      3);
+ *
+ *@@added V0.9.9 (2001-03-07) [umoeller]
+ *@@changed V0.9.11 (2001-04-25) [umoeller]: this never worked for qualified pcszCommand's, fixed
+ */
+
+APIRET doshFindExecutable(const char *pcszCommand,      // in: command (e.g. "lvm")
+                          PSZ pszExecutable,            // out: full path (e.g. "F:\os2\lvm.exe")
+                          ULONG cbExecutable,           // in: sizeof (*pszExecutable)
+                          const char **papcszExtensions, // in: array of extensions (without dots)
+                          ULONG cExtensions)            // in: array item count
+{
+    APIRET arc = FindFile(pcszCommand,
+                          pszExecutable,
+                          cbExecutable);
+
+    if (    (arc == ERROR_FILE_NOT_FOUND)           // not found?
+         && (cExtensions)                    // any extra searches wanted?
+       )
+    {
+        // try additional things then
+        PSZ psz2 = (PSZ)malloc(strlen(pcszCommand) + 20);
+        if (psz2)
+        {
+            ULONG   ul;
+            for (ul = 0;
+                 ul < cExtensions;
+                 ul++)
+            {
+                const char *pcszExtThis = papcszExtensions[ul];
+                sprintf(psz2, "%s.%s", pcszCommand, pcszExtThis);
+                arc = FindFile(psz2,
+                               pszExecutable,
+                               cbExecutable);
+                if (arc != ERROR_FILE_NOT_FOUND)
+                    break;
+            }
+
+            free(psz2);
+        }
+        else
+            arc = ERROR_NOT_ENOUGH_MEMORY;
+    }
+
+    return (arc);
+}
+
+/*
  *@@category: Helpers\Control program helpers\Partitions info
  *      functions for retrieving partition information directly
  *      from the partition tables on the disk. See doshGetPartitionsList.

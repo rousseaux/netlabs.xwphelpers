@@ -78,8 +78,8 @@ extern "C" {
     #define RGBCOL_DARKYELLOW       0x00808000
     #define RGBCOL_DARKGRAY         0x00808080
 
-    VOID XWPENTRY gpihManipulateRGB(PLONG plColor, BYTE bMultiplier, BYTE bDivisor);
-    typedef VOID XWPENTRY GPIHMANIPULATERGB(PLONG plColor, BYTE bMultiplier, BYTE bDivisor);
+    VOID XWPENTRY gpihManipulateRGB(PLONG plColor, double dFactor);
+    typedef VOID XWPENTRY GPIHMANIPULATERGB(PLONG plColor, double dFactor);
     typedef GPIHMANIPULATERGB *PGPIHMANIPULATERGB;
 
     BOOL XWPENTRY gpihSwitchToRGB(HPS hps);
