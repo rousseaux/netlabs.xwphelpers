@@ -144,12 +144,12 @@ APIRET lanQueryServers(PSERVER *paServers,      // out: array of SERVER structs
                 cTotalAvail = 0;
         PSERVER pBuf;
         ULONG cb = 4096;            // set this fixed, can't get it to work otherwise
-        if (pBuf = doshMalloc(cb,
-                              &arc))
+        if (pBuf = (PSERVER)doshMalloc(cb,
+                                       &arc))
         {
             if (!(arc = pNet32ServerEnum2(NULL,
                                           1,          // ulLevel
-                                          (PBYTE)pBuf,       // pbBuffer
+                                          (PUCHAR)pBuf,       // pbBuffer
                                           cb,          // cbBuffer,
                                           &ulEntriesRead, // *pcEntriesRead,
                                           &cTotalAvail,   // *pcTotalAvail,

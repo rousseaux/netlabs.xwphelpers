@@ -284,6 +284,11 @@ A binary search tree is a red-black tree if:
  *@@ treeInit:
  *      initializes the root of a tree.
  *
+ *      If (plCount != NULL), *plCount is set to null also.
+ *      This same plCount pointer can then be passed to
+ *      treeInsert and treeDelete also to automatically
+ *      maintain a tree item count.
+ *
  *@@changed V0.9.16 (2001-10-19) [umoeller]: added plCount
  */
 
@@ -508,9 +513,13 @@ static void insertFixup(TREE **root,
  *
  *      "x" specifies the new tree node which must
  *      have been allocated by the caller. x->ulKey
- *      must already contain the node's key (data).
+ *      must already contain the node's key (data)
+ *      which the sort function can understand.
+ *
  *      This function will then set the parent,
- *      left, right, and color members.
+ *      left, right, and color members. In addition,
+ *      if (plCount != NULL), *plCount is raised by
+ *      one.
  *
  *      Returns 0 if no error. Might return
  *      STATUS_DUPLICATE_KEY if a node with the
@@ -520,7 +529,7 @@ static void insertFixup(TREE **root,
  */
 
 int treeInsert(TREE **root,                     // in: root of the tree
-               PLONG plCount,                 // in/out: item count (ptr can be NULL)
+               PLONG plCount,                   // in/out: item count (ptr can be NULL)
                TREE *x,                         // in: new node to insert
                FNTREE_COMPARE *pfnCompare)      // in: comparison func
 {
@@ -749,6 +758,9 @@ static void deleteFixup(TREE **root,
  *      removes the specified node from the tree.
  *      Does not free() the node though.
  *
+ *      In addition, if (plCount != NULL), *plCount is
+ *      decremented.
+ *
  *      Returns 0 if the node was deleted or
  *      STATUS_INVALID_NODE if not.
  *
@@ -756,7 +768,7 @@ static void deleteFixup(TREE **root,
  */
 
 int treeDelete(TREE **root,         // in: root of the tree
-               PLONG plCount,     // in/out: item count (ptr can be NULL)
+               PLONG plCount,       // in/out: item count (ptr can be NULL)
                TREE *tree)          // in: tree node to delete
 {
     TREE        *y,

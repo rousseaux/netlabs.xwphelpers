@@ -132,6 +132,8 @@
  *      button control replacement.
  *
  *@@added V0.9.13 (2001-06-21) [umoeller]
+ *@@changed V0.9.16 (2001-10-24) [umoeller]: fixed wrong hatch color and paint offset
+ *@@changed V0.9.16 (2001-10-28) [umoeller]: added bitmap support, fixed bad clip rectangle
  */
 
 VOID ctlPaintXButton(HPS hps,               // in: presentation space (RGB mode)
@@ -171,8 +173,9 @@ VOID ctlPaintXButton(HPS hps,               // in: presentation space (RGB mode)
     if (ulBorder)
     {
         // button border:
-
         // now paint button frame
+
+        // make rcl inclusive
         rclWin.xRight--;
         rclWin.yTop--;
         gpihDraw3DFrame(hps,
@@ -202,8 +205,8 @@ VOID ctlPaintXButton(HPS hps,               // in: presentation space (RGB mode)
         cx = rclWin.xRight - rclWin.xLeft;
         cy = rclWin.yTop - rclWin.yBottom;
 
-        ptl.x = rclWin.xLeft + ((cx - pxbd->cxMiniIcon) / 2);
-        ptl.y = rclWin.yBottom + ((cy - pxbd->cxMiniIcon) / 2);
+        ptl.x = rclWin.xLeft + ((cx - pxbd->cxIconOrBitmap) / 2);
+        ptl.y = rclWin.yBottom + ((cy - pxbd->cyIconOrBitmap) / 2);
 
         if (fl & XBF_INUSE)
         {
@@ -213,10 +216,12 @@ VOID ctlPaintXButton(HPS hps,               // in: presentation space (RGB mode)
             ptl2.x = ptl.x - 2;
             ptl2.y = ptl.y - 2;
             GpiMove(hps,
-                    &ptl);
+                    &ptl2);     // &ptl
+                                // duh, typo V0.9.16 (2001-10-24) [umoeller]
             GpiSetPattern(hps, PATSYM_DIAG1);
-            ptl2.x = ptl.x + pxbd->cxMiniIcon + 1; // inclusive!
-            ptl2.y = ptl.y + pxbd->cxMiniIcon + 1; // inclusive!
+            GpiSetColor(hps, RGBCOL_BLACK);     // V0.9.16 (2001-10-24) [umoeller]
+            ptl2.x = ptl.x + pxbd->cxIconOrBitmap + 1; // inclusive!
+            ptl2.y = ptl.y + pxbd->cyIconOrBitmap + 1; // inclusive!
             GpiBox(hps,
                    DRO_FILL,
                    &ptl2,
@@ -225,13 +230,32 @@ VOID ctlPaintXButton(HPS hps,               // in: presentation space (RGB mode)
         }
 
         // now paint icon
-        GpiIntersectClipRectangle(hps, &rclWin);    // exclusive!
-        WinDrawPointer(hps,
-                       // center this in remaining rectl
-                       ptl.x + ulOfs,
-                       ptl.y - ulOfs,
-                       pxbd->hptr,
-                       DP_MINI);
+
+        // make rcl inclusive           // V0.9.16 (2001-10-28) [umoeller]
+        rclWin.xRight--;
+        rclWin.yTop--;
+        GpiIntersectClipRectangle(hps,
+                                  &rclWin);    // inclusive!
+
+        // center this in remaining rectl
+        ptl.x += ulOfs;
+        ptl.y -= ulOfs;
+        if (fl & XBF_BITMAP)
+            // V0.9.16 (2001-10-28) [umoeller]
+            WinDrawBitmap(hps,
+                          pxbd->hptr,           // a bitmap really
+                          NULL,                 // entire bitmap
+                          &ptl,
+                          0,
+                          0,
+                          DBM_NORMAL);
+        else
+            WinDrawPointer(hps,
+                           // center this in remaining rectl
+                           ptl.x + ulOfs,
+                           ptl.y - ulOfs,
+                           pxbd->hptr,
+                           DP_MINI);
     }
 }
 

@@ -995,7 +995,7 @@ APIRET wphQueryPathFromHandle(HINI hiniUser,      // in: HINI_USER or other INI 
                                          cbFilename,
                                          NULL);
 
-                    _Pmpf((__FUNCTION__ ": wphFindPartName returned %d", arc));
+                    // _Pmpf((__FUNCTION__ ": wphFindPartName returned %d", arc));
                 }
 
                 wphFreeHandles(&hHandles);

@@ -291,6 +291,12 @@ APIRET tmfOpenMessageFile(const char *pcszMessageFile, // in: fully q'fied .TMF 
                         // this was the last message:
                         pNew->cbText = strlen(pStartOfText);
 
+                    // remove trailing newlines
+                    while (    (pNew->cbText)
+                            && (pStartOfText[pNew->cbText-1] == '\n')
+                          )
+                        (pNew->cbText)--;
+
                     // store this thing
                     if (!treeInsert(&pFile->IDsTreeRoot,
                                     NULL,

@@ -38,6 +38,8 @@
     // emx will define PSZ as _signed_ char, otherwise
     // as unsigned char
 
+#define INCL_DOSNLS
+#define INCL_DOSERRORS
 #define INCL_WINSHELLDATA
 #include <os2.h>
 
@@ -454,3 +456,36 @@ VOID APIENTRY strhDateTime(PSZ pszDate,          // out: date string returned (c
                 cTimeSep);
 }
 
+
+/*
+ *@@ nlsUpper:
+ *      quick hack for upper-casing a string.
+ *
+ *      This uses DosMapCase with the default system country
+ *      code and the process's codepage.
+ *
+ *@@added V0.9.16 (2001-10-25) [umoeller]
+ */
+
+APIRET nlsUpper(PSZ psz,            // in/out: string
+                ULONG ulLength)     // in: string length; if 0, we run strlen(psz)
+{
+    COUNTRYCODE cc;
+
+    if (psz)
+    {
+        if (!ulLength)
+            ulLength = strlen(psz);
+
+        if (ulLength)
+        {
+            cc.country = 0;         // use system country code
+            cc.codepage = 0;        // use process default codepage
+            return (DosMapCase(ulLength,
+                               &cc,
+                               psz));
+        }
+    }
+
+    return (ERROR_INVALID_PARAMETER);
+}

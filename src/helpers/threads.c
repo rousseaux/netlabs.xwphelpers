@@ -145,9 +145,7 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
                 {
                     // run thread func
                     ((PTHREADFUNC)pti->pThreadFunc)(pti);
-
                     WinDestroyMsgQueue(pti->hmq);
-
                 }
                 WinTerminate(pti->hab);
             }
@@ -247,6 +245,14 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
  *         the HMQ in its THREADINFO. These are automatically
  *         destroyed when the thread terminates.
  *
+ *         WARNING: Be careful with this setting for short-lived
+ *         threads which are started synchronously while some
+ *         other thread is locking PM, e.g. in a WinSendMsg
+ *         call. While creation of the thread will still
+ *         succeed, the thread will _not_ terminate properly
+ *         while PM is locked, so do not wait for such a thread
+ *         to terminate!! (V0.9.16)
+ *
  *      -- THRF_WAIT: if this is set, thrCreate does not
  *         return to the caller until your thread function
  *         has successfully started running. This is done by
@@ -287,11 +293,13 @@ VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
  *@@changed V0.9.9 (2001-03-07) [umoeller]: added pcszThreadName
  *@@changed V0.9.9 (2001-03-14) [umoeller]: added THRF_WAIT_EXPLICIT
  *@@changed V0.9.12 (2001-05-20) [umoeller]: changed pfRunning to ptidRunning
+ *@@changed V0.9.16 (2001-10-28) [umoeller]: made ptidRunning volatile to prohibit compiler optimizations
  */
 
 ULONG thrCreate(PTHREADINFO pti,     // out: THREADINFO data
                 PTHREADFUNC pfn,     // in: _Optlink thread function
-                PULONG ptidRunning,  // out: variable set to TID while thread is running;
+                volatile unsigned long *ptidRunning,
+                                     // out: variable set to TID while thread is running;
                                      // ptr can be NULL
                 const char *pcszThreadName, // in: thread name (for identification)
                 ULONG flFlags,       // in: THRF_* flags

@@ -63,6 +63,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <ctype.h>
 
 #include "setup.h"                      // code generation and debugging options
 
@@ -356,7 +357,7 @@ PVOID doshAllocSharedMem(ULONG ulSize,      // in: requested mem block size (rou
  *@@added V0.9.3 (2000-04-19) [umoeller]
  */
 
-PVOID doshRequestSharedMem(const char *pcszName)
+PVOID doshRequestSharedMem(PCSZ pcszName)
 {
     PVOID pvrc = NULL;
     APIRET arc = DosGetNamedSharedMem((PVOID*)pvrc,
@@ -681,7 +682,7 @@ APIRET doshHasAudioCD(ULONG ulLogicalDrive,
  */
 
 VOID doshEnumDrives(PSZ pszBuffer,      // out: drive letters
-                    const char *pcszFileSystem,  // in: FS's to match or NULL
+                    PCSZ pcszFileSystem,  // in: FS's to match or NULL
                     BOOL fSkipRemoveables) // in: if TRUE, only non-removeable disks will be returned
 {
     CHAR    szName[5] = "";
@@ -1190,14 +1191,134 @@ APIRET doshSetDiskLabel(ULONG ulLogicalDrive,        // in:  1 for A:, 2 for B:,
 }
 
 /*
- *@@category: Helpers\Control program helpers\File management
+ *@@category: Helpers\Control program helpers\File name parsing
  */
 
 /* ******************************************************************
  *
- *   File helpers
+ *   File name parsing
  *
  ********************************************************************/
+
+/*
+ *@@ doshGetDriveSpec:
+ *      returns the drive specification in pcszFullFile,
+ *      if any is present. This is useful for UNC support.
+ *
+ *      This returns:
+ *
+ *      --  NO_ERROR: drive spec was given, and the output
+ *          fields have been set.
+ *
+ *      --  ERROR_INVALID_NAME: incorrect UNC syntax.
+ *
+ *      --  ERROR_INVALID_DRIVE: second char is ':', but
+ *          drive letter is not in the range [A-Z].
+ *
+ *      --  ERROR_INVALID_PARAMETER: no drive spec given
+ *          at all; apparently pcszFullFile is not fully
+ *          qualified in the first place, or it is NULL,
+ *          or its length is <= 2.
+ *
+ *@@added V0.9.16 (2001-10-25) [umoeller]
+ */
+
+APIRET doshGetDriveSpec(PCSZ pcszFullFile,      // in: fully q'fied file spec
+                        PSZ pszDrive,           // out: drive spec ("C:" or "\\SERVER\RESOURCE"; ptr can be NULL)
+                        PULONG pulDriveLen,     // out: length of drive spec (2 if local drive; ptr can be NULL)
+                        PBOOL pfIsUNC)          // out: set to TRUE if UNC name, FALSE otherwise (ptr can be NULL)
+{
+    APIRET  arc = NO_ERROR;
+    ULONG   ulFileSpecLength;
+
+    if (    (pcszFullFile)
+         && (ulFileSpecLength = strlen(pcszFullFile))
+         && (ulFileSpecLength >= 2)
+       )
+    {
+        // upper-case the drive letter
+        if (pcszFullFile[1] == ':')
+        {
+            CHAR cDrive = toupper(*pcszFullFile);
+            // local drive specified:
+            if (    (cDrive >= 'A')
+                 && (cDrive <= 'Z')
+               )
+            {
+                if (pszDrive)
+                {
+                    pszDrive[0] = cDrive;
+                    pszDrive[1] = ':';
+                    pszDrive[2] = '\0';
+                }
+
+                if (pulDriveLen)
+                    *pulDriveLen = 2;
+                if (pfIsUNC)
+                    *pfIsUNC = FALSE;
+            }
+            else
+                // this is not a valid drive:
+                arc = ERROR_INVALID_DRIVE;
+        }
+        else if (    (pcszFullFile[0] == '\\')
+                  && (pcszFullFile[1] == '\\')
+                )
+        {
+            // UNC drive specified:
+            // this better be a full \\SERVER\RESOURCE string
+            PCSZ pResource;
+            if (pResource = strchr(pcszFullFile + 3, '\\'))
+            {
+                // we got at least \\SERVER\:
+                ULONG ulLength;
+                PCSZ p;
+
+                // check if more stuff is coming
+                if (p = strchr(pResource + 1, '\\'))
+                {
+                    // yes: copy server and resource excluding that backslash
+                    if (p == pResource + 1)
+                        // "\\SERVER\\" is invalid
+                        arc = ERROR_INVALID_NAME;
+                    else
+                        // we got "\\SERVER\something\":
+                        // drop the last backslash
+                        ulLength = p - pcszFullFile;
+                }
+                else
+                    // "\\SERVER\something" only:
+                    ulLength = ulFileSpecLength;
+
+                if (!arc)
+                {
+                    if (pszDrive)
+                    {
+                        memcpy(pszDrive,
+                               pcszFullFile,
+                               ulLength);
+                        pszDrive[ulLength] = '\0';
+                    }
+
+                    if (pulDriveLen)
+                        *pulDriveLen = ulLength;
+                    if (pfIsUNC)
+                        *pfIsUNC = TRUE;
+                }
+            }
+            else
+                // invalid UNC name:
+                arc = ERROR_INVALID_NAME;
+        }
+        else
+            // neither local, nor UNC:
+            arc = ERROR_INVALID_PARAMETER;
+    }
+    else
+        arc = ERROR_INVALID_PARAMETER;
+
+    return (arc);
+}
 
 /*
  *@@ doshGetExtension:
@@ -1215,17 +1336,17 @@ APIRET doshSetDiskLabel(ULONG ulLogicalDrive,        // in:  1 for A:, 2 for B:,
  *@@changed V0.9.7 (2000-12-10) [umoeller]: fixed "F:filename.ext" case
  */
 
-PSZ doshGetExtension(const char *pcszFilename)
+PSZ doshGetExtension(PCSZ pcszFilename)
 {
     PSZ pReturn = NULL;
 
     if (pcszFilename)
     {
         // find filename
-        const char *p2 = strrchr(pcszFilename + 2, '\\'),
+        PCSZ    p2 = strrchr(pcszFilename + 2, '\\'),
                             // works on "C:\blah" or "\\unc\blah"
-                   *pStartOfName = NULL,
-                   *pExtension = NULL;
+                pStartOfName = NULL,
+                pExtension = NULL;
 
         if (p2)
             pStartOfName = p2 + 1;
@@ -1233,7 +1354,7 @@ PSZ doshGetExtension(const char *pcszFilename)
         {
             // no backslash found:
             // maybe only a drive letter was specified:
-            if (*(pcszFilename + 1) == ':')
+            if (pcszFilename[1] == ':')
                 // yes:
                 pStartOfName = pcszFilename + 2;
             else
@@ -1250,6 +1371,16 @@ PSZ doshGetExtension(const char *pcszFilename)
 
     return (pReturn);
 }
+
+/*
+ *@@category: Helpers\Control program helpers\File management
+ */
+
+/* ******************************************************************
+ *
+ *   File helpers
+ *
+ ********************************************************************/
 
 /*
  *@@ doshIsFileOnFAT:
@@ -1444,7 +1575,7 @@ APIRET doshSetPathAttr(const char* pcszFile,    // in: file or directory name
  *@@added V0.9.13 (2001-06-14) [umoeller]
  */
 
-APIRET doshOpenExisting(const char *pcszFilename,   // in: file name
+APIRET doshOpenExisting(PCSZ pcszFilename,   // in: file name
                         ULONG ulOpenFlags,          // in: open flags
                         HFILE *phf)                 // out: OS/2 file handle
 {
@@ -1551,7 +1682,7 @@ APIRET doshReadAt(HFILE hf,        // in: OS/2 file handle
  *@@added V0.9.16 (2001-10-19) [umoeller]
  */
 
-APIRET doshOpen(const char *pcszFilename,   // in: filename to open
+APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
                 ULONG ulOpenMode,       // in: XOPEN_* mode
                 PULONG pcbFile,         // in: new file size (if new file is created)
                                         // out: file size
@@ -1755,7 +1886,7 @@ APIRET doshWriteLogEntry(PXFILE pFile,
             szTemp[ulLength++] = '\n';
 
             arc = doshWrite(pFile,
-                            (PVOID)szTemp,
+                            (PCSZ)szTemp,
                             ulLength);
         }
     }
@@ -1822,7 +1953,7 @@ APIRET doshClose(PXFILE *ppFile)
  *@@changed V0.9.7 (2001-01-15) [umoeller]: renamed from doshReadTextFile
  */
 
-APIRET doshLoadTextFile(const char *pcszFile,  // in: file name to read
+APIRET doshLoadTextFile(PCSZ pcszFile,  // in: file name to read
                         PSZ* ppszContent)      // out: newly allocated buffer with file's content
 {
     ULONG   ulSize,
@@ -1959,9 +2090,9 @@ PSZ doshCreateBackupFileName(const char* pszExisting)
  */
 
 APIRET doshCreateTempFileName(PSZ pszTempFileName,        // out: fully q'fied temp file name
-                              const char *pcszDir,        // in: dir or NULL for %TEMP%
-                              const char *pcszPrefix,     // in: prefix for temp file or NULL
-                              const char *pcszExt)        // in: extension (without dot) or NULL
+                              PCSZ pcszDir,        // in: dir or NULL for %TEMP%
+                              PCSZ pcszPrefix,     // in: prefix for temp file or NULL
+                              PCSZ pcszExt)        // in: extension (without dot) or NULL
 {
     APIRET      arc = NO_ERROR;
 
@@ -2171,7 +2302,7 @@ APIRET doshWriteTextFile(const char* pszFile,        // in: file name
  *      exists.
  */
 
-BOOL doshQueryDirExist(const char *pcszDir)
+BOOL doshQueryDirExist(PCSZ pcszDir)
 {
     FILESTATUS3 fs3;
     APIRET arc = DosQueryPathInfo((PSZ)pcszDir,
@@ -2194,7 +2325,7 @@ BOOL doshQueryDirExist(const char *pcszDir)
  *      directories do not exist yet.
  */
 
-APIRET doshCreatePath(const char *pcszPath,
+APIRET doshCreatePath(PCSZ pcszPath,
                       BOOL fHidden) // in: if TRUE, the new directories will get FILE_HIDDEN
 {
     APIRET  arc0 = NO_ERROR;
@@ -2303,7 +2434,7 @@ APIRET doshQueryCurrentDir(PSZ pszBuf)
  *@@added V0.9.4 (2000-07-01) [umoeller]
  */
 
-APIRET doshDeleteDir(const char *pcszDir,
+APIRET doshDeleteDir(PCSZ pcszDir,
                      ULONG flFlags,
                      PULONG pulDirs,        // out: directories found
                      PULONG pulFiles)       // out: files found
@@ -2843,7 +2974,7 @@ ULONG doshMyTID(VOID)
  *@@added V0.9.4 (2000-07-27) [umoeller]
  */
 
-APIRET doshExecVIO(const char *pcszExecWithArgs,
+APIRET doshExecVIO(PCSZ pcszExecWithArgs,
                    PLONG plExitCode)            // out: exit code (ptr can be NULL)
 {
     APIRET arc = NO_ERROR;
@@ -2925,8 +3056,8 @@ APIRET doshExecVIO(const char *pcszExecWithArgs,
  *@@changed V0.9.14 (2001-08-03) [umoeller]: fixed memory leak in wait mode; added pusReturn to prototype
  */
 
-APIRET doshQuickStartSession(const char *pcszPath,       // in: program to start
-                             const char *pcszParams,     // in: parameters for program
+APIRET doshQuickStartSession(PCSZ pcszPath,       // in: program to start
+                             PCSZ pcszParams,     // in: parameters for program
                              BOOL fForeground,  // in: if TRUE, session will be in foreground
                              USHORT usPgmCtl,   // in: STARTDATA.PgmControl
                              BOOL fWait,        // in: wait for termination?

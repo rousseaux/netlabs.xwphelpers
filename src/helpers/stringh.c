@@ -94,39 +94,61 @@ PSZ strhcpy(PSZ string1, const char *string2)
  */
 
 PSZ strhdupDebug(const char *pszSource,
+                 unsigned long *pulLength,
                  const char *pcszSourceFile,
                  unsigned long ulLine,
                  const char *pcszFunction)
 {
-    if (pszSource)
+    PSZ     pszReturn = NULL;
+    ULONG   ulLength = 0;
+
+    if (    (pcszSource)
+         && (ulLength = strlen(pcszSource))
+       )
     {
-        PSZ p = (PSZ)memdMalloc(strlen(pszSource) + 1,
-                                pcszSourceFile,
-                                ulLine,
-                                pcszFunction);
-        strcpy(p,  pszSource);
-        return (p);
+        if (pszReturn = (PSZ)memdMalloc(ulLength + 1,
+                                        pcszSourceFile,
+                                        ulLine,
+                                        pcszFunction))
+            memcpy(pszReturn, pcszSource, ulLength + 1);
     }
-    else
-        return (0);
+
+    if (pulLength)
+        *pulLength = ulLength;
+
+    return (pszReturn);
 }
 
 #endif // __DEBUG_MALLOC_ENABLED__
 
 /*
  *@@ strhdup:
- *      like strdup, but this one doesn't crash if pszSource is NULL,
- *      but returns NULL also.
+ *      like strdup, but this one doesn't crash if pszSource
+ *      is NULL, but returns NULL also. In addition, this
+ *      can report the length of the string (V0.9.16).
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.16 (2001-10-25) [umoeller]: added pulLength
  */
 
-PSZ strhdup(const char *pszSource)
+PSZ strhdup(const char *pcszSource,
+            unsigned long *pulLength)       // out: length of string excl. null terminator (ptr can be NULL)
 {
-    if (pszSource)
-        return (strdup(pszSource));
-    else
-        return (0);
+    PSZ     pszReturn = NULL;
+    ULONG   ulLength = 0;
+
+    if (    (pcszSource)
+         && (ulLength = strlen(pcszSource))
+       )
+    {
+        if (pszReturn = (PSZ)malloc(ulLength + 1))
+            memcpy(pszReturn, pcszSource, ulLength + 1);
+    }
+
+    if (pulLength)
+        *pulLength = ulLength;
+
+    return (pszReturn);
 }
 
 /*
