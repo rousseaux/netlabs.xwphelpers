@@ -2129,11 +2129,6 @@ BOOL doshMatchCase(const char *pcszMask,     // in: mask (e.g. "*.TXT")
     int     iMaskDrive = -1,
             iNameDrive = -1;
 
-    // ULONG   cbMask = strlen(pcszMask),
-    //         cbName = strlen(pcszName);
-    // PSZ     pszMask = (PSZ)_alloca(cbMask + 1),
-    //         pszName = (PSZ)_alloca(cbName + 1);
-
     PCSZ    pLastMaskComponent,
             pLastNameComponent;
 
