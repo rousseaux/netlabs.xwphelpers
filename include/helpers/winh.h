@@ -85,6 +85,9 @@ extern "C" {
         MRESULT XWPENTRY winhSendMsg(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2);
         #define WinSendMsg(a,b,c,d) winhSendMsg((a),(b),(c),(d))
 
+        MRESULT XWPENTRY winhSendDlgItemMsg(HWND hwnd, ULONG id, ULONG msg, MPARAM mp1, MPARAM mp2);
+        #define WinSendDlgItemMsg(a,b,c,d,e) winhSendDlgItemMsg((a),(b),(c),(d),(e))
+
         BOOL XWPENTRY winhPostMsg(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2);
         #define WinPostMsg(a,b,c,d) winhPostMsg((a),(b),(c),(d))
 
@@ -121,12 +124,10 @@ extern "C" {
     #define winhYesNoBox(title, text) \
     WinMessageBox(HWND_DESKTOP, HWND_DESKTOP, ((PSZ)text), ((PSZ)title), 0, MB_YESNO | MB_ICONQUESTION | MB_MOVEABLE)
 
-    // made these functions V0.9.12 (2001-05-18) [umoeller]
-    /* #define winhSetDlgItemChecked(hwnd, id, bCheck) \
+    #define winhSetDlgItemChecked(hwnd, id, bCheck) \
             WinSendDlgItemMsg((hwnd), (id), BM_SETCHECK, MPFROMSHORT(bCheck), MPNULL)
     #define winhIsDlgItemChecked(hwnd, id) \
             (SHORT1FROMMR(WinSendDlgItemMsg((hwnd), (id), BM_QUERYCHECK, MPNULL, MPNULL)))
-       */
 
     #define winhSetMenuItemChecked(hwndMenu, usId, bCheck) \
             WinSendMsg(hwndMenu, MM_SETITEMATTR, MPFROM2SHORT(usId, TRUE), \
@@ -158,10 +159,6 @@ extern "C" {
      *   Generics
      *
      ********************************************************************/
-
-    BOOL XWPENTRY winhSetDlgItemChecked(HWND hwnd, SHORT id, SHORT bCheck);
-
-    SHORT XWPENTRY winhIsDlgItemChecked(HWND hwnd, SHORT id);
 
     BOOL XWPENTRY winhEnableDlgItem(HWND hwndDlg, SHORT id, BOOL fEnable);
 
@@ -294,11 +291,17 @@ extern "C" {
                                               ULONG ulSliderStyle,
                                               ULONG ulTickCount);
 
-    BOOL winhSetSliderTicks(HWND hwndSlider,
-                            MPARAM mpEveryOther1,
-                            ULONG ulPixels1,
-                            MPARAM mpEveryOther2,
-                            ULONG ulPixels2);
+    BOOL XWPENTRY winhSetSliderTicks(HWND hwndSlider,
+                                     MPARAM mpEveryOther1,
+                                     ULONG ulPixels1,
+                                     MPARAM mpEveryOther2,
+                                     ULONG ulPixels2);
+    typedef BOOL XWPENTRY WINHSETSLIDERTICKS(HWND hwndSlider,
+                                             MPARAM mpEveryOther1,
+                                             ULONG ulPixels1,
+                                             MPARAM mpEveryOther2,
+                                             ULONG ulPixels2);
+    typedef WINHSETSLIDERTICKS *PWINHSETSLIDERTICKS;
 
     /*
      * winhSetSliderArmPosition:

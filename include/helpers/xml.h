@@ -152,6 +152,8 @@ extern "C" {
     typedef struct _NODEBASE
     {
         TREE            Tree;           // tree.c
+                    // ulKey simply points to the strNodeName
+                    // member always V0.9.13 (2001-06-27) [umoeller]
 
         NODEBASETYPE    ulNodeType;     // class type; this is precious,
                                         // all xml* functions make assumptions
@@ -682,7 +684,7 @@ extern "C" {
      ********************************************************************/
 
     PCMELEMENTDECLNODE xmlFindElementDecl(PXMLDOM pDom,
-                                          const XSTRING *pstrElementName);
+                                          const XSTRING *pcszElementName);
 
     PCMATTRIBUTEDECLBASE xmlFindAttribDeclBase(PXMLDOM pDom,
                                                const XSTRING *pstrElementName);
