@@ -122,6 +122,7 @@ static VOID UnlockThreadInfos(VOID)
  *
  *@@added V0.9.2 (2000-03-05) [umoeller]
  *@@changed V0.9.7 (2000-12-18) [lafaix]: THRF_TRANSIENT support added
+ *@@changed V0.9.21 (2002-08-21) [umoeller]: added WinCancelShutdown to avoid shutdown hangs
  */
 
 static VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
@@ -146,6 +147,12 @@ static VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
             {
                 if ((pti->hmq = WinCreateMsgQueue(pti->hab, 4000)))
                 {
+                    // run WinCancelShutdown; this func is used
+                    // in XWPDAEMN and causes the default OS/2
+                    // shutdown to hang
+                    // V0.9.21 (2002-08-21) [umoeller]
+                    WinCancelShutdown(pti->hmq, TRUE);
+
                     // run thread func
                     ((PTHREADFUNC)pti->pThreadFunc)(pti);
                     WinDestroyMsgQueue(pti->hmq);
