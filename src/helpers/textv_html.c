@@ -2027,8 +2027,6 @@ BOOL txvConvertFromHTML(char **ppszText,
 {
     BOOL    brc = TRUE;
 
-    PSZ     pszNew,
-            pTarget;
     ULONG   cbSource = strlen(*ppszText);
 
     COPYTARGET  ct = {0};

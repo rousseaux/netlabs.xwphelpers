@@ -472,10 +472,12 @@ int treeDelete(TREE **root,     // in: root of tree
     if (youngest != TREE_NULL)
         youngest->parent = descendent->parent;
     if (descendent->parent)
+    {
         if (descendent == descendent->parent->left)
             descendent->parent->left  = youngest;
         else
             descendent->parent->right = youngest;
+    }
     else
         *root = youngest;
 

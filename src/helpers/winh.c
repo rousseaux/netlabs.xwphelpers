@@ -2462,10 +2462,14 @@ HAPP winhStartApp(HWND hwndNotify,                  // in: notify window (as wit
         break;
 
         case PROG_WINDOW_AUTO:
+#ifdef PROG_30_STD
         case PROG_30_STD:
+#endif
         case PROG_31_STD:
         case PROG_WINDOW_REAL:
+#ifdef PROG_30_STDSEAMLESSVDM
         case PROG_30_STDSEAMLESSVDM:
+#endif
         case PROG_31_STDSEAMLESSVDM:
         case PROG_30_STDSEAMLESSCOMMON:
         case PROG_31_STDSEAMLESSCOMMON:

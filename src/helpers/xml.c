@@ -56,10 +56,16 @@
  *      GNU General Public License for more details.
  */
 
+#define OS2EMX_PLAIN_CHAR
+    // this is needed for "os2emx.h"; if this is defined,
+    // emx will define PSZ as _signed_ char, otherwise
+    // as unsigned char
+
+#define INCL_DOSERRORS
+#include <os2.h>
+
 #include <stdlib.h>
 #include <string.h>
-
-#include <os2.h>
 
 #include "setup.h"                      // code generation and debugging options
 
@@ -546,7 +552,7 @@ ULONG CreateNodesForBuf(const char *pcszBufStart,
                         PLINKLIST pllTagsList,
                         PDOMNODE pParentNode,
                         PFNVALIDATE pfnValidateTag,
-                        const char **ppError);
+                        const char **ppError)
 {
     ULONG ulrc = 0;
     PLISTNODE pCurrentTagListNode = lstQueryFirstNode(pllTagsList);
@@ -725,7 +731,8 @@ ULONG CreateNodesForBuf(const char *pcszBufStart,
                                                               pSubBufEnd,
                                                               pllSubList,
                                                               pNewNode,
-                                                              pfnValidateTag),
+                                                              pfnValidateTag,
+                                                              ppError);
 
                                             lstFree(pllSubList);
                                         } // end if (ulAction == XMLACTION_BREAKUP)
@@ -837,16 +844,16 @@ ULONG xmlParse(PDOMNODE pParentNode,        // in: node to append children to; m
 {
     ULONG   ulrc = 0;
 
-    const char *pSearchPos = pcszBuf;
-
     PLINKLIST pllTags = BuildTagsList(pcszBuf);
 
     // now create DOMNODE's according to that list...
+    const char *pcszError = 0;
     CreateNodesForBuf(pcszBuf,
                       NULL,     // enitre buffer
                       pllTags,
                       pParentNode,
-                      pfnValidateTag);
+                      pfnValidateTag,
+                      &pcszError);
 
     lstFree(pllTags);
 
