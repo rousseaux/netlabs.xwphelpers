@@ -46,6 +46,7 @@ $(OUTPUTDIR)\vcard.obj\
 $(OUTPUTDIR)\wphandle.obj\
 $(OUTPUTDIR)\xprf.obj\
 $(OUTPUTDIR)\xprf2.obj\
+$(OUTPUTDIR)\xsecapi.obj\
 $(OUTPUTDIR)\xstring.obj
 
 OBJS = $(CPOBJS) \

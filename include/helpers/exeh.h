@@ -1156,8 +1156,8 @@ extern "C" {
         // --   the executable has a new header only
         //      (NOSTUB, V0.9.12);
         // --   for .COM, .BAT, .CMD files (V0.9.16)
-        PDOSEXEHEADER   pDosExeHeader;
-        ULONG           cbDosExeHeader;
+        DOSEXEHEADER    DosExeHeader;       // no longer a ptr, but inline struct V1.0.2 (2003-11-13) [umoeller]
+        ULONG           cbDosExeHeader;     // if != 0, DosExeHeader is present
 
         // New Executable (NE) header, if ulExeFormat == EXEFORMAT_NE
         PNEHEADER       pNEHeader;
@@ -1352,6 +1352,7 @@ extern "C" {
                               ULONG ulType,
                               ULONG idResource,
                               PBYTE *ppbResData,
+                              PULONG pulOffset,
                               PULONG pcbResData);
 
     APIRET exehLoadOS2NEMaps(PEXECUTABLE pExec);

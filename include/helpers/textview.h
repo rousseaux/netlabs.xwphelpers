@@ -448,8 +448,8 @@ extern "C" {
 
     #define XS_VSCROLL          0x0001      // show vertical scroll bar
     #define XS_HSCROLL          0x0002      // show horizontal scroll bar
-    #define XS_AUTOVHIDE        0x0004      // with XTXF_VSCROLL: automatically hide scrollbar
-    #define XS_AUTOHHIDE        0x0008      // with XTXF_HSCROLL: automatically hide scrollbar
+    #define XS_AUTOVHIDE        0x0004      // with XS_VSCROLL: automatically hide scrollbar
+    #define XS_AUTOHHIDE        0x0008      // with XS_HSCROLL: automatically hide scrollbar
 
     // handy macro V0.9.20 (2002-08-10) [umoeller]
     #define XS_FULLSCROLL       (XS_VSCROLL | XS_HSCROLL | XS_AUTOVHIDE | XS_AUTOHHIDE)

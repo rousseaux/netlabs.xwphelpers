@@ -212,6 +212,38 @@ APIRET lanQueryServers(PSERVER *paServers,      // out: array of SERVER structs
  *@@ lanServiceGetInfo:
  *      queries the given service.
  *
+ *      If NO_ERROR is returned,
+ +
+ +          SERVICEBUF.svci2_status & SERVICE_INSTALL_STATE
+ +
+ *      can be queried for the service state, which should
+ *      be one of the following:
+ *
+ *      --  SERVICE_UNINSTALLED: not running. For the
+ *          REQUESTER service, this is only a theoretical
+ *          value because without it, NERR_WkstaNotStarted
+ *          (2138) is returned.
+ *
+ *      --  SERVICE_INSTALL_PENDING: start in progress
+ *
+ *      --  SERVICE_UNINSTALL_PENDING: stop in progress
+ *
+ *      --  SERVICE_INSTALLED: running
+ *
+ *      Alternatively, call lanServiceControl with the
+ *      SERVICE_CTRL_INTERROGATE code, which actually asks the
+ *      service.
+ *
+ *      Returns, among others:
+ *
+ *      --  NO_ERROR
+ *
+ *      --  NERR_WkstaNotStarted (2138): requester is not
+ *          running.
+ *
+ *      --  NERR_ServiceNotInstalled: requested service is
+ *          not running.
+ *
  *@@added V1.0.0 (2002-09-24) [umoeller]
  */
 
@@ -239,7 +271,17 @@ APIRET lanServiceGetInfo(PCSZ pcszServiceName,
  *      starts the given service. The service name
  *      must be fully qualified so you cannot
  *      abbreviate "requester" with "req", for
- *      example (as valid with the net command).
+ *      example (as valid with the NET START command).
+ *
+ *      The name of the service is found in the IBMLAN.INI file.
+ *      The executable file name of the service is matched to a
+ *      corresponding entry in the Services section of the
+ *      IBMLAN.INI file. Any relative file path name supplied
+ *      for a service is assumed to be relative to the LAN
+ *      Server root directory (\IBMLAN).
+ *
+ *      #Net32ServiceInstall supports a cmdargs argument, which
+ *      is presently always passed as NULL with this implementation.
  *
  *      Returns, among others:
  *
@@ -276,11 +318,16 @@ APIRET lanServiceInstall(PCSZ pcszServiceName,
 
 /*
  *@@ lanServiceControl:
- *      queries, pauses, resumes, or stops the given service.
+ *      queries, pauses, resumes, or stops the given service. This
+ *      has the functionality of the NET STOP command.
  *
  *      opcode must be one of:
  *
  *      --  SERVICE_CTRL_INTERROGATE (0): interrogate service status.
+ *          This is similar to running lanServiceGetInfo, except
+ *          that this one actually asks the service for its status,
+ *          while lanServiceGetInfo simply dumps the status last
+ *          posted.
  *
  *      --  SERVICE_CTRL_PAUSE (1): pause service.
  *

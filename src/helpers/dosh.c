@@ -2587,6 +2587,7 @@ BOOL doshQueryLongname(PFEA2LIST pFEA2List2,
  *@@added V0.9.16 (2001-10-19) [umoeller]
  *@@changed V0.9.16 (2001-12-18) [umoeller]: fixed error codes
  *@@changed V1.0.1 (2003-01-10) [umoeller]: now allowing read for all modes
+ *@@changed V1.0.2 (2003-11-13) [umoeller]: optimized; now calling doshQueryPathSize only on failure
  */
 
 APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
@@ -2614,8 +2615,9 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
             // exists, DosOpen only returns ERROR_OPEN_FAILED,
             // which isn't that meaningful
             // V0.9.16 (2001-12-08) [umoeller]
-            arc = doshQueryPathSize(pcszFilename,
-                                    pcbFile);
+            /* arc = doshQueryPathSize(pcszFilename,
+                                    pcbFile); */
+                // moved this down V1.0.2 (2003-11-13) [umoeller]
         break;
 
         case XOPEN_READWRITE_EXISTING:
@@ -2624,8 +2626,9 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
             fsOpenMode |=   OPEN_SHARE_DENYWRITE
                           | OPEN_ACCESS_READWRITE;
 
-            arc = doshQueryPathSize(pcszFilename,
-                                    pcbFile);
+            /* arc = doshQueryPathSize(pcszFilename,
+                                    pcbFile); */
+                // moved this down V1.0.2 (2003-11-13) [umoeller]
         break;
 
         case XOPEN_READWRITE_APPEND:
@@ -2645,7 +2648,11 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
         break;
     }
 
-    if ((!arc) && fsOpenFlags && pcbFile && ppFile)
+    if (    (!arc)
+         && fsOpenFlags
+         && pcbFile
+         && ppFile
+       )
     {
         PXFILE pFile;
         if (pFile = NEW(XFILE))
@@ -2694,11 +2701,22 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
 
                 pFile->pszFilename = strdup(pcszFilename);
             }
-            #ifdef DEBUG_DOSOPEN
             else
-                 _Pmpf((__FUNCTION__ ": DosOpen returned %d for %s",
+            {
+                #ifdef DEBUG_DOSOPEN
+                    _Pmpf((__FUNCTION__ ": DosOpen returned %d for %s",
                              arc, pcszFilename));
-            #endif
+                #endif
+
+                // open failed: if the file doesn't exist, DosOpen only
+                // returns OPEN_FAILED, while ERROR_FILE_NOT_FOUND would
+                // be a bit more informative
+                // (this check used to be before DosOpen, but is a bit
+                // excessive and should only be run if we really have no open)
+                if (arc == ERROR_OPEN_FAILED)
+                    arc = doshQueryPathSize(pcszFilename,
+                                            pcbFile);
+            }
 
             if (arc)
                 doshClose(&pFile);
@@ -2749,7 +2767,8 @@ APIRET doshOpen(PCSZ pcszFilename,   // in: filename to open
  *
  *@@added V0.9.13 (2001-06-14) [umoeller]
  *@@changed V0.9.16 (2001-12-18) [umoeller]: now with XFILE, and always using FILE_BEGIN
- *@@chaanged V0.9.19 (2002-04-02) [umoeller]: added params checking
+ *@@changed V0.9.19 (2002-04-02) [umoeller]: added params checking
+ *@@changed V1.0.2 (2003-11-13) [umoeller]: optimized cache (using realloc)
  */
 
 APIRET doshReadAt(PXFILE pFile,
@@ -2827,12 +2846,18 @@ APIRET doshReadAt(PXFILE pFile,
                         pFile->cbCache, pFile->ulReadFrom));
             #endif
 
+#if 0
             // free old cache
             if (pFile->pbCache)
                 free(pFile->pbCache);
 
             // allocate new cache
             if (!(pFile->pbCache = (PBYTE)malloc(pFile->cbCache)))
+#else
+            // realloc is better V1.0.2 (2003-11-13) [umoeller]
+            if (!(pFile->pbCache = (PBYTE)realloc(pFile->pbCache,
+                                                  pFile->cbCache)))
+#endif
                 arc = ERROR_NOT_ENOUGH_MEMORY;
             else
             {
@@ -4483,6 +4508,26 @@ ULONG doshMyPID(VOID)
 
     // PID is at offset 0 in the local info seg
     return *(PUSHORT)G_pvLocalInfoSeg;
+}
+
+/*
+ *@@ doshMyParentPID:
+ *      returns the PID of the parent of the current process.
+ *
+ *      This uses an interesting hack which is way
+ *      faster than DosGetInfoBlocks.
+ *
+ *@@added V1.0.2 (2003-11-13) [umoeller]
+ */
+
+ULONG doshMyParentPID(VOID)
+{
+    if (!G_pvLocalInfoSeg)
+        // first call:
+        GetInfoSegs();
+
+    // parent PID is at offset 2 in the local info seg
+    return *(PUSHORT)((PBYTE)G_pvLocalInfoSeg + 2);
 }
 
 /*

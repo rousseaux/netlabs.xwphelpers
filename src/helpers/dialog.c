@@ -295,8 +295,8 @@
  *      formatter fixed positions. Instead, you give the formatter
  *      the control _sizes_, and everything is layed out automatically.
  *      You may even have the formatter compute the sizes automatically
- *      based on the control classes and values; it is possible to
- *      create dialogs without specifying a single size also.
+ *      based on the control classes and values (strings); it is possible
+ *      to create dialogs without specifying a single size also.
  *
  *      There are several tricks to how this works.
  *
@@ -313,7 +313,7 @@
  *          If so, ProcessColumn recurses back into ProcessTable
  *          (which again goes into ProcessRow and ProcessColumn).
  *          There is no limit to how deep tables may nest, except
- *          the stack size of the current thread. ;-)
+ *          for the stack size of the current thread, of course.
  *
  *      3)  This whole recursive iteration is performed several times.
  *          In fact, we run through the entire data up to seven times

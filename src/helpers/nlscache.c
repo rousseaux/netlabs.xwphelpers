@@ -288,27 +288,29 @@ VOID nlsInitStrings(HAB hab,                    // in: anchor block
  *
  *      After that, this function implements a fast string
  *      cache for various NLS strings. Compared to the
- *      standard method, this has the following advantages:
+ *      standard method of preloading all NLS strings at
+ *      program startup, this method of on-demand string
+ *      loading has the following advantages:
  *
- *      -- Memory is only consumed for strings that are actually
- *         used. The NLSSTRINGS array had become terribly big,
- *         and lots of strings were loaded that were never used.
+ *      --  Memory is only consumed for strings that are actually
+ *          used.
  *
- *      -- Program startup should be a bit faster because we don't
- *         have to load a thousand strings at startup.
+ *      --  Program startup should be a bit faster because we don't
+ *          have to load a thousand strings at startup.
  *
- *      -- The memory buffer holding the string is probably close
- *         to the rest of the heap data that the caller allocated,
- *         so this might lead to less memory page fragmentation.
+ *      --  The memory buffer holding the string is probably close
+ *          to the rest of the heap data that the caller allocated,
+ *          so this might lead to less memory page fragmentation.
+ *          (This is a wild guess though.)
  *
- *      -- To add a new NLS string, before this mechanism existed,
- *         three files had to be changed (and kept in sync): common.h
- *         to add a field to the NLSSTRINGS structure, dlgids.h to
- *         add the string ID, and xfldrXXX.rc to add the resource.
- *         With the new mechanism, there's no need to change common.h
- *         any more, so the danger of forgetting something is a bit
- *         reduced. Anyway, fewer recompiles are needed (maybe),
- *         and sending in patches to the code is a bit easier.
+ *      --  To add a new NLS string, before this mechanism existed,
+ *          three files had to be changed (and kept in sync): common.h
+ *          to add a field to the NLSSTRINGS structure, dlgids.h to
+ *          add the string ID, and xfldrXXX.rc to add the resource.
+ *          With the new mechanism, there's no need to change common.h
+ *          any more, so the danger of forgetting something is a bit
+ *          reduced. Anyway, fewer recompiles are needed (maybe),
+ *          and sending in patches to the code is a bit easier.
  *
  *      On input, specify a string resouce ID that exists
  *      in the hmod that was given to nlsInitStrings.

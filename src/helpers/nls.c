@@ -148,6 +148,7 @@ BOOL nlsDBCS(VOID)
                      n <= G_aDBCSVector[i].bHigh;
                      ++n)
                     G_afLeadByte[n] = TRUE;
+
                 G_fDBCS = TRUE;
             }
             else

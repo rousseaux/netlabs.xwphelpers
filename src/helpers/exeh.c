@@ -265,16 +265,16 @@ APIRET exehOpen(const char* pcszExecutable,
         pExec->cbDosExeHeader = sizeof(DOSEXEHEADER);
 
         // read old DOS EXE header
-        if (!(pExec->pDosExeHeader = (PDOSEXEHEADER)malloc(sizeof(DOSEXEHEADER))))
-            arc = ERROR_NOT_ENOUGH_MEMORY;
-        else if (!(arc = doshReadAt(pFile,
-                                    0,
-                                    &pExec->cbDosExeHeader,      // in/out
-                                    (PBYTE)pExec->pDosExeHeader,
-                                    DRFL_FAILIFLESS)))
+        if ((arc = doshReadAt(pFile,
+                              0,
+                              &pExec->cbDosExeHeader,      // in/out
+                              (PBYTE)&pExec->DosExeHeader,
+                              DRFL_FAILIFLESS)))
+            pExec->cbDosExeHeader = 0;
+        else
         {
             // now check if we really have a DOS header
-            if (pExec->pDosExeHeader->usDosExeID != 0x5a4d)
+            if (pExec->DosExeHeader.usDosExeID != 0x5a4d)
             {
                 // arc = ERROR_INVALID_EXE_SIGNATURE;
 
@@ -288,13 +288,13 @@ APIRET exehOpen(const char* pcszExecutable,
 
                 // remove the DOS header info, since we have none
                 // V0.9.12 (2001-05-03) [umoeller]
-                FREE(pExec->pDosExeHeader);
+                // FREE(pExec->pDosExeHeader);
                 pExec->cbDosExeHeader = 0;
             }
             else
             {
                 // we have a DOS header:
-                if (pExec->pDosExeHeader->usRelocTableOfs < 0x40)
+                if (pExec->DosExeHeader.usRelocTableOfs < 0x40)
                 {
                     // neither LX nor PE nor NE:
                     pExec->ulOS = EXEOS_DOS3;
@@ -304,7 +304,7 @@ APIRET exehOpen(const char* pcszExecutable,
                 {
                     // we have a new header offset:
                     fLoadNewHeader = TRUE;
-                    ulNewHeaderOfs = pExec->pDosExeHeader->ulNewHeaderOfs;
+                    ulNewHeaderOfs = pExec->DosExeHeader.ulNewHeaderOfs;
                 }
             }
         }
@@ -1198,9 +1198,9 @@ APIRET exehQueryImportedModules(PEXECUTABLE pExec,
 
         ULONG ulNewHeaderOfs = 0;       // V0.9.12 (2001-05-03) [umoeller]
 
-        if (pExec->pDosExeHeader)
+        if (pExec->cbDosExeHeader)
             // executable has DOS stub: V0.9.12 (2001-05-03) [umoeller]
-            ulNewHeaderOfs = pExec->pDosExeHeader->ulNewHeaderOfs;
+            ulNewHeaderOfs = pExec->DosExeHeader.ulNewHeaderOfs;
 
         if (pExec->ulExeFormat == EXEFORMAT_LX)
         {
@@ -1352,9 +1352,9 @@ STATIC APIRET ScanLXEntryTable(PEXECUTABLE pExec,
     ULONG ulNewHeaderOfs = 0; // V0.9.12 (2001-05-03) [umoeller]
     HFILE hfExe = pExec->pFile->hf;
 
-    if (pExec->pDosExeHeader)
+    if (pExec->cbDosExeHeader)
         // executable has DOS stub: V0.9.12 (2001-05-03) [umoeller]
-        ulNewHeaderOfs = pExec->pDosExeHeader->ulNewHeaderOfs;
+        ulNewHeaderOfs = pExec->DosExeHeader.ulNewHeaderOfs;
 
     ENSURE(DosSetFilePtr(hfExe,
                          pExec->pLXHeader->ulEntryTblOfs
@@ -1593,9 +1593,9 @@ STATIC APIRET ScanNEEntryTable(PEXECUTABLE pExec,
     ULONG ulNewHeaderOfs = 0;
     HFILE hfExe = pExec->pFile->hf;
 
-    if (pExec->pDosExeHeader)
+    if (pExec->cbDosExeHeader)
         // executable has DOS stub: V0.9.12 (2001-05-03) [umoeller]
-        ulNewHeaderOfs = pExec->pDosExeHeader->ulNewHeaderOfs;
+        ulNewHeaderOfs = pExec->DosExeHeader.ulNewHeaderOfs;
 
     ENSURE(DosSetFilePtr(hfExe,
                          pExec->pNEHeader->usEntryTblOfs
@@ -1800,9 +1800,9 @@ APIRET exehQueryExportedFunctions(PEXECUTABLE pExec,
         HFILE hfExe = pExec->pFile->hf;
         ULONG ulNewHeaderOfs = 0; // V0.9.12 (2001-05-03) [umoeller]
 
-        if (pExec->pDosExeHeader)
+        if (pExec->cbDosExeHeader)
             // executable has DOS stub: V0.9.12 (2001-05-03) [umoeller]
-            ulNewHeaderOfs = pExec->pDosExeHeader->ulNewHeaderOfs;
+            ulNewHeaderOfs = pExec->DosExeHeader.ulNewHeaderOfs;
 
         if (pExec->ulExeFormat == EXEFORMAT_LX)
         {
@@ -1975,9 +1975,9 @@ APIRET exehQueryResources(PEXECUTABLE pExec,     // in: executable from exehOpen
         HFILE hfExe = pExec->pFile->hf;
         ULONG           ulNewHeaderOfs = 0; // V0.9.12 (2001-05-03) [umoeller]
 
-        if (pExec->pDosExeHeader)
+        if (pExec->cbDosExeHeader)
             // executable has DOS stub: V0.9.12 (2001-05-03) [umoeller]
-            ulNewHeaderOfs = pExec->pDosExeHeader->ulNewHeaderOfs;
+            ulNewHeaderOfs = pExec->DosExeHeader.ulNewHeaderOfs;
 
         if (pExec->ulExeFormat == EXEFORMAT_LX)
         {
@@ -2370,9 +2370,9 @@ APIRET exehLoadLXMaps(PEXECUTABLE pExec)
         ULONG ulNewHeaderOfs = 0;
         ULONG cb;
 
-        if (pExec->pDosExeHeader)
+        if (pExec->cbDosExeHeader)
             // executable has DOS stub: V0.9.12 (2001-05-03) [umoeller]
-            ulNewHeaderOfs = pExec->pDosExeHeader->ulNewHeaderOfs;
+            ulNewHeaderOfs = pExec->DosExeHeader.ulNewHeaderOfs;
 
         // resource table
         if (    (!(arc = doshAllocArray(pLXHeader->ulResTblCnt,
@@ -2882,6 +2882,12 @@ APIRET exehReadLXPage(PEXECUTABLE pExec,        // in: executable from exehOpen
     {
         ULONG ulPageSize = pExec->pLXHeader->ulPageSize;
 
+        // if the data is not compressed, we read it directly
+        // into caller's pbData buffer (avoid one memcpy)
+        // V1.0.2 (2003-11-13) [umoeller]
+        PBYTE pbTarget =
+            (ulFlags == VALID) ? pbData : pabCompressed;
+
         ulOffset += ulExeOffset;
 
         /* _Pmpf(("  reading pgtbl %d, ofs %d, type %s",
@@ -2897,7 +2903,7 @@ APIRET exehReadLXPage(PEXECUTABLE pExec,        // in: executable from exehOpen
         else if (!(arc = doshReadAt(pExec->pFile,
                                     ulOffset,
                                     &ulSize,
-                                    pabCompressed,
+                                    pbTarget, // pabCompressed, V1.0.2 (2003-11-13) [umoeller]
                                     0)))
         {
             // _Pmpf(("   %d bytes read", ulSize));
@@ -2923,12 +2929,14 @@ APIRET exehReadLXPage(PEXECUTABLE pExec,        // in: executable from exehOpen
                                           ulSize);            // this page's size
                 break;
 
+                /* V1.0.2 (2003-11-13) [umoeller]
                 case VALID:
                     // uncompressed
                     memcpy(pbData,
                            pabCompressed,
                            ulPageSize);
                 break;
+                */
             }
         }
     }
@@ -2947,10 +2955,24 @@ APIRET exehReadLXPage(PEXECUTABLE pExec,        // in: executable from exehOpen
  *      try to find the resource of the specified
  *      type _and_ ID.
  *
- *      If NO_ERROR is returned, *ppbResData receives
- *      a new buffer with the raw resource data, and
- *      *pcbResData receives the size of that buffer.
- *      The caller must then free() that buffer.
+ *      If NO_ERROR is returned,
+ *
+ *      --  *ppbResData receives a new buffer with
+ *          the raw resource data, which the caller
+ *          must free();
+ *
+ *      --  *pulOffset receives an offset into that
+ *          buffer, where the actual resource data
+ *          starts;
+ *
+ *      --  *pcbResData receives the size of the
+ *          following resource data (what follows
+ *          after *pulOffset).
+ *
+ *      The reason for this slightly complicated
+ *      format is to avoid another memcpy since
+ *      resource data need not necessarily be on
+ *      an LX page boundary.
  *
  *      This code will properly unpack compressed
  *      pages in the executable so the returned
@@ -2976,6 +2998,7 @@ APIRET exehLoadLXResource(PEXECUTABLE pExec,     // in: executable from exehOpen
                           ULONG ulType,          // in: RT_* type (e.g. RT_POINTER)
                           ULONG idResource,      // in: resource ID or 0 for first
                           PBYTE *ppbResData,     // out: resource data (to be free()'d)
+                          PULONG pulOffset,      // out: offset of actual data in buffer
                           PULONG pcbResData)     // out: size of resource data (ptr can be NULL)
 {
     APIRET          arc = NO_ERROR;
@@ -2994,9 +3017,9 @@ APIRET exehLoadLXResource(PEXECUTABLE pExec,     // in: executable from exehOpen
     if (!(pLXHeader = pExec->pLXHeader))
         return ERROR_INVALID_EXE_SIGNATURE;
 
-    if (pExec->pDosExeHeader)
+    if (pExec->cbDosExeHeader)
         // executable has DOS stub: V0.9.12 (2001-05-03) [umoeller]
-        ulNewHeaderOfs = pExec->pDosExeHeader->ulNewHeaderOfs;
+        ulNewHeaderOfs = pExec->DosExeHeader.ulNewHeaderOfs;
 
     if (!(cResources = pLXHeader->ulResTblCnt))
         // no resources at all:
@@ -3135,26 +3158,34 @@ APIRET exehLoadLXResource(PEXECUTABLE pExec,     // in: executable from exehOpen
 
                         if (!arc)
                         {
-                            // allocate a new buffer for caller
-                            if (!(*ppbResData = (PBYTE)malloc(pRsEntry->cb)))
-                                arc = ERROR_NOT_ENOUGH_MEMORY;
-                            else
-                            {
-                                // copy into that buffer from the offset
-                                // into the first page and the data from
-                                // the subsequent pages too
-                                memcpy(*ppbResData,
-                                       pabUncompressed + ulResOffsetInFirstPage,
-                                       pRsEntry->cb);
+                            // new code without malloc/memcpy V1.0.2 (2003-11-13) [umoeller]
+                            *ppbResData = pabUncompressed;
+                            *pulOffset = ulResOffsetInFirstPage;
 
-                                if (pcbResData)
-                                    *pcbResData = pRsEntry->cb;
-                            }
+
+                            /*
+                                // allocate a new buffer for caller
+                                if (!(*ppbResData = (PBYTE)malloc(pRsEntry->cb)))
+                                    arc = ERROR_NOT_ENOUGH_MEMORY;
+                                else
+                                {
+                                    // copy into that buffer from the offset
+                                    // into the first page and the data from
+                                    // the subsequent pages too
+                                    memcpy(*ppbResData,
+                                           pabUncompressed + ulResOffsetInFirstPage,
+                                           pRsEntry->cb);
+                                }
+                            */
+
+                            if (pcbResData)
+                                *pcbResData = pRsEntry->cb;
 
                             fPtrFound = TRUE;
                         }
+                        else
+                            FREE(pabUncompressed);
 
-                        FREE(pabUncompressed);
                         FREE(pabCompressed);
                     }
                 }
@@ -3238,9 +3269,9 @@ APIRET exehLoadOS2NEMaps(PEXECUTABLE pExec)
         ULONG ulNewHeaderOfs = 0;
         ULONG cb;
 
-        if (pExec->pDosExeHeader)
+        if (pExec->cbDosExeHeader)
             // executable has DOS stub: V0.9.12 (2001-05-03) [umoeller]
-            ulNewHeaderOfs = pExec->pDosExeHeader->ulNewHeaderOfs;
+            ulNewHeaderOfs = pExec->DosExeHeader.ulNewHeaderOfs;
 
         // resource table
         if (    (!(arc = doshAllocArray(pNEHeader->usResSegmCount,
@@ -3350,9 +3381,9 @@ APIRET exehLoadOS2NEResource(PEXECUTABLE pExec,     // in: executable from exehO
     if (!(pNEHeader = pExec->pNEHeader))
         return ERROR_INVALID_EXE_SIGNATURE;
 
-    if (pExec->pDosExeHeader)
+    if (pExec->cbDosExeHeader)
         // executable has DOS stub: V0.9.12 (2001-05-03) [umoeller]
-        ulNewHeaderOfs = pExec->pDosExeHeader->ulNewHeaderOfs;
+        ulNewHeaderOfs = pExec->DosExeHeader.ulNewHeaderOfs;
 
     // _Pmpf((__FUNCTION__ ": entering, checking %d resources", pNEHeader->usResSegmCount));
 
@@ -3453,7 +3484,7 @@ APIRET exehClose(PEXECUTABLE *ppExec)
     {
         char **papsz[] =
             {
-                (char**)&pExec->pDosExeHeader,
+                // (char**)&pExec->pDosExeHeader,
                 (char**)&pExec->pNEHeader,
                 (char**)&pExec->pLXHeader,
                 (char**)&pExec->pPEHeader,

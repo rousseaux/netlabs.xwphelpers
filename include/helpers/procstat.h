@@ -233,7 +233,6 @@ extern "C" {
      ********************************************************************/
 
     // #pragma pack(1)
-    #pragma pack(4)         // V0.9.10 (2001-04-08) [umoeller]
 
     #define QS32_PROCESS      0x0001
     #define QS32_SEMAPHORE    0x0002

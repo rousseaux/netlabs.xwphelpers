@@ -69,14 +69,14 @@
  *      for the owner, group, and "world" (rwxrwxrwx model), XWPSec has
  *      real ACLs which are unlimited in size per resource.
  *
- *      To implement this efficiently, XWPSec uses "subject handles", which
- *      is a concept borrowed from SES. However, XWPSec does not use the
- *      SES APIs for creating and managing those, but implements this
- *      functionality itself.
+ *      To implement this efficiently, XWPSec uses "subject handles",
+ *      which is a concept borrowed from SES. However, XWPSec does not
+ *      use the SES APIs for creating and managing those, but implements
+ *      this functionality itself.
  *
  *      For authorizing events, XWPSec uses the XWPSUBJECTINFO and
  *      XWPSECURITYCONTEXT structures, plus an array of RESOURCEACL
- *      structs which forms the global system ACL table shared with
+ *      structs that forms the global system ACL table shared with
  *      the ring-0 device driver.
  *
  *
@@ -86,8 +86,8 @@
  *      logged on. There can be an infinite number of logged-on
  *      users. However, one user logon is special and is called
  *      the "local" logon: that user owns the shell, most
- *      importantly the Workplace Shell, and processes started
- *      via the shell run on behalf of that user.
+ *      importantly PM and the Workplace Shell, and processes
+ *      started via the shell run on behalf of that user.
  *
  *      When a user logs on, XWPShell authenticates the credentials
  *      (normally, via user name and password), and creates one
@@ -221,7 +221,7 @@ extern "C" {
 
     typedef unsigned long HXSUBJECT;
 
-    typedef unsigned long XWPSECID;
+    typedef long XWPSECID;
 
     /*
      *@@ XWPSUBJECTINFO:
@@ -302,7 +302,7 @@ extern "C" {
     } XWPSUBJECTINFO, *PXWPSUBJECTINFO;
 
     /*
-     *@@ XWPSECURITYCONTEXT:
+     *@@ XWPSECURITYCONTEXTCORE:
      *      describes the security context for a process.
      *
      *      For each process on the system, one security context
@@ -344,28 +344,27 @@ extern "C" {
      *          "C:\MASTER\MASTER.EXE" is given specific permissions,
      *          there would be one subject handle representing the
      *          ACLs for that in addition to those of the user running
-     *          it.
+     *          it (if any).
      *
      *      --  For processes that were started during system startup,
      *          the driver creates security contexts with a single "0"
      *          (root) subject handle when XWPShell passes a list of
      *          PIDs to the driver with the "initialization" ring-0 API.
      *          As a result, all processes started through CONFIG.SYS
-     *          are considered trusted processes.
+     *          are presently considered trusted processes.
      */
 
-    typedef struct _XWPSECURITYCONTEXT
+    typedef struct _XWPSECURITYCONTEXTCORE
     {
-        ULONG       cbStruct;
-        ULONG       ulPID;          // process ID
+        USHORT      pidParent;      // ID of process parent
 
-        ULONG       cSubjects;      // no. of subject handles in this context
+        USHORT      cSubjects;      // no. of subject handles in this context
 
         HXSUBJECT   aSubjects[1];   // array of cSubjects subject handles,
-                                        // determining the permissions of this
-                                        // process
+                                    // determining the permissions of this
+                                    // process
 
-    } XWPSECURITYCONTEXT, *PXWPSECURITYCONTEXT;
+    } XWPSECURITYCONTEXTCORE, *PXWPSECURITYCONTEXTCORE;
 
     /* ******************************************************************
      *
@@ -425,7 +424,7 @@ extern "C" {
                     // in the directory, but not create files ("Create"
                     // is required for that).
                     // Should be used together with "Read", because
-                    // "Write" alone doesn't make much sense.
+                    // "Write" alone is not terribly useful.
                     // Besides, "Attrib" permission will also be
                     // required.
     #define XWPACCESS_CREATE           0x04                // "C"
@@ -459,6 +458,8 @@ extern "C" {
 
     /*
      *@@ XWPSECSTATUS:
+     *      structure representing the current status of XWPSec.
+     *      Used with QUECMD_QUERYSTATUS.
      *
      *@@added V1.0.1 (2003-01-10) [umoeller]
      */
@@ -469,7 +470,7 @@ extern "C" {
 
         // the following fields are only set if fLocalSecurity is TRUE
 
-        ULONG       cbAllocated;        // fixed memory currently allocated in ring 0
+        ULONG       cbAllocated;        // total fixed memory currently allocated in ring 0
         ULONG       cAllocations,       // no. of allocations made since startup
                     cFrees;             // no. of frees made since startup
         USHORT      cLogBufs,           // current 64K log buffers in use
@@ -477,8 +478,10 @@ extern "C" {
         ULONG       cLogged;            // no. of syscalls that were logged
         ULONG       cGranted,           // no. of syscalls where access was granted
                     cDenied;            // ... and denied
+        LONG        cContexts;          // no. of currently allocated security contexts
+                                        // (always >= the no. of running processes)
+        ULONG       cbACLs;             // of cbAllocated, no. of bytes in use for ACLs
     } XWPSECSTATUS, *PXWPSECSTATUS;
-
 
     /* ******************************************************************
      *
@@ -506,9 +509,10 @@ extern "C" {
 
     typedef struct _XWPUSERINFO
     {
-        XWPSECID    uid;                // user's ID (unique); 0 for root
+        XWPSECID    uid;                    // user's ID (unique); 0 for root
         CHAR        szUserName[XWPSEC_NAMELEN];
         CHAR        szFullName[XWPSEC_FULLNAMELEN];       // user's clear name
+        CHAR        szUserShell[CCHMAXPATH];    // user shell (normally "X:\OS2\PMSHELL.EXE")
     } XWPUSERINFO, *PXWPUSERINFO;
 
     /*
@@ -556,7 +560,7 @@ extern "C" {
         ULONG       cbStruct;       // size of entire structure
         XWPSECID    uid;            // user's ID
         CHAR        szUserName[XWPSEC_NAMELEN];
-        ULONG       cSubjects;      // no. of entries in aSubjects array
+        USHORT      cSubjects;      // no. of entries in aSubjects array
         HXSUBJECT   aSubjects[1];   // array of subject handles of this user; one "0" entry if root
     } XWPLOGGEDON, *PXWPLOGGEDON;
 
@@ -600,7 +604,8 @@ extern "C" {
     #define XWPSEC_DB_INVALID_GROUPID   (ERROR_XWPSEC_FIRST + 37)
 
     #define XWPSEC_DB_ACL_SYNTAX        (ERROR_XWPSEC_FIRST + 40)
-    #define XWPSEC_DB_ACL_DUPRES        (ERROR_XWPSEC_FIRST + 41)
+    #define XWPSEC_DB_ACL_INTEGRITY     (ERROR_XWPSEC_FIRST + 41)
+    #define XWPSEC_DB_ACL_DUPRES        (ERROR_XWPSEC_FIRST + 42)
                 // more than one line for the same resource in ACL DB
 
     #define XWPSEC_RING0_NOT_FOUND      (ERROR_XWPSEC_FIRST + 50)
@@ -744,17 +749,28 @@ extern "C" {
             PXWPGROUPDBENTRY    paGroups;
         } QueryGroups;
 
-        #define QUECMD_QUERYPROCESSOWNER            5
-            // return the uid of the user who owns
-            // the given process.
-            // Required authority: administrator.
+        #define QUECMD_QUERYUSERNAME                5
+
         struct
         {
-            ULONG               ulPID;      // in: PID to query
+            XWPSECID    uid;                            // in: user ID
+            CHAR        szUserName[XWPSEC_NAMELEN];     // out: user name
+        } QueryUserName;
+
+        #define QUECMD_QUERYPROCESSOWNER            6
+            // return the uid of the user who owns
+            // the given process.
+            // Required authority: XWPPERM_QUERYUSERINFO,
+            // unless the given process is owned by the
+            // same user who runs the query.
+        struct
+        {
+            USHORT              pid;        // in: PID to query (or 0 for calling process)
+            HXSUBJECT           hsubj0;     // out: hSubject of user (or privileged process)
             XWPSECID            uid;        // out: uid of owner, if NO_ERROR is returned
         } QueryProcessOwner;
 
-        #define QUECMD_CREATEUSER                   6
+        #define QUECMD_CREATEUSER                   7
 
         struct
         {
@@ -764,21 +780,35 @@ extern "C" {
             XWPSECID    uidCreated; // out: uid of new user
         } CreateUser;
 
-        #define QUECMD_SETUSERDATA                  7
+        #define QUECMD_SETUSERDATA                  8
 
         XWPUSERINFO     SetUserData;
 
-        #define QUECMD_DELETEUSER                   8
+        #define QUECMD_DELETEUSER                   9
 
         XWPSECID        uidDelete;
 
-        #define QUECMD_QUERYPERMISSIONS             9
+        #define QUECMD_QUERYPERMISSIONS             10
 
         struct
         {
             CHAR        szResource[CCHMAXPATH];     // in: resource to query
             ULONG       flAccess;                   // out: XWPACCESS_* flags
         } QueryPermissions;
+
+        #define QUECMD_SWITCHUSER                   11
+            // change the credentials of the current process. This
+            // allows a process to run on behalf of a different user
+            // and can be used to implement a "su" command, since
+            // processes started by the current process will inherit
+            // those credentials.
+
+        struct
+        {
+            CHAR        szUserName[XWPSEC_NAMELEN];
+            CHAR        szPassword[XWPSEC_NAMELEN];
+            XWPSECID    uid;                        // out: user id if NO_ERROR
+        } SwitchUser;
 
     } QUEUEUNION, *PQUEUEUNION;
 
@@ -835,250 +865,40 @@ extern "C" {
 
     /* ******************************************************************
      *
-     *   Ring-0 (driver) APIs
+     *   APIs for interfacing XWPShell
      *
      ********************************************************************/
 
-    /*
-     *      Ring 0 interfaces required to be called from XWPShell:
-     *
-     *      --  Initialization: to be called exactly once when
-     *          XWPShell starts up. This call enables local security
-     *          and switches the driver into authorization mode:
-     *          from then on, all system events are authenticated
-     *          via the KPI callouts.
-     *
-     *          With this call, XWPShell must pass down an array of
-     *          PIDs that were already running when XWPShell was
-     *          started, including XWPShell itself. For these
-     *          processes, the driver will create security contexts
-     *          as trusted processes.
-     *
-     *          In addition, XWPShell sends down an array with all
-     *          definitions of trusted processes so that the driver
-     *          can create special security contexts for those.
-     *
-     *      --  Query security context: XWPShell needs to be able
-     *          to retrieve the security context of a given PID
-     *          from the driver to be able to authorize ring-3 API
-     *          calls such as "create user" or changing permissions.
-     *
-     *      --  Set security context: changes the security context
-     *          of an existing process. This is used by XWPShell
-     *          to change its own context when the local user logs
-     *          on. In addition, XWPShell will call this when a
-     *          third party process has requested to change its
-     *          context and this request was authenticated.
-     *
-     *      --  ACL table: Whenever subject handles are created or
-     *          deleted, XWPShell needs to rebuild the system ACL
-     *          table to contain the fresh subject handles and
-     *          pass them all down to the driver.
-     *
-     *      --  Refresh process list: XWPShell needs to periodically
-     *          call into the driver to pass it a list of processes
-     *          that are currently running. Since there is no callout
-     *          for when a process has terminated, the driver will
-     *          end up with plenty of zombie PIDs after a while. This
-     *          call will also be necessary before a user logs off
-     *          after his processes have been terminated to make
-     *          sure that subject handles are no longer in use.
-     */
+    APIRET xsecQueryStatus(PXWPSECSTATUS pStatus);
 
-    /*
-     *@@ ACCESS:
-     *
-     *@@added V1.0.1 (2003-01-05) [umoeller]
-     */
+    APIRET xsecQueryLocalUser(PXWPUSERDBENTRY *ppLocalUser);
 
-    typedef struct _ACCESS
-    {
-        HXSUBJECT   hSubject;           // subject handle; this is -1 if an entry
-                                        // exists for this resource but the user or
-                                        // group is not currently in use (because no
-                                        // such user is logged on)
-        BYTE        fbAccess;           // XWPACCESS_* flags
-    } ACCESS, *PACCESS;
+    APIRET xsecQueryAllUsers(PULONG pcUsers,
+                             PXWPUSERDBENTRY *ppaUsers);
 
-    /*
-     *@@ RESOURCEACL:
-     *      definition of a resource entry in the system access control
-     *      list (ACL).
-     *
-     *      At ring 0, the driver has a list of all RESOURCEACL entries
-     *      defined for the system. Each entry in turn has an array of
-     *      ACCESS structs listing the subject handles for the resource,
-     *      for example, defining that subject handle 1 (which could be
-     *      representing a user) may read and write this resource, subject
-     *      handle 2 (representing one of the groups the user belongs to)
-     *      may execute, and so on.
-     *
-     *      There will only be one entry for any resource per subject.
-     *      As a result, if the permissions for a resource are changed,
-     *      the existing entry must be found and refreshed to avoid
-     *      duplicates.
-     *
-     *      The global ACL table is build by XWPShell whenever it needs
-     *      updating and passed down to the driver for future use. It
-     *      will need rebuilding whenever a subject handle gets created
-     *      or when access permissions are changed by an administrator.
-     *
-     *      The table will be build as follows by XWPShell:
-     *
-     *      1)  XWPShell loads the file defining the ACLs for the entire
-     *          system.
-     *
-     *          For each definition in the file, it builds a RESOURCEACL
-     *          entry. It checks the permissions defined for the resource
-     *          in the file and sets up the array of ACCESS structures for
-     *          the resource. If a permission was defined for a user for
-     *          which a subject handle already exists (because the user
-     *          is already logged on), that subject handle is stored.
-     *          If a definition exists but none of the permissions apply
-     *          to any of the current users (because those users are not
-     *          logged on, or the groups are not in use yet), a dummy
-     *          entry with a -1 subject handle is created to block access
-     *          to the resource (see the algorithm description below).
-     *
-     *      2)  XWPShell then sends the system ACL list down to the driver.
-     *
-     *      During authorization, for any event, the driver first checks
-     *      if a null ("root") subject handle exists in the process's
-     *      security context. If so, access is granted unconditionally.
-     *
-     *      Otherwise, ACLs apply to all subdirectories too, unless a more
-     *      specific ACL entry is encountered. In other words,
-     *      the driver authorizes events bottom-up in the following order:
-     *
-     *      1)  It checks for whether an ACL entry for the given resource
-     *          exists in the ACL table.
-     *
-     *          If any ACL entry was found for the resource, access is
-     *          granted if any ACL entry allowed access for one of the
-     *          subjects in the process's security context. Access is denied
-     *          if ACL entries existed for the resource but none allowed access,
-     *          which includes the "blocker" -1 entry described above.
-     *
-     *          In any case, the search stops if an ACL entry was found
-     *          in the table, and access is either granted or denied.
-     *
-     *      2)  Only if no entry was found for the resource in any of the
-     *          subject infos, we climb up to the parent directory and
-     *          search all subject infos again. Go back to (1).
-     *
-     *      3)  After the root directory has been processed and still no
-     *          entry exists, access is denied.
-     *
-     *      Examples:
-     *
-     *      User "dumbo" belongs to the groups "users" and "admins".
-     *      The following ACLs are defined:
-     *
-     *      --  "users" may read "C:\DIR",
-     *
-     *      --  "admins" may read and write "C:\",
-     *
-     *      --  "admins" may create directories in "C:\DIR",
-     *
-     *      --  "otheruser" may read "C:\OTHERDIR".
-     *
-     *      Assuming that only "dumbo" is logged on presently and the following
-     *      subject handles have thus been created:
-     *
-     *      --  1 for user "dumbo",
-     *
-     *      --  2 for group "users",
-     *
-     *      --  3 for group "admins",
-     *
-     *      the system ACL table will contain the following entries:
-     *
-     *      --  "C:\": 3 (group "admins") may read and write;
-     *
-     *      --  "C:\DIR": 2 (group "users") may read, 3 (group "admins) may
-     *          create directories;
-     *
-     *      --  "C:\OTHERDIR": this will have a dummy -1 entry with no permissions
-     *          because the only ACL defined is that user "otheruser" may read, and
-     *          that user is not logged on.
-     *
-     *      1)  Assume a process running on behalf of "dumbo" wants to open
-     *          C:\DIR\SUBDIR\TEXT.DOC for reading.
-     *          Since the security context of "dumbo" has the three subject
-     *          handles for user "dumbo" (1) and the groups "users" (2) and
-     *          "admins" (3), the following happens:
-     *
-     *          a)  We check the system ACL table for "C:\DIR\SUBDIR\TEXT.DOC"
-     *              and find no ACL entry.
-     *
-     *          b)  So we take the parent directory, "C:\DIR\SUBDIR",
-     *              and again we find nothing.
-     *
-     *          c)  Taking the next parent, "C:\DIR\", we find the above two
-     *              subject handles: since "users" (2) may read, and that is
-     *              part of the security context, we grant access.
-     *
-     *      2)  Now assume that the same process wants to write the file back:
-     *
-     *          a)  Again, we find no ACL entries for "C:\DIR\SUBDIR\TEXT.DOC"
-     *              or "C:\DIR\SUBDIR".
-     *
-     *          b)  Searching for "C:\DIR", we find that "users" (2) may only read,
-     +              but not write. Also, "admins" (3) may create directories under
-     *              "C:\DIR", which is not sufficient either. Since no other entries
-     *              exist for "C:\DIR"  that would permit write, we deny access.
-     *              That "admins" may write to "C:\" does not help since more
-     *              specific entries exist for "C:\DIR".
-     *
-     *      3)  Now assume that the same process wants to create a new directory
-     *          under "C:\DIR\SUBDIR".
-     *
-     *          a)  Again, we find no ACL entries for "C:\DIR\SUBDIR".
-     *
-     *          b)  Searching for "C:\DIR", we find that "users" may only read,
-     *              which does not help. However, "admins" may create directories,
-     *              so we grant access.
-     *
-     *      4)  Assume now that the process wants to create a new directory under
-     *          "C:\OTHERDIR".
-     *
-     *          We find the ACL entry for "C:\OTHERDIR" and see only the -1
-     *          subject handle (for user "otheruser", who's not logged on),
-     *          and since no other permissions are set for us, we deny access.
-     *
-     *@@added V1.0.1 (2003-01-05) [umoeller]
-     */
+    APIRET xsecQueryGroups(PULONG pcGroups,
+                           PXWPGROUPDBENTRY *ppaGroups);
 
-    typedef struct _RESOURCEACL
-    {
-        ULONG       cbStruct;           // size of entire structure; this is
-                                        //   sizeof(RESOURCEACL)
-                                        // + cbName - 1
-                                        // + cAccesses * sizeof(ACCESS)
-        USHORT      cAccesses;          // no. of entries in array of ACCESS structs;
-                                        // this comes right after szName, so its address
-                                        // is szName + cbName
-        USHORT      cbName;             // offset of array of ACCESS structs after szName
-                                        // (includes null terminator and DWORD alignment
-                                        // filler bytes)
-        CHAR        szName[1];          // fully qualified filename of this resource
-                                        // (zero-terminated)
-    } RESOURCEACL, *PRESOURCEACL;
+    APIRET xsecQueryUserName(XWPSECID uid,
+                             PSZ pszUserName);
 
-    /*
-     *@@ RING0BUF:
-     *
-     *@@added V1.0.1 (2003-01-05) [umoeller]
-     */
+    APIRET xsecQueryProcessOwner(USHORT pid,
+                                 XWPSECID *puid);
 
-    typedef struct _RING0BUF
-    {
-        ULONG       cbTotal;
-        ULONG       cSubjectInfos;      // no. of subject infos (directly after this struct)
-        ULONG       cACLs;              // no. of RESOURCEACL structs (after subject infos)
-        ULONG       ofsACLs;            // ofs of first RESOURCEACL struct from beginning of
-                                        // RING0BUF
-    } RING0BUF, *PRING0BUF;
+    APIRET xsecCreateUser(PCSZ pcszUserName,
+                          PCSZ pcszFullName,
+                          PCSZ pcszPassword,
+                          XWPSECID gid,
+                          XWPSECID *puid);
+
+    APIRET xsecSetUserData(XWPSECID uid,
+                           PCSZ pcszUserName,
+                           PCSZ pcszFullName);
+
+    APIRET xsecDeleteUser(XWPSECID uid);
+
+    APIRET xsecQueryPermissions(PCSZ pcszFilename,
+                                PULONG pflAccess);
 
 #endif
 

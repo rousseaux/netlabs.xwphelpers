@@ -721,6 +721,8 @@ extern "C" {
     typedef ULONG XWPENTRY DOSHMYPID(VOID);
     typedef DOSHMYPID *PDOSHMYPID;
 
+    ULONG doshMyParentPID(VOID);
+
     ULONG XWPENTRY doshMyTID(VOID);
     typedef ULONG XWPENTRY DOSHMYTID(VOID);
     typedef DOSHMYTID *PDOSHMYTID;

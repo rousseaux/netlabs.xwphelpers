@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#ifndef XWPTREE_INCLUDED               //  Allow multiple inclusions
+#ifndef XWPTREE_INCLUDED
     #define XWPTREE_INCLUDED
 
     #include "helpers\simples.h"
