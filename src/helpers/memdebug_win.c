@@ -511,7 +511,7 @@ static SHORT EXPENTRY mnu_fnCompareAddress(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, 
  *@@changed V0.9.14 (2001-08-01) [umoeller]: added sort by address
  */
 
-static MRESULT EXPENTRY memd_fnwpMemDebug(HWND hwndClient, ULONG msg, MPARAM mp1, MPARAM mp2)
+MRESULT EXPENTRY memd_fnwpMemDebug(HWND hwndClient, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT mrc = 0;
 

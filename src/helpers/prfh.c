@@ -137,7 +137,7 @@ APIRET prfhQueryKeysForApp(HINI hIni,      // in: INI handle (can be HINI_USER o
  *@@changed V0.9.3 (2000-04-20) [umoeller]: this called malloc(0) if the key existed, but was empty. Fixed.
  */
 
-PSZ prfhQueryProfileDataDebug(HINI hIni,      // in: INI handle (can be HINI_USER or HINI_SYSTEM)
+PSZ (prfhQueryProfileDataDebug)(HINI hIni,      // in: INI handle (can be HINI_USER or HINI_SYSTEM)
                               const char *pcszApp,      // in: application to query
                               const char *pcszKey,      // in: key to query
                               PULONG pcbBuf,   // out: size of the returned buffer
@@ -188,7 +188,7 @@ PSZ prfhQueryProfileDataDebug(HINI hIni,      // in: INI handle (can be HINI_USE
  *@@changed V0.9.3 (2000-04-20) [umoeller]: this called malloc(0) if the key existed, but was empty. Fixed.
  */
 
-PSZ prfhQueryProfileData(HINI hIni,      // in: INI handle (can be HINI_USER or HINI_SYSTEM)
+PSZ (prfhQueryProfileData)(HINI hIni,      // in: INI handle (can be HINI_USER or HINI_SYSTEM)
                          const char *pcszApp,     // in: application to query
                          const char *pcszKey,     // in: key to query
                          PULONG pcbBuf)  // out: size of the returned buffer; ptr can be NULL

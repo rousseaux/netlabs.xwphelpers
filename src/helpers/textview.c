@@ -3072,8 +3072,8 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
             xstrClear(&ptxvd->xfd.strViewText);
             lstClear(&ptxvd->xfd.llRectangles);
             lstClear(&ptxvd->xfd.llWords);
-            free(ptxvd);
             GpiDestroyPS(ptxvd->hps);
+            free(ptxvd);
             mrc = WinDefWindowProc(hwndTextView, msg, mp1, mp2);
         break;
 

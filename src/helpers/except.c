@@ -886,6 +886,7 @@ VOID excRegisterHooks(PFNEXCOPENFILE pfnExcOpenFileNew,
  *
  *@@changed V0.9.0 [umoeller]: added support for thread termination
  *@@changed V0.9.2 (2000-03-10) [umoeller]: switched date format to ISO
+ *@@changed V0.9.19 (2002-05-07) [umoeller]: added EXCEPTIONREPORTRECORD info so that catch block can check that
  */
 
 ULONG _System excHandlerLoud(PEXCEPTIONREPORTRECORD pReportRec,
@@ -916,17 +917,6 @@ ULONG _System excHandlerLoud(PEXCEPTIONREPORTRECORD pReportRec,
 
     switch (pReportRec->ExceptionNum)
     {
-        /* case XCPT_PROCESS_TERMINATE:
-        case XCPT_ASYNC_PROCESS_TERMINATE:
-            // thread terminated:
-            // if the handler has been registered to catch
-            // these exceptions, continue;
-            if (pRegRec2->pfnOnKill)
-                // call the "OnKill" function
-                pRegRec2->pfnOnKill(pRegRec2);
-            // get outta here, which will kill the thread
-        break; */
-
         case XCPT_ACCESS_VIOLATION:
         case XCPT_INTEGER_DIVIDE_BY_ZERO:
         case XCPT_ILLEGAL_INSTRUCTION:
@@ -970,12 +960,13 @@ ULONG _System excHandlerLoud(PEXCEPTIONREPORTRECORD pReportRec,
                                 pContextRec);
             fclose(file);
 
+            // copy report rec to user buffer
+            // V0.9.19 (2002-05-07) [umoeller]
+            memcpy(&pRegRec2->err,
+                   pReportRec,
+                   sizeof(EXCEPTIONREPORTRECORD));
+
             // jump back to failing routine
-            /* DosSetPriority(PRTYS_THREAD,
-                           PRTYC_REGULAR,
-                           0,       // delta
-                           0);      // current thread
-                           */
             longjmp(pRegRec2->jmpThread, pReportRec->ExceptionNum);
         break; }
     }
@@ -1002,6 +993,7 @@ ULONG _System excHandlerLoud(PEXCEPTIONREPORTRECORD pReportRec,
  *      does the necessary setup.
  *
  *@@changed V0.9.0 [umoeller]: added support for thread termination
+ *@@changed V0.9.19 (2002-05-07) [umoeller]: added EXCEPTIONREPORTRECORD info so that catch block can check that
  */
 
 ULONG _System excHandlerQuiet(PEXCEPTIONREPORTRECORD pReportRec,
@@ -1018,17 +1010,6 @@ ULONG _System excHandlerQuiet(PEXCEPTIONREPORTRECORD pReportRec,
 
     switch (pReportRec->ExceptionNum)
     {
-        /* case XCPT_PROCESS_TERMINATE:
-        case XCPT_ASYNC_PROCESS_TERMINATE:
-            // thread terminated:
-            // if the handler has been registered to catch
-            // these exceptions, continue;
-            if (pRegRec2->pfnOnKill)
-                // call the "OnKill" function
-                pRegRec2->pfnOnKill(pRegRec2);
-            // get outta here, which will kill the thread
-        break; */
-
         case XCPT_ACCESS_VIOLATION:
         case XCPT_INTEGER_DIVIDE_BY_ZERO:
         case XCPT_ILLEGAL_INSTRUCTION:
@@ -1047,6 +1028,12 @@ ULONG _System excHandlerQuiet(PEXCEPTIONREPORTRECORD pReportRec,
                 fclose(file);
             }
             #endif
+
+            // copy report rec to user buffer
+            // V0.9.19 (2002-05-07) [umoeller]
+            memcpy(&pRegRec2->err,
+                   pReportRec,
+                   sizeof(EXCEPTIONREPORTRECORD));
 
             // jump back to failing routine
             longjmp(pRegRec2->jmpThread, pReportRec->ExceptionNum);

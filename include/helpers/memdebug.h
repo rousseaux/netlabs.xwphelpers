@@ -42,7 +42,16 @@ extern "C" {
     #define MEMDEBUG_HEADER_INCLUDED
 
     #ifndef __stdlib_h           // <stdlib.h>
-        #error stdlib.h must be included before memdebug.h.
+        // #error stdlib.h must be included before memdebug.h.
+        typedef unsigned int size_t;
+    #endif
+
+    #ifndef NULL
+       #if (defined(__EXTENDED__)  || defined( __cplusplus ))
+          #define NULL 0
+       #else
+          #define NULL ((void *)0)
+       #endif
     #endif
 
     typedef void (FNCBMEMDLOG)(const char*);        // message
@@ -145,9 +154,25 @@ extern "C" {
     #ifdef __XWPMEMDEBUG__
 
         #ifndef DONT_REPLACE_MALLOC
+
+            #ifdef malloc
+                #undef malloc
+            #endif
             #define malloc(ul) memdMalloc(ul, __FILE__, __LINE__, __FUNCTION__)
+
+            #ifdef calloc
+                #undef calloc
+            #endif
             #define calloc(n, size) memdCalloc(n, size, __FILE__, __LINE__, __FUNCTION__)
+
+            #ifdef realloc
+                #undef realloc
+            #endif
             #define realloc(p, ul) memdRealloc(p, ul, __FILE__, __LINE__, __FUNCTION__)
+
+            #ifdef free
+                #undef free
+            #endif
             #define free(p) memdFree(p, __FILE__, __LINE__, __FUNCTION__)
 
             #ifdef __string_h
@@ -158,6 +183,7 @@ extern "C" {
                     // the original crashes also if psz is NULL
             #endif
 
+            // tell other headers that these have been replaced
             #define __DEBUG_MALLOC_ENABLED__
 
         #endif

@@ -175,6 +175,50 @@ extern "C" {
                                               PCH pchString);
     typedef GPIHCHARSTRINGPOSAT *PGPIHCHARSTRINGPOSAT;
 
+    /*
+     *@@ BKGNDINFO:
+     *      background information passed into
+     *      gpihFillBackground.
+     *
+     *      The color flags apply always. The
+     *      bitmap flags apply only if hbm is
+     *      not NULLHANDLE.
+     *
+     *@@added V0.9.19 (2002-05-07) [umoeller]
+     */
+
+    typedef struct _BKGNDINFO
+    {
+        ULONG       flPaintMode;
+                // a combination of one of the color
+                // flags and one of the bitmap flags:
+                // a) color flags
+                #define PMOD_COLORMASK      0x000F
+                #define PMOD_SOLID          0x0000  // solid color, use lcol1
+                #define PMOD_TOPBOTTOM      0x0001  // spectrum, lcol1 = top, lcol2 = bottom
+                #define PMOD_LEFTRIGHT      0x0002  // spectrum, lcol1 = left, lcol2 = right
+                // b) bitmap flags
+                #define PMOD_BMPMASK        0x00F0
+                #define PMOD_BMP_CENTER     0x0000  // center the bitmap
+                #define PMOD_BMP_SCALE_X    0x0002  // scale the bitmap to size in prcl,
+                                                    // respect lScale
+                #define PMOD_BMP_TILE       0x0004  // tile the bitmap
+
+        LONG        lcol1,              // color 1 (RGB)
+                    lcol2;              // color 2 (RGB)
+
+        HBITMAP     hbm;                // bitmap or NULLHANDLE if none
+        ULONG       lScale;             // only with PMOD_BMP_SCALE_X: how many times
+                                        // the bmp should be scaled (as with WPS
+                                        // folder "Background" page); this cannot
+                                        // be zero then
+
+    } BKGNDINFO, *PBKGNDINFO;
+
+    VOID gpihFillBackground(HPS hps,
+                            PRECTL prcl,
+                            PBKGNDINFO pInfo);
+
     /* ******************************************************************
      *
      *   Font helpers

@@ -487,7 +487,7 @@ void memdFree(void *p,
 
                 CheckMagics(__FUNCTION__,
                             pHeapItem,
-                            p,
+                            (PBYTE)p,
                             pcszSourceFile,
                             ulLine,
                             pcszFunction);
@@ -580,7 +580,7 @@ void* memdRealloc(void *p,
 
                 CheckMagics(__FUNCTION__,
                             pHeapItem,
-                            p,
+                            (PBYTE)p,
                             pcszSourceFile,
                             ulLine,
                             pcszFunction);
@@ -747,6 +747,7 @@ unsigned long memdReleaseFreed(void)
      *      no code will be produced at all. :-)
      */
 
+    /*
     void memdDumpMemoryBlock(PBYTE pb,       // in: start address
                              ULONG ulSize,   // in: size of block
                              ULONG ulIndent) // in: how many spaces to put
@@ -765,13 +766,8 @@ unsigned long memdReleaseFreed(void)
             _Pmpf(("Crash in " __FUNCTION__ ));
         } END_CATCH();
     }
+    */
 #endif
 
-#else
-void memdDummy(void)
-{
-    int i = 0;
-    i++;
-}
 #endif
 

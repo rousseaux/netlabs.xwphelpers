@@ -259,6 +259,7 @@ PLINKLIST lstCreateDebug(BOOL fItemsFreeable,
                                                file,
                                                line,
                                                function);
+
     lstInit(pNewList, fItemsFreeable);
     return (pNewList);
 }

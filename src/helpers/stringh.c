@@ -77,14 +77,16 @@
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-APIRET strhStoreDebug(PSZ *ppszTarget,
-                      PCSZ pcszSource,
-                      PULONG pulLength,        // out: length of new string (ptr can be NULL)
-                      PCSZ pcszSourceFile,
-                      unsigned long ulLine,
-                      PCSZ pcszFunction)
+APIRET (strhStoreDebug)(PSZ *ppszTarget,
+                        PCSZ pcszSource,
+                        PULONG pulLength,        // out: length of new string (ptr can be NULL)
+                        PCSZ pcszSourceFile,
+                        unsigned long ulLine,
+                        PCSZ pcszFunction)
 {
     ULONG ulLength = 0;
+
+
 
     if (ppszTarget)
     {

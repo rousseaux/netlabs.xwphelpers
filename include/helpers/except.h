@@ -78,7 +78,7 @@ extern "C" {
         PVOID           pNext;              // as in EXCEPTIONREGISTRATIONRECORD
         PFN             pfnHandler;         // as in EXCEPTIONREGISTRATIONRECORD
         jmp_buf         jmpThread;          // additional buffer for setjmp
-        // PFNEXCONKILL    pfnOnKill;          // subroutine to call upon process/thread termination
+        EXCEPTIONREPORTRECORD err;          // exception handlers copy the report rec here
         PVOID           pvUser;             // user ptr
     } EXCEPTIONREGISTRATIONRECORD2;
 

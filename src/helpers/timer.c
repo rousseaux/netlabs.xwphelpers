@@ -110,7 +110,7 @@
 #include "helpers\threads.h"
 #include "helpers\timer.h"
 
-#define DEBUG_XTIMERS
+// #define DEBUG_XTIMERS
 
 /*
  *@@category: Helpers\PM helpers\Timer replacements

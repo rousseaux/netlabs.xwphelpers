@@ -548,6 +548,144 @@ LONG gpihCharStringPosAt(HPS hps,
 }
 
 /*
+ *@@ gpihFillBackground:
+ *      fills the specified rectangle in the way
+ *      that is specified by the given BKGNDINFO
+ *      structure. This way one can either use
+ *      a solid color, a color fade, a bitmap,
+ *      or a combination of those.
+ *
+ *      See BKGNDINFO for the various parameters.
+ *
+ *      Since this can potentially be expensive,
+ *      it is strongly recommended to use a buffer
+ *      bitmap for painting with the size of the
+ *      window and bitblt that bitmap into the
+ *      window on repaints. This way the background
+ *      only has to be recreated on window resize.
+ *
+ *@@added V0.9.19 (2002-05-07) [umoeller]
+ */
+
+VOID gpihFillBackground(HPS hps,            // in: PS to paint into
+                        PRECTL prcl,        // in: rectangle (inclusive!)
+                        PBKGNDINFO pInfo)   // in: background into
+{
+    LONG    l;
+    POINTL  ptl;
+
+    switch (pInfo->flPaintMode & PMOD_COLORMASK)
+    {
+        case PMOD_SOLID:
+            // fill with background color
+            GpiSetColor(hps,
+                        pInfo->lcol1);
+            ptl.x = prcl->xLeft;
+            ptl.y = prcl->yBottom;
+            GpiMove(hps,
+                    &ptl);
+            ptl.x = prcl->xRight;
+            ptl.y = prcl->yTop;
+            GpiBox(hps,
+                   DRO_FILL,
+                   &ptl,
+                   0,
+                   0);
+        break;
+
+        case PMOD_TOPBOTTOM:
+        {
+            LONG lDiffRed   = (LONG)GET_RED(pInfo->lcol2) - (LONG)GET_RED(pInfo->lcol1);
+            LONG lDiffGreen = (LONG)GET_GREEN(pInfo->lcol2) - (LONG)GET_GREEN(pInfo->lcol1);
+            LONG lDiffBlue  = (LONG)GET_BLUE(pInfo->lcol2) - (LONG)GET_BLUE(pInfo->lcol1);
+
+            LONG lMax = prcl->yTop - prcl->yBottom;
+
+            // start at top
+            ptl.y = prcl->yTop;
+
+            for (l = 0;
+                 l <= lMax;
+                 ++l)
+            {
+                // compose RGB color for this line;
+                // lcol1 is top, lcol2 is bottom
+                LONG lRed   =   GET_RED(pInfo->lcol1)
+                              + (   lDiffRed
+                                  * l
+                                  / lMax
+                                );
+                LONG lGreen =   GET_GREEN(pInfo->lcol1)
+                              + (   lDiffGreen
+                                  * l
+                                  / lMax
+                                );
+                LONG lBlue  =   GET_BLUE(pInfo->lcol1)
+                              + (   lDiffBlue
+                                  * l
+                                  / lMax
+                                );
+
+                GpiSetColor(hps, MAKE_RGB(lRed, lGreen, lBlue));
+                ptl.x = prcl->xLeft;
+                GpiMove(hps, &ptl);
+                ptl.x = prcl->xRight;
+                GpiLine(hps, &ptl);
+
+                // next line below
+                --(ptl.y);
+            }
+        }
+        break;
+
+        case PMOD_LEFTRIGHT:
+        {
+            LONG lDiffRed   = (LONG)GET_RED(pInfo->lcol2) - (LONG)GET_RED(pInfo->lcol1);
+            LONG lDiffGreen = (LONG)GET_GREEN(pInfo->lcol2) - (LONG)GET_GREEN(pInfo->lcol1);
+            LONG lDiffBlue  = (LONG)GET_BLUE(pInfo->lcol2) - (LONG)GET_BLUE(pInfo->lcol1);
+
+            LONG lMax = prcl->xRight - prcl->xLeft;
+
+            // start at left
+            ptl.x = prcl->xLeft;
+
+            for (l = 0;
+                 l <= lMax;
+                 ++l)
+            {
+                // compose RGB color for this line;
+                // lcol1 is top, lcol2 is bottom
+                LONG lRed   =   GET_RED(pInfo->lcol1)
+                              + (   lDiffRed
+                                  * l
+                                  / lMax
+                                );
+                LONG lGreen =   GET_GREEN(pInfo->lcol1)
+                              + (   lDiffGreen
+                                  * l
+                                  / lMax
+                                );
+                LONG lBlue  =   GET_BLUE(pInfo->lcol1)
+                              + (   lDiffBlue
+                                  * l
+                                  / lMax
+                                );
+
+                GpiSetColor(hps, MAKE_RGB(lRed, lGreen, lBlue));
+                ptl.y = prcl->yBottom;
+                GpiMove(hps, &ptl);
+                ptl.y = prcl->yTop;
+                GpiLine(hps, &ptl);
+
+                // next line to the right
+                ++(ptl.x);
+            }
+        }
+        break;
+    }
+}
+
+/*
  *@@category: Helpers\PM helpers\GPI helpers\Fonts
  */
 
@@ -1522,12 +1660,10 @@ HBITMAP gpihCreateBitmap2(HPS hpsMem,        // in: memory DC
     {
         // set up the BITMAPINFOHEADER2 and BITMAPINFO2 structures
         bih2.cbFix = (ULONG)sizeof(BITMAPINFOHEADER2);
-        bih2.cx = cx; // (prcl->xRight - prcl->xLeft);       changed V0.9.0
-        bih2.cy = cy; // (prcl->yTop - prcl->yBottom);       changed V0.9.0
+        bih2.cx = cx;
+        bih2.cy = cy;
         bih2.cPlanes = (cPlanes) ? cPlanes : alData[0];
         bih2.cBitCount = (cBitCount) ? cBitCount : alData[1];
-            // _Pmpf((__FUNCTION__ ": cPlanes %d, cBitCount %d",
-               //          bih2.cPlanes, bih2.cBitCount));
         bih2.ulCompression = BCA_UNCOMP;
         bih2.cbImage = (    (   (bih2.cx
                                     * (1 << bih2.cPlanes)
