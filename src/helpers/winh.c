@@ -87,6 +87,37 @@
 #include "helpers\xstring.h"            // extended string helpers
 
 /*
+ *@@category: Helpers\PM helpers\Rectangle helpers
+ */
+
+/* ******************************************************************
+ *
+ *   Rectangle helpers
+ *
+ ********************************************************************/
+
+/*
+ *@@ winhOffsetRect:
+ *      like WinOffsetRect, but doesn't require
+ *      an anchor block to be passed in. Why
+ *      the original would need an anchor block
+ *      for this awfully complicated task is
+ *      a mystery to me anyway.
+ *
+ *@@added V0.9.9 (2001-03-13) [umoeller]
+ */
+
+VOID winhOffsetRect(PRECTL prcl,
+                    LONG lx,
+                    LONG ly)
+{
+    prcl->xLeft += lx;
+    prcl->xRight += lx;
+    prcl->yBottom += ly;
+    prcl->yTop += ly;
+}
+
+/*
  *@@category: Helpers\PM helpers\Menu helpers
  */
 
@@ -3677,6 +3708,31 @@ HWND winhCreateObjectWindow(const char *pcszWindowClass,    // in: PM window cla
                             HWND_BOTTOM,
                             0,
                             pvCreateParam,
+                            NULL));
+}
+
+/*
+ *@@ winhCreateControl:
+ *      creates a control with a size and position of 0.
+ *
+ *@@added V0.9.9 (2001-03-13) [umoeller]
+ */
+
+HWND winhCreateControl(HWND hwndParentAndOwner,     // in: owner and parent window
+                       const char *pcszClass,       // in: window class (e.g. WC_BUTTON)
+                       const char *pcszText,        // in: window title
+                       ULONG ulStyle,               // in: control style
+                       ULONG ulID)                  // in: control ID
+{
+    return (WinCreateWindow(hwndParentAndOwner,
+                            (PSZ)pcszClass,
+                            (PSZ)pcszText,
+                            ulStyle,
+                            0, 0, 0, 0,
+                            hwndParentAndOwner,
+                            HWND_TOP,
+                            ulID,
+                            NULL,
                             NULL));
 }
 

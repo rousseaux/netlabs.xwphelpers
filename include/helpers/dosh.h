@@ -236,6 +236,7 @@ extern "C" {
      *      structure used with doshPerfOpen.
      *
      *@@added V0.9.7 (2000-12-02) [umoeller]
+     *@@changed V0.9.9 (2001-03-14) [umoeller]: added interrupt load
      */
 
     typedef struct _DOSHPERFSYS
@@ -245,10 +246,14 @@ extern "C" {
         // output: one CPU load for each CPU
         PLONG       palLoads;
 
+        // output: one CPU interrupt load for each CPU
+        PLONG       palIntrs;
+
         // each of the following ptrs points to an array of cProcessors items
         PCPUUTIL    paCPUUtils;     // CPUUTIL structures
         double      *padBusyPrev;   // previous "busy" calculations
         double      *padTimePrev;   // previous "time" calculations
+        double      *padIntrPrev;   // previous "intr" calculations
 
         // private stuff
         HMODULE     hmod;

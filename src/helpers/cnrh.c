@@ -946,6 +946,39 @@ PRECORDCORE cnrhFindRecordFromPoint(HWND hwndCnr,
 }
 
 /*
+ *@@ cnrhExpandFromRoot:
+ *      expands prec and climbs up all parent
+ *      records and expands them all as well.
+ *
+ *      Returns the no. of records expanded.
+ *
+ *@@added V0.9.9 (2001-03-13) [umoeller]
+ */
+
+ULONG cnrhExpandFromRoot(HWND hwndCnr,
+                         PRECORDCORE prec)
+{
+    ULONG ul = 0;
+    PRECORDCORE preccParent = prec;
+    while (preccParent)
+    {
+        WinSendMsg(hwndCnr, CM_EXPANDTREE, (MPARAM)preccParent, MPNULL);
+        ul++;
+
+        preccParent = (PRECORDCORE)WinSendMsg(hwndCnr,
+                                              CM_QUERYRECORD,
+                                              (MPARAM)preccParent,
+                                              MPFROM2SHORT(CMA_PARENT,
+                                                           CMA_ITEMORDER));
+
+        if (preccParent == (PRECORDCORE)-1)
+            preccParent = NULL;
+    }
+
+    return (ul);
+}
+
+/*
  *@@ cnrhScrollToRecord:
  *      scrolls a given container control to make a given
  *      record visible.
@@ -956,7 +989,6 @@ PRECORDCORE cnrhFindRecordFromPoint(HWND hwndCnr,
  *      --  2:       cnr viewport query failed (error)
  *      --  3:       record is already visible (scrolling not necessary)
  *      --  4:       cnrinfo query failed (error)
- *      --  5:       parent record rectangle query failed (error)
  *
  *      Note: All messages are _sent_ to the container, not posted.
  *      Scrolling therefore occurs synchroneously before this
@@ -967,7 +999,8 @@ PRECORDCORE cnrhFindRecordFromPoint(HWND hwndCnr,
  *      Improvements (C) 1998 Ulrich M”ller.
  *
  *@@changed V0.9.4 (2000-08-07) [umoeller]: now posting scroll messages to avoid sync errors
- *@@changed V0.9.9 (2001-03-12) [umoeller]: this never worked for root records in tree view if KeepParent == TRUE, fixed
+ *@@changed V0.9.9 (2001-03-12) [umoeller]: this never scrolled for root records in tree view if KeepParent == TRUE, fixed
+ *@@changed V0.9.9 (2001-03-13) [umoeller]: largely rewritten; this now scrolls x properly too and is faster
  */
 
 ULONG cnrhScrollToRecord(HWND hwndCnr,       // in: container window
@@ -979,7 +1012,7 @@ ULONG cnrhScrollToRecord(HWND hwndCnr,       // in: container window
                                  // -- CMA_ICON: the icon rectangle
                                  // -- CMA_TEXT: the record text
                                  // -- CMA_TREEICON: the "+" sign in tree view
-                         BOOL KeepParent)
+                         BOOL fKeepParent)
                                  // for tree views only: whether to keep
                                  // the parent record of pRec visible when scrolling.
                                  // If scrolling to pRec would make the parent
@@ -988,17 +1021,29 @@ ULONG cnrhScrollToRecord(HWND hwndCnr,       // in: container window
                                  // container workspace (Win95 style).
 
 {
-    QUERYRECORDRECT qRect, qRect2;
-    RECTL           rclRecord, rclParentRecord, rclCnr, rclCnr2;
-    POINTL          ptlRecord, ptlParentRecord;
-    CNRINFO         CnrInfo;
-    HAB             hab = WinQueryAnchorBlock(hwndCnr);
-    BOOL            KeepParent2;
-    LONG            lYOfs;
+    QUERYRECORDRECT qRect;
+    RECTL           rclRecord,
+                    rclCnr;
+    LONG            lXOfs = 0,
+                    lYOfs = 0;
 
     qRect.cb = sizeof(qRect);
     qRect.pRecord = (PRECORDCORE)pRec;
     qRect.fsExtent = fsExtent;
+
+    if (fKeepParent)
+    {
+        CNRINFO         CnrInfo;
+        // this is only valid in tree view, so check
+        if (!WinSendMsg(hwndCnr,
+                        CM_QUERYCNRINFO,
+                        (MPARAM)&CnrInfo,
+                        (MPARAM)sizeof(CnrInfo)))
+            return 4;
+        else
+            // disable if not tree view
+            fKeepParent = ((CnrInfo.flWindowAttr & CV_TREE) != 0);
+    }
 
     // query record location and size of container
     if (!WinSendMsg(hwndCnr,
@@ -1010,77 +1055,97 @@ ULONG cnrhScrollToRecord(HWND hwndCnr,       // in: container window
     if (!WinSendMsg(hwndCnr,
                     CM_QUERYVIEWPORTRECT,
                     &rclCnr,
-                    MPFROM2SHORT(CMA_WINDOW, FALSE)) )
+                    MPFROM2SHORT(CMA_WINDOW,
+                                    // returns the client area rectangle
+                                    // in container window coordinates
+                                 FALSE)) )
         return 2;
 
     // check if left bottom point of pRec is currently visible in container
-    ptlRecord.x = (rclRecord.xLeft);
-    ptlRecord.y = (rclRecord.yBottom);
-    // ptlRecord.x = (rclRecord.xLeft + rclRecord.xRight) / 2;
-    // ptlRecord.y = (rclRecord.yBottom + rclRecord.yTop) / 2;
-    if (WinPtInRect(hab, &rclCnr, &ptlRecord))
-         return 3;
 
-    if (KeepParent)
+    #define IS_BETWEEN(a, b, c) (((a) >= (b)) && ((a) <= (c)))
+
+    // 1) set lXOfs if we need to scroll horizontally
+    if (!IS_BETWEEN(rclRecord.xLeft, rclCnr.xLeft, rclCnr.xRight))
+        // record xLeft is outside viewport:
+        // scroll horizontally so that xLeft is exactly on left of viewport
+        lXOfs = (rclRecord.xLeft - rclCnr.xLeft);
+    else if (!IS_BETWEEN(rclRecord.xRight, rclCnr.xLeft, rclCnr.xRight))
+        // record xRight is outside viewport:
+        // scroll horizontally so that xRight is exactly on right of viewport
+        lXOfs = (rclRecord.xRight - rclCnr.xRight);
+
+    // 2) set lYOfs if we need to scroll vertically
+    if (!IS_BETWEEN(rclRecord.yBottom, rclCnr.yBottom, rclCnr.yTop))
+        // record yBottom is outside viewport:
+        // scroll horizontally so that yBottom is exactly on bottom of viewport
+        lYOfs =   (rclCnr.yBottom - rclRecord.yBottom)    // this would suffice
+                + (rclRecord.yTop - rclRecord.yBottom);
+                            // but we make the next rcl visible too
+    else if (!IS_BETWEEN(rclRecord.yTop, rclCnr.yBottom, rclCnr.yTop))
+        // record yTop is outside viewport:
+        // scroll horizontally so that yTop is exactly on top of viewport
+        lYOfs = (rclRecord.yTop - rclCnr.yTop);
+
+    if (fKeepParent && (lXOfs || lYOfs))
     {
-        if (!WinSendMsg(hwndCnr,
-                        CM_QUERYCNRINFO,
-                        (MPARAM)&CnrInfo,
-                        (MPARAM)sizeof(CnrInfo)))
-            return 4;
-        else
-            KeepParent2 = (CnrInfo.flWindowAttr & CV_TREE);
-    }
-    else
-        KeepParent2 = FALSE;
-
-    // calculate offset to scroll to make pRec visible
-    lYOfs = (rclCnr.yBottom - rclRecord.yBottom)    // this would suffice
-          + (rclRecord.yTop - rclRecord.yBottom);  // but we make the next rcl visible too
-
-    if (KeepParent2)
-    {
-        qRect2.cb = sizeof(qRect2);
-        qRect2.pRecord = (PRECORDCORE)WinSendMsg(hwndCnr,
-                                                 CM_QUERYRECORD,
-                                                 (MPARAM)pRec,
-                                                 MPFROM2SHORT(CMA_PARENT,
-                                                              CMA_ITEMORDER));
-        if (qRect2.pRecord)     // V0.9.9 (2001-03-12) [umoeller]
+        // keep parent enabled, and we're scrolling:
+        // find the parent record then
+        qRect.cb = sizeof(qRect);
+        qRect.pRecord = (PRECORDCORE)WinSendMsg(hwndCnr,
+                                                CM_QUERYRECORD,
+                                                (MPARAM)pRec,
+                                                MPFROM2SHORT(CMA_PARENT,
+                                                             CMA_ITEMORDER));
+        if (qRect.pRecord)     // V0.9.9 (2001-03-12) [umoeller]
         {
-            qRect2.fsExtent = fsExtent;
-
-            // now query PARENT record location and size of container
-            if (!WinSendMsg(hwndCnr, CM_QUERYRECORDRECT, &rclParentRecord, &qRect2))
-                return 5;
-
-            ptlParentRecord.x = (rclParentRecord.xLeft);
-            ptlParentRecord.y = (rclParentRecord.yTop);
-            // ptlParentRecord.x = (rclParentRecord.xLeft + rclParentRecord.xRight) / 2;
-            // ptlParentRecord.y = (rclParentRecord.yBottom + rclParentRecord.yTop) / 2;
-            rclCnr2 = rclCnr;
-            WinOffsetRect(hab, &rclCnr2, 0, -lYOfs);
-            // if ( (rclParentRecord.yBottom - rclRecord.yBottom) > (rclCnr.yTop - rclCnr.yBottom) )
-            if (!(WinPtInRect(hab, &rclCnr2, &ptlParentRecord)))
+            // parent exists:
+            // get PARENT record rectangle then
+            RECTL rclParentRecord;
+            qRect.fsExtent = fsExtent;
+            if (WinSendMsg(hwndCnr,
+                           CM_QUERYRECORDRECT,
+                           &rclParentRecord,
+                           &qRect))
             {
-                lYOfs = (rclCnr.yTop - rclParentRecord.yTop) // this would suffice
-                      - (rclRecord.yTop - rclRecord.yBottom);  // but we make the previous rcl visible too
+                // check if parent record WOULD still be visible
+                // if we scrolled what we calculated above
+                RECTL rclCnr2;
+                memcpy(&rclCnr2, &rclCnr, sizeof(rclCnr2));
+                winhOffsetRect(&rclCnr2, lXOfs, -lYOfs);
+
+                if (    lXOfs
+                     && (!IS_BETWEEN(rclParentRecord.xLeft, rclCnr2.xLeft, rclCnr2.xRight))
+                   )
+                    // record xLeft is outside viewport:
+                    // scroll horizontally so that xLeft is exactly on left of viewport
+                    lXOfs = (rclParentRecord.xLeft - rclCnr.xLeft);
+
+                if (    lYOfs
+                     && (!IS_BETWEEN(rclParentRecord.yBottom, rclCnr2.yBottom, rclCnr2.yTop))
+                   )
+                    // record yBottom is outside viewport:
+                    // recalculate y ofs so that we scroll so
+                    // that parent record is on top of cnr viewport
+                    lYOfs =   (rclCnr.yTop - rclParentRecord.yTop) // this would suffice
+                            - (rclRecord.yTop - rclRecord.yBottom);  // but we make the previous rcl visible too
             }
         }
     }
 
-    if (!KeepParent2)
+    if (lXOfs)
         // scroll horizontally
         WinPostMsg(hwndCnr,
                    CM_SCROLLWINDOW,
                    (MPARAM)CMA_HORIZONTAL,
-                   (MPARAM)(rclRecord.xLeft - rclCnr.xLeft));
+                   (MPARAM)lXOfs);
 
     // scroll vertically
-    WinPostMsg(hwndCnr,
-               CM_SCROLLWINDOW,
-               (MPARAM)CMA_VERTICAL,
-               (MPARAM)lYOfs);
+    if (lYOfs)
+        WinPostMsg(hwndCnr,
+                   CM_SCROLLWINDOW,
+                   (MPARAM)CMA_VERTICAL,
+                   (MPARAM)lYOfs);
 
     return 0;
 }

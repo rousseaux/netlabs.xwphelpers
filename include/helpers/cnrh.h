@@ -501,6 +501,9 @@ extern "C" {
                                         ULONG fsExtent,
                                         ULONG fl);
 
+    ULONG cnrhExpandFromRoot(HWND hwndCnr,
+                             PRECORDCORE prec);
+
     ULONG cnrhScrollToRecord(HWND hwndCnr,
                              PRECORDCORE pRec,
                              ULONG fsExtent,

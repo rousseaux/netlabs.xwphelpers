@@ -1660,6 +1660,7 @@ APIRET doshResolveImports(PSZ pszModuleName,    // in: DLL to load
  +
  *
  *@@added V0.9.7 (2000-12-02) [umoeller]
+ *@@changed V0.9.9 (2001-03-14) [umoeller]: added interrupt loads; thanks phaller
  */
 
 APIRET doshPerfOpen(PDOSHPERFSYS *ppPerfSys)  // out: new DOSHPERFSYS structure
@@ -1719,16 +1720,34 @@ APIRET doshPerfOpen(PDOSHPERFSYS *ppPerfSys)  // out: new DOSHPERFSYS structure
                                     arc = ERROR_NOT_ENOUGH_MEMORY;
                                 else
                                 {
-                                    pPerfSys->palLoads = (PLONG)malloc(pPerfSys->cProcessors * sizeof(LONG));
-                                    if (!pPerfSys->palLoads)
+                                    pPerfSys->padIntrPrev
+                                        = (double*)malloc(pPerfSys->cProcessors * sizeof(double));
+                                    if (!pPerfSys->padIntrPrev)
                                         arc = ERROR_NOT_ENOUGH_MEMORY;
                                     else
                                     {
-                                        for (ul = 0; ul < pPerfSys->cProcessors; ul++)
+                                        pPerfSys->palLoads = (PLONG)malloc(pPerfSys->cProcessors * sizeof(LONG));
+                                        if (!pPerfSys->palLoads)
+                                            arc = ERROR_NOT_ENOUGH_MEMORY;
+                                        else
                                         {
-                                            pPerfSys->padBusyPrev[ul] = 0.0;
-                                            pPerfSys->padTimePrev[ul] = 0.0;
-                                            pPerfSys->palLoads[ul] = 0;
+            // **patrick, this was missing...
+            // wonder if you ever tested this, this crashes in
+            // doshPerfGet otherwise ;-)
+            /*   -----------> */            pPerfSys->palIntrs = (PLONG)malloc(pPerfSys->cProcessors * sizeof(LONG));
+                                            if (!pPerfSys->palIntrs)
+                                                arc = ERROR_NOT_ENOUGH_MEMORY;
+                                            else
+                                            {
+                                                for (ul = 0; ul < pPerfSys->cProcessors; ul++)
+                                                {
+                                                    pPerfSys->padBusyPrev[ul] = 0.0;
+                                                    pPerfSys->padTimePrev[ul] = 0.0;
+                                                    pPerfSys->padIntrPrev[ul] = 0.0;
+                                                    pPerfSys->palLoads[ul] = 0;
+            /* and this one too */                  pPerfSys->palIntrs[ul] = 0;
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1776,6 +1795,7 @@ APIRET doshPerfOpen(PDOSHPERFSYS *ppPerfSys)  // out: new DOSHPERFSYS structure
  *      See doshPerfOpen for example code.
  *
  *@@added V0.9.7 (2000-12-02) [umoeller]
+ *@@changed V0.9.9 (2001-03-14) [umoeller]: added interrupt loads; thanks phaller
  */
 
 APIRET doshPerfGet(PDOSHPERFSYS pPerfSys)
@@ -1800,24 +1820,40 @@ APIRET doshPerfGet(PDOSHPERFSYS pPerfSys)
                                          pCPUUtilThis->ulTimeLow);
                 double      dBusy = LL2F(pCPUUtilThis->ulBusyHigh,
                                          pCPUUtilThis->ulBusyLow);
+                double      dIntr = LL2F(pCPUUtilThis->ulIntrHigh,
+                                         pCPUUtilThis->ulIntrLow);
 
                 double      *pdBusyPrevThis = &pPerfSys->padBusyPrev[ul];
                 double      *pdTimePrevThis = &pPerfSys->padTimePrev[ul];
+                double      *pdIntrPrevThis = &pPerfSys->padIntrPrev[ul];
 
                 // avoid division by zero
                 double      dTimeDelta = (dTime - *pdTimePrevThis);
                 if (dTimeDelta)
+                {
                     pPerfSys->palLoads[ul]
                         = (LONG)( (double)(   (dBusy - *pdBusyPrevThis)
                                             / dTimeDelta
                                             * 1000.0
                                           )
                                 );
+                    pPerfSys->palIntrs[ul]
+                        = (LONG)( (double)(   (dIntr - *pdIntrPrevThis)
+                                            / dTimeDelta
+                                            * 1000.0
+                                          )
+                                );
+                }
                 else
+                {
+                    // no clear readings are available
                     pPerfSys->palLoads[ul] = 0;
+                    pPerfSys->palIntrs[ul] = 0;
+                }
 
                 *pdTimePrevThis = dTime;
                 *pdBusyPrevThis = dBusy;
+                *pdIntrPrevThis = dIntr;
             }
         }
     }
@@ -1831,6 +1867,8 @@ APIRET doshPerfGet(PDOSHPERFSYS pPerfSys)
  *
  *@@added V0.9.7 (2000-12-02) [umoeller]
  *@@changed V0.9.9 (2001-02-06) [umoeller]: removed disable; this broke the WarpCenter
+ *@@changed V0.9.9 (2001-03-14) [umoeller]: fixed memory leak
+ *@@changed V0.9.9 (2001-03-14) [umoeller]: added interrupt loads; thanks phaller
  */
 
 APIRET doshPerfClose(PDOSHPERFSYS *ppPerfSys)
@@ -1851,6 +1889,12 @@ APIRET doshPerfClose(PDOSHPERFSYS *ppPerfSys)
             free(pPerfSys->padBusyPrev);
         if (pPerfSys->padTimePrev)
             free(pPerfSys->padTimePrev);
+        if (pPerfSys->padIntrPrev)
+            free(pPerfSys->padIntrPrev);
+        if (pPerfSys->palLoads)             // was missing V0.9.9 (2001-03-14) [umoeller]
+            free(pPerfSys->palLoads);
+        if (pPerfSys->palIntrs)
+            free(pPerfSys->palIntrs);
 
         if (pPerfSys->hmod)
             DosFreeModule(pPerfSys->hmod);

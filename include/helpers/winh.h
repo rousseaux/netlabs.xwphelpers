@@ -104,6 +104,14 @@ extern "C" {
 
     /* ******************************************************************
      *
+     *   Rectangle helpers
+     *
+     ********************************************************************/
+
+    VOID XWPENTRY winhOffsetRect(PRECTL prcl, LONG lx, LONG ly);
+
+    /* ******************************************************************
+     *
      *   Menu helpers
      *
      ********************************************************************/
@@ -688,8 +696,14 @@ extern "C" {
                                       PVOID pClientCtlData,
                                       PHWND phwndClient);
 
-    HWND winhCreateObjectWindow(const char *pcszWindowClass,
-                                PVOID pvCreateParam);
+    HWND XWPENTRY winhCreateObjectWindow(const char *pcszWindowClass,
+                                         PVOID pvCreateParam);
+
+    HWND XWPENTRY winhCreateControl(HWND hwndParentAndOwner,
+                                    const char *pcszClass,
+                                    const char *pcszText,
+                                    ULONG ulStyle,
+                                    ULONG ulID);
 
     VOID XWPENTRY winhRepaintWindows(HWND hwndParent);
 
