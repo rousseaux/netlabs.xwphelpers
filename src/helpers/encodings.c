@@ -108,9 +108,9 @@ struct
                                          0, DOUBLE, "Japanese Windows",
         ENCODINGENTRY(cp936),      936 /* or 946?*/ ,
                                          0, DOUBLE, "Chinese",
-        ENCODINGENTRY(cp949),      951 /* or 949?*/ ,
+        ENCODINGENTRY(cp949),      949 /* was 951, fixed V1.0.2 (2003-09-19) [umoeller] */ ,
                                          0, DOUBLE, "Korean",
-        ENCODINGENTRY(cp950),      947 /* or 950?*/ ,
+        ENCODINGENTRY(cp950),      950 /* was 947, fixed V1.0.2 (2003-09-19) [umoeller] */ ,
                                          0, DOUBLE, "Taiwan Big-5",           // default in China?
 
         ENCODINGENTRY(cp1004),    1004,  0, SINGLE, "Windows Extended",
@@ -187,6 +187,7 @@ int encGetTable(ENCID id,
  *      codepage, or UNSUPPORTED if there's none.
  *
  *@@added V0.9.18 (2002-03-08) [umoeller]
+ *@@changed fixed Korean codepage from 951to 949 V1.0.2 (2003-09-19) [umoeller]
  */
 
 ENCID encFindIdForCodepage(unsigned short usCodepage,       // in: codepage to find

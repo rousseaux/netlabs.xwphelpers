@@ -217,6 +217,7 @@ STATIC PSUBCLASSEDTOOL FindSubclassedTool(HWND hwndTool)
  *
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.12 (2001-04-28) [umoeller]: added mutex protection
+ *@@changed V1.0.2 (2003-07-26) [pr]: fixed tooltip moving with mouse from xcenters @@fixes 455
  */
 
 MRESULT EXPENTRY ctl_fnwpSubclassedTool(HWND hwndTool, ULONG msg, MPARAM mp1, MPARAM mp2)
@@ -242,6 +243,7 @@ MRESULT EXPENTRY ctl_fnwpSubclassedTool(HWND hwndTool, ULONG msg, MPARAM mp1, MP
                 case WM_BUTTON2UP:
                 case WM_BUTTON3DOWN:
                 case WM_BUTTON3UP:
+                case WM_MOUSELEAVE: // V1.0.2 (2003-07-26) [pr]: @@fixes 455
                 {
                     QMSG qmsg;
                     qmsg.hwnd = hwndTool;
@@ -772,6 +774,7 @@ STATIC VOID TtmDelTool(HWND hwndTooltip, MPARAM mp2)
  *
  *@@added V0.9.13 (2001-06-21) [umoeller]
  *@@changed V0.9.19 (2002-05-14) [umoeller]: fixed bad stop timer, thanks yuri
+ *@@changed V1.0.2 (2003-07-26) [pr]: fixed tooltip moving with mouse from xcenters @@fixes 455
  */
 
 STATIC VOID TtmRelayEvent(HWND hwndTooltip, MPARAM mp2)
@@ -807,6 +810,7 @@ STATIC VOID TtmRelayEvent(HWND hwndTooltip, MPARAM mp2)
              || (pqmsg->msg == WM_BUTTON1DOWN)
              || (pqmsg->msg == WM_BUTTON2DOWN)
              || (pqmsg->msg == WM_BUTTON3DOWN)
+             || (pqmsg->msg == WM_MOUSELEAVE) // V1.0.2 (2003-07-26) [pr]: @@fixes 455
            )
         {
             // mouse pos changed:
@@ -831,6 +835,7 @@ STATIC VOID TtmRelayEvent(HWND hwndTooltip, MPARAM mp2)
             // _Pmpf((__FUNCTION__ ": pttd->fIsActive: 0x%lX", pttd->fIsActive));
             if (    (pttd->ptiMouseOver)
                  && (pttd->fIsActive)
+                 && (pqmsg->msg != WM_MOUSELEAVE) // V1.0.2 (2003-07-26) [pr]: @@fixes 455
                )
             {
                 // tool found and tooltip is activated:
