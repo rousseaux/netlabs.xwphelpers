@@ -637,6 +637,37 @@ extern "C" {
     typedef FNEXTERNALHANDLER *PFNEXTERNALHANDLER;
 
     /*
+     *@@ STATICSYSTEMID:
+     *      specification of a supported static system
+     *      ID, which is most helpful with predefined
+     *      DTD's.
+     *
+     *      An array of this structure can be passed to
+     *      xmlCreateDOM to avoid having to supply an
+     *      external entity reference callback.
+     *
+     *      This has one system ID with a corresponding
+     *      contents (normally a DTD) so the
+     *      implementation's external entity handler can
+     *      parse the doctype automatically.
+     *
+     *@@added V0.9.20 (2002-07-06) [umoeller]
+     */
+
+    typedef struct _STATICSYSTEMID
+    {
+        PCSZ    pcszSystemId;
+                // possible system ID specified in DTD, e.g. "warpin.dtd"
+                // (without quotes)
+
+        PCSZ    pcszContent;
+                // corresponding external DTD subset without square brackets,
+                // e.g. "<!ELEMENT job EMPTY >\n"
+                // (without quotes)
+
+    } STATICSYSTEMID, *PSTATICSYSTEMID;
+
+    /*
      *@@ XMLDOM:
      *      DOM instance returned by xmlCreateDOM.
      *
@@ -680,6 +711,8 @@ extern "C" {
         PFNGETCPDATA    pfnGetCPData;
         PFNEXTERNALHANDLER pfnExternalHandler;
         PVOID           pvCallbackUser;
+        const STATICSYSTEMID *paSystemIds;
+        ULONG           cSystemIds;
 
         XML_Parser      pParser;
                             // expat parser instance
@@ -701,6 +734,8 @@ extern "C" {
     #define DF_DROP_WHITESPACE      0x0008
 
     APIRET xmlCreateDOM(ULONG flParserFlags,
+                        const STATICSYSTEMID *paSystemIds,
+                        ULONG cSystemIds,
                         PFNGETCPDATA pfnGetCPData,
                         PFNEXTERNALHANDLER pfnExternalHandler,
                         PVOID pvCallbackUser,

@@ -1,7 +1,10 @@
 
 /*
  *@@sourcefile encodings.c:
- *      character encoding translations.
+ *      character encoding support. Handles all kinds
+ *      of legacy codepages (including most OS/2 codepage)
+ *      and Unicode in the form of UTF-8 and translations
+ *      between then.
  *
  *      See encCreateCodec for an introduction.
  *

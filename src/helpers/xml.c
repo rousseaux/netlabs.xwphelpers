@@ -1901,6 +1901,7 @@ static void EXPATENTRY NotationDeclHandler(void *pUserData,      // in: our PXML
  *      handler should be prepared to be called recursively.
  *
  *@@added V0.9.14 (2001-08-09) [umoeller]
+ *@@changed V0.9.20 (2002-07-06) [umoeller]: added automatic doctype support
  */
 
 static int EXPATENTRY ExternalEntityRefHandler(void *pUserData,      // in: our PXMLDOM really
@@ -1914,14 +1915,14 @@ static int EXPATENTRY ExternalEntityRefHandler(void *pUserData,      // in: our 
 
     int i = 0;          // return error per default
 
-    APIRET  arc = NO_ERROR;
-
     // store the previous parser because
     // all the callbacks use the parser pointer
     XML_Parser pOldParser = pDom->pParser;
     pDom->pParser = NULL;
 
-    if (    (pDom->pfnExternalHandler)
+    if (    (    (pDom->pfnExternalHandler)
+              || (pDom->cSystemIds)      // V0.9.20 (2002-07-06) [umoeller]
+            )
             // create sub-parser and replace the one
             // in the DOM with it
          && (pDom->pParser = XML_ExternalEntityParserCreate(parser,
@@ -1929,40 +1930,75 @@ static int EXPATENTRY ExternalEntityRefHandler(void *pUserData,      // in: our 
                                                             "US-ASCII"))
        )
     {
-        if ((arc = pDom->pfnExternalHandler(pDom,
-                                            pDom->pParser,
-                                            pcszSystemId,
-                                            pcszPublicId)))
-        {
-            // error:
-            // now this needs special handling, since we're
-            // dealing with a sub-handler here...
+        // run through the predefined doctypes given to us
+        // in xmlCreateDOM, if any
+        // V0.9.20 (2002-07-06) [umoeller]
+        BOOL fCallExternal = TRUE;
+        ULONG ul;
 
-            if (arc == -1)
-                // parser error: well, then xmlSetError has been
-                // called from somewhere in the callbacks already,
-                // and we can safely ignore this
-                ;
-            else
+        for (ul = 0;
+             ul < pDom->cSystemIds;
+             ++ul)
+        {
+            const STATICSYSTEMID *pThis = &pDom->paSystemIds[ul];
+            if (!strcmp(pThis->pcszSystemId, pcszSystemId))
             {
-                pDom->arcDOM = arc;
-                if (pcszSystemId)
-                {
-                    if (!pDom->pxstrFailingNode)
-                        pDom->pxstrFailingNode = xstrCreate(0);
-                    xstrcpy(pDom->pxstrFailingNode, pcszSystemId, 0);
-                }
-                pDom->pcszErrorDescription = xmlDescribeError(arc);
-                pDom->ulErrorLine = XML_GetCurrentLineNumber(pDom->pParser);
-                pDom->ulErrorColumn = XML_GetCurrentColumnNumber(pDom->pParser);
+                // this one matches:
+                // then parse the corresponding entry given
+                // to us
+                if (XML_Parse(pDom->pParser,
+                              pThis->pcszContent,
+                              strlen(pThis->pcszContent),
+                              TRUE))
+                    i = 1;      // success
+
+                fCallExternal = FALSE;
+
+                break;
             }
         }
 
-        i = 1;      // success
+        if (    (fCallExternal)     // not handled above
+             && (pDom->pfnExternalHandler) // user handler set
+           )
+        {
+            APIRET  arc;
+
+            if (!(arc = pDom->pfnExternalHandler(pDom,
+                                                 pDom->pParser,
+                                                 pcszSystemId,
+                                                 pcszPublicId)))
+                i = 1;      // success
+            else
+            {
+                // error:
+                // now this needs special handling, since we're
+                // dealing with a sub-handler here...
+
+                if (arc == -1)
+                    // parser error: well, then xmlSetError has been
+                    // called from somewhere in the callbacks already,
+                    // and we can safely ignore this
+                    ;
+                else
+                {
+                    pDom->arcDOM = arc;
+                    if (pcszSystemId)
+                    {
+                        if (!pDom->pxstrFailingNode)
+                            pDom->pxstrFailingNode = xstrCreate(0);
+                        xstrcpy(pDom->pxstrFailingNode, pcszSystemId, 0);
+                    }
+                    pDom->pcszErrorDescription = xmlDescribeError(arc);
+                    pDom->ulErrorLine = XML_GetCurrentLineNumber(pDom->pParser);
+                    pDom->ulErrorColumn = XML_GetCurrentColumnNumber(pDom->pParser);
+                }
+            }
+        }
     }
     else
         xmlSetError(pDom,
-                    (!arc) ? ERROR_DOM_INVALID_EXTERNAL_HANDLER : arc,
+                    ERROR_DOM_INVALID_EXTERNAL_HANDLER,
                     NULL,
                     FALSE);
 
@@ -2335,6 +2371,27 @@ static void EXPATENTRY EntityDeclHandler(void *pUserData,      // in: our PXMLDO
  *      to allow for maximum flexibility. Note however that
  *      not all @expat features are supported yet.
  *
+ *      flParserFlags is any combination of the following:
+ *
+ *      --  DF_PARSECOMMENTS: XML @comments are to be returned in
+ *          the DOM tree. Otherwise they are discarded.
+ *
+ *      --  DF_PARSEDTD: add the @DTD of the document into the DOM tree
+ *          as well and validate the document, if a DTD was found.
+ *          Otherwise just parse and do not validate.
+ *
+ *          DF_PARSEDTD is required for external entities to work
+ *          also.
+ *
+ *      --  DF_FAIL_IF_NO_DTD: fail if no @DTD was found. Useful
+ *          if you want to enforce validation. @@todo
+ *
+ *      --  DF_DROP_WHITESPACE: discard all @whitespace for those
+ *          elements that can only have element content. Whitespace
+ *          will be preserved only for elements that can have
+ *          mixed content. -- If this flag is not set, all whitespace
+ *          is preserved.
+ *
  *      The following callbacks can be specified (any of these
  *      can be NULL):
  *
@@ -2370,37 +2427,18 @@ static void EXPATENTRY EntityDeclHandler(void *pUserData,      // in: our PXMLDO
  *              0x94 in CP850 and 0x00f6 in Unicode. So set
  *              the int at index 0x94 to 0x00f6.
  *
- *      pvCallbackUser is a user parameter which is simply stored
- *      in the XMLDOM struct which is returned. Since the XMLDOM
- *      is passed to all the callbacks, you can access that pointer
- *      from them.
- *
- *      flParserFlags is any combination of the following:
- *
- *      --  DF_PARSECOMMENTS: XML @comments are to be returned in
- *          the DOM tree. Otherwise they are discarded.
- *
- *      --  DF_PARSEDTD: add the @DTD of the document into the DOM tree
- *          as well and validate the document, if a DTD was found.
- *          Otherwise just parse and do not validate.
- *
- *          DF_PARSEDTD is required for external entities to work
- *          also.
- *
- *      --  DF_FAIL_IF_NO_DTD: fail if no @DTD was found. Useful
- *          if you want to enforce validation. @@todo
- *
- *      --  DF_DROP_WHITESPACE: discard all @whitespace for those
- *          elements that can only have element content. Whitespace
- *          will be preserved only for elements that can have
- *          mixed content. -- If this flag is not set, all whitespace
- *          is preserved.
+ *      --  pvCallbackUser is a user parameter which is simply stored
+ *          in the XMLDOM struct which is returned. Since the XMLDOM
+ *          is passed to all the callbacks, you can access that pointer
+ *          from them.
  *
  *@@added V0.9.9 (2001-02-14) [umoeller]
  *@@changed V0.9.14 (2001-08-09) [umoeller]: added DF_DROP_WHITESPACE support
  */
 
 APIRET xmlCreateDOM(ULONG flParserFlags,            // in: DF_* parser flags
+                    const STATICSYSTEMID *paSystemIds, // in: array of STATICSYSTEMID's or NULL
+                    ULONG cSystemIds,                // in: array item count
                     PFNGETCPDATA pfnGetCPData,      // in: codepage callback or NULL
                     PFNEXTERNALHANDLER pfnExternalHandler, // in: external entity callback or NULL
                     PVOID pvCallbackUser,           // in: user param for callbacks
@@ -2421,6 +2459,10 @@ APIRET xmlCreateDOM(ULONG flParserFlags,            // in: DF_* parser flags
         pDom->pfnGetCPData = pfnGetCPData;
         pDom->pfnExternalHandler = pfnExternalHandler;
         pDom->pvCallbackUser = pvCallbackUser;
+
+        // these added with V0.9.20 (2002-07-06) [umoeller]
+        pDom->paSystemIds = paSystemIds;
+        pDom->cSystemIds = cSystemIds;
 
         lstInit(&pDom->llElementStack,
                 TRUE);                 // auto-free
@@ -2469,7 +2511,9 @@ APIRET xmlCreateDOM(ULONG flParserFlags,            // in: DF_* parser flags
                     XML_SetCommentHandler(pDom->pParser,
                                           CommentHandler);
 
-                if (pfnExternalHandler)
+                if (    (pfnExternalHandler)
+                     || (cSystemIds)     // V0.9.20 (2002-07-06) [umoeller]
+                   )
                     XML_SetExternalEntityRefHandler(pDom->pParser,
                                                     ExternalEntityRefHandler);
 

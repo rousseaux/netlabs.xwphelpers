@@ -34,6 +34,9 @@
  *         iterative appends, you can pre-allocate memory to
  *         avoid excessive reallocations.
  *
+ *      These functions are also used internally by the
+ *      WarpIN BSString class (and related classes).
+ *
  *      Usage:
  *
  *      1) Allocate an XSTRING structure on the stack. Always
@@ -138,6 +141,7 @@ void XWPENTRY xstrInitDebug(PXSTRING pxstr,
                             PCSZ function)
 {
     memset(pxstr, 0, sizeof(XSTRING));
+
     if (ulPreAllocate)
     {
         pxstr->psz = (PSZ)memdMalloc(ulPreAllocate,
@@ -185,6 +189,7 @@ void xstrInit(PXSTRING pxstr,               // in/out: string
               ULONG ulPreAllocate)          // in: if > 0, memory to allocate
 {
     memset(pxstr, 0, sizeof(XSTRING));
+
     if (ulPreAllocate)
     {
         pxstr->psz = (PSZ)malloc(ulPreAllocate);
@@ -361,6 +366,7 @@ void xstrClear(PXSTRING pxstr)              // in/out: string
 {
     if (pxstr->psz)
         free(pxstr->psz);
+
     memset(pxstr, 0, sizeof(XSTRING));
 }
 
@@ -440,7 +446,7 @@ ULONG xstrReserve(PXSTRING pxstr,
     }
     // else: we have enough memory
 
-    return (pxstr->cbAllocated);
+    return pxstr->cbAllocated;
 }
 
 /*
@@ -484,7 +490,7 @@ PXSTRING xstrCreate(ULONG ulPreAllocate)
     if (pxstr = (PXSTRING)malloc(sizeof(XSTRING)))
         xstrInit(pxstr, ulPreAllocate);
 
-    return (pxstr);
+    return pxstr;
 }
 
 /*
@@ -541,7 +547,7 @@ ULONG xstrset2(PXSTRING pxstr,              // in/out: string
                ULONG ulNewLength)           // in: length of string or 0 to run strlen here
 {
     if (!pxstr)
-        return (0);         // V0.9.9 (2001-02-14) [umoeller]
+        return 0;         // V0.9.9 (2001-02-14) [umoeller]
 
     xstrClear(pxstr);
     if (pxstr->psz = pszNew)
@@ -555,7 +561,7 @@ ULONG xstrset2(PXSTRING pxstr,              // in/out: string
     }
     // else null string: cbAllocated and ulLength are 0 already
 
-    return (pxstr->ulLength);
+    return pxstr->ulLength;
 }
 
 /*
@@ -569,7 +575,7 @@ ULONG xstrset2(PXSTRING pxstr,              // in/out: string
 ULONG xstrset(PXSTRING pxstr,               // in/out: string
               PSZ pszNew)                   // in: heap PSZ to use
 {
-    return (xstrset2(pxstr, pszNew, 0));
+    return xstrset2(pxstr, pszNew, 0);
 }
 
 /*
@@ -620,11 +626,11 @@ ULONG xstrset(PXSTRING pxstr,               // in/out: string
  */
 
 ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
-              PCSZ pcszSource,       // in: source, can be NULL
+              PCSZ pcszSource,              // in: source, can be NULL
               ULONG ulSourceLength)         // in: length of pcszSource or 0
 {
     if (!pxstr)
-        return (0);         // V0.9.9 (2001-02-14) [umoeller]
+        return 0;         // V0.9.9 (2001-02-14) [umoeller]
 
     if (pcszSource)
     {
@@ -646,7 +652,7 @@ ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
             memcpy(pxstr->psz,
                    pcszSource,
                    ulSourceLength);
-            *(pxstr->psz + ulSourceLength) = '\0';
+            pxstr->psz[ulSourceLength] = '\0';
                     // V0.9.9 (2001-02-16) [umoeller]
                     // we must do this or otherwise we require pcszSource
                     // to be zero-terminated... not a good idea
@@ -669,7 +675,7 @@ ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
     // in all cases, set new length
     pxstr->ulLength = ulSourceLength;
 
-    return (pxstr->ulLength);
+    return pxstr->ulLength;
 }
 
 /*
@@ -683,9 +689,9 @@ ULONG xstrcpys(PXSTRING pxstr,
                const XSTRING *pcstrSource)
 {
     if (!pcstrSource)
-        return (0);
+        return 0;
 
-    return (xstrcpy(pxstr, pcstrSource->psz, pcstrSource->ulLength));
+    return xstrcpy(pxstr, pcstrSource->psz, pcstrSource->ulLength);
 }
 
 /*
@@ -757,7 +763,7 @@ ULONG xstrcat(PXSTRING pxstr,               // in/out: string
                        pcszSource,
                        ulSourceLength);
 
-                *(pxstr->psz + pxstr->ulLength + ulSourceLength) = '\0';
+                pxstr->psz[pxstr->ulLength + ulSourceLength] = '\0';
                         // V0.9.9 (2001-02-16) [umoeller]
                         // we must do this or otherwise we require pcszSource
                         // to be zero-terminated... not a good idea
@@ -773,7 +779,7 @@ ULONG xstrcat(PXSTRING pxstr,               // in/out: string
         // do nothing
     }
 
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -815,7 +821,6 @@ ULONG xstrcatc(PXSTRING pxstr,     // in/out: string
 
     if ((pxstr) && (c))
     {
-        // ULONG   ulSourceLength = 1;
         // 1) memory management
         xstrReserve(pxstr,
                     // required memory:
@@ -832,7 +837,7 @@ ULONG xstrcatc(PXSTRING pxstr,     // in/out: string
 
     } // end if ((pxstr) && (c))
 
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -846,11 +851,11 @@ ULONG xstrcats(PXSTRING pxstr,
                const XSTRING *pcstrSource)
 {
     if (!pcstrSource)
-        return (0);
+        return 0;
 
-    return (xstrcat(pxstr,
-                    pcstrSource->psz,
-                    pcstrSource->ulLength));
+    return xstrcat(pxstr,
+                   pcstrSource->psz,
+                   pcstrSource->ulLength);
 }
 
 /*
@@ -1022,7 +1027,7 @@ ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
         ulrc = cbNeeded - 1;
     } // end checks
 
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -1093,7 +1098,7 @@ PSZ xstrFindWord(const XSTRING *pxstr,        // in: buffer to search ("haystack
         }
     }
 
-    return (pReturn);
+    return pReturn;
 }
 
 /*
@@ -1209,7 +1214,7 @@ ULONG xstrFindReplace(PXSTRING pxstr,               // in/out: string
         } // end if (    (*pulOfs < pxstr->ulLength) ...
     } // end if ((pxstr) && (pstrSearch) && (pstrReplace))
 
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -1245,7 +1250,7 @@ ULONG xstrFindReplaceC(PXSTRING pxstr,              // in/out: string
     xstrInitSet(&xstrFind, (PSZ)pcszSearch);
     xstrInitSet(&xstrReplace, (PSZ)pcszReplace);
 
-    return (xstrFindReplace(pxstr, pulOfs, &xstrFind, &xstrReplace, ShiftTable, &fRepeat));
+    return xstrFindReplace(pxstr, pulOfs, &xstrFind, &xstrReplace, ShiftTable, &fRepeat);
 }
 
 // static encoding table for xstrEncode
@@ -1324,7 +1329,7 @@ static PSZ apszEncoding[] =
  *@@changed V0.9.9 (2001-03-06) [lafaix]: rewritten.
  */
 
-ULONG xstrEncode(PXSTRING pxstr,            // in/out: string to convert
+ULONG xstrEncode(PXSTRING pxstr,     // in/out: string to convert
                  PCSZ pcszEncode)    // in: characters to encode (e.g. "%,();=")
 {
     ULONG ulrc = 0,
@@ -1382,7 +1387,7 @@ ULONG xstrEncode(PXSTRING pxstr,            // in/out: string to convert
         free(pszDest);
     }
 
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -1463,7 +1468,7 @@ ULONG xstrDecode2(PXSTRING pxstr,       // in/out: string to be decoded
         }
     }
 
-    return (ulrc);
+    return ulrc;
 }
 
 /*
@@ -1475,7 +1480,7 @@ ULONG xstrDecode2(PXSTRING pxstr,       // in/out: string to be decoded
 
 ULONG xstrDecode(PXSTRING pxstr)
 {
-    return (xstrDecode2(pxstr, '%'));
+    return xstrDecode2(pxstr, '%');
 }
 
 /*
@@ -1682,7 +1687,7 @@ VOID xstrCatf(XSTRING *pstr,       // in/out: string buffer (must be init'ed)
     xstrDecode(&str);
     printf("New string is: \"%s\" (%d/%d/%d)\n", str.psz, str.ulLength, str.cbAllocated, str.ulDelta);
 
-    return (0);
+    return 0;
 } */
 
 
