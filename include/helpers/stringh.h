@@ -86,10 +86,10 @@ extern "C" {
         PSZ XWPENTRY strhSubstr(const char *pBegin, const char *pEnd);
     #endif
 
-    PSZ XWPENTRY strhExtract(PSZ pszBuf,
+    PSZ XWPENTRY strhExtract(PCSZ pszBuf,
                              CHAR cOpen,
                              CHAR cClose,
-                             PSZ *ppEnd);
+                             PCSZ *ppEnd);
 
     PSZ XWPENTRY strhQuote(PSZ pszBuf,
                            CHAR cQuote,

@@ -549,11 +549,13 @@ PSZ strhSubstr(PCSZ pBegin,      // in: first char
  *      double quotes.
  *
  *      Example:
+ *
  +          PSZ pszBuf = "KEYWORD { --blah-- } next",
  +              pEnd;
  +          strhExtract(pszBuf,
  +                      '{', '}',
  +                      &pEnd)
+ *
  *      would return a new buffer containing " --blah-- ",
  *      and ppEnd would afterwards point to the space
  *      before "next" in the static buffer.
@@ -561,58 +563,56 @@ PSZ strhSubstr(PCSZ pBegin,      // in: first char
  *@@added V0.9.0 [umoeller]
  */
 
-PSZ strhExtract(PSZ pszBuf,     // in: search buffer
+PSZ strhExtract(PCSZ pszBuf,    // in: search buffer
                 CHAR cOpen,     // in: opening char
                 CHAR cClose,    // in: closing char
-                PSZ *ppEnd)     // out: if != NULL, receives first character after closing char
+                PCSZ *ppEnd)    // out: if != NULL, receives first character after closing char
 {
     PSZ pszReturn = NULL;
-
-    if (pszBuf)
+    PCSZ pOpen;
+    if (    (pszBuf)
+         && (pOpen = strchr(pszBuf, cOpen))
+       )
     {
-        PSZ pOpen;
-        if (pOpen = strchr(pszBuf, cOpen))
+        // opening char found:
+        // now go thru the whole rest of the buffer
+        PCSZ     p = pOpen + 1;
+        LONG    lLevel = 1;        // if this goes 0, we're done
+        while (*p)
         {
-            // opening char found:
-            // now go thru the whole rest of the buffer
-            PSZ     p = pOpen+1;
-            LONG    lLevel = 1;        // if this goes 0, we're done
-            while (*p)
+            if (*p == cOpen)
+                lLevel++;
+            else if (*p == cClose)
             {
-                if (*p == cOpen)
-                    lLevel++;
-                else if (*p == cClose)
+                lLevel--;
+                if (lLevel <= 0)
                 {
-                    lLevel--;
-                    if (lLevel <= 0)
-                    {
-                        // matching closing bracket found:
-                        // extract string
-                        pszReturn = strhSubstr(pOpen+1,  // after cOpen
-                                               p);          // excluding cClose
-                        if (ppEnd)
-                            *ppEnd = p+1;
-                        break;      // while (*p)
-                    }
+                    // matching closing bracket found:
+                    // extract string
+                    pszReturn = strhSubstr(pOpen + 1,   // after cOpen
+                                           p);          // excluding cClose
+                    if (ppEnd)
+                        *ppEnd = p + 1;
+                    break;      // while (*p)
                 }
-                else if (*p == '\"')
-                {
-                    // beginning of string:
-                    PSZ p2 = p+1;
-                    // find end of string
-                    while ((*p2) && (*p2 != '\"'))
-                        p2++;
-
-                    if (*p2 == '\"')
-                        // closing quote found:
-                        // search on after that
-                        p = p2;     // raised below
-                    else
-                        break;      // while (*p)
-                }
-
-                p++;
             }
+            else if (*p == '\"')
+            {
+                // beginning of string:
+                PCSZ p2 = p+1;
+                // find end of string
+                while ((*p2) && (*p2 != '\"'))
+                    p2++;
+
+                if (*p2 == '\"')
+                    // closing quote found:
+                    // search on after that
+                    p = p2;     // raised below
+                else
+                    break;      // while (*p)
+            }
+
+            p++;
         }
     }
 

@@ -361,6 +361,8 @@ extern "C" {
                 #define FSYS_FAT             1
                 #define FSYS_HPFS_JFS        2
                 #define FSYS_CDFS            3
+                #define FSYS_CDWFS           6      // not used by WPS!
+                            // added V0.9.19 (2002-04-25) [umoeller]
                 #define FSYS_TVFS            7      // not used by WPS!
                 #define FSYS_FAT32_EXT2      8      // not used by WPS!
                 #define FSYS_RAMFS           9      // not used by WPS!

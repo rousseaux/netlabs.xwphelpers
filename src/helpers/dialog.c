@@ -3134,7 +3134,7 @@ PSZ dlghTextEntryBox(HWND hwndOwner,
                             CTL_COMMON_FONT,
                             0,
                             { 150, SZL_AUTOSIZE },     // size
-                            5               // spacing
+                            COMMON_SPACING,
                          },
                 Entry = {
                             WC_ENTRYFIELD,
@@ -3144,7 +3144,7 @@ PSZ dlghTextEntryBox(HWND hwndOwner,
                             CTL_COMMON_FONT,
                             0,
                             { 150, SZL_AUTOSIZE },     // size
-                            5               // spacing
+                            COMMON_SPACING,
                          },
                 OKButton = {
                             WC_BUTTON,
@@ -3154,7 +3154,7 @@ PSZ dlghTextEntryBox(HWND hwndOwner,
                             CTL_COMMON_FONT,
                             0,
                             { STD_BUTTON_WIDTH, STD_BUTTON_HEIGHT },    // size
-                            5               // spacing
+                            COMMON_SPACING,
                          },
                 CancelButton = {
                             WC_BUTTON,
@@ -3164,7 +3164,7 @@ PSZ dlghTextEntryBox(HWND hwndOwner,
                             CTL_COMMON_FONT,
                             0,
                             { STD_BUTTON_WIDTH, STD_BUTTON_HEIGHT },    // size
-                            5               // spacing
+                            COMMON_SPACING,
                          };
     DLGHITEM DlgTemplate[] =
         {
@@ -3216,7 +3216,7 @@ PSZ dlghTextEntryBox(HWND hwndOwner,
 
     if (NO_ERROR == dlghCreateDlg(&hwndDlg,
                                   hwndOwner,
-                                  FCF_TITLEBAR | FCF_SYSMENU | FCF_DLGBORDER | FCF_NOBYTEALIGN,
+                                  FCF_FIXED_DLG,
                                   WinDefDlgProc,
                                   strTitle.psz,
                                   DlgTemplate,      // DLGHITEM array

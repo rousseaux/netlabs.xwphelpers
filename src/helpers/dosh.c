@@ -1281,6 +1281,7 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for
  *          DFL_AUDIO_CD bit.
  *
  *@@added V0.9.16 (2002-01-13) [umoeller]
+ *@@changed V0.9.19 (2002-04-25) [umoeller]: added CDWFS (RSJ CD-Writer)
  */
 
 APIRET doshGetDriveInfo(ULONG ulLogicalDrive,
@@ -1476,6 +1477,14 @@ APIRET doshGetDriveInfo(ULONG ulLogicalDrive,
                 fCheckLongnames = TRUE;
                 fCheckEAs = TRUE;
             }
+            else if (!stricmp(pdi->szFileSystem, "CDWFS"))
+                    // V0.9.19 (2002-04-25) [umoeller]
+            {
+                pdi->lFileSystem = FSYS_CDWFS;
+                pdi->flDevice |= DFL_SUPPORTS_LONGNAMES;
+                fCheckLongnames = FALSE;
+                fCheckEAs = FALSE;
+            }
         }
         else
             // store negative error code
@@ -1555,10 +1564,28 @@ APIRET doshGetDriveInfo(ULONG ulLogicalDrive,
 
 /*
  *@@ doshSetLogicalMap:
- *       sets the mapping of logical floppy drives onto a single
- *       physical floppy drive.
- *       This means selecting either drive A: or drive B: to refer
- *       to the physical drive.
+ *      sets the mapping of logical floppy drives onto a single
+ *      physical floppy drive.
+ *      This means selecting either drive A: or drive B: to refer
+ *      to the physical drive.
+ *
+ *      Paul explained this to me as follows:
+ *
+ *      "It is really very simple - in a single physical floppy
+ *      drive system,  you still have 2 logical floppy drives
+ *      A: and B:. This was primarily to  support disk copying
+ *      e.g. diskcopy a: b: on a single floppy system without
+ *      having to rewrite applications. Whenever the application
+ *      accessed the other logical drive, the user would get a
+ *      prompt from the OS to swap disks.
+ *
+ *      "These calls allow applications to bypass the prompt by
+ *      doing the mapping themselves. They just get/set which
+ *      logical drive is currently mapped to the physical drive.
+ *      This concept existed in DOS as well although the specifics
+ *      of how it was done escape me now.... actually I just
+ *      looked it up - the byte at 0:504h in low memory on
+ *      DOS controlled this (it doesn't work in VDMs)."
  *
  *@@added V0.9.6 (2000-11-24) [pr]
  */

@@ -1904,12 +1904,6 @@ APIRET gpihLoadBitmapFile(HBITMAP *phbm,        // out: bitmap if NO_ERROR
 
                             if (cx)
                             {
-                                _Pmpf(("found bmp cxDisplay %d, cyDisplay %d",
-                                            pba->cxDisplay,
-                                            pba->cyDisplay));
-                                _Pmpf(("   cx %d, cy %d, cBitCount %d",
-                                            cx, cy, cBitCount));
-
                                 // store first bitmap of any type
                                 if (!puFirstAny)
                                     puFirstAny = puThis;
