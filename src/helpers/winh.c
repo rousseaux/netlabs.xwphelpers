@@ -66,6 +66,7 @@
 #define INCL_WINSTDSLIDER
 #define INCL_WINCIRCULARSLIDER
 #define INCL_WINSTDFILE
+#define INCL_WINCLIPBOARD
 
 #define INCL_SPL
 #define INCL_SPLDOSPRINT
@@ -4704,6 +4705,50 @@ VOID winhSetNumLock(BOOL fState)
 }
 
 /*
+ *@@ winhSetClipboardText:
+ *      sets the clipboard data to the given text,
+ *      replacing the current clipboard contents.
+ *
+ *@@added V0.9.21 (2002-08-28) [umoeller]
+ */
+
+BOOL winhSetClipboardText(HAB hab,
+                          PCSZ pcsz,
+                          ULONG cbSize)     // in: size of buffer INCLUDING null byte
+{
+    BOOL    fSuccess = FALSE;
+
+    if (WinOpenClipbrd(hab))
+    {
+        PSZ pszDest;
+        if (!DosAllocSharedMem((PVOID*)&pszDest,
+                               NULL,
+                               cbSize,
+                               PAG_WRITE | PAG_COMMIT | OBJ_GIVEABLE))
+        {
+            memcpy(pszDest,
+                   pcsz,
+                   cbSize);
+
+            WinEmptyClipbrd(hab);
+
+            fSuccess = WinSetClipbrdData(hab,       // anchor-block handle
+                                         (ULONG)pszDest, // pointer to text data
+                                         CF_TEXT,        // data is in text format
+                                         CFI_POINTER);   // passing a pointer
+
+            // PMREF says (implicitly) it is not necessary to call
+            // DosFreeMem. I hope that is correct.
+            // V0.9.19 (2002-06-02) [umoeller]
+        }
+
+        WinCloseClipbrd(hab);
+    }
+
+    return fSuccess;
+}
+
+/*
  *@@category: Helpers\PM helpers\Extended frame windows
  */
 
@@ -4952,12 +4997,12 @@ PBYTE winhQueryWPSClassList(VOID)
     if (WinEnumObjectClasses(NULL, &ulSize))
     {
         // allocate buffer
-        pObjClass = (POBJCLASS)malloc(ulSize+1);
+        pObjClass = (POBJCLASS)malloc(ulSize + 1);
         // and load the classes into it
         WinEnumObjectClasses(pObjClass, &ulSize);
     }
 
-    return ((PBYTE)pObjClass);
+    return (PBYTE)pObjClass;
 }
 
 /*

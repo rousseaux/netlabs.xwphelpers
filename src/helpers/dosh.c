@@ -3748,22 +3748,28 @@ APIRET doshPerfOpen(PDOSHPERFSYS *ppPerfSys)  // out: new DOSHPERFSYS structure
         memset(pPerfSys, 0, sizeof(*pPerfSys));
 
         // resolve DosPerfSysCall API entry
-        if (!(arc = DosLoadModule(NULL, 0, "DOSCALLS", &pPerfSys->hmod)))
+        if (!(arc = DosLoadModule(NULL,
+                                  0,
+                                  "DOSCALLS",
+                                  &pPerfSys->hmod)))
         {
             if (!(arc = DosQueryProcAddr(pPerfSys->hmod,
                                          976,
                                          "DosPerfSysCall",
-                                         (PFN*)(&pPerfSys->pDosPerfSysCall))))
+                                         (PFN*)&pPerfSys->pDosPerfSysCall)))
             {
                 // OK, we got the API: initialize!
-                if (!(arc = pPerfSys->pDosPerfSysCall(CMD_KI_ENABLE, 0, 0, 0)))
+                if (!(arc = pPerfSys->pDosPerfSysCall(CMD_KI_ENABLE,
+                                                      0,
+                                                      0,
+                                                      0)))
                 {
                     pPerfSys->fInitialized = TRUE;
                             // call CMD_KI_DISABLE later
 
                     if (!(arc = pPerfSys->pDosPerfSysCall(CMD_PERF_INFO,
                                                           0,
-                                                          (ULONG)(&pPerfSys->cProcessors),
+                                                          (ULONG)&pPerfSys->cProcessors,
                                                           0)))
                     {
                         ULONG   ul = 0,

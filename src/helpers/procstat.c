@@ -92,11 +92,6 @@ APIRET prc16GetInfo(PQPROCSTAT16 *ppps)     // out: error, ptr can be NULL
     APIRET arc = NO_ERROR;
     PQPROCSTAT16 pps = NULL;
 
-    /* PQPROCSTAT16 pps = (PQPROCSTAT16)malloc(0x8000);
-    if (!pps)
-        arc = ERROR_NOT_ENOUGH_MEMORY;
-    else */
-
     if (!ppps)
         return (ERROR_INVALID_PARAMETER);
 
@@ -339,7 +334,7 @@ ULONG prc16ForEachProcess(PFNWP pfnwpCallback, HWND hwnd, ULONG ulMsg, MPARAM mp
             for ( pProcess = (PQPROCESS16)PTR(pps->ulProcesses, 0);
                   pProcess->ulType != 3;
                   pProcess = (PQPROCESS16)PTR(pProcess->ulThreadList,
-                             pProcess->usThreads * sizeof(QTHREAD16))
+                                              pProcess->usThreads * sizeof(QTHREAD16))
                 )
             {
                 if (pfnwpCallback)

@@ -896,6 +896,10 @@ extern "C" {
 
     VOID XWPENTRY winhSetNumLock(BOOL fState);
 
+    BOOL XWPENTRY winhSetClipboardText(HAB hab,
+                                       PCSZ pcsz,
+                                       ULONG cbSize);
+
     /*
      *@@ winhQueryScreenCX:
      *      helper macro for getting the screen width.

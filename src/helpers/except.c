@@ -450,6 +450,7 @@ VOID excDumpStackFrames(FILE *file,                   // in: logfile from fopen(
  *@@changed V0.9.13 (2001-06-19) [umoeller]: added global flag for whether this is running
  *@@changed V0.9.16 (2001-11-02) [pr]: make object display signed
  *@@changed V0.9.19 (2002-03-28) [umoeller]: added thread ordinal
+ *@@changed V0.9.21 (2002-08-28) [umoeller]: added OS revision to dump
  */
 
 VOID excExplainException(FILE *file,                   // in: logfile from fopen()
@@ -506,7 +507,7 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
 
     // generic exception info
     DosQuerySysInfo(QSV_VERSION_MAJOR,      // 11
-                    QSV_VERSION_MINOR,      // 12
+                    QSV_VERSION_REVISION,   // 13 V0.9.21 (2002-08-28) [umoeller]
                     &aulBuf, sizeof(aulBuf));
     // Warp 3 is reported as 20.30
     // Warp 4 is reported as 20.40
@@ -522,9 +523,10 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
         }
     }
     fprintf(file,
-            "Running OS/2 version: %u.%u (%s)\n",
+            "Running OS/2 version: %u.%u.%u (%s)\n",
             aulBuf[0],                      // major
             aulBuf[1],
+            aulBuf[2],              // revision V0.9.21 (2002-08-28) [umoeller]
             pcszVersion);
 
 
