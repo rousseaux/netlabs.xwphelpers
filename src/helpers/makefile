@@ -155,6 +155,7 @@ TESTCASE_TARGETS = \
     dosh.exe \
     dialog.exe \
     vcard.exe \
+    fdlg.exe \
 
 # dosh.exe
 DOSH_TEST_OBJS = \
@@ -192,6 +193,13 @@ VCARD_TEST_OBJS = \
 
 vcard.exe: $(VCARD_TEST_OBJS)
     ilink /debug /pmtype:vio $(VCARD_TEST_OBJS) /o:$@
+
+# vcard.exe
+VCARD_TEST_OBJS = \
+    $(TESTCASE_DIR)\_call_filedlg.obj
+
+fdlg.exe: $(VCARD_TEST_OBJS)
+    ilink /debug /pmtype:pm $(VCARD_TEST_OBJS) /o:$@
 
 test: $(TESTCASE_TARGETS)
 
