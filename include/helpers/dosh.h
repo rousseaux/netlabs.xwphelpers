@@ -376,45 +376,6 @@ extern "C" {
                                  PULONG pulSID,
                                  PPID ppid);
 
-    /* ******************************************************************
-     *
-     *   Environment helpers
-     *
-     ********************************************************************/
-
-    /*
-     *@@ DOSENVIRONMENT:
-     *      structure holding an array of environment
-     *      variables (papszVars). This is initialized
-     *      doshGetEnvironment,
-     *
-     *@@added V0.9.4 (2000-07-19) [umoeller]
-     */
-
-    typedef struct _DOSENVIRONMENT
-    {
-        ULONG       cVars;              // count of vars in papzVars
-        PSZ         *papszVars;         // array of PSZ's to environment strings (VAR=VALUE)
-    } DOSENVIRONMENT, *PDOSENVIRONMENT;
-
-    APIRET doshParseEnvironment(const char *pcszEnv,
-                                PDOSENVIRONMENT pEnv);
-
-    APIRET doshGetEnvironment(PDOSENVIRONMENT pEnv);
-
-    PSZ* doshFindEnvironmentVar(PDOSENVIRONMENT pEnv,
-                                PSZ pszVarName);
-
-    APIRET doshSetEnvironmentVar(PDOSENVIRONMENT pEnv,
-                                 PSZ pszNewEnv,
-                                 BOOL fAddFirst);
-
-    APIRET doshConvertEnvironment(PDOSENVIRONMENT pEnv,
-                                  PSZ *ppszEnv,
-                                  PULONG pulSize);
-
-    APIRET doshFreeEnvironment(PDOSENVIRONMENT pEnv);
-
     /********************************************************************
      *
      *   Executable helpers

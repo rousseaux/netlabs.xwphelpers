@@ -39,7 +39,7 @@
  *@@include #define INCL_WINSYS
  *@@include #define INCL_WINSHELLDATA
  *@@include #define INCL_WINSWITCHLIST      // for winhQuerySwitchList
- *@@include #define INCL_WINPROGRAMLIST     // for winhStartApp
+ *@@include #define INCL_WINPROGRAMLIST     // for appStartApp
  *@@include #define INCL_WINHELP            // for help manager helpers
  *@@include #include <os2.h>
  *@@include #include "winh.h"
@@ -680,17 +680,6 @@ extern "C" {
      *   Application control
      *
      ********************************************************************/
-
-    #ifdef INCL_WINPROGRAMLIST
-        // additional PROG_* flags for winhQueryAppType
-        #define PROG_XWP_DLL            998      // dynamic link library
-
-        APIRET winhQueryAppType(const char *pcszExecutable,
-                                PULONG pulDosAppType,
-                                PULONG pulWinAppType);
-
-        HAPP XWPENTRY winhStartApp(HWND hwndNotify, const PROGDETAILS *pcProgDetails);
-    #endif
 
     BOOL XWPENTRY winhAnotherInstance(const char *pcszSemName, BOOL fSwitch);
 
