@@ -259,6 +259,17 @@ VOID winhOffsetRect(PRECTL prcl,
  ********************************************************************/
 
 /*
+ *@@ winhQueryWindowStyle:
+ *
+ *@@added V0.9.13 (2001-07-02) [umoeller]
+ */
+
+ULONG winhQueryWindowStyle(HWND hwnd)
+{
+    return (WinQueryWindowULong(hwnd, QWL_STYLE));
+}
+
+/*
  *@@ winhEnableDlgItem:
  *
  *@@added V0.9.12 (2001-05-18) [umoeller]

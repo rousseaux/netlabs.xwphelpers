@@ -1265,7 +1265,7 @@ VOID txvFormatText(HPS hps,             // in: HPS whose font is used for
                             if (pWordThis->fPaintEscapeWord)
                             {
                                 pWordThis->lX = flbuf.lXCurrent;
-                                pWordThis->pvRectangle = (PVOID)pRect;
+                                pWordThis->pRectangle = pRect;
                                 lstAppendItem(&pRect->llWords, pWordThis);
                                 ulWordsInThisRect++;
                             }
@@ -1309,9 +1309,9 @@ VOID txvFormatText(HPS hps,             // in: HPS whose font is used for
                                 flbuf.lXCurrent += pWordThis->ulCXWithSpaces;
 
                                 // store word in rectangle
-                                pWordThis->pvRectangle = (PVOID)pRect;
+                                pWordThis->pRectangle = pRect;
                                 lstAppendItem(&pRect->llWords, pWordThis);
-                                            // ### memory leak right here!!!
+                                            // @@todo memory leak right here!!!
                                 ulWordsInThisRect++;
 
                                 // store highest word width found for this rect
@@ -2137,7 +2137,7 @@ VOID RepaintWord(PTEXTVIEWWINDATA ptxvd,
 {
     POINTL ptlStart;
     ULONG flOptions = pWordThis->flOptions;
-    PTXVRECTANGLE pLineRcl = (PTXVRECTANGLE)pWordThis->pvRectangle;
+    PTXVRECTANGLE pLineRcl = pWordThis->pRectangle;
 
     RECTL           rclLine;
     rclLine.xLeft = pLineRcl->rcl.xLeft - ptxvd->ulViewXOfs;
@@ -3030,7 +3030,7 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                     PTXVWORD pWord = (PTXVWORD)pWordNode->pItemData;
                     if (pWord)
                     {
-                        PTXVRECTANGLE pRect = (PTXVRECTANGLE)pWord->pvRectangle;
+                        PTXVRECTANGLE pRect = pWord->pRectangle;
                         ULONG ulWinCY = (ptxvd->rclViewText.yTop - ptxvd->rclViewText.yBottom);
 
                         // now we need to scroll the window so that this rectangle is on top.

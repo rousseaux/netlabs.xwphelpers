@@ -160,6 +160,8 @@ extern "C" {
      *
      ********************************************************************/
 
+    ULONG XWPENTRY winhQueryWindowStyle(HWND hwnd);
+
     BOOL XWPENTRY winhEnableDlgItem(HWND hwndDlg, SHORT id, BOOL fEnable);
 
     BOOL XWPENTRY winhIsDlgItemEnabled(HWND hwndDlg, SHORT id);
@@ -355,11 +357,22 @@ extern "C" {
                                          ULONG min,
                                          ULONG max,
                                          ULONG current);
+    typedef VOID XWPENTRY WINHSETDLGITEMSPINDATA(HWND hwndDlg,
+                                                 ULONG idSpinButton,
+                                                 ULONG min,
+                                                 ULONG max,
+                                                 ULONG current);
+    typedef WINHSETDLGITEMSPINDATA *PWINHSETDLGITEMSPINDATA;
 
     LONG XWPENTRY winhAdjustDlgItemSpinData(HWND hwndDlg,
                                             USHORT usItemID,
                                             LONG lGrid,
                                             USHORT usNotifyCode);
+    typedef LONG XWPENTRY WINHADJUSTDLGITEMSPINDATA(HWND hwndDlg,
+                                                    USHORT usItemID,
+                                                    LONG lGrid,
+                                                    USHORT usNotifyCode);
+    typedef WINHADJUSTDLGITEMSPINDATA *PWINHADJUSTDLGITEMSPINDATA;
 
     /* ******************************************************************
      *

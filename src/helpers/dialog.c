@@ -211,8 +211,8 @@ typedef enum _PROCESSMODE
  *
  ********************************************************************/
 
-#define PM_GROUP_SPACING_X          20
-#define PM_GROUP_SPACING_TOP        30
+#define PM_GROUP_SPACING_X          10
+#define PM_GROUP_SPACING_TOP        20
 
 VOID ProcessTable(PTABLEDEF pTableDef,
                   const CONTROLPOS *pcpTable,

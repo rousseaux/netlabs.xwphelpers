@@ -159,6 +159,8 @@ extern "C" {
     #define TXVWORDF_LINEBREAK          2       // \n
     #define TXVWORDF_LINEFEED           4       // \r
 
+    typedef struct _TXVRECTANGLE *PTXVRECTANGLE;
+
     /*
      *@@ TXVWORD:
      *      this defines a "word" to be drawn. A word is
@@ -210,7 +212,7 @@ extern "C" {
 
         LONG        lX;             // X position to paint this word at;
                                     // this is (re)set during word-to-rectangle correlation!
-        PVOID       pvRectangle;    // reverse pointer to the TXVRECTANGLE structure to
+        PTXVRECTANGLE pRectangle;   // reverse pointer to the TXVRECTANGLE structure to
                                     // which this word belongs; useful for repainting;
                                     // this is (re)set during word-to-rectangle correlation!
         ULONG       ulBaseLineOfs;  // base line offset; add this to rcl.yBottom
@@ -255,7 +257,7 @@ extern "C" {
                                         // words which were created (for cleanup).
                                         // So one allocated TXVWORD structure can
                                         // have two pointers pointing to it.
-        } TXVRECTANGLE, *PTXVRECTANGLE;
+        } TXVRECTANGLE;
     #endif
 
     /*

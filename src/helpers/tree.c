@@ -113,15 +113,11 @@
  +                           /  \
  *
  *      -- Fully balanced trees can be quite expensive because on
- *         every insertion or deletion, the tree nodes must be reordered.
+ *         every insertion or deletion, the tree nodes must be rotated.
  *         By contrast, "Red-black" binary balanced trees contain
  *         an additional bit in each node which marks the node as
  *         either red or black. This bit is used only for efficient
  *         rebalancing when inserting or deleting nodes.
- *
- *         The color of each node is instrumental in determining the
- *         balance of the tree. During insert and delete operations,
- *         nodes may be rotated to maintain tree balance.
  *
  *         I don't fully understand why this works, but if you really
  *         care, this is explained at

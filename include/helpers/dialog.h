@@ -178,15 +178,25 @@ extern "C" {
      *
      ********************************************************************/
 
-    APIRET dlghCreateDlg(HWND *phwndDlg,
-                         HWND hwndOwner,
-                         ULONG flCreateFlags,
-                         PFNWP pfnwpDialogProc,
-                         const char *pcszDlgTitle,
-                         PDLGHITEM paDlgItems,
-                         ULONG cDlgItems,
-                         PVOID pCreateParams,
-                         const char *pcszControlsFont);
+    APIRET XWPENTRY dlghCreateDlg(HWND *phwndDlg,
+                                  HWND hwndOwner,
+                                  ULONG flCreateFlags,
+                                  PFNWP pfnwpDialogProc,
+                                  const char *pcszDlgTitle,
+                                  PDLGHITEM paDlgItems,
+                                  ULONG cDlgItems,
+                                  PVOID pCreateParams,
+                                  const char *pcszControlsFont);
+    typedef APIRET XWPENTRY DLGHCREATEDLG(HWND *phwndDlg,
+                                          HWND hwndOwner,
+                                          ULONG flCreateFlags,
+                                          PFNWP pfnwpDialogProc,
+                                          const char *pcszDlgTitle,
+                                          PDLGHITEM paDlgItems,
+                                          ULONG cDlgItems,
+                                          PVOID pCreateParams,
+                                          const char *pcszControlsFont);
+    typedef DLGHCREATEDLG *PDLGHCREATEDLG;
 
     /*
      *@@ MSGBOXSTRINGS:

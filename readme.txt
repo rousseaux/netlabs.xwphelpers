@@ -1,6 +1,6 @@
 XWP Helpers 0.9.7 README
 (W) Ulrich M”ller, October 26, 2000
-Last updated January 6, 2001, Ulrich M”ller
+Last updated July 5, 2001, Ulrich M”ller
 
 
 0. CONTENTS OF THIS FILE
@@ -60,15 +60,17 @@ Last updated January 6, 2001, Ulrich M”ller
     The XWPHelpers offer you frequently used code for writing all
     sorts of OS/2 programs, including:
 
-    --  standard C code which is independent of the OS/2 platform;
+    --  standard C code which is independent of the OS/2 platform
+        (and should even work for Unix or Windows);
 
     --  OS/2-specific code which can be used in any OS/2 program
-        (text mode or PM);
+        (VIO or PM);
 
     --  PM-specific code which assists you in writing PM programs.
 
     The XWPHelpers can be compiled with EMX/GCC or IBM VisualAge
-    C++ 3.08. They can be used with C or C++ programs.
+    C++ 3.08. They can be used with C or C++ programs. All typecasts
+    should be C++-compatible.
 
 
     Getting Sources from Netlabs CVS
@@ -97,19 +99,27 @@ Last updated January 6, 2001, Ulrich M”ller
 ==============================
 
     The XWPHelpers do not come with pre-made documentation. However,
-    you can automatically have documentation generated from the sources
-    using my "xdoc" utility, which resides in the main directory of
-    the helpers. (The source code for xdoc is in the WarpIN CVS
-    repository because it shares some C++ code with WarpIN.)
+    you can automatically have extensive, categorized documentation
+    generated automatically from the C sources using my "xdoc"
+    utility, which resides in the main directory of the helpers.
+    (The source code for xdoc is in the WarpIN CVS repository
+    because it shares some C++ code with WarpIN.)
 
-    To have the code generated, call "createdoc.cmd" in the main
-    directory. This will call xdoc in turn with the proper parameters
-    and create a new "HTML" directory, from where you should start
-    with the "index.html" file.
+    To have the code generated, simply call "createdoc.cmd" in the
+    main directory. This will call xdoc in turn with the proper
+    parameters and create a new "HTML" directory, from where you
+    should start with the "index.html" file.
 
 
 4. COMPILING
 ============
+
+    You don't have to worry about compilation if you only want
+    to compile XWorkplace or WarpIN. The makefiles of those two
+    projects are set up properly to automatically compile the
+    XWPHelpers as well. This section is only for people who
+    want to compile the XWPHelpers separately for use in a
+    different project.
 
     Compiling is a bit tricky because the code and the makefiles
     were designed to be independent of any single project. As a
