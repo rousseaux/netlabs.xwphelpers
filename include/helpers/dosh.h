@@ -902,6 +902,9 @@ extern "C" {
     BOOL doshMatchCase(PCSZ pcszMask,
                        PCSZ pcszName);
 
+    BOOL doshMatchCaseNoPath(const char *pcszMask,
+                             const char *pcszName);
+
     BOOL doshMatch(PCSZ pcszMask,
                    PCSZ pcszName);
 

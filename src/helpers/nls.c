@@ -751,40 +751,88 @@ VOID APIENTRY strhDateTime(PSZ pszDate,          // out: date string returned (c
                 cTimeSep);
 }
 
+CHAR G_szUpperMap[257];
+BOOL G_fUpperMapInited = FALSE;
+
+/*
+ *@@ InitUpperMap:
+ *      initializes the case map for nlsUpper.
+ *
+ *@@added V0.9.20 (2002-07-25) [umoeller]
+ */
+
+static VOID InitUpperMap(VOID)
+{
+    ULONG ul;
+    COUNTRYCODE cc;
+    BOOL fDBCS = nlsDBCS();
+
+    for (ul = 0;
+         ul < sizeof(G_szUpperMap);
+         ++ul)
+    {
+        G_szUpperMap[ul] = (CHAR)ul;
+
+        if (    (fDBCS)
+             && (G_afLeadByte[ul] != TYPE_SBCS)
+           )
+            G_szUpperMap[ul] = ' ';
+    }
+
+    G_szUpperMap[256] = '\0';
+
+    cc.country = 0;         // use system country code
+    cc.codepage = 0;        // use process default codepage
+    DosMapCase(255,
+               &cc,
+               G_szUpperMap + 1);
+
+    G_fUpperMapInited = TRUE;
+}
 
 /*
  *@@ nlsUpper:
  *      quick hack for upper-casing a string.
  *
- *      This uses DosMapCase with the default system country
- *      code and the process's codepage. WARNING: DosMapCase
- *      is a 16-bit API and therefore quite slow. Use this
- *      with care.
+ *      This now returns the length of the given string always
+ *      (V0.9.20).
+ *
+ *      Remarks:
+ *
+ *      --  On the first call, we build a case map table by
+ *          calling DosMapCase with the default system country
+ *          code and the process's codepage. Since DosMapCase
+ *          is terribly slow with all the 16-bit thunking
+ *          involved, we can then use our table without having
+ *          to use the API ever again.
+ *
+ *      --  As a result, if the process codepage changes for
+ *          any reason, this function will not pick up the
+ *          change.
+ *
+ *      --  This has provisions for DBCS, which hopefully
+ *          work.
  *
  *@@added V0.9.16 (2001-10-25) [umoeller]
+ *@@changed V0.9.20 (2002-07-25) [umoeller]: speedup, changed prototype
  */
 
-APIRET nlsUpper(PSZ psz,            // in/out: string
-                ULONG ulLength)     // in: string length; if 0, we run strlen(psz)
+ULONG nlsUpper(PSZ psz)            // in/out: string
 {
-    COUNTRYCODE cc;
+    ULONG   ul = 0;
+
+    if (!G_fUpperMapInited)
+        InitUpperMap();
 
     if (psz)
     {
-        if (!ulLength)
-            ulLength = strlen(psz);
+        PSZ     p = psz;
 
-        if (ulLength)
-        {
-            cc.country = 0;         // use system country code
-            cc.codepage = 0;        // use process default codepage
-            return DosMapCase(ulLength,
-                              &cc,
-                              psz);
-        }
+        while (*p++ = G_szUpperMap[*p])
+            ++ul;
     }
 
-    return ERROR_INVALID_PARAMETER;
+    return ul;
 }
 
 

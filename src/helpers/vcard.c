@@ -364,8 +364,7 @@ static APIRET Tokenize(ULONG ulLevel,
                 PVCFPROPERTY pProp;
 
                 *pNextColon = '\0';
-                nlsUpper(pLineThis,
-                         pNextColon - pLineThis);
+                nlsUpper(pLineThis);
 
                 if (pNextSemicolon = strchr(pLineThis, ';'))
                     // we have a parameter:

@@ -128,7 +128,7 @@ extern "C" {
                                           CHAR cTimeSep);
         typedef NLSDATETIME *PNLSDATETIME;
 
-        APIRET XWPENTRY nlsUpper(PSZ psz, ULONG ulLength);
+        ULONG nlsUpper(PSZ psz);
 
     #endif
 

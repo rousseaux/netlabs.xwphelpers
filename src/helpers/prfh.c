@@ -188,25 +188,24 @@ PSZ (prfhQueryProfileDataDebug)(HINI hIni,      // in: INI handle (can be HINI_U
  *@@changed V0.9.3 (2000-04-20) [umoeller]: this called malloc(0) if the key existed, but was empty. Fixed.
  */
 
-PSZ (prfhQueryProfileData)(HINI hIni,      // in: INI handle (can be HINI_USER or HINI_SYSTEM)
-                         const char *pcszApp,     // in: application to query
-                         const char *pcszKey,     // in: key to query
-                         PULONG pcbBuf)  // out: size of the returned buffer; ptr can be NULL
+PSZ (prfhQueryProfileData)(HINI hIni,           // in: INI handle (can be HINI_USER or HINI_SYSTEM)
+                         const char *pcszApp,   // in: application to query
+                         const char *pcszKey,   // in: key to query
+                         PULONG pcbBuf)         // out: size of the returned buffer; ptr can be NULL
 {
     PSZ     pData = NULL;
-    ULONG   ulSizeOfData = 0;
+    ULONG   ulSizeOfData;
 
     // get size of data for pszApp/pszKey
-    if (PrfQueryProfileSize(hIni, (PSZ)pcszApp, (PSZ)pcszKey, &ulSizeOfData))
+    if (    (PrfQueryProfileSize(hIni, (PSZ)pcszApp, (PSZ)pcszKey, &ulSizeOfData))
+         && (ulSizeOfData)
+         && (pData = (PSZ)malloc(ulSizeOfData))
+       )
     {
-        if (ulSizeOfData)
+        if (!PrfQueryProfileData(hIni, (PSZ)pcszApp, (PSZ)pcszKey, pData, &ulSizeOfData))
         {
-            pData = (PSZ)malloc(ulSizeOfData);
-            if (!PrfQueryProfileData(hIni, (PSZ)pcszApp, (PSZ)pcszKey, pData, &ulSizeOfData))
-            {
-                free(pData);
-                pData = NULL;
-            }
+            free(pData);
+            pData = NULL;
         }
     }
 

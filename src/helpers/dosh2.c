@@ -2045,10 +2045,15 @@ static BOOL PerformMatch(PCSZ pMask,
                 // asterisk matches zero or more characters
 
                 // skip extra asterisks
+                /*
                 do
                 {
                     ++pMask;
                 } while (*pMask == '*');
+                */
+
+                while (*(++pMask) == '*')       // V0.9.20 (2002-07-25) [umoeller]
+                    ;
 
                 // pMask points to after '*';
                 // pName is unchanged... so for each pName
@@ -2088,13 +2093,12 @@ static BOOL PerformMatch(PCSZ pMask,
 }
 
 /*
- *@@ doshMatch:
+ *@@ doshMatchCase:
  *      this matches '*' and '?' wildcards, similar to what
- *      DosEditName does. It returns TRUE if the given name
- *      matches the given mask.
+ *      DosEditName does. However, this does not require a
+ *      file to be present, but works on strings only.
  *
- *      However, this does not require a file to be present, but
- *      works on strings only.
+ *      Returns TRUE if the given name matches the given mask.
  *
  *      This accepts both short and fully qualified masks and
  *      names, but the following rules apply:
@@ -2105,14 +2109,14 @@ static BOOL PerformMatch(PCSZ pMask,
  *      --  If fully qualified, only the last component may contain
  *          wildcards.
  *
- *      --  This compares without respect to case always.
+ *      --  This compares WITH respect to case always. Upper-case
+ *          both the mask and the name before calling this, or
+ *          use doshMatch instead.
  *
  *      --  As opposed to the WPS, this handles multiple dots in
  *          filenames correctly. For example, the WPS will not
  *          match "*.ZIP" against "whatever-0.9.3.zip", but this
  *          one will.
- *
- *      --  THIS COMPARES WITH RESPECT TO CASE.
  *
  *      This replaces strhMatchOS2 which has been removed with
  *      V0.9.16 and is a lot faster than the old code, which has
@@ -2126,16 +2130,11 @@ BOOL doshMatchCase(const char *pcszMask,     // in: mask (e.g. "*.TXT")
 {
     BOOL    brc = FALSE;
 
-    int     iMaskDrive = -1,
-            iNameDrive = -1;
-
     PCSZ    pLastMaskComponent,
             pLastNameComponent;
 
     ULONG   cbMaskPath = 0,
             cbNamePath = 0;
-
-    CHAR    c;
 
     if (pLastMaskComponent = strrchr(pcszMask, '\\'))
     {
@@ -2175,6 +2174,25 @@ BOOL doshMatchCase(const char *pcszMask,     // in: mask (e.g. "*.TXT")
 }
 
 /*
+ *@@ doshMatchCaseNoPath:
+ *      like doshMatchCase, but is faster if you are sure that
+ *      neither pcszMask nor pcszName contain path separators
+ *      ("\" characters). In other words, this is for short
+ *      filenames.
+ *
+ *@@added V0.9.20 (2002-07-25) [umoeller]
+ */
+
+BOOL doshMatchCaseNoPath(const char *pcszMask,     // in: mask (e.g. "*.TXT")
+                         const char *pcszName)     // in: string to check (e.g. "TEST.TXT")
+{
+    return PerformMatch(pcszMask,
+                        pcszName,
+                        // has dot?
+                        (strchr(pcszName, '.') != NULL));
+}
+
+/*
  *@@ doshMatch:
  *      like doshMatchCase, but compares without respect
  *      to case.
@@ -2191,10 +2209,10 @@ BOOL doshMatch(const char *pcszMask,     // in: mask (e.g. "*.TXT")
             pszName = (PSZ)_alloca(cbName + 1);
 
     memcpy(pszMask, pcszMask, cbMask + 1);
-    nlsUpper(pszMask, cbMask);
+    nlsUpper(pszMask);
     memcpy(pszName, pcszName, cbName + 1);
-    nlsUpper(pszName, cbName);
+    nlsUpper(pszName);
 
-    return (doshMatchCase(pszMask,
-                          pszName));
+    return doshMatchCase(pszMask,
+                         pszName);
 }
