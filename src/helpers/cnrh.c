@@ -1456,7 +1456,14 @@ BOOL cnrhIsChildOf(HWND hwndCnr,
  *      -- HWND hwnd: hwndCnr, as passed to this func
  *      -- PRECORDCORE precc: current record core, as
  *                     determined by this func.
- *      -- ULONG ulUser: what you have specified here.
+ *      -- ULONG ulUser1/2: what you have specified here.
+ *
+ *      It must be declared as follows:
+ *
+ +          ULONG EXPENTRY fncb(HWND hwndCnr,
+ +                              PRECORDCORE precc,
+ +                              ULONG ulUser1,
+ +                              ULONG ulUser2)
  *
  *      If the callback returns anything != 0, this
  *      function stops even before all records have
@@ -1475,8 +1482,8 @@ BOOL cnrhIsChildOf(HWND hwndCnr,
  */
 
 ULONG cnrhForAllRecords(HWND hwndCnr,
-                        PRECORDCORE preccParent,
-                        PFNCBRECC pfncbRecc,
+                        PRECORDCORE preccParent,    // in: NULL for root
+                        PFNCBRECC pfncbRecc,        // in: callback
                         ULONG ulUser1,
                         ULONG ulUser2)
 {

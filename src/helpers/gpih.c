@@ -360,19 +360,25 @@ VOID gpihDraw3DFrame(HPS hps,
     USHORT us;
     POINTL ptl1;
 
-    for (us = 0; us < usWidth; us++)
+    for (us = 0;
+         us < usWidth;
+         us++)
     {
         GpiSetColor(hps, lColorLeft);
+        // draw left line
         ptl1.x = rcl2.xLeft;
         ptl1.y = rcl2.yBottom;
         GpiMove(hps, &ptl1);
         ptl1.y = rcl2.yTop;     // V0.9.7 (2000-12-20) [umoeller]
         GpiLine(hps, &ptl1);
+        // go right -> draw top
         ptl1.x = rcl2.xRight;   // V0.9.7 (2000-12-20) [umoeller]
         GpiLine(hps, &ptl1);
+        // go down -> draw right
         GpiSetColor(hps, lColorRight);
         ptl1.y = rcl2.yBottom;
         GpiLine(hps, &ptl1);
+        // go left -> draw bottom
         ptl1.x = rcl2.xLeft;
         GpiLine(hps, &ptl1);
 

@@ -71,13 +71,13 @@ extern "C" {
 
     typedef struct _DrivDev
     {
-        BYTE  chName[4];  // = 'DRIV'
-        USHORT usUnknown1[4];
+        BYTE    chName[4];  // = 'DRIV'
+        USHORT  usUnknown1[4];
             // or BYTE  ch1[8], if you prefer
-        ULONG ulSerialNr;
-        USHORT usUnknown2[2];
+        ULONG   ulSerialNr;
+        USHORT  usUnknown2[2];
             // or BYTE  ch2[4], if you prefer
-        BYTE  szName[1];
+        BYTE    szName[1];
     } DRIV, *PDRIV;
 
     /*

@@ -182,7 +182,7 @@ MRESULT EXPENTRY ctl_fnwpSubclassedTool(HWND hwndTool, ULONG msg, MPARAM mp1, MP
             qmsg.msg = msg;
             qmsg.mp1 = mp1;
             qmsg.mp2 = mp2;
-            _Pmpf((__FUNCTION__ ": sending TTM_RELAYEVENT"));
+            // _Pmpf((__FUNCTION__ ": sending TTM_RELAYEVENT"));
             WinSendMsg(pst->hwndTooltip,
                        TTM_RELAYEVENT,
                        (MPARAM)0,
@@ -197,7 +197,7 @@ MRESULT EXPENTRY ctl_fnwpSubclassedTool(HWND hwndTool, ULONG msg, MPARAM mp1, MP
                 // last item: destroy list
                 lstFree(G_pllSubclassedTools);
                 G_pllSubclassedTools = NULL;
-                _Pmpf((__FUNCTION__ ": removed hwnd 0x%lX", hwndTool));
+                // _Pmpf((__FUNCTION__ ": removed hwnd 0x%lX", hwndTool));
             }
             mrc = (pst->pfnwpOrig)(hwndTool, msg, mp1, mp2);
         break;
@@ -238,7 +238,7 @@ BOOL SubclassToolForToolinfo(HWND hwndTooltip,
                 G_pllSubclassedTools = lstCreate(TRUE);   // auto-free items
 
             lstAppendItem(G_pllSubclassedTools, pst);
-            _Pmpf((__FUNCTION__ ": subclassed hwnd 0x%lX", hwndTool));
+            // _Pmpf((__FUNCTION__ ": subclassed hwnd 0x%lX", hwndTool));
         }
     }
     return (brc);
@@ -434,7 +434,7 @@ VOID TtmShowTooltip(HWND hwndTooltip,
                     PTOOLTIPDATA pttd,
                     BOOL fShow)  // if TRUE: show, else: HIDE
 {
-    _Pmpf((__FUNCTION__ ": fShow %d", fShow));
+    // _Pmpf((__FUNCTION__ ": fShow %d", fShow));
     if (fShow)
     {
         /*
@@ -460,7 +460,7 @@ VOID TtmShowTooltip(HWND hwndTooltip,
         {
             // mouse not moved since timer was started:
             // find the current TOOLINFO
-            _Pmpf((__FUNCTION__ ": mouse not moved... pttd->ptiMouseOver 0x%lX", pttd->ptiMouseOver));
+            // _Pmpf((__FUNCTION__ ": mouse not moved... pttd->ptiMouseOver 0x%lX", pttd->ptiMouseOver));
             if (pttd->ptiMouseOver)
             {
                 TOOLINFO    tiTemp;
@@ -476,8 +476,8 @@ VOID TtmShowTooltip(HWND hwndTooltip,
                     pttd->pszPaintText = NULL;
             }
 
-            _Pmpf((__FUNCTION__ ": pttd->pszPaintText %s",
-                    (pttd->pszPaintText) ? pttd->pszPaintText : "NULL"));
+            // _Pmpf((__FUNCTION__ ": pttd->pszPaintText %s",
+               //      (pttd->pszPaintText) ? pttd->pszPaintText : "NULL"));
 
             if (pttd->pszPaintText)
             {
@@ -501,33 +501,40 @@ VOID TtmShowTooltip(HWND hwndTooltip,
                 cx = rcl.xRight + 2*TOOLTIP_CX_BORDER;
                 cy = (rcl.yTop - rcl.yBottom) + 2*TOOLTIP_CY_BORDER;
 
-                // calc x and y pos of tooltip
-                if (    (pttd->ptiMouseOver->ulFlags & TTF_CENTERBELOW)
-                     || (pttd->ptiMouseOver->ulFlags & TTF_CENTERABOVE)
+                // calc x and y pos of tooltip:
+
+                // per default, use pointer pos
+                ptlTooltip.x = ptlPointer.x - cx/2;
+                ptlTooltip.y = ptlPointer.y - cy;
+
+                // do we need the tool's position?
+                if (    pttd->ptiMouseOver->ulFlags
+                     & (TTF_CENTER_X_ON_TOOL | TTF_POS_Y_ABOVE_TOOL | TTF_POS_Y_BELOW_TOOL)
                    )
                 {
-                    // center below control:
-                    SWP swpTool;
+                    // yes:
+                    SWP     swpTool;
+                    POINTL  ptlTool;
                     WinQueryWindowPos(pttd->ptiMouseOver->hwndTool, &swpTool);
-                    ptlTooltip.x = swpTool.x;
-                    ptlTooltip.y = swpTool.y;
+                    ptlTool.x = swpTool.x;
+                    ptlTool.y = swpTool.y;
                     // convert x, y to desktop points
                     WinMapWindowPoints(WinQueryWindow(pttd->ptiMouseOver->hwndTool,
                                                       QW_PARENT), // hwndFrom
                                        HWND_DESKTOP,            // hwndTo
-                                       &ptlTooltip,
+                                       &ptlTool,
                                        1);
-                    ptlTooltip.x += ((swpTool.cx - cx) / 2L);
-                    if (pttd->ptiMouseOver->ulFlags & TTF_CENTERBELOW)
-                        ptlTooltip.y -= cy;
-                    else
-                        ptlTooltip.y += swpTool.cy;
-                }
-                else
-                {
-                    // use pointer pos:
-                    ptlTooltip.x = ptlPointer.x - cx/2;
-                    ptlTooltip.y = ptlPointer.y - cy;
+
+                    // X
+                    if (pttd->ptiMouseOver->ulFlags & TTF_CENTER_X_ON_TOOL)
+                        // center X on tool:
+                        ptlTooltip.x = ptlTool.x + ((swpTool.cx - cx) / 2L);
+
+                    // Y
+                    if (pttd->ptiMouseOver->ulFlags & TTF_POS_Y_ABOVE_TOOL)
+                        ptlTooltip.y = ptlTool.y + swpTool.cy;
+                    else if (pttd->ptiMouseOver->ulFlags & TTF_POS_Y_BELOW_TOOL)
+                        ptlTooltip.y = ptlTool.y - cy;
                 }
 
                 // if "shy mouse" is enabled, make
@@ -851,7 +858,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
                 {
                     case TOOLTIP_ID_TIMER_INITIAL:
                         // _Pmpf(("WM_TIMER: Stopping initial timer: %d", usTimer));
-                        _Pmpf((__FUNCTION__ ": TOOLTIP_ID_TIMER_INITIAL"));
+                        // _Pmpf((__FUNCTION__ ": TOOLTIP_ID_TIMER_INITIAL"));
                         WinStopTimer(pttd->hab,
                                      hwndTooltip,
                                      usTimer);
@@ -1159,7 +1166,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
                         PTOOLINFO pti = (PTOOLINFO)pToolNode->pItemData;
                         if (pti->hwndTool == pqmsg->hwnd)
                         {
-                            _Pmpf((__FUNCTION__ ": found tool"));
+                            // _Pmpf((__FUNCTION__ ": found tool"));
                             pttd->ptiMouseOver = pti;
                             break;
                         }
@@ -1181,8 +1188,8 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
                                    0);
                         memcpy(&pttd->ptlPointerLast, &ptlPointer, sizeof(POINTL));
 
-                        _Pmpf((__FUNCTION__ ": pttd->ptiMouseOver: 0x%lX", pttd->ptiMouseOver));
-                        _Pmpf((__FUNCTION__ ": pttd->fIsActive: 0x%lX", pttd->fIsActive));
+                        // _Pmpf((__FUNCTION__ ": pttd->ptiMouseOver: 0x%lX", pttd->ptiMouseOver));
+                        // _Pmpf((__FUNCTION__ ": pttd->fIsActive: 0x%lX", pttd->fIsActive));
                         if (    (pttd->ptiMouseOver)
                              && (pttd->fIsActive)
                            )
@@ -1289,7 +1296,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
                     // TTN_NEEDTEXT notification desired:
                     // compose values for that msg
                     TOOLTIPTEXT ttt = {0};
-                    _Pmpf(("TTM_GETTEXT: PSZ_TEXTCALLBACK... sending TTN_NEEDTEXT"));
+                    // _Pmpf(("TTM_GETTEXT: PSZ_TEXTCALLBACK... sending TTN_NEEDTEXT"));
                     ttt.hwndTooltip = hwndTooltip;
                     ttt.hwndTool = pti->hwndTool;
                     WinSendMsg(pti->hwndToolOwner,
@@ -1520,7 +1527,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              */
 
             case TTM_SHOWTOOLTIPNOW:
-                _Pmpf((__FUNCTION__ ": TTM_SHOWTOOLTIPNOW %d", mp1));
+                // _Pmpf((__FUNCTION__ ": TTM_SHOWTOOLTIPNOW %d", mp1));
                 TtmShowTooltip(hwndTooltip, pttd, (BOOL)mp1);
             break;
 

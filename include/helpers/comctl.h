@@ -440,13 +440,19 @@ extern "C" {
     // TOOLINFO.uFlags flags (ORed)
     // #define TTF_IDISHWND            0x0001
                 // V0.9.7 (2001-01-03) [umoeller]: removed this win95 crap
-    #define TTF_CENTERBELOW         0x0002
-    #define TTF_CENTERABOVE         0x0004
+    // #define TTF_CENTERBELOW         0x0002
+    // #define TTF_CENTERABOVE         0x0004
     // #define TTF_RTLREADING          0x0004
                 // V0.9.7 (2001-01-03) [umoeller]: removed this win95 crap
+
     #define TTF_SUBCLASS            0x0008
     // non-Win95 flags
     #define TTF_SHYMOUSE            0x0010
+
+    // new flags with V0.9.7 (2001-01-20) [umoeller]
+    #define TTF_CENTER_X_ON_TOOL    0x0020
+    #define TTF_POS_Y_ABOVE_TOOL    0x0040
+    #define TTF_POS_Y_BELOW_TOOL    0x0080
 
     #define PSZ_TEXTCALLBACK      (PSZ)-1
 
@@ -466,17 +472,19 @@ extern "C" {
     {
         ULONG   ulFlags;
                     // in: flags for the tool, any combination of:
-                    // -- TTF_CENTERBELOW:  centers the tooltip window below the
-                    //      tool specified by the hwndTool member.
-                    // -- TTF_CENTERABOVE:  centers the tooltip window above the
-                    //      tool specified by the hwndTool member.
                     // -- TTF_SUBCLASS: Indicates that the tooltip control should
                     //      subclass hwndTool to intercept messages,
                     //      such as WM_MOUSEMOVE. See TTM_RELAYEVENT.
-                    // -- TTF_SHYMOUSE (OS/2 only): shy away from mouse pointer;
+                    // -- TTF_SHYMOUSE: shy away from mouse pointer;
                     //      always position the tool tip such that it is never
                     //      covered by the mouse pointer (for readability);
                     //      added V0.9.1 (2000-02-04) [umoeller]
+                    // -- TTF_CENTER_X_ON_TOOL: position tooltip X so that
+                    //      it's centered on the tool (doesn't affect Y)
+                    // -- TTF_POS_Y_ABOVE_TOOL: position tooltip Y above
+                    //      the tool; cannot be used with TTF_POS_Y_BELOW_TOOL
+                    // -- TTF_POS_Y_BELOW_TOOL: position tooltip Y below
+                    //      the tool; cannot be used with TTF_POS_Y_ABOVE_TOOL
         HWND    hwndToolOwner;
                     // in: handle to the window that contains the tool. If
                     // lpszText includes the PSZ_TEXTCALLBACK value, this
