@@ -250,6 +250,32 @@ ULONG doshQuerySysUptime(VOID)
 }
 
 /*
+ *@@ doshDevIOCtl:
+ *
+ *      Works with those IOCtls where the buffer
+ *      size parameters are always the same anyway,
+ *      which applies to all IOCtls I have seen
+ *      so far.
+ *
+ *@@added V0.9.13 (2001-06-14) [umoeller]
+ */
+
+APIRET doshDevIOCtl(HFILE hf,
+                    ULONG ulCategory,
+                    ULONG ulFunction,
+                    PVOID pvParams,
+                    ULONG cbParams,
+                    PVOID pvData,
+                    ULONG cbData)
+{
+    return (DosDevIOCtl(hf,
+                        ulCategory,
+                        ulFunction,
+                        pvParams, cbParams, &cbParams,
+                        pvData, cbData, &cbData));
+}
+
+/*
  *@@category: Helpers\Control program helpers\Shared memory management
  *      helpers for allocating and requesting shared memory.
  */
@@ -284,7 +310,7 @@ PVOID doshAllocSharedMem(ULONG ulSize,      // in: requested mem block size (rou
                          const char* pcszName) // in: name of block ("\\SHAREMEM\\xxx") or NULL
 {
     PVOID   pvrc = NULL;
-    APIRET  arc = DosAllocSharedMem((PVOID*)(&pvrc),
+    APIRET  arc = DosAllocSharedMem((PVOID*)&pvrc,
                                     (PSZ)pcszName,
                                     ulSize,
                                     PAG_COMMIT | PAG_READ | PAG_WRITE);
@@ -311,7 +337,7 @@ PVOID doshAllocSharedMem(ULONG ulSize,      // in: requested mem block size (rou
 PVOID doshRequestSharedMem(const char *pcszName)
 {
     PVOID pvrc = NULL;
-    APIRET arc = DosGetNamedSharedMem((PVOID*)(pvrc),
+    APIRET arc = DosGetNamedSharedMem((PVOID*)pvrc,
                                       (PSZ)pcszName,
                                       PAG_READ | PAG_WRITE);
     if (arc == NO_ERROR)
@@ -331,6 +357,154 @@ PVOID doshRequestSharedMem(const char *pcszName)
  *   Drive helpers
  *
  ********************************************************************/
+
+/*
+ *@@ doshIsFixedDisk:
+ *      checks whether a disk is fixed or removeable.
+ *      ulLogicalDrive must be 1 for drive A:, 2 for B:, ...
+ *      The result is stored in *pfFixed.
+ *      Returns DOS error code.
+ *
+ *      From my testing, this function does _not_ provoke
+ *      "drive not ready" popups, even if the disk is not
+ *      ready.
+ *
+ *      Warning: This uses DosDevIOCtl, which has proved
+ *      to cause problems with some device drivers for
+ *      removeable disks.
+ */
+
+APIRET doshIsFixedDisk(ULONG  ulLogicalDrive,   // in: 1 for A:, 2 for B:, 3 for C:, ...
+                       PBOOL  pfFixed)          // out: TRUE for fixed disks
+{
+    APIRET arc = ERROR_INVALID_DRIVE;
+
+    if (ulLogicalDrive)
+    {
+        // parameter packet
+        #pragma pack(1)
+        struct {
+            UCHAR   command,
+                    drive;
+        } parms;
+        #pragma pack()
+
+        // data packet
+        UCHAR ucNonRemoveable;
+
+        parms.drive = (UCHAR)(ulLogicalDrive-1);
+        arc = doshDevIOCtl((HFILE)-1,
+                           IOCTL_DISK,
+                           DSK_BLOCKREMOVABLE,
+                           &parms, sizeof(parms),
+                           &ucNonRemoveable, sizeof(ucNonRemoveable));
+
+        if (arc == NO_ERROR)
+            *pfFixed = (BOOL)ucNonRemoveable;
+    }
+
+    return (arc);
+}
+
+/*
+ *@@ doshQueryDiskParams:
+ *      this retrieves more information about a given drive,
+ *      which is stored in the specified BIOSPARAMETERBLOCK
+ *      structure.
+ *
+ *      BIOSPARAMETERBLOCK is defined in the Toolkit headers,
+ *      and from my testing, it's the same with the Toolkits
+ *      3 and 4.5.
+ *
+ *      If NO_ERROR is returned, the bDeviceType field can
+ *      be one of the following (according to CPREF):
+ *
+ *      --  0:  48 TPI low-density diskette drive
+ *      --  1:  96 TPI high-density diskette drive
+ *      --  2:  3.5-inch 720KB diskette drive
+ *      --  3:  8-Inch single-density diskette drive
+ *      --  4:  8-Inch double-density diskette drive
+ *      --  5:  Fixed disk
+ *      --  6:  Tape drive
+ *      --  7:  Other (includes 1.44MB 3.5-inch diskette drive)
+ *      --  8:  R/W optical disk
+ *      --  9:  3.5-inch 4.0MB diskette drive (2.88MB formatted)
+ *
+ *      From my testing, this function does _not_ provoke
+ *      "drive not ready" popups, even if the disk is not
+ *      ready.
+ *
+ *      Warning: This uses DosDevIOCtl, which has proved
+ *      to cause problems with some device drivers for
+ *      removeable disks.
+ *
+ *      This returns the DOS error code of DosDevIOCtl.
+ *
+ *@@added V0.9.0 [umoeller]
+ *@@changed V0.9.13 (2001-06-14) [umoeller]: changed prototype to use BIOSPARAMETERBLOCK directly
+ *@@changed V0.9.13 (2001-06-14) [umoeller]: now querying standard media, no redetermine
+ */
+
+APIRET doshQueryDiskParams(ULONG ulLogicalDrive,        // in:  1 for A:, 2 for B:, 3 for C:, ...
+                           PBIOSPARAMETERBLOCK pdp)     // out: drive parameters
+{
+    APIRET arc = ERROR_INVALID_DRIVE;
+
+    if (ulLogicalDrive)
+    {
+        #pragma pack(1)
+        // parameter packet
+        struct {
+            UCHAR   ucCommand,
+                    ucDrive;
+        } parms;
+        #pragma pack()
+
+        parms.ucCommand = 0;    // 0 = return standard media,
+                                // 1 = read currently inserted media
+                                // (1 doesn't work any more, returns arc 87
+                                // V0.9.13 (2001-06-14) [umoeller])
+        parms.ucDrive=(UCHAR)(ulLogicalDrive-1);
+
+        // zero the structure V0.9.13 (2001-06-14) [umoeller]
+        memset(pdp, 0, sizeof(BIOSPARAMETERBLOCK));
+
+        arc = doshDevIOCtl((HFILE)-1,
+                           IOCTL_DISK,
+                           DSK_GETDEVICEPARAMS,
+                           &parms, sizeof(parms),
+                           pdp,   sizeof(BIOSPARAMETERBLOCK));
+
+        if (!arc)
+        {
+            _Pmpf(("      bDeviceType: %d", pdp->bDeviceType));
+            _Pmpf(("      bytes per sector: %d", pdp->usBytesPerSector));
+            _Pmpf(("      sectors per track: %d", pdp->usSectorsPerTrack));
+        }
+    }
+
+    return (arc);
+}
+
+/*
+ *@@ doshIsCDROM:
+ *      tests the specified BIOSPARAMETERBLOCK
+ *      for whether it represents a CD-ROM drive.
+ *
+ *      The BIOSPARAMETERBLOCK must be filled
+ *      first using doshQueryDiskParams.
+ *
+ *@@added V0.9.13 (2001-06-14) [umoeller]
+ */
+
+BOOL doshIsCDROM(PBIOSPARAMETERBLOCK pdp)
+{
+    return (    (pdp)
+             && (pdp->bDeviceType == 7)     // "other"
+             && (pdp->usBytesPerSector == 2048)
+             && (pdp->usSectorsPerTrack == (USHORT)-1)
+           );
+}
 
 /*
  *@@ doshEnumDrives:
@@ -375,10 +549,6 @@ VOID doshEnumDrives(PSZ pszBuffer,      // out: drive letters
     // go thru the drives, start with C: (== 3), stop after Z: (== 26)
     while (ulLogicalDrive <= 26)
     {
-        UCHAR nonRemovable=0;
-        ULONG parmSize=2;
-        ULONG dataLen=1;
-
         #pragma pack(1)
         struct
         {
@@ -386,16 +556,15 @@ VOID doshEnumDrives(PSZ pszBuffer,      // out: drive letters
         } parms;
         #pragma pack()
 
+        // data packet
+        UCHAR nonRemovable=0;
+
         parms.drive=(UCHAR)(ulLogicalDrive-1);
-        arc = DosDevIOCtl((HFILE)-1,
-                          IOCTL_DISK,
-                          DSK_BLOCKREMOVABLE,
-                          &parms,
-                          parmSize,
-                          &parmSize,
-                          &nonRemovable,
-                          1,
-                          &dataLen);
+        arc = doshDevIOCtl((HFILE)-1,
+                           IOCTL_DISK,
+                           DSK_BLOCKREMOVABLE,
+                           &parms, sizeof(parms),
+                           &nonRemovable, sizeof(nonRemovable));
 
         if (    // fixed disk and non-removeable
                 ((arc == NO_ERROR) && (nonRemovable))
@@ -467,14 +636,34 @@ CHAR doshQueryBootDrive(VOID)
  *      is currently available without provoking
  *      those ugly white "Drive not ready" popups.
  *
+ *      "fl" can specify additional flags for testing
+ *      and can be any combination of:
+ *
+ *      --  ASSERTFL_MIXEDMODECD: whether to allow
+ *          mixed-mode CD-ROMs. See error codes below.
+ *
  *      This returns (from my testing):
+ *
  *      -- NO_ERROR: drive is available.
+ *
  *      -- ERROR_INVALID_DRIVE (15): drive letter does not exist.
- *      -- ERROR_NOT_READY (21): drive exists, but is not ready
- *                  (e.g. CD-ROM drive without CD inserted).
- *      -- ERROR_NOT_SUPPORTED (50): this is returned by the RAMFS.IFS
- *                  file system; apparently, the IFS doesn't support
- *                  DASD opening.
+ *
+ *      -- ERROR_NOT_READY (21): drive exists, but is not ready.
+ *                  This is produced by floppies and CD-ROM drives
+ *                  which do not have valid media inserted.
+ *
+ *      -- ERROR_AUDIO_CD_ROM (10000): special error code returned
+ *                  only by this function if a CD-ROM drive has audio
+ *                  media inserted.
+ *
+ *                  If ASSERTFL_MIXEDMODECD was specified, ERROR_AUDIO_CD_ROM
+ *                  is returned _only_ if _no_ data tracks are
+ *                  present on a CD-ROM. Since OS/2 is not very
+ *                  good at handling mixed-mode CDs, this might not
+ *                  be desireable.
+ *
+ *                  If ASSERTFL_MIXEDMODECD was not set, ERROR_AUDIO_CD_ROM
+ *                  will be returned already if _one_ audio track is present.
  *
  *@@changed V0.9.1 (99-12-13) [umoeller]: rewritten, prototype changed. Now using DosOpen on the drive instead of DosError.
  *@@changed V0.9.1 (2000-01-08) [umoeller]: DosClose was called even if DosOpen failed, which messed up OS/2 error handling.
@@ -483,35 +672,164 @@ CHAR doshQueryBootDrive(VOID)
  *@@changed V0.9.4 (2000-08-03) [umoeller]: more network fixes
  *@@changed V0.9.9 (2001-03-19) [pr]: validate drive number
  *@@changed V0.9.11 (2001-04-23) [umoeller]: added an extra check for floppies
+ *@@changed V0.9.13 (2001-06-14) [umoeller]: added "fl" parameter and lots of CD-ROM checks
  */
 
-APIRET doshAssertDrive(ULONG ulLogicalDrive) // in: 1 for A:, 2 for B:, 3 for C:, ...
+APIRET doshAssertDrive(ULONG ulLogicalDrive,    // in: 1 for A:, 2 for B:, 3 for C:, ...
+                       ULONG fl)                // in: ASSERTFL_* flags
 {
-    CHAR    szDrive[3] = "C:";
     HFILE   hfDrive = 0;
     ULONG   ulTemp = 0;
-    APIRET  arc;
+    APIRET  arc = NO_ERROR;
+    BOOL    fFixed = FALSE,
+            fCDROM = FALSE;
 
     if ((ulLogicalDrive < 1) || (ulLogicalDrive > 26))
         return(ERROR_PATH_NOT_FOUND);
 
-    szDrive[0] = 'A' + ulLogicalDrive - 1;
+    arc = doshIsFixedDisk(ulLogicalDrive,
+                          &fFixed);    // V0.9.13 (2001-06-14) [umoeller]
 
-    arc = DosOpen(szDrive,   // "C:", "D:", ...
-                  &hfDrive,
-                  &ulTemp,
-                  0,
-                  FILE_NORMAL,
-                  OPEN_ACTION_FAIL_IF_NEW
-                         | OPEN_ACTION_OPEN_IF_EXISTS,
-                  OPEN_FLAGS_DASD
-                         | OPEN_FLAGS_FAIL_ON_ERROR
-                         | OPEN_FLAGS_NOINHERIT     // V0.9.6 (2000-11-25) [pr]
-                         | OPEN_ACCESS_READONLY
-                         | OPEN_SHARE_DENYNONE,
-                  NULL);
+    _Pmpf((__FUNCTION__ ": doshIsFixedDisk returned %d for disk %d", arc, ulLogicalDrive));
+    _Pmpf(("   fFixed is %d", fFixed));
 
-    // _Pmpf((__FUNCTION__ ": DosOpen(OPEN_FLAGS_DASD) returned %d", arc));
+    if (!arc)
+        if (!fFixed)
+        {
+            // removeable disk:
+            // check if it's a CD-ROM
+            BIOSPARAMETERBLOCK bpb;
+            arc = doshQueryDiskParams(ulLogicalDrive,
+                                      &bpb);
+            _Pmpf(("   doshQueryDiskParams returned %d", arc));
+
+            if (    (!arc)
+                 && (doshIsCDROM(&bpb))
+               )
+            {
+                _Pmpf(("   --> is CD-ROM"));
+                fCDROM = TRUE;
+            }
+        }
+
+    if (!arc)
+    {
+        CHAR    szDrive[3] = "C:";
+        szDrive[0] = 'A' + ulLogicalDrive - 1;
+        arc = DosOpen(szDrive,   // "C:", "D:", ...
+                      &hfDrive,
+                      &ulTemp,
+                      0,
+                      FILE_NORMAL,
+                      OPEN_ACTION_FAIL_IF_NEW
+                             | OPEN_ACTION_OPEN_IF_EXISTS,
+                      OPEN_FLAGS_DASD
+                             | OPEN_FLAGS_FAIL_ON_ERROR
+                             | OPEN_FLAGS_NOINHERIT     // V0.9.6 (2000-11-25) [pr]
+                  //            | OPEN_ACCESS_READONLY  // V0.9.13 (2001-06-14) [umoeller]
+                             | OPEN_SHARE_DENYNONE,
+                      NULL);
+
+        _Pmpf(("   DosOpen(OPEN_FLAGS_DASD) returned %d", arc));
+
+        // this still returns NO_ERROR for audio CDs in a
+        // CD-ROM drive...
+        // however, the WPS then attempts to read in the
+        // root directory for audio CDs, which produces
+        // a "sector not found" error box...
+
+        if (!arc && hfDrive && fCDROM)     // determined above
+        {
+            ULONG ulAudioTracks = 0,
+                  ulDataTracks = 0;
+
+            CHAR cds1[4] = { 'C', 'D', '0', '1' };
+            CHAR cds2[4];
+            // check for proper driver signature
+            if (!(arc = doshDevIOCtl(hfDrive,
+                                     IOCTL_CDROMDISK,
+                                     CDROMDISK_GETDRIVER,
+                                     &cds1, sizeof(cds1),
+                                     &cds2, sizeof(cds2))))
+            {
+                if (memcmp(&cds1, &cds2, 4))
+                    // this is not a CD-ROM then:
+                    arc = NO_ERROR;
+                else
+                {
+                    struct {
+                        UCHAR   ucFirstTrack,
+                                ucLastTrack;
+                        ULONG   ulLeadOut;
+                    } cdat;
+
+                    // get track count
+                    if (!(arc = doshDevIOCtl(hfDrive,
+                                             IOCTL_CDROMAUDIO,
+                                             CDROMAUDIO_GETAUDIODISK,
+                                             &cds1, sizeof(cds1),
+                                             &cdat, sizeof(cdat))))
+                    {
+                        // still no error: build the audio TOC
+                        ULONG i;
+                        for (i = cdat.ucFirstTrack;
+                             i <= cdat.ucLastTrack;
+                             i++)
+                        {
+                            BYTE cdtp[5] =
+                              { 'C', 'D', '0', '1', (UCHAR)i };
+
+                            struct {
+                                ULONG   ulTrackAddress;
+                                BYTE    bFlags;
+                            } trackdata;
+
+                            if (!(arc = doshDevIOCtl(hfDrive,
+                                                     IOCTL_CDROMAUDIO,
+                                                     CDROMAUDIO_GETAUDIOTRACK,
+                                                     &cdtp, sizeof(cdtp),
+                                                     &trackdata, sizeof(trackdata))))
+                            {
+                                if (trackdata.bFlags & 64)
+                                    ulDataTracks++;
+                                else
+                                {
+                                    ulAudioTracks++;
+
+                                    if (!(fl & ASSERTFL_MIXEDMODECD))
+                                    {
+                                        // caller doesn't want mixed mode:
+                                        // stop here
+                                        ulDataTracks = 0;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        _Pmpf(("   got %d audio, %d data tracks",
+                                    ulAudioTracks, ulDataTracks));
+
+                        if (!ulDataTracks)
+                            arc = ERROR_AUDIO_CD_ROM;       // special private error code (10000)
+                    }
+                    else
+                    {
+                        // not audio disk:
+                        // go on then
+                        _Pmpf(("   CDROMAUDIO_GETAUDIODISK returned %d", arc));
+                        arc = NO_ERROR;
+                    }
+                }
+            }
+            else
+            {
+                // not CD-ROM: go on then
+                _Pmpf(("   CDROMDISK_GETDRIVER returned %d", arc));
+                arc = NO_ERROR;
+            }
+        }
+    }
 
     switch (arc)
     {
@@ -543,13 +861,13 @@ APIRET doshAssertDrive(ULONG ulLogicalDrive) // in: 1 for A:, 2 for B:, 3 for C:
                                      FSIL_ALLOC,
                                      &fsa,
                                      sizeof(fsa));
+                _Pmpf(("   re-checked, DosQueryFSInfo returned %d", arc));
             }
         break;
-
-        case NO_ERROR:
-            DosClose(hfDrive);
-        break;
     }
+
+    if (hfDrive)
+        DosClose(hfDrive);
 
     return (arc);
 }
@@ -596,10 +914,10 @@ APIRET doshSetLogicalMap(ULONG ulLogicalDrive)
         data = (USHORT)ulLogicalDrive;
         paramsize = sizeof(param);
         datasize = sizeof(data);
-        rc = DosDevIOCtl(fd,
-                         IOCTL_DISK, DSK_SETLOGICALMAP,
-                         &param, paramsize, &paramsize,
-                         &data, datasize, &datasize);
+        rc = doshDevIOCtl(fd,
+                          IOCTL_DISK, DSK_SETLOGICALMAP,
+                          &param, sizeof(param),
+                          &data, sizeof(data));
         DosClose(fd);
     }
 
@@ -699,103 +1017,6 @@ APIRET doshQueryDiskFSType(ULONG ulLogicalDrive, // in:  1 for A:, 2 for B:, 3 f
             strcpy(pszBuf,
                    (CHAR*)(&pfsqBuffer->szName) + pfsqBuffer->cbName + 1);
         }
-    }
-
-    return (arc);
-}
-
-/*
- *@@ doshIsFixedDisk:
- *      checks whether a disk is fixed or removeable.
- *      ulLogicalDrive must be 1 for drive A:, 2 for B:, ...
- *      The result is stored in *pfFixed.
- *      Returns DOS error code.
- *
- *      Warning: This uses DosDevIOCtl, which has proved
- *      to cause problems with some device drivers for
- *      removeable disks.
- */
-
-APIRET doshIsFixedDisk(ULONG  ulLogicalDrive,   // in: 1 for A:, 2 for B:, 3 for C:, ...
-                       PBOOL  pfFixed)          // out: TRUE for fixed disks
-{
-    APIRET arc = ERROR_INVALID_DRIVE;
-
-    if (ulLogicalDrive)
-    {
-        // parameter packet
-        #pragma pack(1)
-        struct {
-            UCHAR command, drive;
-        } parms;
-        #pragma pack()
-
-        // data packet
-        UCHAR ucNonRemoveable;
-
-        ULONG ulParmSize = sizeof(parms);
-        ULONG ulDataSize = sizeof(ucNonRemoveable);
-
-        parms.drive = (UCHAR)(ulLogicalDrive-1);
-        arc = DosDevIOCtl((HFILE)-1,
-                          IOCTL_DISK,
-                          DSK_BLOCKREMOVABLE,
-                          &parms,
-                          ulParmSize,
-                          &ulParmSize,
-                          &ucNonRemoveable,
-                          ulDataSize,
-                          &ulDataSize);
-
-        if (arc == NO_ERROR)
-            *pfFixed = (BOOL)ucNonRemoveable;
-    }
-
-    return (arc);
-}
-
-/*
- *@@ doshQueryDiskParams:
- *      this retrieves more information about a given drive,
- *      which is stored in the specified DRIVEPARAMS structure
- *      (dosh.h).
- *
- *      Warning: This uses DosDevIOCtl, which has proved
- *      to cause problems with some device drivers for
- *      removeable disks.
- *
- *      This returns the DOS error code of DosDevIOCtl.
- *
- *@@added V0.9.0 [umoeller]
- */
-
-APIRET doshQueryDiskParams(ULONG ulLogicalDrive,        // in:  1 for A:, 2 for B:, 3 for C:, ...
-                           PDRIVEPARAMS pdp)            // out: drive parameters
-{
-    APIRET arc = ERROR_INVALID_DRIVE;
-
-    if (ulLogicalDrive)
-    {
-        #pragma pack(1)
-        // parameter packet
-        struct {
-            UCHAR command, drive;
-        } parms;
-        #pragma pack()
-
-        ULONG ulParmSize = sizeof(parms);
-        ULONG ulDataSize = sizeof(DRIVEPARAMS);
-
-        parms.command = 1; // read currently inserted media
-        parms.drive=(UCHAR)(ulLogicalDrive-1);
-
-        arc = DosDevIOCtl((HFILE)-1,
-                          IOCTL_DISK,
-                          DSK_GETDEVICEPARAMS,
-                          // parameter packet:
-                          &parms, ulParmSize, &ulParmSize,
-                          // data packet: DRIVEPARAMS structure
-                          pdp,    ulDataSize, &ulDataSize);
     }
 
     return (arc);
@@ -1108,6 +1329,113 @@ APIRET doshSetPathAttr(const char* pcszFile,    // in: file or directory name
                             DSPI_WRTTHRU);
     }
     return (rc);
+}
+
+/*
+ *@@ doshOpenExisting:
+ *      opens an existing file for read-write access. Does
+ *      not create a new file if the file doesn't exist.
+ *
+ *      This is just a simple wrapper around DosOpen.
+ *
+ *      ulOpenFlags is passed to DosOpen. Should be one
+ *      of:
+ *
+ *      --  for read-only access:
+ *
+ +              OPEN_SHARE_DENYNONE | OPEN_ACCESS_READONLY
+ *
+ *      --  for read-write access:
+ *
+ +              OPEN_SHARE_DENYREADWRITE | OPEN_ACCESS_READWRITE
+ *
+ *      In addition, you can specify
+ *
+ +          OPEN_FLAGS_FAIL_ON_ERROR | OPEN_FLAGS_RANDOM
+ +                          | OPEN_FLAGS_NOINHERIT
+ *
+ *@@added V0.9.13 (2001-06-14) [umoeller]
+ */
+
+APIRET doshOpenExisting(const char *pcszFilename,   // in: file name
+                        ULONG ulOpenFlags,          // in: open flags
+                        HFILE *phf)                 // out: OS/2 file handle
+{
+    ULONG ulAction;
+    return (DosOpen((PSZ)pcszFilename,
+                    phf,
+                    &ulAction,
+                    0,          // cbFile
+                    0,          // attributes
+                    OPEN_ACTION_FAIL_IF_NEW | OPEN_ACTION_OPEN_IF_EXISTS,
+                    ulOpenFlags,
+                    NULL));     // EAs
+}
+
+/*
+ *@@ doshWriteAt:
+ *      writes cb bytes (pointed to by pbData) to the
+ *      position specified by ulMethod and lOffset into
+ *      the file specified by hf.
+ *
+ *      If ulMethod is FILE_BEGIN, lOffset specifies the
+ *      offset from the beginning of the file. With
+ *      FILE_CURRENT, lOffset is considered from the
+ *      current file pointer, and with FILE_END, it is
+ *      considered from the end of the file.
+ *
+ *@@added V0.9.13 (2001-06-14) [umoeller]
+ */
+
+APIRET doshWriteAt(HFILE hf,        // in: OS/2 file handle
+                   LONG lOffset,    // in: offset to write at (depends on ulMethod)
+                   ULONG ulMethod,  // in: one of FILE_BEGIN, FILE_CURRENT, FILE_END
+                   ULONG cb,        // in: bytes to write
+                   PBYTE pbData)    // in: ptr to bytes to write (must be cb bytes)
+{
+    APIRET arc;
+    ULONG ulDummy;
+    if (!(arc = DosSetFilePtr(hf,
+                              lOffset,
+                              ulMethod,
+                              &ulDummy)))
+        arc = DosWrite(hf,
+                       pbData,
+                       cb,
+                       &ulDummy);
+
+    return (arc);
+}
+
+/*
+ *@@ doshReadAt:
+ *      reads cb bytes from the position specified by
+ *      ulMethod and lOffset into the buffer pointed to
+ *      by pbData, which should be cb bytes in size.
+ *
+ *      Use lOffset and ulMethod as with doshWriteAt.
+ *
+ *@@added V0.9.13 (2001-06-14) [umoeller]
+ */
+
+APIRET doshReadAt(HFILE hf,        // in: OS/2 file handle
+                  LONG lOffset,    // in: offset to write at (depends on ulMethod)
+                  ULONG ulMethod,  // in: one of FILE_BEGIN, FILE_CURRENT, FILE_END
+                  ULONG cb,        // in: bytes to write
+                  PBYTE pbData)    // out: read buffer (must be cb bytes)
+{
+    APIRET arc;
+    ULONG ulDummy;
+    if (!(arc = DosSetFilePtr(hf,
+                              lOffset,
+                              ulMethod,
+                              &ulDummy)))
+        arc = DosRead(hf,
+                      pbData,
+                      cb,
+                      &ulDummy);
+
+    return (arc);
 }
 
 /*

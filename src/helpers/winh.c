@@ -161,6 +161,42 @@
         return ((WinQueryWindow)(hwnd, lCode));
     }
 
+    /*
+     *@@ winhQueryWindowPtr:
+     *
+     *@@added V0.9.13 (2001-06-21) [umoeller]
+     */
+
+    PVOID winhQueryWindowPtr(HWND hwnd, LONG index)
+    {
+        // put the call in brackets so the macro won't apply here
+        return ((WinQueryWindowPtr)(hwnd, index));
+    }
+
+    /*
+     *@@ winhSetWindowText:
+     *
+     *@@added V0.9.13 (2001-06-21) [umoeller]
+     */
+
+    BOOL winhSetWindowText(HWND hwnd, const char *pcsz)
+    {
+        // put the call in brackets so the macro won't apply here
+        return (WinSetWindowText)(hwnd, (PSZ)pcsz);
+    }
+
+    /*
+     *@@ winhSetDlgItemText:
+     *
+     *@@added V0.9.13 (2001-06-21) [umoeller]
+     */
+
+    BOOL winhSetDlgItemText(HWND hwnd, ULONG id, const char *pcsz)
+    {
+        // put the call in brackets so the macro won't apply here
+        return (WinSetDlgItemText)(hwnd, id, (PSZ)pcsz);
+    }
+
 #endif // WINH_STANDARDWRAPPERS
 
 /*

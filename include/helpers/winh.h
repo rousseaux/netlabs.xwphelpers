@@ -82,18 +82,26 @@ extern "C" {
 
     #ifdef WINH_STANDARDWRAPPERS
 
-        MRESULT _Optlink winhSendMsg(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2);
+        MRESULT XWPENTRY winhSendMsg(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2);
         #define WinSendMsg(a,b,c,d) winhSendMsg((a),(b),(c),(d))
 
-        BOOL _Optlink winhPostMsg(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2);
+        BOOL XWPENTRY winhPostMsg(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2);
         #define WinPostMsg(a,b,c,d) winhPostMsg((a),(b),(c),(d))
 
-        HWND _Optlink winhWindowFromID(HWND hwnd, ULONG id);
+        HWND XWPENTRY winhWindowFromID(HWND hwnd, ULONG id);
         #define WinWindowFromID(a,b) winhWindowFromID((a),(b))
 
-        HWND _Optlink winhQueryWindow(HWND hwnd, LONG lCode);
+        HWND XWPENTRY winhQueryWindow(HWND hwnd, LONG lCode);
         #define WinQueryWindow(a,b) winhQueryWindow((a),(b))
 
+        PVOID XWPENTRY winhQueryWindowPtr(HWND hwnd, LONG index);
+        #define WinQueryWindowPtr(a,b) winhQueryWindowPtr((a),(b))
+
+        BOOL XWPENTRY winhSetWindowText(HWND hwnd, const char *pcsz);
+        #define WinSetWindowText(a,b) winhSetWindowText((a),(b))
+
+        BOOL XWPENTRY winhSetDlgItemText(HWND hwnd, ULONG id, const char *pcsz);
+        #define WinSetDlgItemText(a,b,c) winhSetDlgItemText((a),(b),(c))
     #endif
 
     /* ******************************************************************

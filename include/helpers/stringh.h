@@ -156,9 +156,10 @@ extern "C" {
      *
      ********************************************************************/
 
-    VOID strhArrayAppend(PSZ *ppszRoot,
-                         const char *pcszNew,
-                         PULONG pcbRoot);
+    VOID XWPENTRY strhArrayAppend(PSZ *ppszRoot,
+                                  const char *pcszNew,
+                                  ULONG cbNew,
+                                  PULONG pcbRoot);
 
     PSZ strhCreateDump(PBYTE pb,
                        ULONG ulSize,

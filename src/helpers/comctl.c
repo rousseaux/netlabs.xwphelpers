@@ -117,9 +117,123 @@
 
 /* ******************************************************************
  *
- *   Global variables
+ *   "XButton" control
  *
  ********************************************************************/
+
+/*
+ *@@ ctlPaintXButton:
+ *      paints an X-button control. Can be called externally
+ *      for just painting a button even if this is not really
+ *      a window.
+ *
+ *      WARNING: this is work in progress and will change into
+ *      the future. Eventually this will turn into a full
+ *      button control replacement.
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ */
+
+VOID ctlPaintXButton(HPS hps,               // in: presentation space (RGB mode)
+                     ULONG fl,              // in: XBF_* flags
+                     PXBUTTONDATA pxbd)     // in: button data
+{
+    ULONG   ulBorder = 0,
+            cx,
+            cy,
+            ulOfs = 0;
+    LONG    lLeft,
+            lRight;
+    RECTL   rclWin;
+    memcpy(&rclWin, &pxbd->rcl, sizeof(RECTL));
+
+    if (0 == (fl & XBF_FLAT))
+        ulBorder = 2;
+
+    gpihSwitchToRGB(hps);
+
+    if (fl & XBF_PRESSED)
+    {
+        // paint button "down":
+        lLeft = pxbd->lcol3DDark;
+        lRight = pxbd->lcol3DLight;
+        // add offset for icon painting at the bottom
+        ulOfs += 1;
+        if (ulBorder == 0)
+            ulBorder = 1;
+    }
+    else
+    {
+        lLeft = pxbd->lcol3DLight;
+        lRight = pxbd->lcol3DDark;
+    }
+
+    if (ulBorder)
+    {
+        // button border:
+
+        // now paint button frame
+        rclWin.xRight--;
+        rclWin.yTop--;
+        gpihDraw3DFrame(hps,
+                        &rclWin,        // inclusive
+                        ulBorder,
+                        lLeft,
+                        lRight);
+
+        // now paint button middle
+        rclWin.xLeft += ulBorder;
+        rclWin.yBottom += ulBorder;
+        rclWin.xRight -= ulBorder - 1;  // make exclusive again
+        rclWin.yTop -= ulBorder - 1;    // make exclusive again
+    }
+
+    if (fl & XBF_BACKGROUND)
+        WinFillRect(hps,
+                    &rclWin,        // exclusive
+                    pxbd->lMiddle);
+
+    // get icon
+    if (pxbd->hptr)
+    {
+        // calculate x and y to be centered in rectangle
+        POINTL  ptl;
+
+        cx = rclWin.xRight - rclWin.xLeft;
+        cy = rclWin.yTop - rclWin.yBottom;
+
+        ptl.x = rclWin.xLeft + ((cx - pxbd->cxMiniIcon) / 2);
+        ptl.y = rclWin.yBottom + ((cy - pxbd->cxMiniIcon) / 2);
+
+        if (fl & XBF_INUSE)
+        {
+            // caller wants in-use (hatched) emphasis:
+            // draw a box then
+            POINTL ptl2;
+            ptl2.x = ptl.x - 2;
+            ptl2.y = ptl.y - 2;
+            GpiMove(hps,
+                    &ptl);
+            GpiSetPattern(hps, PATSYM_DIAG1);
+            ptl2.x = ptl.x + pxbd->cxMiniIcon + 1; // inclusive!
+            ptl2.y = ptl.y + pxbd->cxMiniIcon + 1; // inclusive!
+            GpiBox(hps,
+                   DRO_FILL,
+                   &ptl2,
+                   0,
+                   0);
+        }
+
+        // now paint icon
+        GpiIntersectClipRectangle(hps, &rclWin);    // exclusive!
+        WinDrawPointer(hps,
+                       // center this in remaining rectl
+                       ptl.x + ulOfs,
+                       ptl.y - ulOfs,
+                       pxbd->hptr,
+                       DP_MINI);
+    }
+}
 
 /*
  *@@category: Helpers\PM helpers\Window classes\Menu buttons

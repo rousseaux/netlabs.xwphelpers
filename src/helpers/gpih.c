@@ -1206,7 +1206,7 @@ LONG gpihFindFont(HPS hps,               // in: HPS for font selection
         gpihUnlockLCIDs();
     }
 
-    _Pmpf((__FUNCTION__ ": returning lcid %d", lLCIDReturn));
+    // _Pmpf((__FUNCTION__ ": returning lcid %d", lLCIDReturn));
 
     return (lLCIDReturn);
 }

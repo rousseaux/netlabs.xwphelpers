@@ -89,10 +89,6 @@
  *
  ********************************************************************/
 
-// screen size
-LONG        G_cxScreen = 0,
-            G_cyScreen = 0;
-
 // linked list of all tools which were subclassed for tooltip
 HMTX        G_hmtxSubclassedTools = NULLHANDLE;
 LINKLIST    G_llSubclassedTools;        // linked list of SUBCLASSEDTOOL items
@@ -364,6 +360,9 @@ typedef struct _TOOLTIPDATA
     HAB         hab;                // from WM_CREATE
     ULONG       ulTooltipID;        // from WM_CREATE
 
+    LONG        cxScreen,
+                cyScreen;
+
     BOOL        fIsActive;          // TRUE per default; changed by TTM_ACTIVATE
 
     ULONG       idTimerInitial,     // if != 0, "initial" timer is running
@@ -406,9 +405,10 @@ typedef struct _TOOLTIPDATA
  *      to the control's presparams.
  */
 
-VOID UpdateTooltipPresColors(HWND hwndTooltip,      // in: tooltip control
-                             PTOOLTIPDATA pttd)     // in/out: tooltip data struct (QWL_USER) with color fields
+VOID UpdateTooltipPresColors(HWND hwndTooltip)      // in: tooltip control
 {
+    PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
+
     // tooltip background color:
     pttd->lBackColor = winhQueryPresColor(hwndTooltip,
                                           PP_MENUBACKGROUNDCOLOR,
@@ -432,15 +432,129 @@ VOID UpdateTooltipPresColors(HWND hwndTooltip,      // in: tooltip control
 }
 
 /*
- *@@ PaintTooltip:
- *      this gets called from ctl_fnwpTooltip upon WM_PAINT.
+ *@@ TtmCreate:
+ *      implementation for WM_CREATE in ctl_fnwpTooltip.
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ */
+
+MRESULT TtmCreate(HWND hwndTooltip,
+                  MPARAM mp2)
+{
+    PTOOLTIPDATA pttd;
+    PCREATESTRUCT pcs = (PCREATESTRUCT)mp2;
+
+    // allocate and initialize tooltip data
+    pttd = (PTOOLTIPDATA)malloc(sizeof(TOOLTIPDATA));
+    if (pttd)
+    {
+        CHAR        szFont[256];
+        memset(pttd, 0, sizeof(TOOLTIPDATA));
+        WinSetWindowPtr(hwndTooltip, 1, pttd);
+
+        pttd->hwndOwner = pcs->hwndOwner;
+        pttd->hab = WinQueryAnchorBlock(hwndTooltip);
+        pttd->ulTooltipID = pcs->id;
+
+        pttd->cxScreen = WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN);
+        pttd->cyScreen = WinQuerySysValue(HWND_DESKTOP, SV_CYSCREEN);
+
+        pttd->fIsActive = TRUE;
+
+        // default timeouts
+        pttd->ulTimeoutInitial = 1000;
+        pttd->ulTimeoutAutopop = 5000;
+        pttd->ulTimeoutReshow = 500;
+
+        // get colors from presparams/syscolors
+        UpdateTooltipPresColors(hwndTooltip);
+
+        // check if font presparam set
+        if (WinQueryPresParam(hwndTooltip,
+                              PP_FONTNAMESIZE, 0,
+                              NULL,
+                              sizeof(szFont),
+                              szFont,
+                              QPF_NOINHERIT)
+                == 0)
+        {
+            // no: set default font presparam
+            // (we never want the System Proportional font)
+            winhSetWindowFont(hwndTooltip,
+                              NULL);      // default (WarpSans or 8.Helv)
+        }
+
+        pttd->pszPaintText = strdup("undefined");
+
+        lstInit(&pttd->llTools, TRUE);      // auto-free items
+
+        // override CREATESTRUCT
+        WinSetWindowPos(hwndTooltip,
+                        HWND_TOP,
+                        50, 50,
+                        100, 100,
+                        SWP_MOVE | SWP_SIZE | SWP_ZORDER | SWP_HIDE);
+
+        return (MPARAM)FALSE;
+    }
+    else
+        // malloc failed:
+        return (MPARAM)TRUE;
+}
+
+/*
+ *@@ TtmTimer:
+ *      implementation for WM_TIMER in ctl_fnwpTooltip.
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ */
+
+BOOL TtmTimer(HWND hwndTooltip, MPARAM mp1)
+{
+    PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
+    USHORT  usTimer = SHORT1FROMMP(mp1);
+
+    switch (usTimer)
+    {
+        case TOOLTIP_ID_TIMER_INITIAL:
+            // _Pmpf(("WM_TIMER: Stopping initial timer: %d", usTimer));
+            // _Pmpf((__FUNCTION__ ": TOOLTIP_ID_TIMER_INITIAL"));
+            WinStopTimer(pttd->hab,
+                         hwndTooltip,
+                         usTimer);
+            pttd->idTimerInitial = 0;
+
+            if (pttd->fIsActive)
+                // show tooltip
+                WinPostMsg(hwndTooltip, TTM_SHOWTOOLTIPNOW, (MPARAM)TRUE, 0);
+        break;
+
+        case TOOLTIP_ID_TIMER_AUTOPOP:
+            // _Pmpf(("WM_TIMER: Stopping autopop timer: %d", usTimer));
+            WinStopTimer(pttd->hab,
+                         hwndTooltip,
+                         usTimer);
+            pttd->idTimerAutopop = 0;
+            WinPostMsg(hwndTooltip, TTM_SHOWTOOLTIPNOW, (MPARAM)FALSE, 0);
+        break;
+
+        default:
+            return FALSE;
+    } // end switch
+
+    return (TRUE);
+}
+
+/*
+ *@@ TtmPaint:
+ *      implementation for WM_PAINT in ctl_fnwpTooltip.
  *
  *@@added V0.9.1 (99-11-30) [umoeller]
  */
 
-VOID PaintTooltip(HWND hwndTooltip,
-                  PTOOLTIPDATA pttd)
+VOID TtmPaint(HWND hwndTooltip)
 {
+    PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
     HPS         hps = WinBeginPaint(hwndTooltip, NULLHANDLE, NULL);
     POINTL      ptl = {0, 0};
     RECTL       rclWindow,
@@ -524,6 +638,569 @@ VOID PaintTooltip(HWND hwndTooltip,
 }
 
 /*
+ *@@ TtmDestroy:
+ *      implementation for WM_DESTROY in ctl_fnwpTooltip.
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ */
+
+VOID TtmDestroy(HWND hwndTooltip)
+{
+    PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
+    // stop timers
+    if (pttd->idTimerInitial)
+        WinStopTimer(pttd->hab,
+                     hwndTooltip,
+                     pttd->idTimerInitial);
+    if (pttd->idTimerAutopop)
+        WinStopTimer(pttd->hab,
+                     hwndTooltip,
+                     pttd->idTimerAutopop);
+    if (pttd->pszPaintText)
+        free(pttd->pszPaintText);
+
+    // un-subclass all tools that we subclassed
+    // V0.9.12 (2001-04-28) [umoeller]
+    if (LockSubclassedTools())
+    {
+        PLISTNODE pNode;
+        PSUBCLASSEDTOOL pst;
+        for (pNode = lstQueryFirstNode(&pttd->llTools);
+             pNode;
+             pNode = pNode->pNext)
+        {
+            PTOOLINFO pti = (PTOOLINFO)pNode->pItemData;
+            if (pst = FindSubclassedTool(pti->hwndTool))
+                UnSubclassTool(pti->hwndTool);
+        }
+
+        UnlockSubclassedTools();
+    }
+    // end V0.9.12 (2001-04-28) [umoeller]
+
+    lstClear(&pttd->llTools);
+
+    free(pttd);
+}
+
+/*
+ *@@ TtmAddTool:
+ *      implementation for TTM_ADDTOOL in ctl_fnwpTooltip.
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ */
+
+MRESULT TtmAddTool(HWND hwndTooltip, MPARAM mp2)
+{
+    PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
+    if (mp2)
+    {
+        PTOOLINFO ptiPassed = (PTOOLINFO)mp2,
+                  ptiNew = (PTOOLINFO)malloc(sizeof(TOOLINFO));
+        if (ptiNew)
+        {
+            memcpy(ptiNew, ptiPassed, sizeof(TOOLINFO));
+            lstAppendItem(&pttd->llTools,
+                          ptiNew);
+
+            if (    (ptiPassed->ulFlags & TTF_SUBCLASS)
+                 && (LockSubclassedTools()) // V0.9.12 (2001-04-28) [umoeller]
+               )
+            {
+                // caller wants this tool to be subclassed:
+                // well, do it then
+                SubclassTool(hwndTooltip,
+                             ptiPassed->hwndTool);
+
+                UnlockSubclassedTools();
+            }
+
+            return ((MPARAM)TRUE);
+        }
+    }
+
+    return (MPARAM)FALSE;
+}
+
+/*
+ *@@ TtmDelTool:
+ *      implementation for TTM_DELTOOL in ctl_fnwpTooltip.
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ *@@changed V0.9.13 (2001-06-21) [umoeller]: fixed missing unlock
+ *@@changed V0.9.13 (2001-06-21) [umoeller]: fixed endless loop
+ */
+
+VOID TtmDelTool(HWND hwndTooltip, MPARAM mp2)
+{
+    PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
+    PTOOLINFO ptiSearch = (PTOOLINFO)mp2;
+    if (ptiSearch)
+    {
+        PLISTNODE pToolNode = lstQueryFirstNode(&pttd->llTools);
+        while (pToolNode)
+        {
+            PTOOLINFO ptiThis = (PTOOLINFO)pToolNode->pItemData;
+            if (    (ptiThis->hwndToolOwner == ptiSearch->hwndToolOwner)
+                 && (ptiThis->hwndTool == ptiSearch->hwndTool)
+               )
+            {
+                // found:
+
+                // V0.9.12 (2001-04-28) [umoeller]
+                // unsubclass if this was subclassed
+                if (ptiThis->ulFlags & TTF_SUBCLASS)
+                {
+                    if (LockSubclassedTools())
+                    {
+                        UnSubclassTool(ptiSearch->hwndTool);
+
+                        UnlockSubclassedTools();
+                                // was missing V0.9.13 (2001-06-21) [umoeller]
+                    }
+                }
+
+                // remove the tool from the list
+                lstRemoveNode(&pttd->llTools, pToolNode);
+
+                break;
+            }
+
+            pToolNode = pToolNode->pNext;
+                    // fixed endless loop V0.9.13 (2001-06-21) [umoeller]
+        }
+    }
+}
+
+/*
+ *@@ TtmRelayEvent:
+ *      implementation for TTM_RELAYEVENT in ctl_fnwpTooltip.
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ */
+
+VOID TtmRelayEvent(HWND hwndTooltip, MPARAM mp2)
+{
+    PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
+    PQMSG pqmsg = (PQMSG)mp2;
+    if (pqmsg)
+    {
+        POINTL      ptlPointer;
+        PLISTNODE   pToolNode;
+
+        if (pttd->idTimerInitial)
+        {
+            // _Pmpf(("TTM_RELAYEVENT: Stopping timer: %d", pttd->idTimerInitial));
+            WinStopTimer(pttd->hab,
+                         hwndTooltip,
+                         TOOLTIP_ID_TIMER_INITIAL);
+            pttd->idTimerInitial = 0;
+        }
+
+        WinQueryPointerPos(HWND_DESKTOP, &ptlPointer);
+
+        // find TOOLINFO from mouse position
+        pttd->ptiMouseOver = NULL;
+        pToolNode = lstQueryFirstNode(&pttd->llTools);
+        while (pToolNode)
+        {
+            PTOOLINFO pti = (PTOOLINFO)pToolNode->pItemData;
+            if (pti->hwndTool == pqmsg->hwnd)
+            {
+                // _Pmpf((__FUNCTION__ ": found tool"));
+                pttd->ptiMouseOver = pti;
+                break;
+            }
+            pToolNode = pToolNode->pNext;
+        }
+
+        if (    (ptlPointer.x != pttd->ptlPointerLast.x)
+             || (ptlPointer.y != pttd->ptlPointerLast.y)
+             || (pqmsg->msg == WM_BUTTON1DOWN)
+             || (pqmsg->msg == WM_BUTTON2DOWN)
+             || (pqmsg->msg == WM_BUTTON3DOWN)
+           )
+        {
+            // mouse pos changed:
+            // hide tooltip
+            WinPostMsg(hwndTooltip,
+                       TTM_SHOWTOOLTIPNOW,
+                       (MPARAM)FALSE,
+                       0);
+            memcpy(&pttd->ptlPointerLast, &ptlPointer, sizeof(POINTL));
+
+            // _Pmpf((__FUNCTION__ ": pttd->ptiMouseOver: 0x%lX", pttd->ptiMouseOver));
+            // _Pmpf((__FUNCTION__ ": pttd->fIsActive: 0x%lX", pttd->fIsActive));
+            if (    (pttd->ptiMouseOver)
+                 && (pttd->fIsActive)
+               )
+            {
+                // tool found and tooltip is activated:
+                pttd->idTimerInitial = WinStartTimer(pttd->hab,
+                                                     hwndTooltip,
+                                                     TOOLTIP_ID_TIMER_INITIAL,
+                                                     pttd->ulTimeoutInitial);
+                // _Pmpf(("TTM_RELAYEVENT: Started timer: %d", pttd->idTimerInitial));
+            }
+        }
+    } // end if (pqmsg)
+}
+
+/*
+ *@@ TtmGetDelayTime:
+ *      implementation for TTM_GETDELAYTIME in ctl_fnwpTooltip.
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ */
+
+MRESULT TtmGetDelayTime(HWND hwndTooltip, MPARAM mp1)
+{
+    PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
+    switch ((ULONG)mp1)
+    {
+        case TTDT_AUTOPOP:
+            return (MRESULT)pttd->ulTimeoutAutopop;
+
+        case TTDT_INITIAL:
+            return (MRESULT)pttd->ulTimeoutInitial;
+
+        case TTDT_RESHOW:
+            return (MRESULT)pttd->ulTimeoutReshow;
+    }
+
+    return (0);
+}
+
+/*
+ *@@ TtmSetDelayTime:
+ *      implementation for TTM_SETDELAYTIME in ctl_fnwpTooltip.
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ */
+
+VOID TtmSetDelayTime(HWND hwndTooltip, MPARAM mp1, MPARAM mp2)
+{
+    PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
+    ULONG   iDelay = (ULONG)mp2;
+    switch (SHORT1FROMMP(mp1))
+    {
+        case TTDT_AUTOMATIC:
+            pttd->ulTimeoutInitial = iDelay;
+            pttd->ulTimeoutAutopop = iDelay * 5;
+            pttd->ulTimeoutReshow = iDelay / 2;
+        break;
+
+        case TTDT_AUTOPOP:
+            pttd->ulTimeoutAutopop = iDelay;
+        break;
+
+        case TTDT_INITIAL:
+            pttd->ulTimeoutInitial = iDelay;
+        break;
+
+        case TTDT_RESHOW:
+            pttd->ulTimeoutReshow = iDelay;
+        break;
+    }
+}
+
+/*
+ *@@ TtmGetText:
+ *      implementation for TTM_GETTEXT in ctl_fnwpTooltip.
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ */
+
+VOID TtmGetText(HWND hwndTooltip, MPARAM mp2)
+{
+    PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
+    PTOOLINFO pti = (PTOOLINFO)mp2;
+
+    if (pti->pszText == PSZ_TEXTCALLBACK)
+    {
+        // TTN_NEEDTEXT notification desired:
+        // compose values for that msg
+        TOOLTIPTEXT ttt = {0};
+        // _Pmpf(("TTM_GETTEXT: PSZ_TEXTCALLBACK... sending TTN_NEEDTEXT"));
+        ttt.hwndTooltip = hwndTooltip;
+        ttt.hwndTool = pti->hwndTool;
+        WinSendMsg(pti->hwndToolOwner,
+                   WM_CONTROL,
+                   MPFROM2SHORT(pttd->ulTooltipID,  // tooltip control wnd ID
+                                TTN_NEEDTEXT),
+                   &ttt);
+
+        // in case of error: set lpszText to NULL; this
+        // is not specified in the docs however.
+        pti->pszText = NULL;
+
+        switch (ttt.ulFormat)
+        {
+            case TTFMT_PSZ:
+                if (ttt.pszText)
+                    pti->pszText = ttt.pszText;
+            break;
+
+            case TTFMT_STRINGRES:
+                    // @@todo
+            break;
+        }
+    }
+}
+
+/*
+ *@@ TtmEnumTools:
+ *      implementation for TTM_ENUMTOOLS in ctl_fnwpTooltip.
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ */
+
+MRESULT TtmEnumTools(HWND hwndTooltip, MPARAM mp1, MPARAM mp2)
+{
+    PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
+    PTOOLINFO ptiTarget = (PTOOLINFO)mp2;
+    if (ptiTarget)
+    {
+        PTOOLINFO ptiFound = (PTOOLINFO)lstItemFromIndex(&pttd->llTools,
+                                                         SHORT1FROMMP(mp1));
+        if (ptiFound)
+        {
+            memcpy(ptiTarget, ptiFound, sizeof(TOOLINFO));
+            return (MRESULT)TRUE;
+        }
+    }
+
+    return (MRESULT)FALSE;
+}
+
+/*
+ *@@ TtmGetCurrentTool:
+ *      implementation for TTM_GETCURRENTTOOL in ctl_fnwpTooltip.
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ */
+
+MRESULT TtmGetCurrentTool(HWND hwndTooltip, MPARAM mp2)
+{
+    PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
+    PTOOLINFO ptiTarget = (PTOOLINFO)mp2;
+    if (ptiTarget)
+    {
+        if (pttd->ptiMouseOver)
+        {
+            memcpy(ptiTarget, pttd->ptiMouseOver, sizeof(TOOLINFO));
+            return (MPARAM)TRUE;
+        }
+    }
+
+    return ((MPARAM)FALSE);
+}
+
+/*
+ *@@ TtmGetToolInfo:
+ *      implementation for TTM_GETTOOLINFO in ctl_fnwpTooltip.
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ */
+
+MRESULT TtmGetToolInfo(HWND hwndTooltip, MPARAM mp2)
+{
+    PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
+    PTOOLINFO ptiSearch = (PTOOLINFO)mp2;
+    if (ptiSearch)
+    {
+        PLISTNODE pToolNode = lstQueryFirstNode(&pttd->llTools);
+        while (pToolNode)
+        {
+            PTOOLINFO ptiThis = (PTOOLINFO)pToolNode->pItemData;
+            if (    (ptiThis->hwndToolOwner == ptiSearch->hwndToolOwner)
+                 && (ptiThis->hwndTool == ptiSearch->hwndTool)
+               )
+            {
+                // found:
+                memcpy(ptiSearch, ptiThis, sizeof(TOOLINFO));
+                return (MPARAM)TRUE;
+            }
+            pToolNode = pToolNode->pNext;
+        }
+    }
+
+    return ((MPARAM)FALSE);
+}
+
+/*
+ *@@ FormatTooltip:
+ *      formats the tooltip window according to
+ *      its text (which is assumed to be in
+ *      pttd->pszPaintText) and positions it
+ *      on the screen.
+ *
+ *      This does not change the visibility
+ *      of the tooltip; if it is not yet visible,
+ *      you must show it afterwards.
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ */
+
+VOID FormatTooltip(HWND hwndTooltip,
+                   PTOOLTIPDATA pttd,
+                   PPOINTL pptlPointer)      // in: current pointer pos or NULL
+{
+    // find out how much space we need
+    RECTL   rcl = { 0, 0, 300, 1000 };
+    POINTL  ptlTooltip;
+    LONG    cx, cy;
+    ULONG   ulStyle = WinQueryWindowULong(hwndTooltip, QWL_STYLE);
+
+    HPS hps = WinGetPS(hwndTooltip);
+
+    winhDrawFormattedText(hps,
+                          &rcl,
+                          pttd->pszPaintText,
+                          DT_LEFT | DT_TOP | DT_WORDBREAK | DT_QUERYEXTENT);
+    WinReleasePS(hps);
+
+    // calc width and height of tooltip
+    cx = rcl.xRight + 2*TOOLTIP_CX_BORDER;
+    cy = (rcl.yTop - rcl.yBottom) + 2*TOOLTIP_CY_BORDER;
+
+    // calc x and y pos of tooltip:
+
+    // per default, use pointer pos
+    ptlTooltip.x = pptlPointer->x - cx/2;
+    ptlTooltip.y = pptlPointer->y - cy;
+
+    // do we need the tool's position?
+    if (    pttd->ptiMouseOver->ulFlags
+                & (TTF_CENTER_X_ON_TOOL | TTF_POS_Y_ABOVE_TOOL | TTF_POS_Y_BELOW_TOOL)
+       )
+    {
+        // yes:
+        SWP     swpTool;
+        POINTL  ptlTool;
+        WinQueryWindowPos(pttd->ptiMouseOver->hwndTool, &swpTool);
+        ptlTool.x = swpTool.x;
+        ptlTool.y = swpTool.y;
+        // convert x, y to desktop points
+        WinMapWindowPoints(WinQueryWindow(pttd->ptiMouseOver->hwndTool,
+                                          QW_PARENT), // hwndFrom
+                           HWND_DESKTOP,            // hwndTo
+                           &ptlTool,
+                           1);
+
+        // X
+        if (pttd->ptiMouseOver->ulFlags & TTF_CENTER_X_ON_TOOL)
+            // center X on tool:
+            ptlTooltip.x = ptlTool.x + ((swpTool.cx - cx) / 2L);
+
+        // Y
+        if (pttd->ptiMouseOver->ulFlags & TTF_POS_Y_ABOVE_TOOL)
+            ptlTooltip.y = ptlTool.y + swpTool.cy;
+        else if (pttd->ptiMouseOver->ulFlags & TTF_POS_Y_BELOW_TOOL)
+            ptlTooltip.y = ptlTool.y - cy;
+    }
+
+    // if "shy mouse" is enabled, make
+    // sure the tool tip is not under the
+    // mouse pointer
+    if (ulStyle & TTF_SHYMOUSE)
+    {
+        // we need to subtract the current mouse
+        // pointer's hot spot from the current
+        // pointer position
+        HPOINTER    hptr = WinQueryPointer(HWND_DESKTOP);
+        POINTERINFO pi;
+        if (WinQueryPointerInfo(hptr, &pi))
+        {
+            // calc bottom edge of mouse pointer rect
+            ULONG yBottomPointer = (pptlPointer->y - pi.yHotspot);
+            // _Pmpf(("yHotspot: %d", pi.yHotspot));
+            if (   (ptlTooltip.y + cy) // top edge of tool tip
+                 > yBottomPointer
+               )
+            {
+                ptlTooltip.y = pptlPointer->y - cy - pi.yHotspot;
+            }
+        }
+    }
+
+    // constrain to screen
+    if (ptlTooltip.x < 0)
+        ptlTooltip.x = 0;
+    if (ptlTooltip.y < 0)
+        ptlTooltip.y = 0;
+    if (ptlTooltip.x + cx > pttd->cxScreen)
+        ptlTooltip.x = pttd->cxScreen-cx;
+    if (ptlTooltip.y + cy > pttd->cyScreen)
+        ptlTooltip.y = pttd->cyScreen-cy;
+
+    // if shadow is enabled,
+    // enlarge; the shadow might by
+    // off-screen now, but that's OK
+    if (ulStyle & TTS_SHADOW)
+    {
+        cx += TT_SHADOWOFS;
+        cy += TT_SHADOWOFS;
+        ptlTooltip.y -= TT_SHADOWOFS;
+    }
+
+    // set tooltip position at the pos we calculated
+    // and show tooltip
+    WinSetWindowPos(hwndTooltip,
+                    HWND_TOP,
+                    ptlTooltip.x,
+                    ptlTooltip.y,
+                    cx,
+                    cy,
+                    SWP_MOVE | SWP_SIZE | SWP_ZORDER);
+}
+
+/*
+ *@@ TtmUpdateTipText:
+ *      implementation for TTM_UPDATETIPTEXT in ctl_fnwpTooltip.
+ *
+ *@@added V0.9.13 (2001-06-21) [umoeller]
+ */
+
+VOID TtmUpdateTipText(HWND hwndTooltip,
+                      const char *pcszNewText)
+{
+    PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
+
+    // has text really changed?
+    if (    (    (pttd->pszPaintText)
+              && (pcszNewText)
+              && (strcmp(pttd->pszPaintText, pcszNewText))
+            )
+         || (pttd->pszPaintText && !pcszNewText)
+         || (!pttd->pszPaintText && pcszNewText)
+       )
+    {
+        // yes:
+        if (pttd->pszPaintText)
+        {
+            free(pttd->pszPaintText);
+            pttd->pszPaintText = NULL;
+        }
+
+        if (pcszNewText)
+            pttd->pszPaintText = strdup(pcszNewText);
+
+        if (pttd->fIsVisible)
+        {
+            // currently showing:
+            // reformat
+            POINTL ptlPointer;
+            WinQueryPointerPos(HWND_DESKTOP, &ptlPointer);
+            FormatTooltip(hwndTooltip,
+                          pttd,
+                          &ptlPointer);
+            WinInvalidateRect(hwndTooltip, NULL, FALSE);
+        }
+    }
+}
+
+/*
  *@@ TtmShowTooltip:
  *      implementation for TTM_SHOW_TOOLTIP.
  *
@@ -536,10 +1213,9 @@ VOID PaintTooltip(HWND hwndTooltip,
  */
 
 VOID TtmShowTooltip(HWND hwndTooltip,
-                    PTOOLTIPDATA pttd,
                     BOOL fShow)  // if TRUE: show, else: HIDE
 {
-    // _Pmpf((__FUNCTION__ ": fShow %d", fShow));
+    PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
     if (fShow)
     {
         /*
@@ -565,7 +1241,6 @@ VOID TtmShowTooltip(HWND hwndTooltip,
         {
             // mouse not moved since timer was started:
             // find the current TOOLINFO
-            // _Pmpf((__FUNCTION__ ": mouse not moved... pttd->ptiMouseOver 0x%lX", pttd->ptiMouseOver));
             if (pttd->ptiMouseOver)
             {
                 TOOLINFO    tiTemp;
@@ -581,128 +1256,20 @@ VOID TtmShowTooltip(HWND hwndTooltip,
                     pttd->pszPaintText = NULL;
             }
 
-            // _Pmpf((__FUNCTION__ ": pttd->pszPaintText %s",
-               //      (pttd->pszPaintText) ? pttd->pszPaintText : "NULL"));
-
             if (pttd->pszPaintText)
             {
-                // find out how much space we need
-                RECTL   rcl = { 0, 0, 300, 1000 };
-                POINTL  ptlTooltip;
-                LONG    cx, cy;
-                ULONG   ulStyle = WinQueryWindowULong(hwndTooltip, QWL_STYLE);
+                FormatTooltip(hwndTooltip,
+                              pttd,
+                              &ptlPointer);
 
-                G_cxScreen = WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN),
-                G_cyScreen = WinQuerySysValue(HWND_DESKTOP, SV_CYSCREEN);
-
-                hps = WinGetPS(hwndTooltip);
-                winhDrawFormattedText(hps,
-                                      &rcl,
-                                      pttd->pszPaintText,
-                                      DT_LEFT | DT_TOP | DT_WORDBREAK | DT_QUERYEXTENT);
-                WinReleasePS(hps);
-
-                // calc width and height of tooltip
-                cx = rcl.xRight + 2*TOOLTIP_CX_BORDER;
-                cy = (rcl.yTop - rcl.yBottom) + 2*TOOLTIP_CY_BORDER;
-
-                // calc x and y pos of tooltip:
-
-                // per default, use pointer pos
-                ptlTooltip.x = ptlPointer.x - cx/2;
-                ptlTooltip.y = ptlPointer.y - cy;
-
-                // do we need the tool's position?
-                if (    pttd->ptiMouseOver->ulFlags
-                     & (TTF_CENTER_X_ON_TOOL | TTF_POS_Y_ABOVE_TOOL | TTF_POS_Y_BELOW_TOOL)
-                   )
-                {
-                    // yes:
-                    SWP     swpTool;
-                    POINTL  ptlTool;
-                    WinQueryWindowPos(pttd->ptiMouseOver->hwndTool, &swpTool);
-                    ptlTool.x = swpTool.x;
-                    ptlTool.y = swpTool.y;
-                    // convert x, y to desktop points
-                    WinMapWindowPoints(WinQueryWindow(pttd->ptiMouseOver->hwndTool,
-                                                      QW_PARENT), // hwndFrom
-                                       HWND_DESKTOP,            // hwndTo
-                                       &ptlTool,
-                                       1);
-
-                    // X
-                    if (pttd->ptiMouseOver->ulFlags & TTF_CENTER_X_ON_TOOL)
-                        // center X on tool:
-                        ptlTooltip.x = ptlTool.x + ((swpTool.cx - cx) / 2L);
-
-                    // Y
-                    if (pttd->ptiMouseOver->ulFlags & TTF_POS_Y_ABOVE_TOOL)
-                        ptlTooltip.y = ptlTool.y + swpTool.cy;
-                    else if (pttd->ptiMouseOver->ulFlags & TTF_POS_Y_BELOW_TOOL)
-                        ptlTooltip.y = ptlTool.y - cy;
-                }
-
-                // if "shy mouse" is enabled, make
-                // sure the tool tip is not under the
-                // mouse pointer
-                if (ulStyle & TTF_SHYMOUSE)
-                {
-                    // we need to subtract the current mouse
-                    // pointer's hot spot from the current
-                    // pointer position
-                    HPOINTER    hptr = WinQueryPointer(HWND_DESKTOP);
-                    POINTERINFO pi;
-                    if (WinQueryPointerInfo(hptr, &pi))
-                    {
-                        /* ULONG cyPointer = WinQuerySysValue(HWND_DESKTOP,
-                                                           SV_CYPOINTER); */
-                        // calc bottom edge of mouse pointer rect
-                        ULONG yBottomPointer = (ptlPointer.y - pi.yHotspot);
-                        // _Pmpf(("yHotspot: %d", pi.yHotspot));
-                        if (   (ptlTooltip.y + cy) // top edge of tool tip
-                             > yBottomPointer
-                           )
-                        {
-                            ptlTooltip.y = ptlPointer.y - cy - pi.yHotspot;
-                        }
-                    }
-                }
-
-                // constrain to screen
-                if (ptlTooltip.x < 0)
-                    ptlTooltip.x = 0;
-                if (ptlTooltip.y < 0)
-                    ptlTooltip.y = 0;
-                if (ptlTooltip.x + cx > G_cxScreen)
-                    ptlTooltip.x = G_cxScreen-cx;
-                if (ptlTooltip.y + cy > G_cyScreen)
-                    ptlTooltip.y = G_cyScreen-cy;
-
-                // if shadow is enabled,
-                // enlarge; the shadow might by
-                // off-screen now, but that's OK
-                if (ulStyle & TTS_SHADOW)
-                {
-                    cx += TT_SHADOWOFS;
-                    cy += TT_SHADOWOFS;
-                    ptlTooltip.y -= TT_SHADOWOFS;
-                }
-
-                // notify owner
+                // notify owner (TTN_SHOW)
                 WinSendMsg(pttd->hwndOwner,
                            WM_CONTROL,
                            MPFROM2SHORT(pttd->ulTooltipID,  // tooltip control wnd ID
                                         TTN_SHOW),
-                           0);
+                           pttd->ptiMouseOver);
 
-                // set tooltip position at the pos we calculated
-                // and show tooltip
-                WinSetWindowPos(hwndTooltip,
-                                HWND_TOP,
-                                ptlTooltip.x,
-                                ptlTooltip.y,
-                                cx, cy,
-                                SWP_MOVE | SWP_SIZE | SWP_ZORDER | SWP_SHOW);
+                WinShowWindow(hwndTooltip, TRUE);
                 pttd->fIsVisible = TRUE;
 
                 // start autopop timer
@@ -722,11 +1289,12 @@ VOID TtmShowTooltip(HWND hwndTooltip,
 
         if (pttd->fIsVisible)
         {
+            // notify owner (TTN_POP)
             WinSendMsg(pttd->hwndOwner,
                        WM_CONTROL,
                        MPFROM2SHORT(pttd->ulTooltipID,  // tooltip control wnd ID
                                     TTN_POP),
-                       0);
+                       pttd->ptiMouseOver);
             WinShowWindow(hwndTooltip, FALSE);
         }
 
@@ -839,8 +1407,6 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
 {
     MRESULT mrc = 0;
 
-    PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
-
     TRY_LOUD(excpt1)
     {
         switch (msg)
@@ -856,106 +1422,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              */
 
             case WM_CREATE:
-            {
-                PCREATESTRUCT pcs = (PCREATESTRUCT)mp2;
-
-                // allocate and initialize tooltip data
-                pttd = (PTOOLTIPDATA)malloc(sizeof(TOOLTIPDATA));
-                if (pttd)
-                {
-                    CHAR        szFont[256];
-                    memset(pttd, 0, sizeof(TOOLTIPDATA));
-                    WinSetWindowPtr(hwndTooltip, 1, pttd);
-
-                    pttd->hwndOwner = pcs->hwndOwner;
-                    pttd->hab = WinQueryAnchorBlock(hwndTooltip);
-                    pttd->ulTooltipID = pcs->id;
-
-                    pttd->fIsActive = TRUE;
-
-                    // default timeouts
-                    pttd->ulTimeoutInitial = 1000;
-                    pttd->ulTimeoutAutopop = 5000;
-                    pttd->ulTimeoutReshow = 500;
-
-                    // get colors from presparams/syscolors
-                    UpdateTooltipPresColors(hwndTooltip, pttd);
-
-                    // check if font presparam set
-                    if (WinQueryPresParam(hwndTooltip,
-                                          PP_FONTNAMESIZE, 0,
-                                          NULL,
-                                          sizeof(szFont),
-                                          szFont,
-                                          QPF_NOINHERIT)
-                            == 0)
-                    {
-                        // no: set default font presparam
-                        // (we never want the System Proportional font)
-                        winhSetWindowFont(hwndTooltip,
-                                          NULL);      // default (WarpSans or 8.Helv)
-                    }
-
-                    pttd->pszPaintText = strdup("undefined");
-
-                    lstInit(&pttd->llTools, TRUE);      // auto-free items
-
-                    // override CREATESTRUCT
-                    WinSetWindowPos(hwndTooltip,
-                                    HWND_TOP,
-                                    50, 50,
-                                    100, 100,
-                                    SWP_MOVE | SWP_SIZE | SWP_ZORDER | SWP_HIDE);
-
-                    mrc = (MPARAM)FALSE;
-                }
-                else
-                    // malloc failed:
-                    mrc = (MPARAM)TRUE;
-            break; }
-
-            /*
-             * WM_DESTROY:
-             *      clean up upon destruction.
-             */
-
-            case WM_DESTROY:
-                // stop timers
-                if (pttd->idTimerInitial)
-                    WinStopTimer(pttd->hab,
-                                 hwndTooltip,
-                                 pttd->idTimerInitial);
-                if (pttd->idTimerAutopop)
-                    WinStopTimer(pttd->hab,
-                                 hwndTooltip,
-                                 pttd->idTimerAutopop);
-                if (pttd->pszPaintText)
-                    free(pttd->pszPaintText);
-
-                // un-subclass all tools that we subclassed
-                // V0.9.12 (2001-04-28) [umoeller]
-                if (LockSubclassedTools())
-                {
-                    PLISTNODE pNode;
-                    PSUBCLASSEDTOOL pst;
-                    for (pNode = lstQueryFirstNode(&pttd->llTools);
-                         pNode;
-                         pNode = pNode->pNext)
-                    {
-                        PTOOLINFO pti = (PTOOLINFO)pNode->pItemData;
-                        if (pst = FindSubclassedTool(pti->hwndTool))
-                            UnSubclassTool(pti->hwndTool);
-                    }
-
-                    UnlockSubclassedTools();
-                }
-                // end V0.9.12 (2001-04-28) [umoeller]
-
-                lstClear(&pttd->llTools);
-
-                free(pttd);
-
-                mrc = (MPARAM)0;
+                mrc = TtmCreate(hwndTooltip, mp2);
             break;
 
             /*
@@ -978,38 +1445,9 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              */
 
             case WM_TIMER:      // done
-            {
-                USHORT  usTimer = SHORT1FROMMP(mp1);
-
-                switch (usTimer)
-                {
-                    case TOOLTIP_ID_TIMER_INITIAL:
-                        // _Pmpf(("WM_TIMER: Stopping initial timer: %d", usTimer));
-                        // _Pmpf((__FUNCTION__ ": TOOLTIP_ID_TIMER_INITIAL"));
-                        WinStopTimer(pttd->hab,
-                                     hwndTooltip,
-                                     usTimer);
-                        pttd->idTimerInitial = 0;
-
-                        if (pttd->fIsActive)
-                            // show tooltip
-                            WinPostMsg(hwndTooltip, TTM_SHOWTOOLTIPNOW, (MPARAM)TRUE, 0);
-                    break;
-
-                    case TOOLTIP_ID_TIMER_AUTOPOP:
-                        // _Pmpf(("WM_TIMER: Stopping autopop timer: %d", usTimer));
-                        WinStopTimer(pttd->hab,
-                                     hwndTooltip,
-                                     usTimer);
-                        pttd->idTimerAutopop = 0;
-                        WinPostMsg(hwndTooltip, TTM_SHOWTOOLTIPNOW, (MPARAM)FALSE, 0);
-                    break;
-
-                    default:
-                        mrc = WinDefWindowProc(hwndTooltip, msg, mp1, mp2);
-                } // end switch
-
-            break; }
+                if (!TtmTimer(hwndTooltip, mp1))
+                    mrc = WinDefWindowProc(hwndTooltip, msg, mp1, mp2);
+            break;
 
             /*
              * WM_PAINT:
@@ -1017,7 +1455,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              */
 
             case WM_PAINT:      // done
-                PaintTooltip(hwndTooltip, pttd);
+                TtmPaint(hwndTooltip);
             break;
 
             /*
@@ -1036,7 +1474,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
                     case PP_MENUHILITEFGNDCOLOR:
                     case PP_MENUHILITEBGNDCOLOR:
                         // re-query our presparams
-                        UpdateTooltipPresColors(hwndTooltip, pttd);
+                        UpdateTooltipPresColors(hwndTooltip);
                 }
             break; }
 
@@ -1046,7 +1484,16 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              */
 
             case WM_SYSCOLORCHANGE:
-                UpdateTooltipPresColors(hwndTooltip, pttd);
+                UpdateTooltipPresColors(hwndTooltip);
+            break;
+
+            /*
+             * WM_DESTROY:
+             *      clean up upon destruction.
+             */
+
+            case WM_DESTROY:
+                TtmDestroy(hwndTooltip);
             break;
 
            /*
@@ -1061,10 +1508,12 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
             */
 
             case TTM_ACTIVATE:      // done
-                pttd->fIsActive = (BOOL)mp1;
-                if (!pttd->fIsActive)
+            {
+                PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
+                if (!(pttd->fIsActive = (BOOL)mp1))
                     // disable: hide tooltip
                     WinPostMsg(hwndTooltip, TTM_SHOWTOOLTIPNOW, (MPARAM)FALSE, 0);
+            }
             break;
 
             /*
@@ -1120,32 +1569,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              */
 
             case TTM_ADDTOOL:       // done
-                mrc = (MPARAM)FALSE;
-                if (mp2)
-                {
-                    PTOOLINFO ptiPassed = (PTOOLINFO)mp2,
-                              ptiNew = (PTOOLINFO)malloc(sizeof(TOOLINFO));
-                    if (ptiNew)
-                    {
-                        memcpy(ptiNew, ptiPassed, sizeof(TOOLINFO));
-                        lstAppendItem(&pttd->llTools,
-                                      ptiNew);
-
-                        if (    (ptiPassed->ulFlags & TTF_SUBCLASS)
-                             && (LockSubclassedTools()) // V0.9.12 (2001-04-28) [umoeller]
-                           )
-                        {
-                            // caller wants this tool to be subclassed:
-                            // well, do it then
-                            SubclassTool(hwndTooltip,
-                                         ptiPassed->hwndTool);
-
-                            UnlockSubclassedTools();
-                        }
-
-                        mrc = (MPARAM)TRUE;
-                    }
-                }
+                mrc = TtmAddTool(hwndTooltip, mp2);
             break;
 
             /*
@@ -1155,46 +1579,15 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              *      Parameters:
              *      --  mp1: always 0.
              *      --  PTOOLINFO mp2: information about the tool;
-             *              all fields except cbSize, hwnd, uID are
-             *              ignored.
+             *              all fields except cbSize, hwndToolOwner,
+             *              and hwndTool are ignored.
              *
              *      Return value: 0 always.
              */
 
             case TTM_DELTOOL:       // done
-            {
-                PTOOLINFO ptiSearch = (PTOOLINFO)mp2;
-                if (ptiSearch)
-                {
-                    PLISTNODE pToolNode = lstQueryFirstNode(&pttd->llTools);
-                    while (pToolNode)
-                    {
-                        PTOOLINFO ptiThis = (PTOOLINFO)pToolNode->pItemData;
-                        if (    (ptiThis->hwndToolOwner == ptiSearch->hwndToolOwner)
-                             && (ptiThis->hwndTool == ptiSearch->hwndTool)
-                           )
-                        {
-                            // found:
-
-                            // V0.9.12 (2001-04-28) [umoeller]
-                            // unsubclass if this was subclassed
-                            if (ptiThis->ulFlags & TTF_SUBCLASS)
-                            {
-                                if (LockSubclassedTools())
-                                {
-                                    UnSubclassTool(ptiSearch->hwndTool);
-                                }
-                            }
-
-                            // remove the tool from the list
-                            lstRemoveNode(&pttd->llTools, pToolNode);
-
-                            break;
-                        }
-                    }
-                    pToolNode = pToolNode->pNext;
-                }
-            break; }
+                TtmDelTool(hwndTooltip, mp2);
+            break;
 
             /*
              *@@ TTM_NEWTOOLRECT:
@@ -1292,70 +1685,8 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              */
 
             case TTM_RELAYEVENT:
-            {
-                PQMSG pqmsg = (PQMSG)mp2;
-                if (pqmsg)
-                {
-                    POINTL      ptlPointer;
-                    PLISTNODE   pToolNode;
-
-                    if (pttd->idTimerInitial)
-                    {
-                        // _Pmpf(("TTM_RELAYEVENT: Stopping timer: %d", pttd->idTimerInitial));
-                        WinStopTimer(pttd->hab,
-                                     hwndTooltip,
-                                     TOOLTIP_ID_TIMER_INITIAL);
-                        pttd->idTimerInitial = 0;
-                    }
-
-                    WinQueryPointerPos(HWND_DESKTOP, &ptlPointer);
-
-                    // find TOOLINFO from mouse position
-                    pttd->ptiMouseOver = NULL;
-                    pToolNode = lstQueryFirstNode(&pttd->llTools);
-                    while (pToolNode)
-                    {
-                        PTOOLINFO pti = (PTOOLINFO)pToolNode->pItemData;
-                        if (pti->hwndTool == pqmsg->hwnd)
-                        {
-                            // _Pmpf((__FUNCTION__ ": found tool"));
-                            pttd->ptiMouseOver = pti;
-                            break;
-                        }
-                        pToolNode = pToolNode->pNext;
-                    }
-
-                    if (    (ptlPointer.x != pttd->ptlPointerLast.x)
-                         || (ptlPointer.y != pttd->ptlPointerLast.y)
-                         || (pqmsg->msg == WM_BUTTON1DOWN)
-                         || (pqmsg->msg == WM_BUTTON2DOWN)
-                         || (pqmsg->msg == WM_BUTTON3DOWN)
-                       )
-                    {
-                        // mouse pos changed:
-                        // hide tooltip
-                        WinPostMsg(hwndTooltip,
-                                   TTM_SHOWTOOLTIPNOW,
-                                   (MPARAM)FALSE,
-                                   0);
-                        memcpy(&pttd->ptlPointerLast, &ptlPointer, sizeof(POINTL));
-
-                        // _Pmpf((__FUNCTION__ ": pttd->ptiMouseOver: 0x%lX", pttd->ptiMouseOver));
-                        // _Pmpf((__FUNCTION__ ": pttd->fIsActive: 0x%lX", pttd->fIsActive));
-                        if (    (pttd->ptiMouseOver)
-                             && (pttd->fIsActive)
-                           )
-                        {
-                            // tool found and tooltip is activated:
-                            pttd->idTimerInitial = WinStartTimer(pttd->hab,
-                                                                 hwndTooltip,
-                                                                 TOOLTIP_ID_TIMER_INITIAL,
-                                                                 pttd->ulTimeoutInitial);
-                            // _Pmpf(("TTM_RELAYEVENT: Started timer: %d", pttd->idTimerInitial));
-                        }
-                    }
-                } // end if (pqmsg)
-            break; }
+                TtmRelayEvent(hwndTooltip, mp2);
+            break;
 
             /*
              *@@ TTM_GETDELAYTIME:
@@ -1375,20 +1706,7 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              */
 
             case TTM_GETDELAYTIME:
-                switch ((ULONG)mp1)
-                {
-                    case TTDT_AUTOPOP:
-                        mrc = (MRESULT)pttd->ulTimeoutAutopop;
-                    break;
-
-                    case TTDT_INITIAL:
-                        mrc = (MRESULT)pttd->ulTimeoutInitial;
-                    break;
-
-                    case TTDT_RESHOW:
-                        mrc = (MRESULT)pttd->ulTimeoutReshow;
-                    break;
-                }
+                mrc = TtmGetDelayTime(hwndTooltip, mp1);
             break;
 
             /*
@@ -1432,29 +1750,8 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              */
 
             case TTM_SETDELAYTIME:  // done
-            {
-                ULONG   iDelay = (ULONG)mp2;
-                switch (SHORT1FROMMP(mp1))
-                {
-                    case TTDT_AUTOMATIC:
-                        pttd->ulTimeoutInitial = iDelay;
-                        pttd->ulTimeoutAutopop = iDelay * 5;
-                        pttd->ulTimeoutReshow = iDelay / 2;
-                    break;
-
-                    case TTDT_AUTOPOP:
-                        pttd->ulTimeoutAutopop = iDelay;
-                    break;
-
-                    case TTDT_INITIAL:
-                        pttd->ulTimeoutInitial = iDelay;
-                    break;
-
-                    case TTDT_RESHOW:
-                        pttd->ulTimeoutReshow = iDelay;
-                    break;
-                }
-            break; }
+                TtmSetDelayTime(hwndTooltip, mp1, mp2);
+            break;
 
             /*
              *@@ TTM_GETTEXT:
@@ -1463,10 +1760,9 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              *      Parameters:
              *      -- mp1: always 0
              *      -- PTOOLINFO mp2: pointer to a TOOLINFO structure.
-             *         When sending the message, the hwnd and uId members
-             *         identify a tool. If the tooltip control includes
-             *         the tool, the lpszText member receives the pointer
-             *         to the string.
+             *         hwndTool identifies a tool. If the tooltip control
+             *         includes the tool, the pszText member receives
+             *         the pointer to the string on output.
              *
              *      Return value: 0 always.
              *
@@ -1476,55 +1772,32 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              */
 
             case TTM_GETTEXT:       // done, I think
-            {
-                PTOOLINFO pti = (PTOOLINFO)mp2;
-
-                if (pti->pszText == PSZ_TEXTCALLBACK)
-                {
-                    // TTN_NEEDTEXT notification desired:
-                    // compose values for that msg
-                    TOOLTIPTEXT ttt = {0};
-                    // _Pmpf(("TTM_GETTEXT: PSZ_TEXTCALLBACK... sending TTN_NEEDTEXT"));
-                    ttt.hwndTooltip = hwndTooltip;
-                    ttt.hwndTool = pti->hwndTool;
-                    WinSendMsg(pti->hwndToolOwner,
-                               WM_CONTROL,
-                               MPFROM2SHORT(pttd->ulTooltipID,  // tooltip control wnd ID
-                                            TTN_NEEDTEXT),
-                               &ttt);
-
-                    // in case of error: set lpszText to NULL; this
-                    // is not specified in the docs however.
-                    pti->pszText = NULL;
-
-                    switch (ttt.ulFormat)
-                    {
-                        case TTFMT_PSZ:
-                            if (ttt.pszText)
-                                pti->pszText = ttt.pszText;
-                        break;
-
-                        case TTFMT_STRINGRES:
-                                // @@todo
-                        break;
-                    }
-                }
-            break; }
+                TtmGetText(hwndTooltip, mp2);
+            break;
 
             /*
              *@@ TTM_UPDATETIPTEXT:
-             *      sets the tooltip text for a tool.
+             *      sets the current tooltip text explicitly,
+             *      no matter for what tool the tooltip is
+             *      currently being displayed. This might be
+             *      useful if you want to dynamically update
+             *      the tooltip display.
+             *
+             *      If the tooltip is currently showing,
+             *      it is reformatted with the new text.
+             *
+             *      Note that the change is not permanent;
+             *      if the mouse moves over a different
+             *      tool next, the change will be lost.
              *
              *      Parameters:
-             *      -- mp1: always 0.
-             *      -- PTOOLINFO mp2: pointer to a TOOLINFO structure.
-             *         The "hinst" and "lpszText" members must specify
-             *         the instance handle and the pointer to the text.
-             *         The "hwnd" and "uId" members identify the tool
-             *         to update.
+             *      -- PSZ mp1: new text to display.
+             *
+             *@@added V0.9.13 (2001-06-21) [umoeller]
              */
 
             case TTM_UPDATETIPTEXT:
+                TtmUpdateTipText(hwndTooltip, (PSZ)mp1);
             break;
 
             /*
@@ -1592,26 +1865,15 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              */
 
             case TTM_ENUMTOOLS:         // done
-            {
-                PTOOLINFO ptiTarget = (PTOOLINFO)mp2;
-                mrc = (MPARAM)FALSE;
-                if (ptiTarget)
-                {
-                    PTOOLINFO ptiFound = (PTOOLINFO)lstItemFromIndex(&pttd->llTools,
-                                                                     SHORT1FROMMP(mp1));
-                    if (ptiFound)
-                    {
-                        memcpy(ptiTarget, ptiFound, sizeof(TOOLINFO));
-                        mrc = (MRESULT)TRUE;
-                    }
-                }
-            break; }
+                mrc = TtmEnumTools(hwndTooltip, mp1, mp2);
+            break;
 
             /*
              *@@ TTM_GETCURRENTTOOL:
-             *      this message retrieves the information that the tooltip control
-             *      maintains for the _current_ tool; that is, the one for which
-             *      the tooltip control is currently displaying text.
+             *      this message retrieves the information that the
+             *      tooltip control maintains for the _current_ tool;
+             *      that is, the one for which the tooltip control
+             *      is currently displaying text.
              *
              *      Parameters:
              *      -- mp1: always 0.
@@ -1622,18 +1884,8 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              */
 
             case TTM_GETCURRENTTOOL:        // done
-            {
-                PTOOLINFO ptiTarget = (PTOOLINFO)mp2;
-                mrc = (MPARAM)FALSE;
-                if (ptiTarget)
-                {
-                    if (pttd->ptiMouseOver)
-                    {
-                        memcpy(ptiTarget, pttd->ptiMouseOver, sizeof(TOOLINFO));
-                        mrc = (MPARAM)TRUE;
-                    }
-                }
-            break; }
+                mrc = TtmGetCurrentTool(hwndTooltip, mp2);
+            break;
 
             /*
              *@@ TTM_GETTOOLCOUNT:
@@ -1643,8 +1895,10 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              */
 
             case TTM_GETTOOLCOUNT:          // done
+            {
+                PTOOLTIPDATA pttd = (PTOOLTIPDATA)WinQueryWindowPtr(hwndTooltip, 1);
                 mrc = (MPARAM)lstCountItems(&pttd->llTools);
-            break;
+            break; }
 
             /*
              *@@ TTM_GETTOOLINFO:
@@ -1664,28 +1918,8 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              */
 
             case TTM_GETTOOLINFO:       // done
-            {
-                PTOOLINFO ptiSearch = (PTOOLINFO)mp2;
-                mrc = (MPARAM)FALSE;
-                if (ptiSearch)
-                {
-                    PLISTNODE pToolNode = lstQueryFirstNode(&pttd->llTools);
-                    while (pToolNode)
-                    {
-                        PTOOLINFO ptiThis = (PTOOLINFO)pToolNode->pItemData;
-                        if (    (ptiThis->hwndToolOwner == ptiSearch->hwndToolOwner)
-                             && (ptiThis->hwndTool == ptiSearch->hwndTool)
-                           )
-                        {
-                            // found:
-                            memcpy(ptiSearch, ptiThis, sizeof(TOOLINFO));
-                            mrc = (MPARAM)TRUE;
-                            break;
-                        }
-                        pToolNode = pToolNode->pNext;
-                    }
-                }
-            break; }
+                mrc = TtmGetToolInfo(hwndTooltip, mp2);
+            break;
 
             /*
              *@@ TTM_SETTOOLINFO:
@@ -1711,13 +1945,12 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
              *      which will lead to strange PM hangs.
              *
              *      This is not part of the Win95 message set but used
-             *      in the OS/2 implementation only. This calls TtmShowTooltip
-             *      in turn.
+             *      in the OS/2 implementation only. This calls
+             *      TtmShowTooltip in turn.
              */
 
             case TTM_SHOWTOOLTIPNOW:
-                // _Pmpf((__FUNCTION__ ": TTM_SHOWTOOLTIPNOW %d", mp1));
-                TtmShowTooltip(hwndTooltip, pttd, (BOOL)mp1);
+                TtmShowTooltip(hwndTooltip, (BOOL)mp1);
             break;
 
             default:

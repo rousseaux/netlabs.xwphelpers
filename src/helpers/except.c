@@ -259,6 +259,13 @@ PFNEXCHOOKERROR G_pfnExcHookError = 0;
 // beep flag for excHandlerLoud
 BOOL            G_fBeepOnException = TRUE;
 
+ULONG           G_ulExplainExceptionRunning = 0;
+    // global flag which is != 0 if some exception handler
+    // is inside excExplainException, so that XShutdown can
+    // wait until the trap log is done;
+    // this is exported thru except.h
+    // V0.9.13 (2001-06-19) [umoeller]
+
 /*
  *@@category: Helpers\Control program helpers\Exceptions/debugging
  *      See except.c.
@@ -451,6 +458,7 @@ VOID excDumpStackFrames(FILE *file,                   // in: logfile from fopen(
  *@@changed V0.9.2 (2000-03-10) [umoeller]: now using excPrintStackFrame
  *@@changed V0.9.3 (2000-05-03) [umoeller]: fixed crashes
  *@@changed V0.9.6 (2000-11-06) [umoeller]: added more register dumps
+ *@@changed V0.9.13 (2001-06-19) [umoeller]: added global flag for whether this is running
  */
 
 VOID excExplainException(FILE *file,                   // in: logfile from fopen()
@@ -471,6 +479,10 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
     ULONG       ul;
 
     ULONG       ulOldPriority = 0x0100; // regular, delta 0
+
+    // raise global flag for whether this func is running
+    // V0.9.13 (2001-06-19) [umoeller]
+    G_ulExplainExceptionRunning++;
 
     // raise this thread's priority, because this
     // might take some time
@@ -749,6 +761,9 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
                    (ulOldPriority & 0x0F00) >> 8,
                    (UCHAR)ulOldPriority,
                    0);     // current thread
+
+    // lower global flag again V0.9.13 (2001-06-19) [umoeller]
+    G_ulExplainExceptionRunning--;
 }
 
 /* ******************************************************************

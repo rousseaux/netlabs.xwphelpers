@@ -38,6 +38,44 @@ extern "C" {
 
     /* ******************************************************************
      *
+     *   "XButton" control
+     *
+     ********************************************************************/
+
+    /*
+     *@@ XBUTTONDATA:
+     *      paint data for ctlPaintXButton.
+     *
+     *@@added V0.9.13 (2001-06-21) [umoeller]
+     */
+
+    typedef struct _XBUTTONDATA
+    {
+        RECTL       rcl;                // size of button (in presentation space
+                                        // coordinates); exclusive!
+
+        ULONG       cxMiniIcon;         // system mini icon size
+
+        LONG        lcol3DDark,         // lo-3D color
+                    lcol3DLight,        // hi-3D color
+                    lMiddle;            // color for center (button background)
+
+        HPOINTER    hptr;               // icon to paint or NULLHANDLE
+
+    } XBUTTONDATA, *PXBUTTONDATA;
+
+    #define XBF_FLAT                0x0001
+
+    #define XBF_PRESSED             0x00010000
+    #define XBF_BACKGROUND          0x00020000
+    #define XBF_INUSE               0x00040000
+
+    VOID ctlPaintXButton(HPS hps,
+                         ULONG fl,
+                         PXBUTTONDATA pxbd);
+
+    /* ******************************************************************
+     *
      *   "Menu button" control
      *
      ********************************************************************/
@@ -669,11 +707,13 @@ extern "C" {
 
     /*
      *@@ TOOLTIPTEXT:
-     *      identifies a tool for which text is to be displayed and
-     *      receives the text for the tool. The tool must fill all
-     *      fields of this structure.
+     *      identifies a tool for which text is to
+     *      be displayed and receives the text for
+     *      the tool. The tool must fill all fields
+     *      of this structure.
      *
-     *      This structure is used with the TTN_NEEDTEXT notification.
+     *      This structure is used with the TTN_NEEDTEXT
+     *      notification.
      *
      *@@changed V0.9.7 (2001-01-03) [umoeller]: got rid of this win95 crap
      */
@@ -692,7 +732,8 @@ extern "C" {
         PSZ     pszText;
                     // out: with TTFMT_PSZ, pointer to a string that contains the
                     // tool text. Note that this is not copied into the tooltip...
-                    // so this must point to a static buffer.
+                    // so this must point to a static buffer that is valid while
+                    // the tooltip is showing.
         HMODULE hmod;
                     // out: with TTFMT_STRINGRES, the module handle of the resource.
         ULONG   idResource;
@@ -789,7 +830,8 @@ extern "C" {
      *      Parameters (OS/2, incompatible with Win95):
      *      -- mp1 USHORT usID;
      *             USHORT usNotifyCode == TTN_NEEDTEXT
-     *      -- ULONG mp2: identifier of the tool, as in TOOLINFO.uId.
+     *      -- ULONG mp2: PTOOLINFO of the tool for which the
+     *             tool is about to be displayed.
      *
      *      Return value: always 0.
      *
@@ -807,7 +849,8 @@ extern "C" {
      *      Parameters (OS/2, incompatible with Win95):
      *      -- mp1 USHORT usID;
      *             USHORT usNotifyCode == TTN_NEEDTEXT
-     *      -- ULONG mp2: identifier of the tool, as in TOOLINFO.uId.
+     *      -- ULONG mp2: PTOOLINFO of the tool for which the
+     *             tooltip was visible.
      *
      *      Return value: always 0.
      *

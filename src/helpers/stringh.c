@@ -1641,16 +1641,23 @@ ULONG strhGetBlock(const char *pszSearchIn, // in: buffer to search
  *
  *      Note: On the first call, *ppszRoot and *pcbRoot
  *      _must_ be both NULL, or this crashes.
+ *
+ *@@changed V0.9.13 (2001-06-21) [umoeller]: added cbNew
  */
 
 VOID strhArrayAppend(PSZ *ppszRoot,         // in: root of array
                      const char *pcszNew,   // in: string to append
+                     ULONG cbNew,           // in: size of that string or 0 to run strlen() here
                      PULONG pcbRoot)        // in/out: size of array
 {
-    ULONG cbNew = strlen(pcszNew);
-    PSZ pszTemp = (PSZ)malloc(*pcbRoot
-                              + cbNew
-                              + 1);    // two null bytes
+    PSZ pszTemp;
+
+    if (!cbNew)     // V0.9.13 (2001-06-21) [umoeller]
+        cbNew = strlen(pcszNew);
+
+    pszTemp = (PSZ)malloc(*pcbRoot
+                          + cbNew
+                          + 1);    // two null bytes
     if (*ppszRoot)
     {
         // not first loop: copy old stuff

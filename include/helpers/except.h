@@ -139,6 +139,8 @@ extern "C" {
 
     extern PFNEXCHOOKERROR G_pfnExcHookError;
 
+    extern ULONG G_ulExplainExceptionRunning;
+
     /********************************************************************
      *
      *   Macros

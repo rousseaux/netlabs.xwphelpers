@@ -65,32 +65,6 @@ extern "C" {
      *
      ********************************************************************/
 
-    VOID XWPENTRY doshEnumDrives(PSZ pszBuffer,
-                                 const char *pcszFileSystem,
-                                 BOOL fSkipRemoveables);
-    typedef VOID XWPENTRY DOSHENUMDRIVES(PSZ pszBuffer,
-                                         const char *pcszFileSystem,
-                                         BOOL fSkipRemoveables);
-    typedef DOSHENUMDRIVES *PDOSHENUMDRIVES;
-
-    CHAR doshQueryBootDrive(VOID);
-
-    APIRET doshAssertDrive(ULONG ulLogicalDrive);
-
-    APIRET doshSetLogicalMap(ULONG ulLogicalDrive);
-
-    APIRET XWPENTRY doshQueryDiskSize(ULONG ulLogicalDrive, double *pdSize);
-    typedef APIRET XWPENTRY DOSHQUERYDISKSIZE(ULONG ulLogicalDrive, double *pdSize);
-    typedef DOSHQUERYDISKSIZE *PDOSHQUERYDISKSIZE;
-
-    APIRET XWPENTRY doshQueryDiskFree(ULONG ulLogicalDrive, double *pdFree);
-    typedef APIRET XWPENTRY DOSHQUERYDISKFREE(ULONG ulLogicalDrive, double *pdFree);
-    typedef DOSHQUERYDISKFREE *PDOSHQUERYDISKFREE;
-
-    APIRET XWPENTRY doshQueryDiskFSType(ULONG ulLogicalDrive, PSZ pszBuf, ULONG cbBuf);
-    typedef APIRET XWPENTRY DOSHQUERYDISKFSTYPE(ULONG ulLogicalDrive, PSZ pszBuf, ULONG cbBuf);
-    typedef DOSHQUERYDISKFSTYPE *PDOSHQUERYDISKFSTYPE;
-
     APIRET doshIsFixedDisk(ULONG  ulLogicalDrive,
                            PBOOL  pfFixed);
 
@@ -101,57 +75,63 @@ extern "C" {
         #define DEVATTR_CHANGELINE  0x0002      // media has been removed since last I/O operation
         #define DEVATTR_GREATER16MB 0x0004      // physical device driver supports physical addresses > 16 MB
 
-        #pragma pack(1)
+        // #pragma pack(1)
 
         /*
-         *@@ DRIVEPARAMS:
+         * DRIVEPARAMS:
          *      structure used for doshQueryDiskParams.
+         * removed this, we can directly use BIOSPARAMETERBLOCK
+         * V0.9.13 (2001-06-14) [umoeller]
          */
 
-        typedef struct _DRIVEPARAMS
+        /* typedef struct _DRIVEPARAMS
         {
             BIOSPARAMETERBLOCK bpb;
                         // BIOS parameter block. This is the first sector
                         // (at byte 0) in each partition. This is defined
                         // in the OS2 headers as follows:
 
-                        /*
                         typedef struct _BIOSPARAMETERBLOCK {
-                          USHORT     usBytesPerSector;
+                    0     USHORT     usBytesPerSector;
                                         //  Number of bytes per sector.
-                          BYTE       bSectorsPerCluster;
+                    2     BYTE       bSectorsPerCluster;
                                         //  Number of sectors per cluster.
-                          USHORT     usReservedSectors;
+                    3     USHORT     usReservedSectors;
                                         //  Number of reserved sectors.
-                          BYTE       cFATs;
+                    5     BYTE       cFATs;
                                         //  Number of FATs.
-                          USHORT     cRootEntries;
+                    6     USHORT     cRootEntries;
                                         //  Number of root directory entries.
-                          USHORT     cSectors;
+                    8     USHORT     cSectors;
                                         //  Number of sectors.
-                          BYTE       bMedia;
+                    10    BYTE       bMedia;
                                         //  Media descriptor.
-                          USHORT     usSectorsPerFAT;
+                    11    USHORT     usSectorsPerFAT;
                                         //  Number of secctors per FAT.
-                          USHORT     usSectorsPerTrack;
+                    13    USHORT     usSectorsPerTrack;
                                         //  Number of sectors per track.
-                          USHORT     cHeads;
+                    15    USHORT     cHeads;
                                         //  Number of heads.
-                          ULONG      cHiddenSectors;
+                    17    ULONG      cHiddenSectors;
                                         //  Number of hidden sectors.
-                          ULONG      cLargeSectors;
+                    21    ULONG      cLargeSectors;
                                         //  Number of large sectors.
-                          BYTE       abReserved[6];
+                    25    BYTE       abReserved[6];
                                         //  Reserved.
-                          USHORT     cCylinders;
+                    31    USHORT     cCylinders;
                                         //  Number of cylinders defined for the physical
                                         // device.
-                          BYTE       bDeviceType;
+                    33    BYTE       bDeviceType;
                                         //  Physical layout of the specified device.
-                          USHORT     fsDeviceAttr;
+                    34    USHORT     fsDeviceAttr;
                                         //  A bit field that returns flag information
                                         //  about the specified drive.
-                        } BIOSPARAMETERBLOCK; */
+                        } BIOSPARAMETERBLOCK;
+
+            // removed the following fields... these are already
+            // in the extended BPB structure, as defined in the
+            // Toolkit's BIOSPARAMETERBLOCK struct. Checked this,
+            // the definition is the same for the Toolkit 3 and 4.5.
 
             USHORT  usCylinders;
                         // no. of cylinders
@@ -166,17 +146,49 @@ extern "C" {
                         // --  4:  8-Inch double-density diskette drive
                         // --  5:  Fixed disk
                         // --  6:  Tape drive
-                        // --  7:  Other (includes 1.44MB 3.5-inch diskette drive)
+                        // --  7:  Other (includes 1.44MB 3.5-inch diskette drive
+                        //         and CD-ROMs)
                         // --  8:  R/W optical disk
                         // --  9:  3.5-inch 4.0MB diskette drive (2.88MB formatted)
             USHORT  usDeviceAttrs;
                         // DEVATTR_* flags
         } DRIVEPARAMS, *PDRIVEPARAMS;
-        #pragma pack()
+        #pragma pack() */
 
         APIRET doshQueryDiskParams(ULONG ulLogicalDrive,
-                                   PDRIVEPARAMS pdp);
+                                   PBIOSPARAMETERBLOCK pdp);
     #endif
+
+    VOID XWPENTRY doshEnumDrives(PSZ pszBuffer,
+                                 const char *pcszFileSystem,
+                                 BOOL fSkipRemoveables);
+    typedef VOID XWPENTRY DOSHENUMDRIVES(PSZ pszBuffer,
+                                         const char *pcszFileSystem,
+                                         BOOL fSkipRemoveables);
+    typedef DOSHENUMDRIVES *PDOSHENUMDRIVES;
+
+    CHAR doshQueryBootDrive(VOID);
+
+    #define ERROR_AUDIO_CD_ROM      10000
+
+    #define ASSERTFL_MIXEDMODECD    0x0001
+
+    APIRET doshAssertDrive(ULONG ulLogicalDrive,
+                           ULONG fl);
+
+    APIRET doshSetLogicalMap(ULONG ulLogicalDrive);
+
+    APIRET XWPENTRY doshQueryDiskSize(ULONG ulLogicalDrive, double *pdSize);
+    typedef APIRET XWPENTRY DOSHQUERYDISKSIZE(ULONG ulLogicalDrive, double *pdSize);
+    typedef DOSHQUERYDISKSIZE *PDOSHQUERYDISKSIZE;
+
+    APIRET XWPENTRY doshQueryDiskFree(ULONG ulLogicalDrive, double *pdFree);
+    typedef APIRET XWPENTRY DOSHQUERYDISKFREE(ULONG ulLogicalDrive, double *pdFree);
+    typedef DOSHQUERYDISKFREE *PDOSHQUERYDISKFREE;
+
+    APIRET XWPENTRY doshQueryDiskFSType(ULONG ulLogicalDrive, PSZ pszBuf, ULONG cbBuf);
+    typedef APIRET XWPENTRY DOSHQUERYDISKFSTYPE(ULONG ulLogicalDrive, PSZ pszBuf, ULONG cbBuf);
+    typedef DOSHQUERYDISKFSTYPE *PDOSHQUERYDISKFSTYPE;
 
     APIRET doshQueryDiskLabel(ULONG ulLogicalDrive,
                               PSZ pszVolumeLabel);
@@ -302,6 +314,22 @@ extern "C" {
 
     APIRET doshSetPathAttr(const char* pcszFile,
                            ULONG ulAttr);
+
+    APIRET doshOpenExisting(const char *pcszFilename,
+                            ULONG ulOpenFlags,
+                            HFILE *phf);
+
+    APIRET doshWriteAt(HFILE hf,
+                       LONG lOffset,
+                       ULONG ulMethod,
+                       ULONG cb,
+                       PBYTE pbData);
+
+    APIRET doshReadAt(HFILE hf,
+                      LONG lOffset,
+                      ULONG ulMethod,
+                      ULONG cb,
+                      PBYTE pbData);
 
     APIRET doshLoadTextFile(const char *pcszFile,
                             PSZ* ppszContent);

@@ -1164,7 +1164,7 @@ typedef struct _STACKITEM
  +                                        fnwpMyDlgProc,
  +                                        "My Dlg Title",
  +                                        DlgTemplate,      // DLGHITEM array
- +                                        ARRAYITEMSIZE(DlgTemplate),
+ +                                        ARRAYITEMCOUNT(DlgTemplate),
  +                                        NULL))
  +          {
  +              ULONG idReturn = WinProcessDlg(hwndDlg);
