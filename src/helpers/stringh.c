@@ -22,7 +22,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2000 Ulrich M”ller.
+ *      Copyright (C) 1997-2002 Ulrich M”ller.
  *      Parts Copyright (C) 1991-1999 iMatix Corporation.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify

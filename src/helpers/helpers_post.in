@@ -19,16 +19,20 @@
 #    the OUTPUTDIR variable (set above).
 
 .c.{$(OUTPUTDIR)}.obj:
-        @echo $(MAKEDIR)\makefile: Compiling $(@B).c
+    @echo $(MAKEDIR)\makefile: Compiling $(@B).c
 !ifdef EMX
-        $(CC_HELPERS) -o $(OUTPUTDIR)\$(@B).obj $(@B).c
+    $(CC_HELPERS) -o $(OUTPUTDIR)\$(@B).obj $(@B).c
 !else
 !ifndef PRECH
-        $(CC_HELPERS) /Fo$(OUTPUTDIR)\$(@B).obj $(@B).c
+    $(CC_HELPERS) /Fo$(OUTPUTDIR)\$(@B).obj $(@B).c
 !else
-        $(CC_HELPERS) /fi"$(PRECH)\$(@B).pch" /si"$(PRECH)\$(@B).pch" /Fo$(OUTPUTDIR)\$(@B).obj $(@B).c
+    $(CC_HELPERS) /fi"$(PRECH)\$(@B).pch" /si"$(PRECH)\$(@B).pch" /Fo$(OUTPUTDIR)\$(@B).obj $(@B).c
 !endif
 !endif
+
+$(OUTPUTDIR)\interlock.obj: $(@B).asm
+    @echo $(MAKEDIR)\makefile: Assembling $(@B).asm
+    alp -Sv:ALP -Fdo:$(OUTPUTDIR) $(@B).asm
 
 # The .OBJ-from-sources dependencies are now automatically
 # created by "nmake dep" into the .depend include file.

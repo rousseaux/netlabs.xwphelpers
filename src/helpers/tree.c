@@ -311,9 +311,11 @@ int TREEENTRY treeCompareKeys(unsigned long  ul1, unsigned long ul2)
 {
     if (ul1 < ul2)
         return -1;
+
     if (ul1 > ul2)
         return +1;
-    return (0);
+
+    return 0;
 }
 
 /*
@@ -335,18 +337,20 @@ int TREEENTRY treeCompareStrings(unsigned long  ul1, unsigned long ul2)
     if (p1 && p2)
     {
         int i = strcmp(p1, p2);
-        if (i < 0) return (-1);
-        if (i > 0) return (+1);
+        if (i < 0)
+            return -1;
+        if (i > 0)
+            return +1;
     }
     else if (p1)
         // but p2 is NULL: p1 greater than p2 then
-        return (+1);
+        return +1;
     else if (p2)
         // but p1 is NULL: p1 less than p2 then
-        return (-1);
+        return -1;
 
     // return 0 if strcmp returned 0 above or both strings are NULL
-    return (0);
+    return 0;
 }
 
 /*
@@ -357,9 +361,7 @@ int TREEENTRY treeCompareStrings(unsigned long  ul1, unsigned long ul2)
 static void rotateLeft(TREE **root,
                        TREE *x)
 {
-   /**************************
-    *  rotate node x to left *
-    **************************/
+    // rotate node x to left
 
     TREE *y = x->right;
 
@@ -371,6 +373,7 @@ static void rotateLeft(TREE **root,
     // establish y->parent link
     if (y != LEAF)
         y->parent = x->parent;
+
     if (x->parent)
     {
         if (x == x->parent->left)
@@ -395,10 +398,7 @@ static void rotateLeft(TREE **root,
 static void rotateRight(TREE **root,
                         TREE *x)
 {
-
-   /****************************
-    *  rotate node x to right  *
-    ****************************/
+    // rotate node x to right
 
     TREE *y = x->left;
 
@@ -410,6 +410,7 @@ static void rotateRight(TREE **root,
     // establish y->parent link
     if (y != LEAF)
         y->parent = x->parent;
+
     if (x->parent)
     {
         if (x == x->parent->right)
@@ -434,11 +435,6 @@ static void rotateRight(TREE **root,
 static void insertFixup(TREE **root,
                         TREE *x)
 {
-   /*************************************
-    *  maintain Red-Black tree balance  *
-    *  after inserting node x           *
-    *************************************/
-
     // check Red-Black properties
     while (    x != *root
             && x->parent->color == RED
@@ -502,6 +498,7 @@ static void insertFixup(TREE **root,
             }
         }
     }
+
     (*root)->color = BLACK;
 }
 
@@ -545,24 +542,20 @@ int treeInsert(TREE **root,                     // in: root of the tree
     while (current != LEAF)
     {
         int iResult;
-        if (0 == (iResult = pfnCompare(key, current->ulKey))) // if (compEQ(key, current->key))
+        if (!(iResult = pfnCompare(key, current->ulKey)))
             return STATUS_DUPLICATE_KEY;
 
         parent = current;
-        current = (iResult < 0)    // compLT(key, current->key)
+        current = (iResult < 0)
                     ? current->left
                     : current->right;
     }
 
     // set up new node
-    /* if ((x = malloc (sizeof(*x))) == 0)
-        return STATUS_MEM_EXHAUSTED; */
     x->parent = parent;
     x->left = LEAF;
     x->right = LEAF;
     x->color = RED;
-    // x->key = key;
-    // x->rec = *rec;
 
     // insert node in tree
     if (parent)
@@ -577,7 +570,6 @@ int treeInsert(TREE **root,                     // in: root of the tree
 
     insertFixup(root,
                 x);
-    // lastFind = NULL;
 
     if (plCount)
         (*plCount)++;       // V0.9.16 (2001-10-19) [umoeller]
@@ -666,91 +658,8 @@ static void deleteFixup(TREE **root,
             }
         }
     }
+
     tree->color = BLACK;
-
-   /*************************************
-    *  maintain Red-Black tree balance  *
-    *  after deleting node x            *
-    *************************************/
-
-    /* while (    x != *root
-            && x->color == BLACK
-          )
-    {
-        if (x == x->parent->left)
-        {
-            TREE *w = x->parent->right;
-            if (w->color == RED)
-            {
-                w->color = BLACK;
-                x->parent->color = RED;
-                rotateLeft(root,
-                           x->parent);
-                w = x->parent->right;
-            }
-            if (    w->left->color == BLACK
-                 && w->right->color == BLACK
-               )
-            {
-                w->color = RED;
-                x = x->parent;
-            }
-            else
-            {
-                if (w->right->color == BLACK)
-                {
-                    w->left->color = BLACK;
-                    w->color = RED;
-                    rotateRight(root,
-                                w);
-                    w = x->parent->right;
-                }
-                w->color = x->parent->color;
-                x->parent->color = BLACK;
-                w->right->color = BLACK;
-                rotateLeft(root,
-                           x->parent);
-                x = *root;
-            }
-        }
-        else
-        {
-            TREE *w = x->parent->left;
-            if (w->color == RED)
-            {
-                w->color = BLACK;
-                x->parent->color = RED;
-                rotateRight(root,
-                            x->parent);
-                w = x->parent->left;
-            }
-            if (    w->right->color == BLACK
-                 && w->left->color == BLACK
-               )
-            {
-                w->color = RED;
-                x = x->parent;
-            }
-            else
-            {
-                if (w->left->color == BLACK)
-                {
-                    w->right->color = BLACK;
-                    w->color = RED;
-                    rotateLeft(root,
-                               w);
-                    w = x->parent->left;
-                }
-                w->color = x->parent->color;
-                x->parent->color = BLACK;
-                w->left->color = BLACK;
-                rotateRight(root,
-                            x->parent);
-                x = *root;
-            }
-        }
-    }
-    x->color = BLACK; */
 }
 
 /*
@@ -802,6 +711,7 @@ int treeDelete(TREE **root,         // in: root of the tree
     // remove d from the parent chain
     if (y != LEAF)
         y->parent = d->parent;
+
     if (d->parent)
     {
         if (d == d->parent->left)
@@ -862,22 +772,16 @@ TREE* treeFind(TREE *root,                    // in: root of the tree
                unsigned long key,             // in: key to find
                FNTREE_COMPARE *pfnCompare)    // in: comparison func
 {
-   /*******************************
-    *  find node containing data  *
-    *******************************/
-
     TREE *current = root;
     while (current != LEAF)
     {
         int iResult;
-        if (0 == (iResult = pfnCompare(key, current->ulKey)))
-            return (current);
-        else
-        {
-            current = (iResult < 0) // compLT (key, current->key)
-                ? current->left
-                : current->right;
-        }
+        if (!(iResult = pfnCompare(key, current->ulKey)))
+            return current;
+
+        current = (iResult < 0)
+            ? current->left
+            : current->right;
     }
 
     return 0;
@@ -956,23 +860,22 @@ TREE* treeNext(TREE *r)
 
     p = r;
     if (p->right != LEAF)
-        return treeFirst (p->right);
-    else
+        return treeFirst(p->right);
+
+    p = r;
+    child   = LEAF;
+    while (    (p->parent)
+            && (p->right == child)
+          )
     {
-        p = r;
-        child   = LEAF;
-        while (    (p->parent)
-                && (p->right == child)
-              )
-        {
-            child = p;
-            p = p->parent;
-        }
-        if (p->right != child)
-            return p;
-        else
-            return NULL;
+        child = p;
+        p = p->parent;
     }
+
+    if (p->right != child)
+        return p;
+
+    return NULL;
 }
 
 /*
@@ -986,27 +889,28 @@ TREE* treePrev(TREE *r)
             *child;
 
     if (    (!r)
-         || (r == LEAF))
+         || (r == LEAF)
+       )
         return NULL;
 
     p = r;
     if (p->left != LEAF)
         return treeLast (p->left);
-    else
+
+    p = r;
+    child   = LEAF;
+    while (    (p->parent)
+            && (p->left == child)
+          )
     {
-        p = r;
-        child   = LEAF;
-        while ((p->parent)
-           &&  (p->left == child))
-        {
-            child = p;
-            p = p->parent;
-        }
-        if (p->left != child)
-            return p;
-        else
-            return NULL;
+        child = p;
+        p = p->parent;
     }
+
+    if (p->left != child)
+        return p;
+
+    return NULL;
 }
 
 /*

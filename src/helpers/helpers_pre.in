@@ -68,7 +68,8 @@ $(OUTPUTDIR)\procstat.obj \
 $(OUTPUTDIR)\prfh.obj \
 $(OUTPUTDIR)\prfh2.obj \
 $(OUTPUTDIR)\resh.obj \
-$(OUTPUTDIR)\semaphores.obj \
+$(OUTPUTDIR)\sem.obj \
+$(OUTPUTDIR)\interlock.obj \
 $(OUTPUTDIR)\stringh.obj \
 $(OUTPUTDIR)\syssound.obj \
 $(OUTPUTDIR)\tmsgfile.obj \

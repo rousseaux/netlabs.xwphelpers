@@ -2647,12 +2647,23 @@ BOOL gpihDrawPointer(HPS hps,           // in: target presentation space
              && (aptl[0].y < aptl[1].y)
            )
         {
+            LONG    lPatternOld = -1;               // mark as "not changed" for now
+            LONG    lAndROP = ROP_SRCAND,           // 0x0088 = 10001000
+                    lPaintROP = ROP_SRCPAINT,       // 0x00EE = 11101110
+                    lInvertROP = ROP_SRCINVERT;     // 0x0066 = 01100110
+
             // colors are constant too
             GpiSetColor(hps, RGBCOL_WHITE);
             GpiSetBackColor(hps, RGBCOL_BLACK);
 
             if (fl & DP_HALFTONED) // V0.9.20 (2002-08-04) [umoeller]
+            {
+                lPatternOld = GpiQueryPattern(hps);
                 GpiSetPattern(hps, PATSYM_HALFTONE);
+
+                lAndROP     = 0x00A8;               //          10101000
+                lInvertROP  = 0x00A6;               //          10100110
+            }
 
             /*
              * 1)   work on the AND image
@@ -2687,7 +2698,7 @@ BOOL gpihDrawPointer(HPS hps,           // in: target presentation space
                             hbmThis,    // src bmp
                             4L,         // must always be 4
                             aptl,       // point array
-                            ROP_SRCAND,   // source AND target
+                            lAndROP, // ROP_SRCAND,   // source AND target
                             BBO_IGNORE);
             }
 
@@ -2721,7 +2732,7 @@ BOOL gpihDrawPointer(HPS hps,           // in: target presentation space
                             hbmThis,    // src bmp
                             4L,         // must always be 4
                             aptl,       // point array
-                            ROP_SRCPAINT,
+                            lPaintROP, // ROP_SRCPAINT,
                             BBO_IGNORE);
             }
 
@@ -2760,9 +2771,13 @@ BOOL gpihDrawPointer(HPS hps,           // in: target presentation space
                             hbmThis,    // src bmp
                             4L,         // must always be 4
                             aptl,       // point array
-                            ROP_SRCINVERT,   // source XOR target
+                            lInvertROP, // ROP_SRCINVERT,   // source XOR target
                             BBO_IGNORE);
             }
+
+            // reset old pattern, if changed
+            if (lPatternOld != -1)
+                GpiSetPattern(hps, lPatternOld);
 
             return TRUE;
         }
