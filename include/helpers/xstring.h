@@ -86,6 +86,8 @@ extern "C" {
     typedef void XWPENTRY XSTRINIT(PXSTRING pxstr, ULONG ulPreAllocate);
     typedef XSTRINIT *PXSTRINIT; */
 
+    void xstrInitSet2(PXSTRING pxstr, PSZ pszNew, ULONG ulNewLength);
+
     void XWPENTRY xstrInitSet(PXSTRING pxstr, PSZ pszNew);
     typedef void XWPENTRY XSTRINITSET(PXSTRING pxstr, PSZ pszNew);
     typedef XSTRINITSET *PXSTRINITSET;
@@ -130,6 +132,8 @@ extern "C" {
     VOID XWPENTRY xstrFree(PXSTRING *ppxstr);
     typedef VOID XWPENTRY XSTRFREE(PXSTRING *ppxstr);
     typedef XSTRFREE *PXSTRFREE;
+
+    ULONG XWPENTRY xstrset2(PXSTRING pxstr, PSZ pszNew, ULONG ulNewLength);
 
     ULONG XWPENTRY xstrset(PXSTRING pxstr, PSZ pszNew);
     typedef ULONG XWPENTRY XSTRSET(PXSTRING pxstr, PSZ pszNew);

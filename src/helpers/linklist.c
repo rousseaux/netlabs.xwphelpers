@@ -291,8 +291,8 @@ PLINKLIST lstCreateDebug(BOOL fItemsFreeable,
 PLINKLIST lstCreate(BOOL fItemsFreeable)    // in: invoke free() on the data
                                             // item pointers upon destruction?
 {
-    PLINKLIST pNewList = (PLINKLIST)malloc(sizeof(LINKLIST));
-    if (pNewList)
+    PLINKLIST pNewList;
+    if (pNewList = (PLINKLIST)malloc(sizeof(LINKLIST)))
         lstInit(pNewList, fItemsFreeable);
     return (pNewList);
 }
@@ -443,22 +443,23 @@ PLISTNODE lstNodeFromIndex(PLINKLIST pList,
 {
     PLISTNODE pNode = NULL;
 
-    if (pList)
-        if (pList->ulMagic == LINKLISTMAGIC)
-            if (pList->pFirst)
-            {
-                unsigned long ulCount = 0;
-                pNode = pList->pFirst;
-                for (ulCount = 0;
-                     ((pNode) && (ulCount < ulIndex));
-                     ulCount++)
-                {
-                    if (pNode->pNext)
-                        pNode = pNode->pNext;
-                    else
-                        pNode = NULL; // exit
-                }
-            }
+    if (    (pList)
+         && (pList->ulMagic == LINKLISTMAGIC)
+         && (pList->pFirst)
+       )
+    {
+        unsigned long ulCount = 0;
+        pNode = pList->pFirst;
+        for (ulCount = 0;
+             ((pNode) && (ulCount < ulIndex));
+             ulCount++)
+        {
+            if (pNode->pNext)
+                pNode = pNode->pNext;
+            else
+                pNode = NULL; // exit
+        }
+    }
 
     return (pNode);
 }
@@ -479,23 +480,23 @@ PLISTNODE lstNodeFromItem(PLINKLIST pList,
     PLISTNODE pNode = 0,
               pNodeFound = 0;
 
-    if (pList)
-        if (    (pList->ulMagic == LINKLISTMAGIC)
-             && (pItemData)
-           )
+    if (    (pList)
+         && (pList->ulMagic == LINKLISTMAGIC)
+         && (pItemData)
+       )
+    {
+        pNode = pList->pFirst;
+        while (pNode)
         {
-            pNode = pList->pFirst;
-            while (pNode)
+            if (pNode->pItemData == pItemData)
             {
-                if (pNode->pItemData == pItemData)
-                {
-                    pNodeFound = pNode;
-                    break;
-                }
-
-                pNode = pNode->pNext;
+                pNodeFound = pNode;
+                break;
             }
+
+            pNode = pNode->pNext;
         }
+    }
 
     return (pNodeFound);
 }
@@ -517,8 +518,8 @@ PLISTNODE lstNodeFromItem(PLINKLIST pList,
 void* lstItemFromIndex(PLINKLIST pList,
                        unsigned long ulIndex)
 {
-    PLISTNODE pNode = lstNodeFromIndex(pList, ulIndex);
-    if (pNode)
+    PLISTNODE pNode;
+    if (pNode = lstNodeFromIndex(pList, ulIndex))
         return (pNode->pItemData);
     else
         return (0);
@@ -579,40 +580,39 @@ PLISTNODE lstAppendItemDebug(PLINKLIST pList,
                              unsigned long line,
                              const char *function)
 {
-    PLISTNODE pNewNode = 0;
+    PLISTNODE pNewNode = NULL;
 
-    if (pList)
-        if (pList->ulMagic == LINKLISTMAGIC)
+    if (    (pList)
+         && (pList->ulMagic == LINKLISTMAGIC)
+         && (pNewNode = (PLISTNODE)memdMalloc(sizeof(LISTNODE), file, line, function))
+       )
+    {
+        memset(pNewNode, 0, sizeof(LISTNODE));
+        pNewNode->pItemData = pNewItemData;
+
+        if (pList->pLast)
         {
-            if (pNewNode = (PLISTNODE)memdMalloc(sizeof(LISTNODE), file, line, function))
-            {
-                memset(pNewNode, 0, sizeof(LISTNODE));
-                pNewNode->pItemData = pNewItemData;
+            // list is not empty: append to tail
 
-                if (pList->pLast)
-                {
-                    // list is not empty: append to tail
+            // 1) make last item point to new node
+            pList->pLast->pNext = pNewNode;
+            // 2) make new node point to last item
+            pNewNode->pPrevious = pList->pLast;
+            // 3) store new node as new last item
+            pList->pLast = pNewNode;
 
-                    // 1) make last item point to new node
-                    pList->pLast->pNext = pNewNode;
-                    // 2) make new node point to last item
-                    pNewNode->pPrevious = pList->pLast;
-                    // 3) store new node as new last item
-                    pList->pLast = pNewNode;
+            pList->ulCount++;
+        }
+        else
+        {
+            // list is empty: insert as first
+            pList->pFirst
+                = pList->pLast
+                = pNewNode;
 
-                    pList->ulCount++;
-                }
-                else
-                {
-                    // list is empty: insert as first
-                    pList->pFirst
-                        = pList->pLast
-                        = pNewNode;
-
-                    pList->ulCount = 1;
-                }
-            }
-         }
+            pList->ulCount = 1;
+        }
+    }
 
     return (pNewNode);
 }
@@ -634,40 +634,39 @@ PLISTNODE lstAppendItemDebug(PLINKLIST pList,
 PLISTNODE lstAppendItem(PLINKLIST pList,
                         void* pNewItemData)     // in: data to store in list node
 {
-    PLISTNODE pNewNode = 0;
+    PLISTNODE pNewNode = NULL;
 
-    if (pList)
-        if (pList->ulMagic == LINKLISTMAGIC)
+    if (    (pList)
+         && (pList->ulMagic == LINKLISTMAGIC)
+         && (pNewNode = (PLISTNODE)malloc(sizeof(LISTNODE)))
+       )
+    {
+        memset(pNewNode, 0, sizeof(LISTNODE));
+        pNewNode->pItemData = pNewItemData;
+
+        if (pList->pLast)
         {
-            if (pNewNode = (PLISTNODE)malloc(sizeof(LISTNODE)))
-            {
-                memset(pNewNode, 0, sizeof(LISTNODE));
-                pNewNode->pItemData = pNewItemData;
+            // list is not empty: append to tail
 
-                if (pList->pLast)
-                {
-                    // list is not empty: append to tail
+            // 1) make last item point to new node
+            pList->pLast->pNext = pNewNode;
+            // 2) make new node point to last item
+            pNewNode->pPrevious = pList->pLast;
+            // 3) store new node as new last item
+            pList->pLast = pNewNode;
 
-                    // 1) make last item point to new node
-                    pList->pLast->pNext = pNewNode;
-                    // 2) make new node point to last item
-                    pNewNode->pPrevious = pList->pLast;
-                    // 3) store new node as new last item
-                    pList->pLast = pNewNode;
+            pList->ulCount++;
+        }
+        else
+        {
+            // list is empty: insert as first
+            pList->pFirst
+                = pList->pLast
+                = pNewNode;
 
-                    pList->ulCount++;
-                }
-                else
-                {
-                    // list is empty: insert as first
-                    pList->pFirst
-                        = pList->pLast
-                        = pNewNode;
-
-                    pList->ulCount = 1;
-                }
-            }
-         }
+            pList->ulCount = 1;
+        }
+    }
 
     return (pNewNode);
 }
@@ -702,70 +701,69 @@ PLISTNODE lstInsertItemBefore(PLINKLIST pList,
                               void* pNewItemData,     // data to store in list node
                               unsigned long ulIndex)
 {
-    PLISTNODE pNewNode = 0;
+    PLISTNODE pNewNode = NULL;
 
-    if (pList)
-        if (pList->ulMagic == LINKLISTMAGIC)
+    if (    (pList)
+         && (pList->ulMagic == LINKLISTMAGIC)
+         && (pNewNode = (PLISTNODE)malloc(sizeof(LISTNODE)))
+       )
+    {
+        memset(pNewNode, 0, sizeof(LISTNODE));
+        pNewNode->pItemData = pNewItemData;
+
+        if (ulIndex == 0)
         {
-            if (pNewNode = (PLISTNODE)malloc(sizeof(LISTNODE)))
+            // insert at beginning:
+            if (pList->pFirst)
+                pList->pFirst->pPrevious = pNewNode;
+
+            pNewNode->pNext = pList->pFirst;
+            pNewNode->pPrevious = NULL;
+
+            pList->pFirst = pNewNode;
+
+            if (!pList->pLast)
+                // the list was empty:
+                pList->pLast = pNewNode;        // V0.9.14 (2001-07-14) [umoeller]
+
+            (pList->ulCount)++;
+        }
+        else
+        {
+            // insert at a later position:
+            PLISTNODE pNodeInsertAfter = lstNodeFromIndex(
+                                    pList,
+                                    (ulIndex-1));
+
+            if (pNodeInsertAfter)
             {
-                memset(pNewNode, 0, sizeof(LISTNODE));
-                pNewNode->pItemData = pNewItemData;
+                // 1) set pointers for new node
+                pNewNode->pPrevious = pNodeInsertAfter;
+                pNewNode->pNext = pNodeInsertAfter->pNext;
 
-                if (ulIndex == 0)
-                {
-                    // insert at beginning:
-                    if (pList->pFirst)
-                        pList->pFirst->pPrevious = pNewNode;
+                // 2) adjust next item
+                // so that it points to the new node
+                if (pNodeInsertAfter->pNext)
+                    pNodeInsertAfter->pNext->pPrevious = pNewNode;
 
-                    pNewNode->pNext = pList->pFirst;
-                    pNewNode->pPrevious = NULL;
+                // 3) adjust previous item
+                // so that it points to the new node
+                pNodeInsertAfter->pNext = pNewNode;
 
-                    pList->pFirst = pNewNode;
+                // 4) adjust last item, if necessary
+                if (pList->pLast == pNodeInsertAfter)
+                    pList->pLast = pNewNode;
 
-                    if (!pList->pLast)
-                        // the list was empty:
-                        pList->pLast = pNewNode;        // V0.9.14 (2001-07-14) [umoeller]
-
-                    (pList->ulCount)++;
-                }
-                else
-                {
-                    // insert at a later position:
-                    PLISTNODE pNodeInsertAfter = lstNodeFromIndex(
-                                            pList,
-                                            (ulIndex-1));
-
-                    if (pNodeInsertAfter)
-                    {
-                        // 1) set pointers for new node
-                        pNewNode->pPrevious = pNodeInsertAfter;
-                        pNewNode->pNext = pNodeInsertAfter->pNext;
-
-                        // 2) adjust next item
-                        // so that it points to the new node
-                        if (pNodeInsertAfter->pNext)
-                            pNodeInsertAfter->pNext->pPrevious = pNewNode;
-
-                        // 3) adjust previous item
-                        // so that it points to the new node
-                        pNodeInsertAfter->pNext = pNewNode;
-
-                        // 4) adjust last item, if necessary
-                        if (pList->pLast == pNodeInsertAfter)
-                            pList->pLast = pNewNode;
-
-                        (pList->ulCount)++;
-                    }
-                    else
-                    {
-                        // item index too large: append instead
-                        free(pNewNode);
-                        pNewNode = lstAppendItem(pList, pNewItemData);
-                    }
-                }
+                (pList->ulCount)++;
+            }
+            else
+            {
+                // item index too large: append instead
+                free(pNewNode);
+                pNewNode = lstAppendItem(pList, pNewItemData);
             }
         }
+    }
 
     return (pNewNode);
 }
@@ -796,38 +794,38 @@ BOOL lstRemoveNode(PLINKLIST pList,
 {
     BOOL fFound = FALSE;
 
-    if (pList)
-        if (    (pList->ulMagic == LINKLISTMAGIC)
-             && (pRemoveNode)
-           )
-        {
-            if (pList->pFirst == pRemoveNode)
-                // item to be removed is first: adjust first
-                pList->pFirst = pRemoveNode->pNext;     // can be NULL
-            if (pList->pLast == pRemoveNode)
-                // item to be removed is last: adjust last
-                pList->pLast = pRemoveNode->pPrevious;  // can be NULL
+    if (    (pList)
+         && (pList->ulMagic == LINKLISTMAGIC)
+         && (pRemoveNode)
+       )
+    {
+        if (pList->pFirst == pRemoveNode)
+            // item to be removed is first: adjust first
+            pList->pFirst = pRemoveNode->pNext;     // can be NULL
+        if (pList->pLast == pRemoveNode)
+            // item to be removed is last: adjust last
+            pList->pLast = pRemoveNode->pPrevious;  // can be NULL
 
-            if (pRemoveNode->pPrevious)
-                // adjust previous item
-                pRemoveNode->pPrevious->pNext = pRemoveNode->pNext;
+        if (pRemoveNode->pPrevious)
+            // adjust previous item
+            pRemoveNode->pPrevious->pNext = pRemoveNode->pNext;
 
-            if (pRemoveNode->pNext)
-                // adjust next item
-                pRemoveNode->pNext->pPrevious = pRemoveNode->pPrevious;
+        if (pRemoveNode->pNext)
+            // adjust next item
+            pRemoveNode->pNext->pPrevious = pRemoveNode->pPrevious;
 
-            // decrease list count
-            pList->ulCount--;
+        // decrease list count
+        pList->ulCount--;
 
-            // free node data
-            if (pList->fItemsFreeable)
-                if (pRemoveNode->pItemData)
-                    free(pRemoveNode->pItemData);
-            // free node
-            free(pRemoveNode);
+        // free node data
+        if (pList->fItemsFreeable)
+            if (pRemoveNode->pItemData)
+                free(pRemoveNode->pItemData);
+        // free node
+        free(pRemoveNode);
 
-            fFound = TRUE;
-        }
+        fFound = TRUE;
+    }
 
     return (fFound);
 }
@@ -851,14 +849,12 @@ BOOL lstRemoveNode(PLINKLIST pList,
 
 BOOL lstRemoveItem(PLINKLIST pList, void* pRemoveItem)
 {
-    BOOL brc = FALSE;
+    PLISTNODE pNode;
 
-    PLISTNODE pNode = lstNodeFromItem(pList, pRemoveItem);
+    if (pNode = lstNodeFromItem(pList, pRemoveItem))
+        return (lstRemoveNode(pList, pNode));
 
-    if (pNode)
-        brc = lstRemoveNode(pList, pNode);
-
-    return (brc);
+    return (FALSE);
 }
 
 /*
@@ -874,18 +870,16 @@ BOOL lstRemoveItem(PLINKLIST pList, void* pRemoveItem)
 BOOL lstSwapNodes(PLISTNODE pNode1,
                   PLISTNODE pNode2)
 {
-    BOOL brc = FALSE;
-
     if ( (pNode1) && (pNode2) )
     {
         void* pTemp = pNode1->pItemData;
         pNode1->pItemData = pNode2->pItemData;
         pNode2->pItemData = pTemp;
 
-        brc = TRUE;
+        return (TRUE);
     }
 
-    return (brc);
+    return (FALSE);
 }
 
 /* ******************************************************************
@@ -906,7 +900,7 @@ void lstQuickSort2(PLINKLIST pList,
                    long lRight)
 {
     long ll = lLeft,
-         lr = lRight-1,
+         lr = lRight - 1,
          lPivot = lRight;
 
     if (lRight > lLeft)
@@ -918,9 +912,9 @@ void lstQuickSort2(PLINKLIST pList,
         while (TRUE)
         {
             // compare left item data to pivot item data
-            while ( (*pfnSort)(pNodeLeft->pItemData,
-                               pNodePivot->pItemData,
-                               pStorage)
+            while ( pfnSort(pNodeLeft->pItemData,
+                            pNodePivot->pItemData,
+                            pStorage)
                     < 0 )
             {
                 ll++;
@@ -929,9 +923,9 @@ void lstQuickSort2(PLINKLIST pList,
             }
 
             // compare right item to pivot
-            while (     ( (*pfnSort)(pNodeRight->pItemData,
-                                     pNodePivot->pItemData,
-                                     pStorage)
+            while (     ( pfnSort(pNodeRight->pItemData,
+                                  pNodePivot->pItemData,
+                                  pStorage)
                            >= 0 )
                     && (lr > ll)
                   )
@@ -952,8 +946,12 @@ void lstQuickSort2(PLINKLIST pList,
         lstSwapNodes(pNodeLeft, pNodePivot);
 
         // recurse!
-        lstQuickSort2(pList, pfnSort, pStorage, lLeft, ll-1);
-        lstQuickSort2(pList, pfnSort, pStorage, ll+1, lRight);
+        lstQuickSort2(pList, pfnSort, pStorage,
+                      lLeft,
+                      ll - 1);
+        lstQuickSort2(pList, pfnSort, pStorage,
+                      ll + 1,
+                      lRight);
     }
 }
 
@@ -993,18 +991,18 @@ BOOL lstQuickSort(PLINKLIST pList,
 {
     BOOL brc = FALSE;
 
-    if (pList)
-        if (    (pList->ulMagic == LINKLISTMAGIC)
-             && (pfnSort)
-           )
-        {
-            long lRight = lstCountItems(pList)-1;
+    if (    (pList)
+         && (pList->ulMagic == LINKLISTMAGIC)
+         && (pfnSort)
+       )
+    {
+        long lRight = lstCountItems(pList) - 1;
 
-            lstQuickSort2(pList, pfnSort, pStorage,
-                        0,          // lLeft
-                        lRight);
-            brc = TRUE;
-        }
+        lstQuickSort2(pList, pfnSort, pStorage,
+                      0,          // lLeft
+                      lRight);
+        brc = TRUE;
+    }
 
     return (brc);
 }

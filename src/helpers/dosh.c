@@ -2381,6 +2381,8 @@ APIRET doshLoadTextFile(PCSZ pcszFile,      // in: file name to read
                 {
                     pszContent[cbRead] = '\0';
                     *ppszContent = pszContent;
+                    if (pcbRead)
+                        *pcbRead = cbRead + 1;
                 }
             }
 
@@ -2977,6 +2979,65 @@ APIRET doshDeleteDir(PCSZ pcszDir,
  ********************************************************************/
 
 /*
+ *@@ doshQueryProcAddr:
+ *      attempts to resolve the given procedure from
+ *      the given module name. Saves you from querying
+ *      the module handle and all that.
+ *
+ *      This is intended for resolving undocumented
+ *      APIs from OS/2 system DLls such as PMMERGE
+ *      and DOSCALLS. It is assumed that the specified
+ *      module is already loaded.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR
+ *
+ *      --  ERROR_INVALID_NAME
+ *
+ *      --  ERROR_INVALID_ORDINAL
+ *
+ *      plus the error codes of DosLoadModule.
+ *
+ *@@added V0.9.16 (2002-01-13) [umoeller]
+ */
+
+APIRET doshQueryProcAddr(PCSZ pcszModuleName,       // in: module name (e.g. "PMMERGE")
+                         ULONG ulOrdinal,           // in: proc ordinal
+                         PFN *ppfn)                 // out: proc address
+{
+    HMODULE hmod;
+    APIRET  arc;
+    if (!(arc = DosQueryModuleHandle((PSZ)pcszModuleName,
+                                     &hmod)))
+    {
+        if ((arc = DosQueryProcAddr(hmod,
+                                    ulOrdinal,
+                                    NULL,
+                                    ppfn)))
+        {
+            // the CP programming guide and reference says use
+            // DosLoadModule if DosQueryProcAddr fails with this error
+            if (arc == ERROR_INVALID_HANDLE)
+            {
+                if (!(arc = DosLoadModule(NULL,
+                                          0,
+                                          (PSZ)pcszModuleName,
+                                          &hmod)))
+                {
+                    arc = DosQueryProcAddr(hmod,
+                                           ulOrdinal,
+                                           NULL,
+                                           ppfn);
+                }
+            }
+        }
+    }
+
+    return (arc);
+}
+
+/*
  *@@ doshResolveImports:
  *      this function loads the module called pszModuleName
  *      and resolves imports dynamically using DosQueryProcAddress.
@@ -2989,9 +3050,9 @@ APIRET doshDeleteDir(PCSZ pcszDir,
  *@@added V0.9.3 (2000-04-29) [umoeller]
  */
 
-APIRET doshResolveImports(PSZ pszModuleName,    // in: DLL to load
+APIRET doshResolveImports(PCSZ pcszModuleName,    // in: DLL to load
                           HMODULE *phmod,       // out: module handle
-                          PRESOLVEFUNCTION paResolves, // in/out: function resolves
+                          PCRESOLVEFUNCTION paResolves, // in/out: function resolves
                           ULONG cResolves)      // in: array item count (not array size!)
 {
     CHAR    szName[CCHMAXPATH];
@@ -2999,7 +3060,7 @@ APIRET doshResolveImports(PSZ pszModuleName,    // in: DLL to load
 
     if (!(arc = DosLoadModule(szName,
                               sizeof(szName),
-                              pszModuleName,
+                              (PSZ)pcszModuleName,
                               phmod)))
     {
         ULONG  ul;

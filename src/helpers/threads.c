@@ -500,17 +500,19 @@ PTHREADINFO thrListThreads(PULONG pcThreads)
         PTHREADINFO pThis;
         PLISTNODE pNode;
         *pcThreads = lstCountItems(&G_llThreadInfos);
-        pArray = (PTHREADINFO)malloc(*pcThreads * sizeof(THREADINFO));
-        pThis = pArray;
-
-        pNode = lstQueryFirstNode(&G_llThreadInfos);
-        while (pNode)
+        if (pArray = (PTHREADINFO)malloc(*pcThreads * sizeof(THREADINFO)))
         {
-            memcpy(pThis,
-                   (PTHREADINFO)pNode->pItemData,
-                   sizeof(THREADINFO));
-            pThis++;
-            pNode = pNode->pNext;
+            pThis = pArray;
+
+            pNode = lstQueryFirstNode(&G_llThreadInfos);
+            while (pNode)
+            {
+                memcpy(pThis,
+                       (PTHREADINFO)pNode->pItemData,
+                       sizeof(THREADINFO));
+                pThis++;
+                pNode = pNode->pNext;
+            }
         }
 
         UnlockThreadInfos();

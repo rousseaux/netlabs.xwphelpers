@@ -346,6 +346,8 @@ PSZ strhistr(const char *string1, const char *string2)
 /*
  *@@ strhncpy0:
  *      like strncpy, but always appends a 0 character.
+ *
+ *@@changed V0.9.16 (2002-01-09) [umoeller]: fixed crash on null pszSource
  */
 
 ULONG strhncpy0(PSZ pszTarget,
@@ -353,14 +355,18 @@ ULONG strhncpy0(PSZ pszTarget,
                 ULONG cbSource)
 {
     ULONG ul = 0;
-    PSZ pTarget = pszTarget,
-        pSource = (PSZ)pszSource;
+    PSZ     pTarget = pszTarget,
+            pSource;
 
-    for (ul = 0; ul < cbSource; ul++)
-        if (*pSource)
-            *pTarget++ = *pSource++;
-        else
-            break;
+    if (pSource = (PSZ)pszSource)       // V0.9.16 (2002-01-09) [umoeller]
+    {
+        for (ul = 0; ul < cbSource; ul++)
+            if (*pSource)
+                *pTarget++ = *pSource++;
+            else
+                break;
+    }
+
     *pTarget = 0;
 
     return (ul);
@@ -528,8 +534,8 @@ PSZ strhExtract(PSZ pszBuf,     // in: search buffer
 
     if (pszBuf)
     {
-        PSZ pOpen = strchr(pszBuf, cOpen);
-        if (pOpen)
+        PSZ pOpen;
+        if (pOpen = strchr(pszBuf, cOpen))
         {
             // opening char found:
             // now go thru the whole rest of the buffer

@@ -4509,7 +4509,7 @@ HWND winhCreateExtStdWindow(PEXTFRAMECDATA pData,        // in: extended frame d
             // create status bar as child of the frame
             HWND hwndStatusBar = winhCreateStatusBar(hwndFrame,
                                                      hwndFrame,
-                                                     NULL,
+                                                     "",
                                                      "9.WarpSans",
                                                      CLR_BLACK);
 

@@ -328,7 +328,7 @@ APIRET exehOpen(const char* pcszExecutable,
 
                 // go read in the complete header then
                 // (doshReadAt has this in the cache)
-                if (!(pExec->pNEHeader = malloc(cbRead)))
+                if (!(pExec->pNEHeader = (PNEHEADER)malloc(cbRead)))
                     arc = ERROR_NOT_ENOUGH_MEMORY;
                 else if (!(arc = doshReadAt(pFile,
                                             ulNewHeaderOfs,
@@ -360,7 +360,7 @@ APIRET exehOpen(const char* pcszExecutable,
 
                 // go read in the complete header then
                 // (doshReadAt has this in the cache)
-                if (!(pExec->pLXHeader = malloc(cbRead)))
+                if (!(pExec->pLXHeader = (PLXHEADER)malloc(cbRead)))
                     arc = ERROR_NOT_ENOUGH_MEMORY;
                 else if (!(arc = doshReadAt(pFile,
                                             ulNewHeaderOfs,
@@ -388,7 +388,7 @@ APIRET exehOpen(const char* pcszExecutable,
                 // PE has a standard header of 24 bytes
                 // plus an extended header, so check
                 // what we've got
-                if (!(pExec->pPEHeader = malloc(sizeof(PEHEADER))))
+                if (!(pExec->pPEHeader = (PPEHEADER)malloc(sizeof(PEHEADER))))
                     arc = ERROR_NOT_ENOUGH_MEMORY;
                 else
                 {
@@ -2741,7 +2741,7 @@ APIRET exehLoadLXResource(PEXECUTABLE pExec,     // in: executable from exehOpen
 
                     // 4096 bytes for each page that is read in
                     // plus 4 extra bytes to terminate for decompression
-                    if (!(pabCompressed = malloc(ulPageSize + 4)))
+                    if (!(pabCompressed = (PBYTE)malloc(ulPageSize + 4)))
                         arc = ERROR_NOT_ENOUGH_MEMORY;
                     // 4096 * cPages for the data that is composed from that
                     else if (!(arc = doshAllocArray(cPages,
@@ -2792,7 +2792,7 @@ APIRET exehLoadLXResource(PEXECUTABLE pExec,     // in: executable from exehOpen
                         if (!arc)
                         {
                             // allocate a new buffer for caller
-                            if (!(*ppbResData = malloc(pRsEntry->cb)))
+                            if (!(*ppbResData = (PBYTE)malloc(pRsEntry->cb)))
                                 arc = ERROR_NOT_ENOUGH_MEMORY;
                             else
                             {
@@ -3051,7 +3051,7 @@ APIRET exehLoadOS2NEResource(PEXECUTABLE pExec,     // in: executable from exehO
 
                 ULONG cb = pSegThis->ns_cbseg;        // resource size
                 PBYTE pb;
-                if (!(*ppbResData = malloc(cb)))
+                if (!(*ppbResData = (PBYTE)malloc(cb)))
                     arc = ERROR_NOT_ENOUGH_MEMORY;
                 else
                 {

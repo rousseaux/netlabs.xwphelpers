@@ -233,7 +233,7 @@ VOID SetDlgFont(PCONTROLDEF pControlDef,
                 PDLGPRIVATE pDlgData)
 {
     LONG lPointSize = 0;
-    const char *pcszFontThis = pControlDef->pcszFont;
+    PCSZ pcszFontThis = pControlDef->pcszFont;
                     // can be NULL,
                     // or CTL_COMMON_FONT
 
@@ -1239,7 +1239,7 @@ APIRET Dlg0_Init(PDLGPRIVATE *ppDlgData,
  */
 
 APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
-                        PDLGHITEM paDlgItems,      // in: definition array
+                        PCDLGHITEM paDlgItems,      // in: definition array
                         ULONG cDlgItems)           // in: array item count (NOT array size)
 {
     APIRET      arc = NO_ERROR;
@@ -1255,7 +1255,7 @@ APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
          ul < cDlgItems;
          ul++)
     {
-        PDLGHITEM   pItemThis = &paDlgItems[ul];
+        PCDLGHITEM   pItemThis = &paDlgItems[ul];
 
         switch (pItemThis->Type)
         {
@@ -1583,7 +1583,7 @@ VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *          behaves exacly like START_TABLE, but in addition,
  *          it produces a static group control around the table.
  *          Useful for group boxes. pDef must point to a
- *          _CONTROLDEF describing the control to be used for
+ *          CONTROLDEF describing the control to be used for
  *          the group (usually a WC_STATIC with SS_GROUP style),
  *          whose size parameter is ignored.
  *
@@ -1601,17 +1601,18 @@ VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *      --  CONTROL_DEF(pDef) defines a control in a table row.
  *          pDef must point to a CONTROLDEF structure.
  *
- *          Again, there is is NO information in
- *          CONTROLDEF about a control's _position_.
- *          Instead, the structure only contains the _size_
- *          of the control. All positions are computed by
- *          this function, depending on the sizes of the
- *          controls and their nesting within the various tables.
+ *          Again, there is is NO information in CONTROLDEF
+ *          about a control's _position_. Instead, the structure
+ *          only contains the _size_ of the control. All
+ *          positions are computed by this function, depending
+ *          on the sizes of the controls and their nesting within
+ *          the various tables.
  *
- *          If you specify SZL_AUTOSIZE, the size of the
- *          control is even computed automatically. Presently,
- *          this only works for statics with SS_TEXT, SS_ICON,
- *          and SS_BITMAP.
+ *          If you specify SZL_AUTOSIZE with either cx or cy
+ *          or both, the size of the control is even computed
+ *          automatically. Presently, this only works for statics
+ *          with SS_TEXT, SS_ICON, and SS_BITMAP, push buttons,
+ *          and radio and check boxes.
  *
  *          Unless separated with START_ROW items, subsequent
  *          control items will be considered to be in the same
@@ -1620,11 +1621,11 @@ VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  *      There are a few rules, whose violation will produce
  *      an error:
  *
- *      -- The entire array must be enclosed in a table
- *         (the "root" table).
+ *      --  The entire array must be enclosed in a table
+ *          (the "root" table).
  *
- *      -- After START_TABLE or START_GROUP_TABLE, there must
- *         always be a START_ROW first.
+ *      --  After START_TABLE or START_GROUP_TABLE, there must
+ *          always be a START_ROW first.
  *
  *      To create a dialog, set up arrays like the following:
  *
@@ -1685,9 +1686,11 @@ VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
  +          º ³  ³  Cnr inside group (2)  ³  ³  º
  +          º ³  ³                        ³  ³  º
  +          º ³  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ  ³  º
+ +          º ³                              ³  º
  +          º ³  Static below cnr (3)        ³  º
  +          º ³                              ³  º
  +          º ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ  º
+ +          º                                   º
  +          º ÚÄÄÄÄÄÄÄÄÄÄÄ¿ ÚÄÄÄÄÄÄÄÄÄÄÄÄÄ¿     º
  +          º ³   OK (4)  ³ ³  Cancel (5) ³     º
  +          º ÀÄÄÄÄÄÄÄÄÄÄÄÙ ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÙ     º
@@ -1755,11 +1758,11 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                      HWND hwndOwner,
                      ULONG flCreateFlags,       // in: standard FCF_* frame flags
                      PFNWP pfnwpDialogProc,
-                     const char *pcszDlgTitle,
-                     PDLGHITEM paDlgItems,      // in: definition array
+                     PCSZ pcszDlgTitle,
+                     PCDLGHITEM paDlgItems,      // in: definition array
                      ULONG cDlgItems,           // in: array item count (NOT array size)
                      PVOID pCreateParams,       // in: for mp2 of WM_INITDLG
-                     const char *pcszControlsFont) // in: font for ctls with CTL_COMMON_FONT
+                     PCSZ pcszControlsFont) // in: font for ctls with CTL_COMMON_FONT
 {
     APIRET      arc = NO_ERROR;
 
@@ -1839,51 +1842,52 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
                  *
                  */
 
-                Dlg2_CalcSizes(pDlgData,
-                               &szlClient);
-
-                WinSubclassWindow(hwndDlg, pfnwpDialogProc);
-
-                /*
-                 *  4) compute size of dialog client from total
-                 *     size of all controls
-                 */
-
-                // calculate the frame size from the client size
-                rclClient.xLeft = 10;
-                rclClient.yBottom = 10;
-                rclClient.xRight = szlClient.cx + 2 * SPACING;
-                rclClient.yTop = szlClient.cy + 2 * SPACING;
-                WinCalcFrameRect(hwndDlg,
-                                 &rclClient,
-                                 FALSE);            // frame from client
-
-                WinSetWindowPos(hwndDlg,
-                                0,
-                                10,
-                                10,
-                                rclClient.xRight,
-                                rclClient.yTop,
-                                SWP_MOVE | SWP_SIZE | SWP_NOADJUST);
-
-                arc = Dlg3_PositionAndCreate(pDlgData,
-                                             &szlClient,
-                                             &hwndFocusItem);
-
-                /*
-                 *  7) WM_INITDLG, set focus
-                 *
-                 */
-
-                if (!WinSendMsg(pDlgData->hwndDlg,
-                                WM_INITDLG,
-                                (MPARAM)hwndFocusItem,
-                                (MPARAM)pCreateParams))
+                if (!(arc = Dlg2_CalcSizes(pDlgData,
+                                           &szlClient)))
                 {
-                    // if WM_INITDLG returns FALSE, this means
-                    // the dlg proc has not changed the focus;
-                    // we must then set the focus here
-                    WinSetFocus(HWND_DESKTOP, hwndFocusItem);
+                    WinSubclassWindow(hwndDlg, pfnwpDialogProc);
+
+                    /*
+                     *  4) compute size of dialog client from total
+                     *     size of all controls
+                     */
+
+                    // calculate the frame size from the client size
+                    rclClient.xLeft = 10;
+                    rclClient.yBottom = 10;
+                    rclClient.xRight = szlClient.cx + 2 * SPACING;
+                    rclClient.yTop = szlClient.cy + 2 * SPACING;
+                    WinCalcFrameRect(hwndDlg,
+                                     &rclClient,
+                                     FALSE);            // frame from client
+
+                    WinSetWindowPos(hwndDlg,
+                                    0,
+                                    10,
+                                    10,
+                                    rclClient.xRight,
+                                    rclClient.yTop,
+                                    SWP_MOVE | SWP_SIZE | SWP_NOADJUST);
+
+                    arc = Dlg3_PositionAndCreate(pDlgData,
+                                                 &szlClient,
+                                                 &hwndFocusItem);
+
+                    /*
+                     *  7) WM_INITDLG, set focus
+                     *
+                     */
+
+                    if (!WinSendMsg(pDlgData->hwndDlg,
+                                    WM_INITDLG,
+                                    (MPARAM)hwndFocusItem,
+                                    (MPARAM)pCreateParams))
+                    {
+                        // if WM_INITDLG returns FALSE, this means
+                        // the dlg proc has not changed the focus;
+                        // we must then set the focus here
+                        WinSetFocus(HWND_DESKTOP, hwndFocusItem);
+                    }
                 }
             }
         }
@@ -1952,9 +1956,9 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
  */
 
 APIRET dlghFormatDlg(HWND hwndDlg,              // in: dialog frame to work on
-                     PDLGHITEM paDlgItems,      // in: definition array
+                     PCDLGHITEM paDlgItems,      // in: definition array
                      ULONG cDlgItems,           // in: array item count (NOT array size)
-                     const char *pcszControlsFont, // in: font for ctls with CTL_COMMON_FONT
+                     PCSZ pcszControlsFont, // in: font for ctls with CTL_COMMON_FONT
                      ULONG flFlags)             // in: DFFL_* flags
 {
     APIRET      arc = NO_ERROR;
@@ -2208,7 +2212,7 @@ APIRET dlghFreeArray(PDLGARRAY *ppArray)
  */
 
 APIRET dlghAppendToArray(PDLGARRAY pArray,      // in: dialog array created by dlghCreateArray
-                         DLGHITEM *paItems,     // in: subarray to be appended
+                         PCDLGHITEM paItems,     // in: subarray to be appended
                          ULONG cItems)          // in: subarray item count (NOT array size)
 {
     APIRET arc = NO_ERROR;
@@ -2249,10 +2253,10 @@ APIRET dlghAppendToArray(PDLGARRAY pArray,      // in: dialog array created by d
 APIRET dlghCreateMessageBox(HWND *phwndDlg,
                             HWND hwndOwner,
                             HPOINTER hptrIcon,
-                            const char *pcszTitle,
-                            const char *pcszMessage,
+                            PCSZ pcszTitle,
+                            PCSZ pcszMessage,
                             ULONG flFlags,
-                            const char *pcszFont,
+                            PCSZ pcszFont,
                             const MSGBOXSTRINGS *pStrings,
                             PULONG pulAlarmFlag)      // out: alarm sound to be played
 {
@@ -2333,7 +2337,7 @@ APIRET dlghCreateMessageBox(HWND *phwndDlg,
                 *p1 = NULL,
                 *p2 = NULL;
 
-    Icon.pcszText = (const char *)hptrIcon;
+    Icon.pcszText = (PCSZ)hptrIcon;
     InfoText.pcszText = pcszMessage;
 
     // now work on the three buttons of the dlg template:
@@ -2544,10 +2548,10 @@ ULONG dlghProcessMessageBox(HWND hwndDlg,
 
 ULONG dlghMessageBox(HWND hwndOwner,            // in: owner for msg box
                      HPOINTER hptrIcon,         // in: icon to display
-                     const char *pcszTitle,     // in: title
-                     const char *pcszMessage,   // in: message
+                     PCSZ pcszTitle,     // in: title
+                     PCSZ pcszMessage,   // in: message
                      ULONG flFlags,             // in: standard message box flags
-                     const char *pcszFont,      // in: font (e.g. "9.WarpSans")
+                     PCSZ pcszFont,      // in: font (e.g. "9.WarpSans")
                      const MSGBOXSTRINGS *pStrings) // in: strings array
 {
     HWND hwndDlg;
@@ -2615,14 +2619,14 @@ ULONG dlghMessageBox(HWND hwndOwner,            // in: owner for msg box
  */
 
 PSZ dlghTextEntryBox(HWND hwndOwner,
-                     const char *pcszTitle,          // in: dlg title
-                     const char *pcszDescription,    // in: descriptive text above entry field
-                     const char *pcszDefault,        // in: default text for entry field or NULL
-                     const char *pcszOK,             // in: "OK" string
-                     const char *pcszCancel,         // in: "Cancel" string
+                     PCSZ pcszTitle,          // in: dlg title
+                     PCSZ pcszDescription,    // in: descriptive text above entry field
+                     PCSZ pcszDefault,        // in: default text for entry field or NULL
+                     PCSZ pcszOK,             // in: "OK" string
+                     PCSZ pcszCancel,         // in: "Cancel" string
                      ULONG ulMaxLen,                 // in: maximum length for entry
                      ULONG fl,                       // in: TEBF_* flags
-                     const char *pcszFont)           // in: font (e.g. "9.WarpSans")
+                     PCSZ pcszFont)           // in: font (e.g. "9.WarpSans")
 {
     CONTROLDEF
                 Static = {

@@ -128,9 +128,9 @@
 
 void XWPENTRY xstrInitDebug(PXSTRING pxstr,
                             ULONG ulPreAllocate,
-                            const char *file,
+                            PCSZ file,
                             unsigned long line,
-                            const char *function)
+                            PCSZ function)
 {
     memset(pxstr, 0, sizeof(XSTRING));
     if (ulPreAllocate)
@@ -193,7 +193,7 @@ void xstrInit(PXSTRING pxstr,               // in/out: string
 }
 
 /*
- *@@ xstrInitSet:
+ *@@ xstrInitSet2:
  *      this can be used instead of xstrInit if you
  *      have a free()'able string you want to initialize
  *      the XSTRING with.
@@ -211,6 +211,30 @@ void xstrInit(PXSTRING pxstr,               // in/out: string
  +          XSTRING str;
  +          xstrInitSet(&str, strdup("blah"));
  *
+ *@@added V0.9.16 (2002-01-13) [umoeller]
+ */
+
+void xstrInitSet2(PXSTRING pxstr,
+                  PSZ pszNew,
+                  ULONG ulNewLength)
+{
+    if (!pszNew)
+        memset(pxstr, 0, sizeof(XSTRING));
+    else
+    {
+        if (!ulNewLength)
+            ulNewLength = strlen(pszNew);
+        pxstr->psz = pszNew;
+        pxstr->ulLength = ulNewLength;
+        pxstr->cbAllocated = ulNewLength + 1;
+        pxstr->ulDelta = ulNewLength * 10 / 100;
+    }
+}
+
+/*
+ *@@ xstrInitSet:
+ *      shortcut to xstrInitSet2 to retain compatibility.
+ *
  *@@added V0.9.6 (2000-11-01) [umoeller]
  *@@changed V0.9.9 (2001-03-09) [umoeller]: added ulDelta
  */
@@ -218,15 +242,7 @@ void xstrInit(PXSTRING pxstr,               // in/out: string
 void xstrInitSet(PXSTRING pxstr,
                  PSZ pszNew)
 {
-    if (!pszNew)
-        memset(pxstr, 0, sizeof(XSTRING));
-    else
-    {
-        pxstr->psz = pszNew;
-        pxstr->ulLength = strlen(pszNew);
-        pxstr->cbAllocated = pxstr->ulLength + 1;
-        pxstr->ulDelta = pxstr->ulLength  * 10 / 100;
-    }
+    xstrInitSet2(pxstr, pszNew, 0);
 }
 
 #ifdef __DEBUG_MALLOC_ENABLED__
@@ -238,11 +254,11 @@ void xstrInitSet(PXSTRING pxstr,
  */
 
 void XWPENTRY xstrInitCopyDebug(PXSTRING pxstr,
-                                const char *pcszSource,
+                                PCSZ pcszSource,
                                 ULONG ulExtraAllocate,
-                                const char *file,
+                                PCSZ file,
                                 unsigned long line,
-                                const char *function)
+                                PCSZ function)
 {
     if (pxstr)
     {
@@ -300,7 +316,7 @@ void XWPENTRY xstrInitCopyDebug(PXSTRING pxstr,
  */
 
 void xstrInitCopy(PXSTRING pxstr,
-                  const char *pcszSource,
+                  PCSZ pcszSource,
                   ULONG ulExtraAllocate)          // in: if > 0, extra memory to allocate
 {
     if (pxstr)
@@ -496,7 +512,7 @@ VOID xstrFree(PXSTRING *ppxstr)               // in/out: string
 }
 
 /*
- *@@ xstrset:
+ *@@ xstrset2:
  *      sets the specified XSTRING to a new string
  *      without copying it.
  *
@@ -510,12 +526,16 @@ VOID xstrFree(PXSTRING *ppxstr)               // in/out: string
  *      bytes have been allocated for pszNew, which
  *      is true if pszNew comes from strdup().
  *
- *@@added V0.9.6 (2000-11-01) [umoeller]
- *@@changed V0.9.9 (2001-02-14) [umoeller]: fixed NULL target crash
+ *      With this function, you can pass in the
+ *      length of the string in ulNewLength.
+ *      Otherwise use xstrset.
+ *
+ *@@added V0.9.16 (2002-01-13) [umoeller]
  */
 
-ULONG xstrset(PXSTRING pxstr,               // in/out: string
-              PSZ pszNew)                   // in: heap PSZ to use
+ULONG xstrset2(PXSTRING pxstr,              // in/out: string
+               PSZ pszNew,                  // in: heap PSZ to use
+               ULONG ulNewLength)           // in: length of string or 0 to run strlen here
 {
     if (!pxstr)
         return (0);         // V0.9.9 (2001-02-14) [umoeller]
@@ -524,14 +544,30 @@ ULONG xstrset(PXSTRING pxstr,               // in/out: string
     pxstr->psz = pszNew;
     if (pszNew)
     {
-        pxstr->ulLength = strlen(pszNew);
-        pxstr->cbAllocated = pxstr->ulLength + 1;
+        if (!ulNewLength)
+            ulNewLength = strlen(pszNew);
+        pxstr->ulLength = ulNewLength;
+        pxstr->cbAllocated = ulNewLength + 1;
 
-        pxstr->ulDelta = pxstr->cbAllocated * 10 / 100;
+        pxstr->ulDelta = ulNewLength * 10 / 100;
     }
     // else null string: cbAllocated and ulLength are 0 already
 
     return (pxstr->ulLength);
+}
+
+/*
+ *@@ xstrset:
+ *      shortcut for xstrset2 for retaining compatibility.
+ *
+ *@@added V0.9.6 (2000-11-01) [umoeller]
+ *@@changed V0.9.9 (2001-02-14) [umoeller]: fixed NULL target crash
+ */
+
+ULONG xstrset(PXSTRING pxstr,               // in/out: string
+              PSZ pszNew)                   // in: heap PSZ to use
+{
+    return (xstrset2(pxstr, pszNew, 0));
 }
 
 /*
@@ -582,7 +618,7 @@ ULONG xstrset(PXSTRING pxstr,               // in/out: string
  */
 
 ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
-              const char *pcszSource,       // in: source, can be NULL
+              PCSZ pcszSource,       // in: source, can be NULL
               ULONG ulSourceLength)         // in: length of pcszSource or 0
 {
     if (!pxstr)
@@ -693,7 +729,7 @@ ULONG xstrcpys(PXSTRING pxstr,
  */
 
 ULONG xstrcat(PXSTRING pxstr,               // in/out: string
-              const char *pcszSource,       // in: source, can be NULL
+              PCSZ pcszSource,       // in: source, can be NULL
               ULONG ulSourceLength)         // in: length of pcszSource or 0
 {
     ULONG   ulrc = 0;
@@ -862,7 +898,7 @@ ULONG xstrcats(PXSTRING pxstr,
 ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
               ULONG ulFirstReplOfs,             // in: ofs of first char to replace
               ULONG cReplLen,                   // in: no. of chars to replace
-              const char *pcszReplaceWith,      // in: string to replace chars with
+              PCSZ pcszReplaceWith,      // in: string to replace chars with
               ULONG cReplaceWithLen)            // in: length of replacement string
                                                 // (this MUST be specified; if 0, chars are removed only)
 {
@@ -1013,8 +1049,8 @@ PSZ xstrFindWord(const XSTRING *pxstr,        // in: buffer to search ("haystack
                  const XSTRING *pstrFind,     // in: word to find ("needle")
                  size_t *pShiftTable,         // in: shift table (see strhmemfind)
                  PBOOL pfRepeatFind,          // in: repeat find? (see strhmemfind)
-                 const char *pcszBeginChars,  // suggestion: "\x0d\x0a ()/\\-,."
-                 const char *pcszEndChars)    // suggestion: "\x0d\x0a ()/\\-,.:;"
+                 PCSZ pcszBeginChars,  // suggestion: "\x0d\x0a ()/\\-,."
+                 PCSZ pcszEndChars)    // suggestion: "\x0d\x0a ()/\\-,.:;"
 {
     PSZ     pReturn = 0;
 
@@ -1024,7 +1060,7 @@ PSZ xstrFindWord(const XSTRING *pxstr,        // in: buffer to search ("haystack
 
         if ((pxstr->ulLength) && (ulFoundLen))
         {
-            const char *p = pxstr->psz + ulOfs;
+            PCSZ p = pxstr->psz + ulOfs;
 
             do  // while p
             {
@@ -1151,8 +1187,8 @@ ULONG xstrFindReplace(PXSTRING pxstr,               // in/out: string
         {
             // yes:
             ULONG   ulOfs = *pulOfs;
-            const char *pFound
-                = (const char *)strhmemfind(pxstr->psz + ulOfs, // in: haystack
+            PCSZ pFound
+                = (PCSZ)strhmemfind(pxstr->psz + ulOfs, // in: haystack
                                             pxstr->ulLength - ulOfs,
                                             pstrSearch->psz,
                                             cSearchLen,
@@ -1198,8 +1234,8 @@ ULONG xstrFindReplace(PXSTRING pxstr,               // in/out: string
 ULONG xstrFindReplaceC(PXSTRING pxstr,              // in/out: string
                        PULONG pulOfs,               // in: where to begin search (0 = start);
                                                     // out: ofs of first char after replacement string
-                       const char *pcszSearch,      // in: search string; cannot be NULL
-                       const char *pcszReplace)     // in: replacement string; cannot be NULL
+                       PCSZ pcszSearch,      // in: search string; cannot be NULL
+                       PCSZ pcszReplace)     // in: replacement string; cannot be NULL
 {
     XSTRING xstrFind,
             xstrReplace;
@@ -1291,7 +1327,7 @@ static PSZ apszEncoding[] =
  */
 
 ULONG xstrEncode(PXSTRING pxstr,            // in/out: string to convert
-                 const char *pcszEncode)    // in: characters to encode (e.g. "%,();=")
+                 PCSZ pcszEncode)    // in: characters to encode (e.g. "%,();=")
 {
     ULONG ulrc = 0,
           ul,

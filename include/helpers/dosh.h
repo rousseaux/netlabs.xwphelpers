@@ -218,6 +218,10 @@ extern "C" {
      *
      ********************************************************************/
 
+    APIRET doshQueryProcAddr(PCSZ pcszModuleName,
+                             ULONG ulOrdinal,
+                             PFN *ppfn);
+
     /*
      *@@ RESOLVEFUNCTION:
      *      one of these structures each define
@@ -232,9 +236,11 @@ extern "C" {
         PFN         *ppFuncAddress;
     } RESOLVEFUNCTION, *PRESOLVEFUNCTION;
 
-    APIRET doshResolveImports(PSZ pszModuleName,
+    typedef const struct _RESOLVEFUNCTION *PCRESOLVEFUNCTION;
+
+    APIRET doshResolveImports(PCSZ pcszModuleName,
                               HMODULE *phmod,
-                              PRESOLVEFUNCTION paResolves,
+                              PCRESOLVEFUNCTION paResolves,
                               ULONG cResolves);
 
     /* ******************************************************************
@@ -693,8 +699,8 @@ extern "C" {
      *
      ********************************************************************/
 
-    BOOL doshMatch(const char *pcszMask,
-                   const char *pcszName);
+    BOOL doshMatch(PCSZ pcszMask,
+                   PCSZ pcszName);
 
 #endif
 

@@ -976,7 +976,8 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
  *@@added V0.9.16 (2001-10-15) [umoeller]
  */
 
-PANIMATIONDATA CreateAnimationData(HWND hwndStatic,
+PANIMATIONDATA CreateAnimationData(HAB hab,
+                                   HWND hwndStatic,
                                    USHORT cAnimations)
 {
     PANIMATIONDATA pa = NULL;
@@ -995,7 +996,7 @@ PANIMATIONDATA CreateAnimationData(HWND hwndStatic,
 
             WinSetWindowULong(hwndStatic, QWL_USER, (ULONG)pa);
 
-            pa->hab = WinQueryAnchorBlock(hwndStatic);
+            pa->hab = hab;
             WinQueryWindowRect(hwndStatic, &pa->rclIcon);
             pa->OldStaticProc = WinSubclassWindow(hwndStatic, ctl_fnwpBitmapStatic);
             pa->lIconSize = WinQuerySysValue(HWND_DESKTOP, SV_CXICON);
@@ -1045,15 +1046,21 @@ PANIMATIONDATA ctlPrepareStaticIcon(HWND hwndStatic,
                                                         // this must be at least 1
 {
     PANIMATIONDATA pa;
-
-    if (pa = CreateAnimationData(hwndStatic,
-                                 usAnimCount))
+    HAB     hab;
+    if (    (hwndStatic)
+         && (hab = WinQueryAnchorBlock(hwndStatic))
+         && (WinIsWindow(hab, hwndStatic))
+         && (pa = CreateAnimationData(hab,
+                                      hwndStatic,
+                                      usAnimCount))
+       )
     {
         // switch static to icon mode
         pa->ulFlags = ANF_ICON;
+        return (pa);
     }
 
-    return (pa);
+    return (NULL);
 }
 
 /*
@@ -1232,16 +1239,21 @@ PANIMATIONDATA ctlPrepareStretchedBitmap(HWND hwndStatic,
                                          BOOL fPreserveProportions)
 {
     PANIMATIONDATA pa;
-
-    if (pa = CreateAnimationData(hwndStatic, 1))
+    HAB hab;
+    if (    (hwndStatic)
+         && (hab = WinQueryAnchorBlock(hwndStatic))
+         && (WinIsWindow(hab, hwndStatic))
+         && (pa = CreateAnimationData(hab, hwndStatic, 1))
+       )
     {
         // switch static to bitmap mode
         pa->ulFlags = ANF_BITMAP;
         if (fPreserveProportions)
             pa->ulFlags |= ANF_PROPORTIONAL;
+        return (pa);
     }
 
-    return (pa);
+    return NULL;
 }
 
 /*

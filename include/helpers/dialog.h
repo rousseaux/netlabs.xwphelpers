@@ -62,7 +62,7 @@ extern "C" {
 
     #define SZL_AUTOSIZE                (-1)
 
-    #define CTL_COMMON_FONT             ((const char *)-1)
+    #define CTL_COMMON_FONT             ((PCSZ)-1)
 
     #define ROW_VALIGN_MASK             0x0003
     #define ROW_VALIGN_BOTTOM           0x0000
@@ -116,6 +116,8 @@ extern "C" {
         PVOID       pvCtlData;          // for WinCreateWindow
 
     } CONTROLDEF, *PCONTROLDEF;
+
+    typedef const struct _CONTROLDEF *PCCONTROLDEF;
 
     /*
      *@@ DLGHITEMTYPE:
@@ -176,6 +178,8 @@ extern "C" {
                 // -- with TYPE_START_NEW_ROW: ROW_* formatting flags.
                 // -- with TYPE_CONTROL_DEF: _CONTROLDEF pointer to a control definition
     } DLGHITEM, *PDLGHITEM;
+
+    typedef const struct _DLGHITEM *PCDLGHITEM;
 
     /* ******************************************************************
      *
@@ -255,26 +259,26 @@ extern "C" {
                                   HWND hwndOwner,
                                   ULONG flCreateFlags,
                                   PFNWP pfnwpDialogProc,
-                                  const char *pcszDlgTitle,
-                                  PDLGHITEM paDlgItems,
+                                  PCSZ pcszDlgTitle,
+                                  PCDLGHITEM paDlgItems,
                                   ULONG cDlgItems,
                                   PVOID pCreateParams,
-                                  const char *pcszControlsFont);
+                                  PCSZ pcszControlsFont);
     typedef APIRET XWPENTRY DLGHCREATEDLG(HWND *phwndDlg,
                                           HWND hwndOwner,
                                           ULONG flCreateFlags,
                                           PFNWP pfnwpDialogProc,
-                                          const char *pcszDlgTitle,
-                                          PDLGHITEM paDlgItems,
+                                          PCSZ pcszDlgTitle,
+                                          PCDLGHITEM paDlgItems,
                                           ULONG cDlgItems,
                                           PVOID pCreateParams,
-                                          const char *pcszControlsFont);
+                                          PCSZ pcszControlsFont);
     typedef DLGHCREATEDLG *PDLGHCREATEDLG;
 
     APIRET dlghFormatDlg(HWND hwndDlg,
-                         PDLGHITEM paDlgItems,
+                         PCDLGHITEM paDlgItems,
                          ULONG cDlgItems,
-                         const char *pcszControlsFont,
+                         PCSZ pcszControlsFont,
                          ULONG flFlags);
 
     #define DFFL_RESIZEFRAME        0x0001
@@ -310,7 +314,7 @@ extern "C" {
     APIRET dlghFreeArray(PDLGARRAY *ppArray);
 
     APIRET dlghAppendToArray(PDLGARRAY pArray,
-                             DLGHITEM *paItems,
+                             PCDLGHITEM paItems,
                              ULONG cItems);
 
     /* ******************************************************************
@@ -367,19 +371,19 @@ extern "C" {
     APIRET dlghCreateMessageBox(HWND *phwndDlg,
                                 HWND hwndOwner,
                                 HPOINTER hptrIcon,
-                                const char *pcszTitle,
-                                const char *pcszMessage,
+                                PCSZ pcszTitle,
+                                PCSZ pcszMessage,
                                 ULONG flFlags,
-                                const char *pcszFont,
+                                PCSZ pcszFont,
                                 const MSGBOXSTRINGS *pStrings,
                                 PULONG pulAlarmFlag);
 
     ULONG dlghMessageBox(HWND hwndOwner,
                          HPOINTER hptrIcon,
-                         const char *pcszTitle,
-                         const char *pcszMessage,
+                         PCSZ pcszTitle,
+                         PCSZ pcszMessage,
                          ULONG flFlags,
-                         const char *pcszFont,
+                         PCSZ pcszFont,
                          const MSGBOXSTRINGS *pStrings);
 
     #define TEBF_REMOVETILDE            0x0001
@@ -387,14 +391,14 @@ extern "C" {
     #define TEBF_SELECTALL              0x0004
 
     PSZ dlghTextEntryBox(HWND hwndOwner,
-                         const char *pcszTitle,
-                         const char *pcszDescription,
-                         const char *pcszDefault,
-                         const char *pcszOK,
-                         const char *pcszCancel,
+                         PCSZ pcszTitle,
+                         PCSZ pcszDescription,
+                         PCSZ pcszDefault,
+                         PCSZ pcszOK,
+                         PCSZ pcszCancel,
                          ULONG ulMaxLen,
                          ULONG fl,
-                         const char *pcszFont);
+                         PCSZ pcszFont);
 
     /* ******************************************************************
      *

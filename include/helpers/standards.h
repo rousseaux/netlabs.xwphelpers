@@ -80,7 +80,7 @@
      *@@added V0.9.16 (2001-12-08) [umoeller]
      */
 
-    #define FREE(ptr) if ((ptr)) { free(ptr); ptr = NULL; }
+    #define FREE(ptr)  { if ((ptr)) { free(ptr); ptr = NULL; } }
 
     /*
      *@@ ARRAYITEMCOUNT:
@@ -103,7 +103,7 @@
      *@@added V0.9.9 (2001-01-29) [umoeller]
      */
 
-    #define ARRAYITEMCOUNT(array) sizeof(array) / sizeof(array[0])
+    #define ARRAYITEMCOUNT(array) (sizeof(array) / sizeof(array[0]))
 
     /*
      *@@ STRINGORNULL:
