@@ -87,7 +87,14 @@ extern "C" {
 
         PSZ appQueryDefaultWin31Environment(VOID);
 
-        HAPP XWPENTRY appStartApp(HWND hwndNotify, const PROGDETAILS *pcProgDetails);
+        #define APP_RUN_FULLSCREEN      0x0001
+        #define APP_RUN_ENHANCED        0x0002
+        #define APP_RUN_STANDARD        0x0004
+        #define APP_RUN_SEPARATE        0x0008
+
+        HAPP XWPENTRY appStartApp(HWND hwndNotify,
+                                  const PROGDETAILS *pcProgDetails,
+                                  ULONG ulFlags);
     #endif
 
 #endif

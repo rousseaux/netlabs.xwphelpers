@@ -563,7 +563,7 @@ VOID CallBatchCorrectly(PPROGDETAILS pProgDetails,
  *
  *      --  PROG_PM
  *
- *      --  PROG_31_ENH
+ *      --  PROG_31_ENHSEAMLESSCOMMON
  *
  *      --  PROG_WINDOWABLEVIO
  *
@@ -763,10 +763,12 @@ PSZ appQueryDefaultWin31Environment(VOID)
  *@@changed V0.9.12 (2001-05-26) [umoeller]: fixed PROG_DEFAULT
  *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from winh.c to apps.c
  *@@changed V0.9.14 (2001-08-07) [pr]: removed some env. strings for Win. apps.
+ *@@changed V0.9.14 (2001-08-23) [pr]: added session type options
  */
 
 HAPP appStartApp(HWND hwndNotify,                  // in: notify window (as with WinStartApp)
-                 const PROGDETAILS *pcProgDetails) // in: program data
+                 const PROGDETAILS *pcProgDetails, // in: program data
+                 ULONG ulFlags)                    // in: session type options
 {
     HAPP            happ = NULLHANDLE;
     XSTRING         strParamsPatched;
@@ -819,16 +821,42 @@ HAPP appStartApp(HWND hwndNotify,                  // in: notify window (as with
             break;
         }
 
-        ulIsWinApp = appIsWindowsApp(ProgDetails.progt.progc);
+        // Set session type from option flags
+        if (ulFlags & APP_RUN_FULLSCREEN)
+        {
+            if (ProgDetails.progt.progc == PROG_WINDOWABLEVIO)
+                ProgDetails.progt.progc = PROG_FULLSCREEN;
 
-        // now try again...
+            if (ProgDetails.progt.progc == PROG_WINDOWEDVDM)
+                ProgDetails.progt.progc = PROG_VDM;
+        }
+
+        if (ulIsWinApp = appIsWindowsApp(ProgDetails.progt.progc))
+        {
+            if (ulFlags & APP_RUN_FULLSCREEN)
+                ProgDetails.progt.progc = (ulFlags & APP_RUN_ENHANCED)
+                                                ? PROG_31_ENH
+                                                : PROG_31_STD;
+            else
+            {
+                if (ulFlags & APP_RUN_STANDARD)
+                    ProgDetails.progt.progc = (ulFlags & APP_RUN_SEPARATE)
+                                                ? PROG_31_STDSEAMLESSVDM
+                                                : PROG_31_STDSEAMLESSCOMMON;
+
+                if (ulFlags & APP_RUN_ENHANCED)
+                    ProgDetails.progt.progc = (ulFlags & APP_RUN_SEPARATE)
+                                                ? PROG_31_ENHSEAMLESSVDM
+                                                : PROG_31_ENHSEAMLESSCOMMON;
+            }
+        }
 
         /*
          * command lines fixups:
          *
          */
 
-        if (strcmp(ProgDetails.pszExecutable, "*") == 0)
+        if (!strcmp(ProgDetails.pszExecutable, "*"))
         {
             /*
              * "*" for command sessions:
@@ -869,6 +897,8 @@ HAPP appStartApp(HWND hwndNotify,                  // in: notify window (as with
 
         } // end if (strcmp(pProgDetails->pszExecutable, "*") == 0)
         else
+        {
+            PSZ pszExtension;
             switch (ProgDetails.progt.progc)
             {
                 /*
@@ -879,35 +909,32 @@ HAPP appStartApp(HWND hwndNotify,                  // in: notify window (as with
                 case PROG_FULLSCREEN:       // OS/2 fullscreen
                 case PROG_WINDOWABLEVIO:    // OS/2 window
                 {
-                    PSZ pszExtension = doshGetExtension(ProgDetails.pszExecutable);
-                    if (pszExtension)
+                    if (    (pszExtension = doshGetExtension(ProgDetails.pszExecutable))
+                         && (!stricmp(pszExtension, "CMD"))
+                       )
                     {
-                        if (stricmp(pszExtension, "CMD") == 0)
-                        {
-                            CallBatchCorrectly(&ProgDetails,
-                                               &strParamsPatched,
-                                               "OS2_SHELL",
-                                               "CMD.EXE");
-                        }
+                        CallBatchCorrectly(&ProgDetails,
+                                           &strParamsPatched,
+                                           "OS2_SHELL",
+                                           "CMD.EXE");
                     }
                 break; }
 
                 case PROG_VDM:              // DOS fullscreen
                 case PROG_WINDOWEDVDM:      // DOS window
                 {
-                    PSZ pszExtension = doshGetExtension(ProgDetails.pszExecutable);
-                    if (pszExtension)
+                    if (    (pszExtension = doshGetExtension(ProgDetails.pszExecutable))
+                         && (!stricmp(pszExtension, "BAT"))
+                       )
                     {
-                        if (stricmp(pszExtension, "BAT") == 0)
-                        {
-                            CallBatchCorrectly(&ProgDetails,
-                                               &strParamsPatched,
-                                               NULL,
-                                               "COMMAND.COM");
-                        }
+                        CallBatchCorrectly(&ProgDetails,
+                                           &strParamsPatched,
+                                           NULL,
+                                           "COMMAND.COM");
                     }
                 break; }
             } // end switch (ProgDetails.progt.progc)
+        }
 
         if (    (ulIsWinApp)
              && (    (ProgDetails.pszEnvironment == NULL)
@@ -975,7 +1002,7 @@ HAPP appStartApp(HWND hwndNotify,                  // in: notify window (as with
 
         ProgDetails.pszParameters = strParamsPatched.psz;
 
-        _Pmpf(("progt.progc: %d", ProgDetails.progt.progc));
+        /*  _Pmpf(("progt.progc: %d", ProgDetails.progt.progc));
         _Pmpf(("progt.fbVisible: 0x%lX", ProgDetails.progt.fbVisible));
         _Pmpf(("progt.pszTitle: \"%s\"", (ProgDetails.pszTitle) ? ProgDetails.pszTitle : "NULL"));
         _Pmpf(("exec: \"%s\"", (ProgDetails.pszExecutable) ? ProgDetails.pszExecutable : "NULL"));
@@ -1003,6 +1030,7 @@ HAPP appStartApp(HWND hwndNotify,                  // in: notify window (as with
                     ProgDetails.swpInitial.hwnd,
                     ProgDetails.swpInitial.ulReserved1,
                     ProgDetails.swpInitial.ulReserved2));
+            */
 
         /* if (WinMessageBox(HWND_DESKTOP,
                           NULLHANDLE,

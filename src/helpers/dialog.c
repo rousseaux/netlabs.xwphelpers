@@ -1061,7 +1061,7 @@ typedef struct _STACKITEM
  *      and how they are to be formatted.
  *
  *      The main advantage compared to dialog resources is
- *      that with this  function, you will never have to
+ *      that with this function, you will never have to
  *      define control _positions_. Instead, you only specify
  *      the control _sizes_, and all positions are computed
  *      automatically here. Even better, for many controls,

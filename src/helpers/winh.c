@@ -2280,7 +2280,7 @@ BOOL winhRestoreWindowPos(HWND hwnd,   // in: window to restore
  *      1)  Set up a static array (as a global variable) of
  *          MPARAM's, one for each control in your array.
  *          Each MPARAM will have the control's ID and the
- *          XAF* flags (winh.h) how the control shall be moved.
+ *          XAC_* flags (winh.h) how the control shall be moved.
  *          Use MPFROM2SHORT to easily create this. Example:
  *
  +          MPARAM ampControlFlags[] =
@@ -2298,13 +2298,8 @@ BOOL winhRestoreWindowPos(HWND hwnd,   // in: window to restore
  *          window words (QWL_USER).
  *
  *          ZERO THAT STRUCTURE (memset(&xac, 0, sizeof(XADJUSTCTRLS),
- *          or this func will not work.
- *
- *          Call this function with pswpNew == NULL and
- *          pxac pointing to that new structure. This will
- *          query the positions of all the controls listed
- *          in the MPARAMs array and store them in the
- *          XADJUSTCTRLS area.
+ *          or this func will not work (because it will intialize
+ *          things on the first WM_WINDOWPOSCHANGED).
  *
  *      3)  Intercept WM_WINDOWPOSCHANGED:
  *
