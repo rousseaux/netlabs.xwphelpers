@@ -40,27 +40,69 @@
  *      see math.c.
  */
 
+
 /*
  *@@ mathGCD:
  *      returns the greatest common denominator that
  *      evenly divides m and n.
  *
  *      For example, mathGCD(10, 12) would return 2.
+ *
+ *      Modern Euclidian algorithm (The Art of Computer
+ *      Programming, 4.5.2).
  */
 
-int mathGCD(int m, int n)
+int mathGCD(int a, int b)
 {
-    int d = m;
-    int r = n;
+    int r;
 
-    while (r != 0)
+    while (b)
     {
-        d = r;
-        r = m % r;
+        r = a % b;
+        a = b;
+        b = r;
     }
 
-    return d;
+    return (a);
+
 }
+
+/* binary GCD alg. Based on following facts.
+   If N and M are even, then gcd(N,M) = 2 * gcd (N/2, M/2)
+   If N even and M odd, then gcd(N,M) = gcd(N/2, M)
+   If N,M odd, then |N-M|<max(N,M) thus guaranteeing that
+             we can use gcd(N,M) = gcd(N-M,M) to reduce.
+   fact: a&1 is 1 iff a is odd. Mult. and Div. by 2 more efficiently
+   implemented as shift-left 1 and shift-right 1 resp.
+
+    Found at http://remus.rutgers.edu/~rhoads/Code/int_gcd.c
+*/
+
+/* long gcd( long a, long b)
+{
+  int t;
+
+  if (a < 0) a = -a;
+  if (!b) return a;
+  if (b < 0) b = -b;
+  if (!a) return b;
+  t = 0;
+  while (! ((a|b) & 1)) {a >>= 1; b >>= 1; ++t;}
+  while (! (a&1)) a >>= 1;
+  while (! (b&1)) b >>= 1;
+  while (a != b)
+     {
+     if (a > b)
+         {
+         a -= b;
+         do {a >>= 1;} while (! (a&1));
+         }
+     else {
+         b -= a;
+         do {b >>= 1;} while (! (b&1));
+         }
+     }
+  return(a<<t); */
 
 /*
  *@@ mathIsSquare:
@@ -315,7 +357,42 @@ int mathFactorPrime(double n,
     return (rc);
 }
 
-typedef struct _PRIMEDATA
+/*
+ *@@ mathGCDMulti:
+ *      finds the greatest common divisor for a
+ *      whole array of integers.
+ *
+ *      For example, if you pass in three integers
+ *      1000, 1500, and 1800, this would return 100.
+ *      If you only pass in 1000 and 1500, you'd
+ *      get 500.
+ *
+ *      Use the fact that:
+ *
+ *         gcd(u1, u2, ..., un) = gcd(u1, gcd(u2, ..., un))
+ *
+ *      Greatest common divisor of n integers (The
+ *      Art of Computer Programming, 4.5.2).
+ */
+
+int mathGCDMulti(int *paNs,             // in: array of integers
+                 int cNs)               // in: array item count (NOT array size)
+{
+    int d = paNs[cNs-1];
+    int k = cNs-1;
+
+    while (    (d != 1)
+            && (k > 0)
+          )
+    {
+        d = mathGCD(paNs[k-1], d);
+        k--;
+    }
+
+    return (d);
+}
+
+/* typedef struct _PRIMEDATA
 {
     LINKLIST    llPrimes;
     int         iCurrentInt;
@@ -330,14 +407,14 @@ typedef struct _PRIMEENTRY
                 // if 0, a prime was previously present and then not
                 // for a later prime
     int         iLastInt;
-} PRIMEENTRY, *PPRIMEENTRY;
+} PRIMEENTRY, *PPRIMEENTRY; */
 
 /*
  *@@ GCDMultiCallbackCreate:
  *      first callback for mathGCDMulti.
  */
 
-int XWPENTRY GCDMultiCallbackCreate(int n,             // in: prime
+/* int XWPENTRY GCDMultiCallbackCreate(int n,             // in: prime
                                     int p,             // in: power
                                     void *pUser)       // in: user param, here root of tree
 {
@@ -373,14 +450,14 @@ int XWPENTRY GCDMultiCallbackCreate(int n,             // in: prime
     lstAppendItem(&pData->llPrimes, pEntry);
 
     return (0);
-}
+} */
 
 /*
  *@@ GCDMultiCallbackLowest:
  *      second callback for mathGCDMulti.
  */
 
-int XWPENTRY GCDMultiCallbackLowest(int n,             // in: prime
+/* int XWPENTRY GCDMultiCallbackLowest(int n,             // in: prime
                                     int p,             // in: power
                                     void *pUser)       // in: user param, here root of tree
 {
@@ -410,24 +487,9 @@ int XWPENTRY GCDMultiCallbackLowest(int n,             // in: prime
     exit(1);
 
     return (0);
-}
+} */
 
-/*
- *@@ mathGCDMulti:
- *      finds the greatest common divisor for a
- *      whole array of integers.
- *
- *      For example, if you pass in three integers
- *      1000, 1500, and 1800, this would return 100.
- *      If you only pass in 1000 and 1500, you'd
- *      get 500.
- *
- *      Potentially expensive since this calls
- *      mathFactorPrime for each integer in the
- *      array first.
- */
-
-int mathGCDMulti(int *paNs,             // in: array of integers
+/* int mathGCDMulti(int *paNs,             // in: array of integers
                  int cNs)               // in: array item count (NOT array size)
 {
     int i;
@@ -548,7 +610,7 @@ int mathGCDMulti(int *paNs,             // in: array of integers
     lstClear(&Data.llPrimes);
 
     return dGCD;
-}
+} */
 
 // testcase
 
