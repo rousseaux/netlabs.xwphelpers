@@ -575,6 +575,31 @@ BOOL winhSetMenuCondCascade(HWND hwndMenu,          // in: submenu handle
 }
 
 /*
+ *@@ winhRemoveMenuItems:
+ *      removes multiple menu items at once, as
+ *      specified in the given array of menu item
+ *      IDs.
+ *
+ *@@added V0.9.21 (2002-08-12) [umoeller]
+ */
+
+BOOL XWPENTRY winhRemoveMenuItems(HWND hwndMenu,            // in: menu to remove from
+                                  const SHORT *asItemIDs,   // in: array of menu item IDs
+                                  ULONG cItemIDs)           // in: array item count
+{
+    ULONG ul;
+    for (ul = 0;
+         ul < cItemIDs;
+         ++ul)
+    {
+        winhRemoveMenuItem(hwndMenu,
+                           asItemIDs[ul]);
+    }
+
+    return TRUE;
+}
+
+/*
  *@@ winhInsertMenuSeparator:
  *      this inserts a separator into a given menu at
  *      the given position (which may be MIT_END);

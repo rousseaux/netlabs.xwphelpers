@@ -593,7 +593,7 @@ typedef struct _FORMATLINEBUF
                     fItalics;
 
     // current anchor
-    PSZ             pszCurrentLink;
+    PCSZ            pcszCurrentLinkTarget;
                         // this is != NULL if we're currently in a link block
                         // and points to an item in XFORMATDATA.llLinks
                         // (simply copied to the word structs that are created)
@@ -730,7 +730,7 @@ static PTXVWORD CreateWord(HPS hps,
         pWord->lPointSize = pflbuf->lPointSize;
         pWord->flChar = pflbuf->flChar;
 
-        pWord->pszLinkTarget = pflbuf->pszCurrentLink; // 0 if none
+        pWord->pcszLinkTarget = pflbuf->pcszCurrentLinkTarget; // 0 if none
     }
 
     return pWord;
@@ -836,17 +836,19 @@ static PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current pos
             PSZ pEnd;
             if (pEnd = strchr((*ppCurrent) + 2, 0xFF))
             {
-                pflbuf->pszCurrentLink = strhSubstr((*ppCurrent) + 2, pEnd);
-                ulSkip = pEnd - *ppCurrent + 1;
-
+                PSZ pszNewLink = strhSubstr((*ppCurrent) + 2, pEnd);
                 lstAppendItem(&pxfd->llLinks,
-                              pflbuf->pszCurrentLink);
+                              pszNewLink);
+
+                pflbuf->pcszCurrentLinkTarget = pszNewLink;
+
+                ulSkip = pEnd - *ppCurrent + 1;
             }
         }
         break;
 
         case 7:     // /A HREF (end of link)
-            pflbuf->pszCurrentLink = NULL;
+            pflbuf->pcszCurrentLinkTarget = NULL;
             ulSkip = 2;
         break;
 
@@ -973,7 +975,7 @@ static PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current pos
             pEscapeWord->cChars = ulSkip;
             pEscapeWord->cEscapeCode = *(*ppCurrent + 1);
             pEscapeWord->fPaintEscapeWord = fPaintEscapeWord;
-            pEscapeWord->pszLinkTarget = pflbuf->pszCurrentLink;
+            pEscapeWord->pcszLinkTarget = pflbuf->pcszCurrentLinkTarget;
                     // V0.9.20 (2002-08-10) [umoeller]
                     // NULL if none
             if (fPaintEscapeWord)
@@ -1500,12 +1502,12 @@ static VOID DrawListMarker(HPS hps,
  *      This only paints rectangles which are within
  *      prcl2Paint.
  *
- *      -- For WM_PAINT, set this to the
- *         update rectangle, and set fPaintHalfLines
- *         to TRUE.
+ *      --  For WM_PAINT, set this to the
+ *          update rectangle, and set fPaintHalfLines
+ *          to TRUE.
  *
- *      -- For printing, set this to the page rectangle,
- *         and set fPaintHalfLines to FALSE.
+ *      --  For printing, set this to the page rectangle,
+ *          and set fPaintHalfLines to FALSE.
  *
  *      All coordinates are in world space (PU_PELS).
  *
@@ -1614,7 +1616,7 @@ BOOL txvPaintText(HAB hab,
                 PTXVWORD pWordThis = (PTXVWORD)pWordNode->pItemData;
                 ULONG flChar = pWordThis->flChar;
 
-                if (pWordThis->pszLinkTarget)       // V0.9.20 (2002-08-10) [umoeller]
+                if (pWordThis->pcszLinkTarget)       // V0.9.20 (2002-08-10) [umoeller]
                     flChar |= CHS_UNDERSCORE;
 
                 // x start: this word's X coordinate
@@ -1883,7 +1885,8 @@ typedef struct _TEXTVIEWWINDATA
     // anchor clicking
     PLISTNODE   pWordNodeFirstInAnchor;  // points to first word which belongs to anchor
     // USHORT      usLastAnchorClicked;    // last anchor which was clicked (1-0xFFFF)
-    PSZ         pszLastLinkClicked;     // last link that was clicked (points into llLinks)
+    PCSZ        pcszLastLinkClicked;     // last link that was clicked (points into llLinks)
+                                         // V0.9.20 (2002-08-10) [umoeller]
 
 } TEXTVIEWWINDATA, *PTEXTVIEWWINDATA;
 
@@ -2247,7 +2250,7 @@ static VOID RepaintWord(PTEXTVIEWWINDATA ptxvd,
     rclLine.yBottom = pLineRcl->rcl.yBottom + ptxvd->ulViewYOfs;
     rclLine.yTop = pLineRcl->rcl.yTop + ptxvd->ulViewYOfs;
 
-    if (pWordThis->pszLinkTarget)
+    if (pWordThis->pcszLinkTarget)
         flChar |= CHS_UNDERSCORE;
 
     // x start: this word's X coordinate
@@ -2291,16 +2294,16 @@ static VOID RepaintWord(PTEXTVIEWWINDATA ptxvd,
 static VOID RepaintAnchor(PTEXTVIEWWINDATA ptxvd,
                           LONG lColor)
 {
-    PLISTNODE pNode = ptxvd->pWordNodeFirstInAnchor;
-    PSZ     pszLinkTarget = NULL;
+    PLISTNODE   pNode = ptxvd->pWordNodeFirstInAnchor;
+    PCSZ        pcszLinkTarget = NULL;
     while (pNode)
     {
         PTXVWORD pWordThis = (PTXVWORD)pNode->pItemData;
-        if (!pszLinkTarget)
+        if (!pcszLinkTarget)
             // first loop:
-            pszLinkTarget = pWordThis->pszLinkTarget;
+            pcszLinkTarget = pWordThis->pcszLinkTarget;
         else
-            if (pWordThis->pszLinkTarget != pszLinkTarget)
+            if (pWordThis->pcszLinkTarget != pcszLinkTarget)
                 // first word with different anchor:
                 break;
 
@@ -2309,6 +2312,656 @@ static VOID RepaintAnchor(PTEXTVIEWWINDATA ptxvd,
                     lColor);
         pNode = pNode->pNext;
     }
+}
+
+/*
+ *@@ ProcessCreate:
+ *      implementation for WM_CREATE in fnwpTextView.
+ *
+ *@@added V0.9.21 (2002-08-12) [umoeller]
+ */
+
+static MRESULT ProcessCreate(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
+{
+    PXTEXTVIEWCDATA     pcd = (PXTEXTVIEWCDATA)mp1;
+                // can be NULL
+    PCREATESTRUCT       pcs = (PCREATESTRUCT)mp2;
+    SBCDATA             sbcd;
+
+    MRESULT             mrc = (MRESULT)TRUE;     // error
+    PTEXTVIEWWINDATA    ptxvd;
+
+    // allocate TEXTVIEWWINDATA for QWL_PRIVATE
+    if (ptxvd = (PTEXTVIEWWINDATA)malloc(sizeof(TEXTVIEWWINDATA)))
+    {
+        SIZEL   szlPage = {0, 0};
+        BOOL    fShow = FALSE;
+
+        // query message queue
+        HMQ hmq = WinQueryWindowULong(hwndTextView, QWL_HMQ);
+        // get codepage of message queue
+        ULONG ulCodepage = WinQueryCp(hmq);
+
+        memset(ptxvd, 0, sizeof(TEXTVIEWWINDATA));
+        WinSetWindowPtr(hwndTextView, QWL_PRIVATE, ptxvd);
+
+        ptxvd->hab = WinQueryAnchorBlock(hwndTextView);
+
+        ptxvd->hdc = WinOpenWindowDC(hwndTextView);
+        ptxvd->hps = GpiCreatePS(ptxvd->hab,
+                                 ptxvd->hdc,
+                                 &szlPage, // use same page size as device
+                                 PU_PELS | GPIT_MICRO | GPIA_ASSOC);
+
+        // copy window style flags V0.9.20 (2002-08-10) [umoeller]
+        ptxvd->flStyle = pcs->flStyle;
+
+        gpihSwitchToRGB(ptxvd->hps);
+
+        // set codepage; GPI defaults this to
+        // the process codepage
+        GpiSetCp(ptxvd->hps, ulCodepage);
+
+        txvInitFormat(&ptxvd->xfd);
+
+        // copy control data, if present
+        if (pcd)
+            memcpy(&ptxvd->cdata, pcd, pcd->cbData);
+
+        // check values which might cause null divisions
+        if (ptxvd->cdata.ulVScrollLineUnit == 0)
+            ptxvd->cdata.ulVScrollLineUnit = 15;
+        if (ptxvd->cdata.ulHScrollLineUnit == 0)
+            ptxvd->cdata.ulHScrollLineUnit = 15;
+
+        ptxvd->fAcceptsPresParamsNow = FALSE;
+
+        // copy window dimensions from CREATESTRUCT
+        ptxvd->rclViewReal.xLeft = 0;
+        ptxvd->rclViewReal.yBottom = 0;
+        ptxvd->rclViewReal.xRight = pcs->cx;
+        ptxvd->rclViewReal.yTop = pcs->cy;
+
+        sbcd.cb = sizeof(SBCDATA);
+        sbcd.sHilite = 0;
+        sbcd.posFirst = 0;
+        sbcd.posLast = 100;
+        sbcd.posThumb = 30;
+        sbcd.cVisible = 50;
+        sbcd.cTotal = 50;
+
+        ptxvd->hwndVScroll = WinCreateWindow(hwndTextView,
+                                             WC_SCROLLBAR,
+                                             "",
+                                             SBS_VERT | SBS_THUMBSIZE | WS_VISIBLE,
+                                             10, 10,
+                                             20, 100,
+                                             hwndTextView,     // owner
+                                             HWND_TOP,
+                                             ID_VSCROLL,
+                                             &sbcd,
+                                             0);
+        fShow = ((ptxvd->flStyle & XS_VSCROLL) != 0);
+        WinShowWindow(ptxvd->hwndVScroll, fShow);
+        ptxvd->fVScrollVisible = fShow;
+
+        ptxvd->hwndHScroll = WinCreateWindow(hwndTextView,
+                                             WC_SCROLLBAR,
+                                             "",
+                                             SBS_THUMBSIZE | WS_VISIBLE,
+                                             10, 10,
+                                             20, 100,
+                                             hwndTextView,     // owner
+                                             HWND_TOP,
+                                             ID_HSCROLL,
+                                             &sbcd,
+                                             0);
+        fShow = ((ptxvd->flStyle & XS_HSCROLL) != 0);
+        WinShowWindow(ptxvd->hwndHScroll, fShow);
+        ptxvd->fHScrollVisible = fShow;
+
+        if (ptxvd->flStyle & XS_WORDWRAP)
+            // word-wrapping should be enabled from the start:
+            // V0.9.20 (2002-08-10) [umoeller]
+            ptxvd->xfd.fmtpStandard.fWordWrap = TRUE;
+
+        // set "code" format
+        SetFormatFont(ptxvd->hps,
+                      &ptxvd->xfd.fmtcCode,
+                      6,
+                      "System VIO");
+
+        // get colors from presparams/syscolors
+        UpdateTextViewPresData(hwndTextView, ptxvd);
+
+        AdjustViewRects(hwndTextView,
+                        ptxvd);
+
+        if (ptxvd->flStyle & XS_HTML)
+        {
+            // if we're operating in HTML mode, set a
+            // different default paragraph format to
+            // make things prettier
+            // V0.9.20 (2002-08-10) [umoeller]
+            ptxvd->xfd.fmtpStandard.lSpaceBefore = 5;
+            ptxvd->xfd.fmtpStandard.lSpaceAfter = 5;
+        }
+
+        // setting the window text on window creation never
+        // worked V0.9.20 (2002-08-10) [umoeller]
+        if (pcs->pszText)
+            SetWindowText(hwndTextView,
+                          ptxvd,
+                          pcs->pszText);
+
+        mrc = (MRESULT)FALSE;        // OK
+    }
+
+    return mrc;
+}
+
+/*
+ *@@ ProcessPaint:
+ *      implementation for WM_PAINT in fnwpTextView.
+ *
+ *@@added V0.9.21 (2002-08-12) [umoeller]
+ */
+
+static VOID ProcessPaint(HWND hwndTextView)
+{
+    PTEXTVIEWWINDATA    ptxvd;
+    if (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+    {
+        HRGN    hrgnOldClip;
+        RECTL   rclClip;
+        RECTL   rcl2Update;
+
+        // get update rectangle
+        WinQueryUpdateRect(hwndTextView,
+                           &rcl2Update);
+        // since we're not using WinBeginPaint,
+        // we must validate the update region,
+        // or we'll get bombed with WM_PAINT msgs
+        WinValidateRect(hwndTextView,
+                        NULL,
+                        FALSE);
+
+        // reset clip region to "all"
+        GpiSetClipRegion(ptxvd->hps,
+                         NULLHANDLE,
+                         &hrgnOldClip);        // out: old clip region
+        // reduce clip region to update rectangle
+        GpiIntersectClipRectangle(ptxvd->hps,
+                                  &rcl2Update);     // exclusive
+
+        // draw little box at the bottom right
+        // (in between scroll bars) if we have
+        // both vertical and horizontal scroll bars
+        if (    (ptxvd->flStyle & (XS_VSCROLL | XS_HSCROLL))
+                == (XS_VSCROLL | XS_HSCROLL)
+             && (ptxvd->fVScrollVisible)
+             && (ptxvd->fHScrollVisible)
+           )
+        {
+            RECTL   rclBox;
+            rclBox.xLeft = ptxvd->rclViewPaint.xRight;
+            rclBox.yBottom = 0;
+            rclBox.xRight = rclBox.xLeft + WinQuerySysValue(HWND_DESKTOP, SV_CXVSCROLL);
+            rclBox.yTop = WinQuerySysValue(HWND_DESKTOP, SV_CYHSCROLL);
+            WinFillRect(ptxvd->hps,
+                        &rclBox,
+                        WinQuerySysColor(HWND_DESKTOP,
+                                         SYSCLR_DIALOGBACKGROUND,
+                                         0));
+        }
+
+        // paint "view paint" rectangle white;
+        // this can be larger than "view text"
+        WinFillRect(ptxvd->hps,
+                    &ptxvd->rclViewPaint,       // exclusive
+                    ptxvd->lBackColor);
+
+        // now reduce clipping rectangle to "view text" rectangle
+        rclClip.xLeft = ptxvd->rclViewText.xLeft;
+        rclClip.xRight = ptxvd->rclViewText.xRight - 1;
+        rclClip.yBottom = ptxvd->rclViewText.yBottom;
+        rclClip.yTop = ptxvd->rclViewText.yTop - 1;
+        GpiIntersectClipRectangle(ptxvd->hps,
+                                  &rclClip);    // exclusive
+        // finally, draw text lines in invalid rectangle;
+        // this subfunction is smart enough to redraw only
+        // the lines which intersect with rcl2Update
+        GpiSetColor(ptxvd->hps, ptxvd->lForeColor);
+        PaintViewText2Screen(ptxvd,
+                             &rcl2Update);
+
+        if (    (!(ptxvd->flStyle & XS_STATIC))
+                        // V0.9.20 (2002-08-10) [umoeller]
+             && (WinQueryFocus(HWND_DESKTOP) == hwndTextView)
+           )
+        {
+            // we have the focus:
+            // reset clip region to "all"
+            GpiSetClipRegion(ptxvd->hps,
+                             NULLHANDLE,
+                             &hrgnOldClip);        // out: old clip region
+            PaintViewFocus(ptxvd->hps,
+                           ptxvd,
+                           TRUE);
+        }
+
+        ptxvd->fAcceptsPresParamsNow = TRUE;
+    }
+}
+
+/*
+ *@@ ProcessPresParamChanged:
+ *      implementation for WM_PRESPARAMCHANGED in fnwpTextView.
+ *
+ *@@added V0.9.21 (2002-08-12) [umoeller]
+ */
+
+static VOID ProcessPresParamChanged(HWND hwndTextView, MPARAM mp1)
+{
+    PTEXTVIEWWINDATA    ptxvd;
+    if (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+    {
+        switch ((LONG)mp1)
+        {
+            case 0:     // layout palette thing dropped
+            case PP_BACKGROUNDCOLOR:
+            case PP_FOREGROUNDCOLOR:
+            case PP_FONTNAMESIZE:
+                // re-query our presparams
+                UpdateTextViewPresData(hwndTextView, ptxvd);
+        }
+
+        if (ptxvd->fAcceptsPresParamsNow)
+            FormatText2Screen(hwndTextView,
+                              ptxvd,
+                              FALSE,
+                              TRUE);    // full reformat
+    }
+}
+
+/*
+ *@@ ProcessSetFocus:
+ *      implementation for WM_SETFOCUS in fnwpTextView.
+ *
+ *@@added V0.9.21 (2002-08-12) [umoeller]
+ */
+
+static VOID ProcessSetFocus(HWND hwndTextView, MPARAM mp2)
+{
+    PTEXTVIEWWINDATA    ptxvd;
+    if (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+    {
+        if (ptxvd->flStyle & XS_STATIC)
+        {
+            if (mp2)
+            {
+                // we're receiving the focus, but shouldn't have it:
+                // then behave like the static control does, that is,
+                // give focus to the next window in the dialog
+                HWND    hwnd = hwndTextView,
+                        hwndStart = hwnd;
+
+                while (TRUE)
+                {
+                    ULONG flStyle;
+
+                    if (!(hwnd = WinQueryWindow(hwnd, QW_NEXT)))
+                        hwnd = WinQueryWindow(WinQueryWindow(hwndStart, QW_PARENT), QW_TOP);
+
+                    // avoid endless looping
+                    if (hwnd == hwndStart)
+                    {
+                        if (    (hwnd = WinQueryWindow(hwnd, QW_OWNER))
+                             && (hwnd == hwndStart)
+                           )
+                            hwnd = NULLHANDLE;
+
+                        break;
+                    }
+
+                    if (    (flStyle = WinQueryWindowULong(hwnd, QWL_STYLE))
+                         && (flStyle & (WS_DISABLED | WS_TABSTOP | WS_VISIBLE)
+                                == (WS_TABSTOP | WS_VISIBLE))
+                       )
+                    {
+                        WinSetFocus(HWND_DESKTOP, hwnd);
+                        break;
+                    }
+                };
+            }
+        }
+        else
+        {
+            HPS hps = WinGetPS(hwndTextView);
+            gpihSwitchToRGB(hps);
+            PaintViewFocus(hps,
+                           ptxvd,
+                           (mp2 != 0));
+            WinReleasePS(hps);
+        }
+    }
+}
+
+/*
+ *@@ ProcessButton1Down:
+ *      implementation for WM_BUTTON1DOWN in fnwpTextView.
+ *
+ *@@added V0.9.21 (2002-08-12) [umoeller]
+ */
+
+static MRESULT ProcessButton1Down(HWND hwndTextView, MPARAM mp1)
+{
+    MRESULT             mrc = 0;
+    PTEXTVIEWWINDATA    ptxvd;
+
+    if (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+    {
+        POINTL ptlPos;
+        PLISTNODE pWordNodeClicked;
+
+        ptlPos.x = SHORT1FROMMP(mp1) + ptxvd->ulViewXOfs;
+        ptlPos.y = SHORT2FROMMP(mp1) - ptxvd->ulViewYOfs;
+
+        if (    (!(ptxvd->flStyle & XS_STATIC))
+                        // V0.9.20 (2002-08-10) [umoeller]
+             && (hwndTextView != WinQueryFocus(HWND_DESKTOP))
+           )
+            WinSetFocus(HWND_DESKTOP, hwndTextView);
+
+        ptxvd->pcszLastLinkClicked = NULL;
+
+        if (pWordNodeClicked = txvFindWordFromPoint(&ptxvd->xfd,
+                                                    &ptlPos))
+        {
+            PTXVWORD pWordClicked = (PTXVWORD)pWordNodeClicked->pItemData;
+
+            // store link target (can be NULL)
+            if (ptxvd->pcszLastLinkClicked = pWordClicked->pcszLinkTarget)
+            {
+                // word has a link target:
+                PLISTNODE   pNode = pWordNodeClicked;
+
+                // reset first word of anchor
+                ptxvd->pWordNodeFirstInAnchor = NULL;
+
+                // go back to find the first word which has this anchor,
+                // because we need to repaint them all
+                while (pNode)
+                {
+                    PTXVWORD pWordThis = (PTXVWORD)pNode->pItemData;
+                    if (pWordThis->pcszLinkTarget == pWordClicked->pcszLinkTarget)
+                    {
+                        // still has same anchor:
+                        // go for previous
+                        ptxvd->pWordNodeFirstInAnchor = pNode;
+                        pNode = pNode->pPrevious;
+                    }
+                    else
+                        // different anchor:
+                        // pNodeFirst points to first node with same anchor now
+                        break;
+                }
+
+                RepaintAnchor(ptxvd,
+                              RGBCOL_RED);
+            }
+        }
+
+        WinSetCapture(HWND_DESKTOP, hwndTextView);
+        mrc = (MRESULT)TRUE;
+    }
+
+    return mrc;
+}
+
+/*
+ *@@ ProcessButton1Up:
+ *      implementation for WM_BUTTON1UP in fnwpTextView.
+ *
+ *@@added V0.9.21 (2002-08-12) [umoeller]
+ */
+
+static MRESULT ProcessButton1Up(HWND hwndTextView, MPARAM mp1)
+{
+    MRESULT             mrc = 0;
+    PTEXTVIEWWINDATA    ptxvd;
+
+    if (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+    {
+        POINTL      ptlPos;
+        HWND        hwndOwner = NULLHANDLE;
+
+        ptlPos.x = SHORT1FROMMP(mp1) + ptxvd->ulViewXOfs;
+        ptlPos.y = SHORT2FROMMP(mp1) - ptxvd->ulViewYOfs;
+        WinSetCapture(HWND_DESKTOP, NULLHANDLE);
+
+        if (ptxvd->pcszLastLinkClicked)
+        {
+            RepaintAnchor(ptxvd,
+                          ptxvd->lForeColor);
+
+            // nofify owner
+            if (hwndOwner = WinQueryWindow(hwndTextView, QW_OWNER))
+                WinPostMsg(hwndOwner,
+                           WM_CONTROL,
+                           MPFROM2SHORT(WinQueryWindowUShort(hwndTextView,
+                                                             QWS_ID),
+                                        TXVN_LINK),
+                           (MPARAM)(ULONG)(ptxvd->pcszLastLinkClicked));
+        }
+
+        mrc = (MRESULT)TRUE;
+    }
+
+    return mrc;
+}
+
+/*
+ *@@ ProcessChar:
+ *      implementation for WM_CHAR in fnwpTextView.
+ *
+ *@@added V0.9.21 (2002-08-12) [umoeller]
+ */
+
+static MRESULT ProcessChar(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
+{
+    MRESULT             mrc = 0;
+    PTEXTVIEWWINDATA    ptxvd;
+
+    if (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+    {
+        BOOL    fDefProc = TRUE;
+        USHORT usFlags    = SHORT1FROMMP(mp1);
+        // USHORT usch       = SHORT1FROMMP(mp2);
+        USHORT usvk       = SHORT2FROMMP(mp2);
+
+        if (usFlags & KC_VIRTUALKEY)
+        {
+            ULONG   ulMsg = 0;
+            USHORT  usID = ID_VSCROLL;
+            SHORT   sPos = 0;
+            SHORT   usCmd = 0;
+            fDefProc = FALSE;
+
+            switch (usvk)
+            {
+                case VK_UP:
+                    ulMsg = WM_VSCROLL;
+                    usCmd = SB_LINEUP;
+                break;
+
+                case VK_DOWN:
+                    ulMsg = WM_VSCROLL;
+                    usCmd = SB_LINEDOWN;
+                break;
+
+                case VK_RIGHT:
+                    ulMsg = WM_HSCROLL;
+                    usCmd = SB_LINERIGHT;
+                break;
+
+                case VK_LEFT:
+                    ulMsg = WM_HSCROLL;
+                    usCmd = SB_LINELEFT;
+                break;
+
+                case VK_PAGEUP:
+                    ulMsg = WM_VSCROLL;
+                    if (usFlags & KC_CTRL)
+                    {
+                        sPos = 0;
+                        usCmd = SB_SLIDERPOSITION;
+                    }
+                    else
+                        usCmd = SB_PAGEUP;
+                break;
+
+                case VK_PAGEDOWN:
+                    ulMsg = WM_VSCROLL;
+                    if (usFlags & KC_CTRL)
+                    {
+                        sPos = ptxvd->xfd.szlWorkspace.cy;
+                        usCmd = SB_SLIDERPOSITION;
+                    }
+                    else
+                        usCmd = SB_PAGEDOWN;
+                break;
+
+                case VK_HOME:
+                    if (usFlags & KC_CTRL)
+                        // vertical:
+                        ulMsg = WM_VSCROLL;
+                    else
+                        ulMsg = WM_HSCROLL;
+
+                    sPos = 0;
+                    usCmd = SB_SLIDERPOSITION;
+                break;
+
+                case VK_END:
+                    if (usFlags & KC_CTRL)
+                    {
+                        // vertical:
+                        ulMsg = WM_VSCROLL;
+                        sPos = ptxvd->xfd.szlWorkspace.cy;
+                    }
+                    else
+                    {
+                        ulMsg = WM_HSCROLL;
+                        sPos = ptxvd->xfd.szlWorkspace.cx;
+                    }
+
+                    usCmd = SB_SLIDERPOSITION;
+                break;
+
+                default:
+                    // other:
+                    fDefProc = TRUE;
+            }
+
+            if (    ((usFlags & KC_KEYUP) == 0)
+                 && (ulMsg)
+               )
+                WinSendMsg(hwndTextView,
+                           ulMsg,
+                           MPFROMSHORT(usID),
+                           MPFROM2SHORT(sPos,
+                                        usCmd));
+        }
+
+        if (fDefProc)
+            mrc = WinDefWindowProc(hwndTextView, WM_CHAR, mp1, mp2);
+                    // sends to owner
+        else
+            mrc = (MPARAM)TRUE;
+    }
+
+    return mrc;
+}
+
+/*
+ *@@ ProcessJumpToAnchorName:
+ *      implementation for TXM_JUMPTOANCHORNAME in fnwpTextView.
+ *
+ *@@added V0.9.21 (2002-08-12) [umoeller]
+ */
+
+static MRESULT ProcessJumpToAnchorName(HWND hwndTextView, MPARAM mp1)
+{
+    MRESULT             mrc = 0;
+    PTEXTVIEWWINDATA    ptxvd;
+
+    if (    (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+         && (mp1)
+       )
+    {
+        PLISTNODE pWordNode;
+        PTXVWORD pWord;
+        if (    (pWordNode = txvFindWordFromAnchor(&ptxvd->xfd,
+                                                   (const char*)mp1))
+             && (pWord = (PTXVWORD)pWordNode->pItemData)
+           )
+        {
+            // found:
+            PTXVRECTANGLE pRect = pWord->pRectangle;
+            ULONG ulWinCY = (ptxvd->rclViewText.yTop - ptxvd->rclViewText.yBottom);
+
+            // now we need to scroll the window so that this rectangle is on top.
+            // Since rectangles start out with the height of the window (e.g. +768)
+            // and then have lower y coordinates down to way in the negatives,
+            // to get the y offset, we must...
+            ptxvd->ulViewYOfs = (-pRect->rcl.yTop) - ulWinCY;
+
+            if (ptxvd->ulViewYOfs < 0)
+                ptxvd->ulViewYOfs = 0;
+            if (ptxvd->ulViewYOfs > ((LONG)ptxvd->xfd.szlWorkspace.cy - ulWinCY))
+                ptxvd->ulViewYOfs = (LONG)ptxvd->xfd.szlWorkspace.cy - ulWinCY;
+
+            // vertical scroll bar enabled at all?
+            if (ptxvd->flStyle & XS_VSCROLL)
+            {
+                /* BOOL fEnabled = */ winhUpdateScrollBar(ptxvd->hwndVScroll,
+                                                    ulWinCY,
+                                                    ptxvd->xfd.szlWorkspace.cy,
+                                                    ptxvd->ulViewYOfs,
+                                                    (ptxvd->flStyle & XS_AUTOVHIDE));
+                WinInvalidateRect(hwndTextView, NULL, FALSE);
+            }
+
+            mrc = (MRESULT)TRUE;
+        }
+    }
+
+    return mrc;
+}
+
+/*
+ *@@ ProcessDestroy:
+ *      implementation for WM_DESTROY in fnwpTextView.
+ *
+ *@@added V0.9.21 (2002-08-12) [umoeller]
+ */
+
+static MRESULT ProcessDestroy(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
+{
+    PTEXTVIEWWINDATA    ptxvd;
+
+    if (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+    {
+        xstrClear(&ptxvd->xfd.strViewText);
+        lstClear(&ptxvd->xfd.llRectangles);
+        lstClear(&ptxvd->xfd.llWords);
+        GpiDestroyPS(ptxvd->hps);
+        free(ptxvd);
+        WinSetWindowPtr(hwndTextView, QWL_PRIVATE, NULL);
+    }
+
+    return WinDefWindowProc(hwndTextView, WM_DESTROY, mp1, mp2);
 }
 
 /*
@@ -2363,14 +3016,15 @@ static VOID RepaintAnchor(PTEXTVIEWWINDATA ptxvd,
  *@@changed V0.9.20 (2002-08-10) [umoeller]: setting text on window creation never worked, fixed
  *@@changed V0.9.20 (2002-08-10) [umoeller]: added TXN_ANCHORCLICKED owner notify for anchors
  *@@changed V0.9.20 (2002-08-10) [umoeller]: converted private style flags to XS_* window style flags
+ *@@changed V0.9.20 (2002-08-10) [umoeller]: added support for XS_STATIC
  *@@changed V0.9.20 (2002-08-10) [umoeller]: added support for formatting HTML and plain text automatically
+ *@@changed V0.9.21 (2002-08-12) [umoeller]: optimized locality by moving big chunks into subfuncs
  */
 
 static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
-    MRESULT mrc = 0;
-
-    PTEXTVIEWWINDATA ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE);
+    MRESULT             mrc = 0;
+    PTEXTVIEWWINDATA    ptxvd;
 
     switch (msg)
     {
@@ -2380,140 +3034,8 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          */
 
         case WM_CREATE:
-        {
-            PXTEXTVIEWCDATA pcd = (PXTEXTVIEWCDATA)mp1;
-                        // can be NULL
-            PCREATESTRUCT pcs = (PCREATESTRUCT)mp2;
-            SBCDATA sbcd;
-
-            mrc = (MPARAM)TRUE;     // error
-
-            // allocate TEXTVIEWWINDATA for QWL_PRIVATE
-            if (ptxvd = (PTEXTVIEWWINDATA)malloc(sizeof(TEXTVIEWWINDATA)))
-            {
-                SIZEL   szlPage = {0, 0};
-                BOOL    fShow = FALSE;
-
-                // query message queue
-                HMQ hmq = WinQueryWindowULong(hwndTextView, QWL_HMQ);
-                // get codepage of message queue
-                ULONG ulCodepage = WinQueryCp(hmq);
-
-                memset(ptxvd, 0, sizeof(TEXTVIEWWINDATA));
-                WinSetWindowPtr(hwndTextView, QWL_PRIVATE, ptxvd);
-
-                ptxvd->hab = WinQueryAnchorBlock(hwndTextView);
-
-                ptxvd->hdc = WinOpenWindowDC(hwndTextView);
-                ptxvd->hps = GpiCreatePS(ptxvd->hab,
-                                         ptxvd->hdc,
-                                         &szlPage, // use same page size as device
-                                         PU_PELS | GPIT_MICRO | GPIA_ASSOC);
-
-                // copy window style flags V0.9.20 (2002-08-10) [umoeller]
-                ptxvd->flStyle = pcs->flStyle;
-
-                gpihSwitchToRGB(ptxvd->hps);
-
-                // set codepage; GPI defaults this to
-                // the process codepage
-                GpiSetCp(ptxvd->hps, ulCodepage);
-
-                txvInitFormat(&ptxvd->xfd);
-
-                // copy control data, if present
-                if (pcd)
-                    memcpy(&ptxvd->cdata, pcd, pcd->cbData);
-
-                // check values which might cause null divisions
-                if (ptxvd->cdata.ulVScrollLineUnit == 0)
-                    ptxvd->cdata.ulVScrollLineUnit = 15;
-                if (ptxvd->cdata.ulHScrollLineUnit == 0)
-                    ptxvd->cdata.ulHScrollLineUnit = 15;
-
-                ptxvd->fAcceptsPresParamsNow = FALSE;
-
-                // copy window dimensions from CREATESTRUCT
-                ptxvd->rclViewReal.xLeft = 0;
-                ptxvd->rclViewReal.yBottom = 0;
-                ptxvd->rclViewReal.xRight = pcs->cx;
-                ptxvd->rclViewReal.yTop = pcs->cy;
-
-                sbcd.cb = sizeof(SBCDATA);
-                sbcd.sHilite = 0;
-                sbcd.posFirst = 0;
-                sbcd.posLast = 100;
-                sbcd.posThumb = 30;
-                sbcd.cVisible = 50;
-                sbcd.cTotal = 50;
-
-                ptxvd->hwndVScroll = WinCreateWindow(hwndTextView,
-                                                     WC_SCROLLBAR,
-                                                     "",
-                                                     SBS_VERT | SBS_THUMBSIZE | WS_VISIBLE,
-                                                     10, 10,
-                                                     20, 100,
-                                                     hwndTextView,     // owner
-                                                     HWND_TOP,
-                                                     ID_VSCROLL,
-                                                     &sbcd,
-                                                     0);
-                fShow = ((ptxvd->flStyle & XS_VSCROLL) != 0);
-                WinShowWindow(ptxvd->hwndVScroll, fShow);
-                ptxvd->fVScrollVisible = fShow;
-
-                ptxvd->hwndHScroll = WinCreateWindow(hwndTextView,
-                                                     WC_SCROLLBAR,
-                                                     "",
-                                                     SBS_THUMBSIZE | WS_VISIBLE,
-                                                     10, 10,
-                                                     20, 100,
-                                                     hwndTextView,     // owner
-                                                     HWND_TOP,
-                                                     ID_HSCROLL,
-                                                     &sbcd,
-                                                     0);
-                fShow = ((ptxvd->flStyle & XS_HSCROLL) != 0);
-                WinShowWindow(ptxvd->hwndHScroll, fShow);
-                ptxvd->fHScrollVisible = fShow;
-
-                if (ptxvd->flStyle & XS_WORDWRAP)
-                    // word-wrapping should be enabled from the start:
-                    // V0.9.20 (2002-08-10) [umoeller]
-                    ptxvd->xfd.fmtpStandard.fWordWrap = TRUE;
-
-                // set "code" format
-                SetFormatFont(ptxvd->hps,
-                              &ptxvd->xfd.fmtcCode,
-                              6,
-                              "System VIO");
-
-                // get colors from presparams/syscolors
-                UpdateTextViewPresData(hwndTextView, ptxvd);
-
-                AdjustViewRects(hwndTextView,
-                                ptxvd);
-
-                if (ptxvd->flStyle & XS_HTML)
-                {
-                    // if we're operating in HTML mode, set a
-                    // different default paragraph format to
-                    // make things prettier
-                    // V0.9.20 (2002-08-10) [umoeller]
-                    ptxvd->xfd.fmtpStandard.lSpaceBefore = 5;
-                    ptxvd->xfd.fmtpStandard.lSpaceAfter = 5;
-                }
-
-                // setting the window text on window creation never
-                // worked V0.9.20 (2002-08-10) [umoeller]
-                if (pcs->pszText)
-                    SetWindowText(hwndTextView,
-                                  ptxvd,
-                                  pcs->pszText);
-
-                mrc = (MPARAM)FALSE;        // OK
-            }
-        }
+            mrc = ProcessCreate(hwndTextView, mp1, mp2);
+                    // extracted V0.9.21 (2002-08-12) [umoeller]
         break;
 
         /*
@@ -2525,18 +3047,16 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          */
 
         case WM_SETWINDOWPARAMS:
-        {
-            WNDPARAMS *pwndParams;
-            if (    (pwndParams = (WNDPARAMS *)mp1)
-                 && (pwndParams->fsStatus & WPM_TEXT)
+            if (    (mp1)
+                 && (((PWNDPARAMS)mp1)->fsStatus & WPM_TEXT)
+                 && (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
                )
             {
                 SetWindowText(hwndTextView,
                               ptxvd,
-                              pwndParams->pszText);
+                              ((PWNDPARAMS)mp1)->pszText);
                 mrc = (MRESULT)TRUE;     // was missing V0.9.20 (2002-08-10) [umoeller]
             }
-        }
         break;
 
         /*
@@ -2545,29 +3065,21 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          */
 
         case WM_WINDOWPOSCHANGED:
-        {
-            // this msg is passed two SWP structs:
-            // one for the old, one for the new data
-            // (from PM docs)
-            PSWP pswpNew = (PSWP)(mp1);
-            // PSWP pswpOld = pswpNew + 1;
-
             // resizing?
-            if (pswpNew->fl & SWP_SIZE)
+            if (    (mp1)
+                 && (((PSWP)mp1)->fl & SWP_SIZE)
+                 && (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+               )
             {
-                if (ptxvd)
-                {
-                    WinQueryWindowRect(hwndTextView,
-                                       &ptxvd->rclViewReal);
-                    AdjustViewRects(hwndTextView,
-                                    ptxvd);
-                    FormatText2Screen(hwndTextView,
-                                      ptxvd,
-                                      FALSE,
-                                      FALSE);   // quick format
-                }
+                WinQueryWindowRect(hwndTextView,
+                                   &ptxvd->rclViewReal);
+                AdjustViewRects(hwndTextView,
+                                ptxvd);
+                FormatText2Screen(hwndTextView,
+                                  ptxvd,
+                                  FALSE,
+                                  FALSE);   // quick format
             }
-        }
         break;
 
         /*
@@ -2576,98 +3088,8 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          */
 
         case WM_PAINT:
-        {
-            HRGN    hrgnOldClip;
-
-            /* HPS hps = WinBeginPaint(hwndTextView,
-                                    ptxvd->hps,
-                                    &rcl2Paint);  // store invalid rectangle here
-               */
-
-            if (ptxvd)
-            {
-                RECTL   rclClip;
-                RECTL   rcl2Update;
-
-                // get update rectangle
-                WinQueryUpdateRect(hwndTextView,
-                                   &rcl2Update);
-                // since we're not using WinBeginPaint,
-                // we must validate the update region,
-                // or we'll get bombed with WM_PAINT msgs
-                WinValidateRect(hwndTextView,
-                                NULL,
-                                FALSE);
-
-                // reset clip region to "all"
-                GpiSetClipRegion(ptxvd->hps,
-                                 NULLHANDLE,
-                                 &hrgnOldClip);        // out: old clip region
-                // reduce clip region to update rectangle
-                GpiIntersectClipRectangle(ptxvd->hps,
-                                          &rcl2Update);     // exclusive
-
-                // draw little box at the bottom right
-                // (in between scroll bars) if we have
-                // both vertical and horizontal scroll bars
-                if (    (ptxvd->flStyle & (XS_VSCROLL | XS_HSCROLL))
-                        == (XS_VSCROLL | XS_HSCROLL)
-                     && (ptxvd->fVScrollVisible)
-                     && (ptxvd->fHScrollVisible)
-                   )
-                {
-                    RECTL   rclBox;
-                    rclBox.xLeft = ptxvd->rclViewPaint.xRight;
-                    rclBox.yBottom = 0;
-                    rclBox.xRight = rclBox.xLeft + WinQuerySysValue(HWND_DESKTOP, SV_CXVSCROLL);
-                    rclBox.yTop = WinQuerySysValue(HWND_DESKTOP, SV_CYHSCROLL);
-                    WinFillRect(ptxvd->hps,
-                                &rclBox,
-                                WinQuerySysColor(HWND_DESKTOP,
-                                                 SYSCLR_DIALOGBACKGROUND,
-                                                 0));
-                }
-
-                // paint "view paint" rectangle white;
-                // this can be larger than "view text"
-                WinFillRect(ptxvd->hps,
-                            &ptxvd->rclViewPaint,       // exclusive
-                            ptxvd->lBackColor);
-
-                // now reduce clipping rectangle to "view text" rectangle
-                rclClip.xLeft = ptxvd->rclViewText.xLeft;
-                rclClip.xRight = ptxvd->rclViewText.xRight - 1;
-                rclClip.yBottom = ptxvd->rclViewText.yBottom;
-                rclClip.yTop = ptxvd->rclViewText.yTop - 1;
-                GpiIntersectClipRectangle(ptxvd->hps,
-                                          &rclClip);    // exclusive
-                // finally, draw text lines in invalid rectangle;
-                // this subfunction is smart enough to redraw only
-                // the lines which intersect with rcl2Update
-                GpiSetColor(ptxvd->hps, ptxvd->lForeColor);
-                PaintViewText2Screen(ptxvd,
-                                     &rcl2Update);
-
-                if (    (!(ptxvd->flStyle & XS_STATIC))
-                                // V0.9.20 (2002-08-10) [umoeller]
-                     && (WinQueryFocus(HWND_DESKTOP) == hwndTextView)
-                   )
-                {
-                    // we have the focus:
-                    // reset clip region to "all"
-                    GpiSetClipRegion(ptxvd->hps,
-                                     NULLHANDLE,
-                                     &hrgnOldClip);        // out: old clip region
-                    PaintViewFocus(ptxvd->hps,
-                                   ptxvd,
-                                   TRUE);
-                }
-
-                ptxvd->fAcceptsPresParamsNow = TRUE;
-            }
-
-            // WinEndPaint(hps);
-        }
+            ProcessPaint(hwndTextView);
+                    // extracted V0.9.21 (2002-08-12) [umoeller]
         break;
 
         /*
@@ -2679,26 +3101,7 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          */
 
         case WM_PRESPARAMCHANGED:
-            mrc = WinDefWindowProc(hwndTextView, msg, mp1, mp2);
-            if (ptxvd)
-            {
-                LONG    lPPIndex = (LONG)mp1;
-                switch (lPPIndex)
-                {
-                    case 0:     // layout palette thing dropped
-                    case PP_BACKGROUNDCOLOR:
-                    case PP_FOREGROUNDCOLOR:
-                    case PP_FONTNAMESIZE:
-                        // re-query our presparams
-                        UpdateTextViewPresData(hwndTextView, ptxvd);
-                }
-
-                if (ptxvd->fAcceptsPresParamsNow)
-                    FormatText2Screen(hwndTextView,
-                                      ptxvd,
-                                      FALSE,
-                                      TRUE);    // full reformat
-            }
+            ProcessPresParamChanged(hwndTextView, mp1);
         break;
 
         /*
@@ -2707,7 +3110,9 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          */
 
         case WM_VSCROLL:
-            if (ptxvd->fVScrollVisible)
+            if (    (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+                 && (ptxvd->fVScrollVisible)
+               )
             {
                 winhHandleScrollMsg(hwndTextView,
                                     ptxvd->hwndVScroll,
@@ -2726,7 +3131,9 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          */
 
         case WM_HSCROLL:
-            if (ptxvd->fHScrollVisible)
+            if (    (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+                 && (ptxvd->fHScrollVisible)
+               )
             {
                 winhHandleScrollMsg(hwndTextView,
                                     ptxvd->hwndHScroll,
@@ -2745,56 +3152,7 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          */
 
         case WM_SETFOCUS:
-        {
-            if (ptxvd->flStyle & XS_STATIC)
-            {
-                if (mp2)
-                {
-                    // we're receiving the focus, but shouldn't have it:
-                    // then behave like the static control does, that is,
-                    // give focus to the next window in the dialog
-                    HWND    hwnd = hwndTextView,
-                            hwndStart = hwnd;
-
-                    while (TRUE)
-                    {
-                        ULONG flStyle;
-
-                        if (!(hwnd = WinQueryWindow(hwnd, QW_NEXT)))
-                            hwnd = WinQueryWindow(WinQueryWindow(hwndStart, QW_PARENT), QW_TOP);
-
-                        // avoid endless looping
-                        if (hwnd == hwndStart)
-                        {
-                            if (    (hwnd = WinQueryWindow(hwnd, QW_OWNER))
-                                 && (hwnd == hwndStart)
-                               )
-                                hwnd = NULLHANDLE;
-
-                            break;
-                        }
-
-                        if (    (flStyle = WinQueryWindowULong(hwnd, QWL_STYLE))
-                             && (flStyle & (WS_DISABLED | WS_TABSTOP | WS_VISIBLE)
-                                    == (WS_TABSTOP | WS_VISIBLE))
-                           )
-                        {
-                            WinSetFocus(HWND_DESKTOP, hwnd);
-                            break;
-                        }
-                    };
-                }
-            }
-            else
-            {
-                HPS hps = WinGetPS(hwndTextView);
-                gpihSwitchToRGB(hps);
-                PaintViewFocus(hps,
-                               ptxvd,
-                               (mp2 != 0));
-                WinReleasePS(hps);
-            }
-        }
+            ProcessSetFocus(hwndTextView, mp2);
         break;
 
         /*
@@ -2826,61 +3184,7 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          */
 
         case WM_BUTTON1DOWN:
-        {
-            POINTL ptlPos;
-            PLISTNODE pWordNodeClicked;
-
-            ptlPos.x = SHORT1FROMMP(mp1) + ptxvd->ulViewXOfs;
-            ptlPos.y = SHORT2FROMMP(mp1) - ptxvd->ulViewYOfs;
-
-            if (    (!(ptxvd->flStyle & XS_STATIC))
-                            // V0.9.20 (2002-08-10) [umoeller]
-                 && (hwndTextView != WinQueryFocus(HWND_DESKTOP))
-               )
-                WinSetFocus(HWND_DESKTOP, hwndTextView);
-
-            ptxvd->pszLastLinkClicked = NULL;
-
-            if (pWordNodeClicked = txvFindWordFromPoint(&ptxvd->xfd,
-                                                        &ptlPos))
-            {
-                PTXVWORD pWordClicked = (PTXVWORD)pWordNodeClicked->pItemData;
-
-                // store link target (can be NULL)
-                if (ptxvd->pszLastLinkClicked = pWordClicked->pszLinkTarget)
-                {
-                    // word has a link target:
-                    PLISTNODE   pNode = pWordNodeClicked;
-
-                    // reset first word of anchor
-                    ptxvd->pWordNodeFirstInAnchor = NULL;
-
-                    // go back to find the first word which has this anchor,
-                    // because we need to repaint them all
-                    while (pNode)
-                    {
-                        PTXVWORD pWordThis = (PTXVWORD)pNode->pItemData;
-                        if (pWordThis->pszLinkTarget == pWordClicked->pszLinkTarget)
-                        {
-                            // still has same anchor:
-                            // go for previous
-                            ptxvd->pWordNodeFirstInAnchor = pNode;
-                            pNode = pNode->pPrevious;
-                        }
-                        else
-                            // different anchor:
-                            // pNodeFirst points to first node with same anchor now
-                            break;
-                    }
-
-                    RepaintAnchor(ptxvd,
-                                  RGBCOL_RED);
-                }
-            }
-
-            WinSetCapture(HWND_DESKTOP, hwndTextView);
-            mrc = (MPARAM)TRUE;
-        }
+            mrc = ProcessButton1Down(hwndTextView, mp1);
         break;
 
         /*
@@ -2889,32 +3193,7 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          */
 
         case WM_BUTTON1UP:
-        {
-            POINTL      ptlPos;
-            // PTXVWORD    pWordClicked = NULL;
-            HWND        hwndOwner = NULLHANDLE;
-
-            ptlPos.x = SHORT1FROMMP(mp1) + ptxvd->ulViewXOfs;
-            ptlPos.y = SHORT2FROMMP(mp1) - ptxvd->ulViewYOfs;
-            WinSetCapture(HWND_DESKTOP, NULLHANDLE);
-
-            if (ptxvd->pszLastLinkClicked)
-            {
-                RepaintAnchor(ptxvd,
-                              ptxvd->lForeColor);
-
-                // nofify owner
-                if (hwndOwner = WinQueryWindow(hwndTextView, QW_OWNER))
-                    WinPostMsg(hwndOwner,
-                               WM_CONTROL,
-                               MPFROM2SHORT(WinQueryWindowUShort(hwndTextView,
-                                                                 QWS_ID),
-                                            TXVN_LINK),
-                               (MPARAM)(ULONG)(ptxvd->pszLastLinkClicked));
-            }
-
-            mrc = (MPARAM)TRUE;
-        }
+            mrc = ProcessButton1Up(hwndTextView, mp1);
         break;
 
         /*
@@ -2923,112 +3202,7 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          */
 
         case WM_CHAR:
-        {
-            BOOL    fDefProc = TRUE;
-            USHORT usFlags    = SHORT1FROMMP(mp1);
-            // USHORT usch       = SHORT1FROMMP(mp2);
-            USHORT usvk       = SHORT2FROMMP(mp2);
-
-            if (usFlags & KC_VIRTUALKEY)
-            {
-                ULONG   ulMsg = 0;
-                USHORT  usID = ID_VSCROLL;
-                SHORT   sPos = 0;
-                SHORT   usCmd = 0;
-                fDefProc = FALSE;
-
-                switch (usvk)
-                {
-                    case VK_UP:
-                        ulMsg = WM_VSCROLL;
-                        usCmd = SB_LINEUP;
-                    break;
-
-                    case VK_DOWN:
-                        ulMsg = WM_VSCROLL;
-                        usCmd = SB_LINEDOWN;
-                    break;
-
-                    case VK_RIGHT:
-                        ulMsg = WM_HSCROLL;
-                        usCmd = SB_LINERIGHT;
-                    break;
-
-                    case VK_LEFT:
-                        ulMsg = WM_HSCROLL;
-                        usCmd = SB_LINELEFT;
-                    break;
-
-                    case VK_PAGEUP:
-                        ulMsg = WM_VSCROLL;
-                        if (usFlags & KC_CTRL)
-                        {
-                            sPos = 0;
-                            usCmd = SB_SLIDERPOSITION;
-                        }
-                        else
-                            usCmd = SB_PAGEUP;
-                    break;
-
-                    case VK_PAGEDOWN:
-                        ulMsg = WM_VSCROLL;
-                        if (usFlags & KC_CTRL)
-                        {
-                            sPos = ptxvd->xfd.szlWorkspace.cy;
-                            usCmd = SB_SLIDERPOSITION;
-                        }
-                        else
-                            usCmd = SB_PAGEDOWN;
-                    break;
-
-                    case VK_HOME:
-                        if (usFlags & KC_CTRL)
-                            // vertical:
-                            ulMsg = WM_VSCROLL;
-                        else
-                            ulMsg = WM_HSCROLL;
-
-                        sPos = 0;
-                        usCmd = SB_SLIDERPOSITION;
-                    break;
-
-                    case VK_END:
-                        if (usFlags & KC_CTRL)
-                        {
-                            // vertical:
-                            ulMsg = WM_VSCROLL;
-                            sPos = ptxvd->xfd.szlWorkspace.cy;
-                        }
-                        else
-                        {
-                            ulMsg = WM_HSCROLL;
-                            sPos = ptxvd->xfd.szlWorkspace.cx;
-                        }
-
-                        usCmd = SB_SLIDERPOSITION;
-                    break;
-
-                    default:
-                        // other:
-                        fDefProc = TRUE;
-                }
-
-                if (    ((usFlags & KC_KEYUP) == 0)
-                     && (ulMsg)
-                   )
-                    WinSendMsg(hwndTextView,
-                               ulMsg,
-                               MPFROMSHORT(usID),
-                               MPFROM2SHORT(sPos,
-                                            usCmd));
-            }
-
-            if (fDefProc)
-                mrc = WinDefWindowProc(hwndTextView, msg, mp1, mp2);
-                        // sends to owner
-            else
-                mrc = (MPARAM)TRUE;
-        }
+            mrc = ProcessChar(hwndTextView, mp1, mp2);
         break;
 
         /*
@@ -3055,22 +3229,16 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          */
 
         case TXM_QUERYPARFORMAT:
-        {
-            PXFMTPARAGRAPH pFmt = NULL; // source
-
-            mrc = (MPARAM)FALSE;
-
-            if (mp1 == 0)
-                pFmt = &ptxvd->xfd.fmtpStandard;
-            /* else if ((ULONG)mp1 == 1)
-                pFmt = &ptxvd->xfd.fmtpCode; */
-
-            if ((pFmt) && (mp2))
+            if (    (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+                 && (!mp1)
+                 && (mp2)
+               )
             {
-                memcpy(mp2, pFmt, sizeof(XFMTPARAGRAPH));
+                memcpy(mp2,
+                       &ptxvd->xfd.fmtpStandard,
+                       sizeof(XFMTPARAGRAPH));
                 mrc = (MPARAM)TRUE;
             }
-        }
         break;
 
         /*
@@ -3098,24 +3266,20 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          */
 
         case TXM_SETPARFORMAT:
-        {
-            PXFMTPARAGRAPH pFmt = NULL;     // target
-
-            mrc = (MPARAM)FALSE;
-
-            if (mp1 == 0)
-                pFmt = &ptxvd->xfd.fmtpStandard;
-            /* else if ((ULONG)mp1 == 1)
-                pFmt = &ptxvd->xfd.fmtpCode; */
-
-            if (pFmt)
+            if (    (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+                 && (!mp1)
+               )
             {
                 if (mp2)
-                    // copy
-                    memcpy(pFmt, mp2, sizeof(XFMTPARAGRAPH));
+                    // copy:
+                    memcpy(&ptxvd->xfd.fmtpStandard,
+                           mp2,
+                           sizeof(XFMTPARAGRAPH));
                 else
                     // default:
-                    memset(pFmt, 0, sizeof(XFMTPARAGRAPH));
+                    memset(&ptxvd->xfd.fmtpStandard,
+                           0,
+                           sizeof(XFMTPARAGRAPH));
 
                 FormatText2Screen(hwndTextView,
                                   ptxvd,
@@ -3124,7 +3288,6 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
 
                 mrc = (MPARAM)TRUE;
             }
-        }
         break;
 
         /*
@@ -3140,15 +3303,16 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          */
 
         case TXM_SETWORDWRAP:
-        {
-            BOOL    ulOldFlFormat = ptxvd->xfd.fmtpStandard.fWordWrap;
-            ptxvd->xfd.fmtpStandard.fWordWrap = (BOOL)mp1;
-            if (ptxvd->xfd.fmtpStandard.fWordWrap != ulOldFlFormat)
-                FormatText2Screen(hwndTextView,
-                                  ptxvd,
-                                  FALSE,
-                                  FALSE);       // quick format
-        }
+            if (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+            {
+                BOOL    ulOldFlFormat = ptxvd->xfd.fmtpStandard.fWordWrap;
+                ptxvd->xfd.fmtpStandard.fWordWrap = (BOOL)mp1;
+                if (ptxvd->xfd.fmtpStandard.fWordWrap != ulOldFlFormat)
+                    FormatText2Screen(hwndTextView,
+                                      ptxvd,
+                                      FALSE,
+                                      FALSE);       // quick format
+            }
         break;
 
         /*
@@ -3164,12 +3328,14 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          *          Before calling this, you MUST specify
          *          XTEXTVIEWCDATA.cbData.
          *
-         *      Returns: the bytes that were copied as
+         *      Returns the bytes that were copied as
          *      a ULONG.
          */
 
         case TXM_QUERYCDATA:
-            if (mp1)
+            if (    (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+                 && (mp1)
+               )
             {
                 PXTEXTVIEWCDATA pTarget = (PXTEXTVIEWCDATA)mp1;
                 mrc = (MRESULT)min(pTarget->cbData, sizeof(XTEXTVIEWCDATA));
@@ -3187,16 +3353,27 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          *      This must be sent, not posted, to the control.
          *
          *      Parameters:
+         *
          *      -- PXTEXTVIEWCDATA mp1: source buffer.
          *         Before calling this, you MUST specify
          *         XTEXTVIEWCDATA.cbData.
+         *
+         *      Returns the bytes that were copied as
+         *      a ULONG.
+         *
+         *@@changed V0.9.21 (2002-08-12) [umoeller]: now returning bytes
          */
 
         case TXM_SETCDATA:
-            if (mp1)
+            if (    (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+                 && (mp1)
+               )
             {
                 PXTEXTVIEWCDATA pSource = (PXTEXTVIEWCDATA)mp1;
-                memcpy(&ptxvd->cdata, pSource, pSource->cbData);
+                mrc = (MRESULT)min(pSource->cbData, sizeof(XTEXTVIEWCDATA));
+                memcpy(&ptxvd->cdata,
+                       pSource,
+                       (ULONG)mrc);
             }
         break;
 
@@ -3212,47 +3389,13 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          *      Parameters:
          *      -- PSZ mp1: anchor name (e.g. "anchor1").
          *
+         *      Returns TRUE if the jump was successful.
+         *
          *@@added V0.9.4 (2000-06-12) [umoeller]
          */
 
         case TXM_JUMPTOANCHORNAME:
-            if (mp1)
-            {
-                PLISTNODE pWordNode = txvFindWordFromAnchor(&ptxvd->xfd,
-                                                            (const char*)mp1);
-                if (pWordNode)
-                {
-                    // found:
-                    PTXVWORD pWord = (PTXVWORD)pWordNode->pItemData;
-                    if (pWord)
-                    {
-                        PTXVRECTANGLE pRect = pWord->pRectangle;
-                        ULONG ulWinCY = (ptxvd->rclViewText.yTop - ptxvd->rclViewText.yBottom);
-
-                        // now we need to scroll the window so that this rectangle is on top.
-                        // Since rectangles start out with the height of the window (e.g. +768)
-                        // and then have lower y coordinates down to way in the negatives,
-                        // to get the y offset, we must...
-                        ptxvd->ulViewYOfs = (-pRect->rcl.yTop) - ulWinCY;
-
-                        if (ptxvd->ulViewYOfs < 0)
-                            ptxvd->ulViewYOfs = 0;
-                        if (ptxvd->ulViewYOfs > ((LONG)ptxvd->xfd.szlWorkspace.cy - ulWinCY))
-                            ptxvd->ulViewYOfs = (LONG)ptxvd->xfd.szlWorkspace.cy - ulWinCY;
-
-                        // vertical scroll bar enabled at all?
-                        if (ptxvd->flStyle & XS_VSCROLL)
-                        {
-                            /* BOOL fEnabled = */ winhUpdateScrollBar(ptxvd->hwndVScroll,
-                                                                ulWinCY,
-                                                                ptxvd->xfd.szlWorkspace.cy,
-                                                                ptxvd->ulViewYOfs,
-                                                                (ptxvd->flStyle & XS_AUTOVHIDE));
-                            WinInvalidateRect(hwndTextView, NULL, FALSE);
-                        }
-                    }
-                }
-            }
+            mrc = ProcessJumpToAnchorName(hwndTextView, mp1);
         break;
 
         /*
@@ -3278,7 +3421,9 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          */
 
         case TXM_QUERYTEXTEXTENT:
-            if (mp1)
+            if (    (mp1)
+                 && (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+               )
             {
                 memcpy((PSIZEL)mp1,
                        &ptxvd->xfd.szlWorkspace,
@@ -3293,12 +3438,7 @@ static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
          */
 
         case WM_DESTROY:
-            xstrClear(&ptxvd->xfd.strViewText);
-            lstClear(&ptxvd->xfd.llRectangles);
-            lstClear(&ptxvd->xfd.llWords);
-            GpiDestroyPS(ptxvd->hps);
-            free(ptxvd);
-            mrc = WinDefWindowProc(hwndTextView, msg, mp1, mp2);
+            mrc = ProcessDestroy(hwndTextView, mp1, mp2);
         break;
 
         default:

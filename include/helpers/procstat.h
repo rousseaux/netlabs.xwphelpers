@@ -812,6 +812,9 @@ extern "C" {
     PQPROCESS32 prc32FindProcessFromName(PQTOPLEVEL32 pInfo,
                                          const char *pcszName);
 
+    PQPROCESS32 prc32FindProcessFromPID(PQTOPLEVEL32 pInfo,
+                                        ULONG pid);
+
     PQS32SEM16 prc32FindSem16(PQTOPLEVEL32 pInfo,
                               USHORT usSemID);
 

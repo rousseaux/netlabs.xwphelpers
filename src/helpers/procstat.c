@@ -518,6 +518,7 @@ ULONG prc16QueryThreadPriority(PQPROCSTAT16 pps, // in: from prc16GetInfo
 PQTOPLEVEL32 prc32GetInfo(APIRET *parc)     // out: error, ptr can be NULL
 {
     #define BUFSIZE (256 * 1024) // 128000l
+
     PCHAR pBuf = NULL; // (PCHAR)malloc(BUFSIZE);
 
     if (DosAllocMem((PVOID*)&pBuf,
@@ -571,17 +572,17 @@ PQPROCESS32 prc32FindProcessFromName(PQTOPLEVEL32 pInfo,
     {
         int i;
         PQTHREAD32  t = pProcThis->pThreads;
-        PQMODULE32 pModule = prc32FindModule(pInfo,
-                                             pProcThis->usHModule);
+        PQMODULE32  pModule;
 
-        if (pModule)
+        if (pModule = prc32FindModule(pInfo,
+                                      pProcThis->usHModule))
         {
             // the module name is fully qualified, so find the
             // file name (after the last backslash)
             if (pModule->pcName)
             {
-                PSZ pLastBackslash = strrchr(pModule->pcName, '\\');
-                if (pLastBackslash)
+                PSZ pLastBackslash;
+                if (pLastBackslash = strrchr(pModule->pcName, '\\'))
                     // found:
                     if (stricmp(pLastBackslash + 1, pcszName) == 0)
                         // matches:
@@ -604,6 +605,38 @@ PQPROCESS32 prc32FindProcessFromName(PQTOPLEVEL32 pInfo,
         return (pProcThis);
     else
         return NULL;
+}
+
+/*
+ *@@ prc32FindProcessFromPID:
+ *
+ *@@added V0.9.21 (2002-08-12) [umoeller]
+ */
+
+PQPROCESS32 prc32FindProcessFromPID(PQTOPLEVEL32 pInfo,
+                                    ULONG pid)
+{
+    PQPROCESS32 pProcThis = pInfo->pProcessData;
+    while (pProcThis && pProcThis->ulRecType == 1)
+    {
+        int i;
+        PQTHREAD32  t = pProcThis->pThreads;
+
+        if (pProcThis->usPID == pid)
+            return pProcThis;
+
+        // for next process, skip the threads info;
+        // the next process block comes after the
+        // threads
+        for (i=0;
+             i < pProcThis->usThreadCount;
+             i++, t++)
+            ;
+
+        pProcThis = (PQPROCESS32)t;
+    }
+
+    return NULL;
 }
 
 /*

@@ -253,8 +253,12 @@ extern "C" {
      *      This works for whole submenus too.
      */
 
-    #define winhRemoveMenuItem(hwndMenu, sItemId) \
-            (SHORT)WinSendMsg(hwndMenu, MM_REMOVEITEM, MPFROM2SHORT(sItemId, FALSE), 0)
+    #define winhRemoveMenuItem(hwndMenu, sItemID) \
+            (SHORT)WinSendMsg(hwndMenu, MM_REMOVEITEM, MPFROM2SHORT(sItemID, FALSE), 0)
+
+    BOOL XWPENTRY winhRemoveMenuItems(HWND hwndMenu,
+                                      const SHORT *asItemIDs,
+                                      ULONG cItemIDs);
 
     /*
      *@@ winhDeleteMenuItem:

@@ -231,7 +231,7 @@ extern "C" {
                                     // this will only have the CHS_UNDERSCORE or
                                     // CHS_STRIKEOUT flags set
 
-        PSZ         pszLinkTarget;  // if != NULL, pointer to a string in XFORMATDATA.llLinks;
+        PCSZ        pcszLinkTarget; // if != NULL, pointer to a string in XFORMATDATA.llLinks;
                                     // the word is then part of a link
                                     // V0.9.20 (2002-08-10) [umoeller]
 
@@ -429,9 +429,12 @@ extern "C" {
      *
      *      Parameters:
      *
-     *      -- USHORT SHORT1FROMMP(mp1): id of the control.
-     *      -- USHORT SHORT2FROMMP(mp1): nofify code (TXVN_LINK).
-     *      -- const char *mp2: link target.
+     *      --  USHORT SHORT1FROMMP(mp1): id of the control.
+     *
+     *      --  USHORT SHORT2FROMMP(mp1): nofify code (TXVN_LINK).
+     *
+     *      --  const char *mp2: target of the link that the
+     *          user clicked on.
      *
      *@@added V0.9.3 (2000-05-18) [umoeller]
      */
