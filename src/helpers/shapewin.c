@@ -307,7 +307,7 @@ typedef struct _SHPSPAN {
  *
  */
 
-void spanFree(PSHPSPAN pSpan)
+static void spanFree(PSHPSPAN pSpan)
 {
     if (pSpan != NULL)
         free(pSpan);
@@ -318,7 +318,7 @@ void spanFree(PSHPSPAN pSpan)
  *      this creates SPAN_ALLOC_STEP SHPSPAN structures.
  */
 
-PSHPSPAN spanCreate(void)
+static PSHPSPAN spanCreate(void)
 {
     PSHPSPAN pSpan;
     int     len  ;
@@ -341,7 +341,7 @@ PSHPSPAN spanCreate(void)
  *      Another SPAN_ALLOC_STEP SHPSPAN structures are created.
  */
 
-PSHPSPAN spanExpand(PSHPSPAN pOld)
+static PSHPSPAN spanExpand(PSHPSPAN pOld)
 {
     PSHPSPAN pNew;
     int     len ;
@@ -368,10 +368,10 @@ PSHPSPAN spanExpand(PSHPSPAN pOld)
  *
  */
 
-PSHPSPAN spanAppend(PSHPSPAN pSpan,
-                    int y,       // bottom y; top y = y+1
-                    int x1,      // left x
-                    int x2)      // right x
+static PSHPSPAN spanAppend(PSHPSPAN pSpan,
+                           int y,       // bottom y; top y = y+1
+                           int x1,      // left x
+                           int x2)      // right x
 {
     int     i;
     PRECTL  p;
@@ -424,7 +424,7 @@ PSHPSPAN spanAppend(PSHPSPAN pSpan,
      *
      */
 
-    BOOL ptisin(PSHPSPAN pSpan, int x, int y)
+    static BOOL ptisin(PSHPSPAN pSpan, int x, int y)
     {
         int     i;
 
@@ -452,7 +452,7 @@ PSHPSPAN spanAppend(PSHPSPAN pSpan,
      *
      */
 
-    void dumpSpan(PSHPSPAN pSpan)
+    static void dumpSpan(PSHPSPAN pSpan)
     {
         int     i, maxx, maxy, x, y;
 
@@ -496,7 +496,7 @@ PSHPSPAN spanAppend(PSHPSPAN pSpan,
  *      which corresponds to our region rectangle.
  */
 
-void shprgnDraw(HPS hps, PSHPREGION pRgn)
+static void shprgnDraw(HPS hps, PSHPREGION pRgn)
 {
     POINTL      apt[3];
 
@@ -517,7 +517,7 @@ void shprgnDraw(HPS hps, PSHPREGION pRgn)
  *      See shp_fnwpShapeMgr for a window hierarchy.
  */
 
-MRESULT EXPENTRY shp_fnwpShapeRegion(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
+static MRESULT EXPENTRY shp_fnwpShapeRegion(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     PSHPREGION   pRgn;
     HPS         hps ;
@@ -589,7 +589,7 @@ MRESULT EXPENTRY shp_fnwpShapeRegion(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp
  *      in shp_fnwpShapeMgr.
  */
 
-int shpmgrWMAdjustWindowPos(PSHPWINCTLDATA pCtrl, PSWP pSwp)
+static int shpmgrWMAdjustWindowPos(PSHPWINCTLDATA pCtrl, PSWP pSwp)
 {
     int         i   ;
     PSHPREGION   pRgn;
@@ -655,7 +655,7 @@ int shpmgrWMAdjustWindowPos(PSHPWINCTLDATA pCtrl, PSWP pSwp)
  *      SHAPEWIN_MSG_UPDATE.
  */
 
-int shpmgrUpdateRegions(PSHPWINCTLDATA pCtrl, PRECTL pRect)
+static int shpmgrUpdateRegions(PSHPWINCTLDATA pCtrl, PRECTL pRect)
 {
     RECTL       rect, intern;
     int         i   ;
@@ -701,7 +701,7 @@ int shpmgrUpdateRegions(PSHPWINCTLDATA pCtrl, PRECTL pRect)
  *@@changed V0.9.1 (99-12-03): fixed memory leak
  */
 
-PSHPSPAN shpmgrParseBitmap(HPS hps, PBITMAPINFOHEADER2 bmih2)
+static PSHPSPAN shpmgrParseBitmap(HPS hps, PBITMAPINFOHEADER2 bmih2)
 {
     int             blen, hlen;
     PUCHAR          buf;
@@ -814,8 +814,8 @@ PSHPSPAN shpmgrParseBitmap(HPS hps, PBITMAPINFOHEADER2 bmih2)
  *      First step in WM_CREATE.
  */
 
-int shpmgrWMCreate_Bitmap2Regions(PSHPWINCTLDATA pCtrl,  // in: shape control data
-                                  HPS hpsMask)      // in: HPS with selected bitmap
+static int shpmgrWMCreate_Bitmap2Regions(PSHPWINCTLDATA pCtrl,  // in: shape control data
+                                         HPS hpsMask)      // in: HPS with selected bitmap
 {
     HAB             hab;
     HDC             hdc;
@@ -936,7 +936,7 @@ int shpmgrWMCreate_Bitmap2Regions(PSHPWINCTLDATA pCtrl,  // in: shape control da
  *      Second step in WM_CREATE.
  */
 
-int shpmgrWMCreate_Regions2Windows(PSHPWINCTLDATA pCtrl)
+static int shpmgrWMCreate_Regions2Windows(PSHPWINCTLDATA pCtrl)
 {
     int         i   ;
     PSHPREGION   pRgn;
@@ -1004,7 +1004,7 @@ int shpmgrWMCreate_Regions2Windows(PSHPWINCTLDATA pCtrl)
  *      cleanup during WM_DESTROY.
  */
 
-int shpmgrFreeRegion(PSHPWINCTLDATA pCtrl)
+static int shpmgrFreeRegion(PSHPWINCTLDATA pCtrl)
 {
     int         i   ;
     PSHPREGION   pRgn;
@@ -1034,9 +1034,9 @@ int shpmgrFreeRegion(PSHPWINCTLDATA pCtrl)
  *          PM windows from all these structures.
  */
 
-PSHPWINCTLDATA shpmgrWMCreate(HWND hwnd, // in: shape window
-                              PCREATESTRUCT pWin,    // in: create struct of WM_CREATE
-                              PSHPCTLDATA pData)       // in: SHPCTLDATA struct (WM_CREATE mp1)
+static PSHPWINCTLDATA shpmgrWMCreate(HWND hwnd, // in: shape window
+                                     PCREATESTRUCT pWin,    // in: create struct of WM_CREATE
+                                     PSHPCTLDATA pData)       // in: SHPCTLDATA struct (WM_CREATE mp1)
 {
     PSHPWINCTLDATA   pCtrl;
 
@@ -1088,7 +1088,7 @@ PSHPWINCTLDATA shpmgrWMCreate(HWND hwnd, // in: shape window
  *      shp_fnwpShapeMgr.
  */
 
-void shpmgrWMDestroy(PSHPWINCTLDATA pCtrl)
+static void shpmgrWMDestroy(PSHPWINCTLDATA pCtrl)
 {
     if (pCtrl == NULL)
         return;
@@ -1138,7 +1138,7 @@ void shpmgrWMDestroy(PSHPWINCTLDATA pCtrl)
  *      --  WM_ENDSELECT
  */
 
-MRESULT EXPENTRY shp_fnwpShapeMgr(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
+static MRESULT EXPENTRY shp_fnwpShapeMgr(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     PSHPWINCTLDATA   pCtrl;
     PSWP        pswp ;

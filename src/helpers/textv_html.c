@@ -174,8 +174,8 @@ typedef FNPROCESSTAG *PFNPROCESSTAG;
  *@@added V0.9.3 (2000-05-06) [umoeller]
  */
 
-VOID AppendChar(PCOPYTARGET pct,  // in/out: formatting buffer
-                unsigned char c)
+static VOID AppendChar(PCOPYTARGET pct,  // in/out: formatting buffer
+                       unsigned char c)
 {
     // calculate ofs where to store next char
     ULONG   cbOfsNext = pct->pTarget - pct->pszNew;
@@ -203,8 +203,8 @@ VOID AppendChar(PCOPYTARGET pct,  // in/out: formatting buffer
  *@@added V0.9.3 (2000-05-06) [umoeller]
  */
 
-VOID AppendString(PCOPYTARGET pct,  // in/out: formatting buffer
-                  char *ach)
+static VOID AppendString(PCOPYTARGET pct,  // in/out: formatting buffer
+                         char *ach)
 {
     ULONG cbAppend = strlen(ach);
     ULONG ul;
@@ -239,7 +239,7 @@ VOID AppendString(PCOPYTARGET pct,  // in/out: formatting buffer
  *@@added V0.9.3 (2000-05-17) [umoeller]
  */
 
-VOID AppendLinebreakCheck(PCOPYTARGET pct)
+static VOID AppendLinebreakCheck(PCOPYTARGET pct)
 {
     if ((!pct->fPRE) && (pct->fNeedsLinebreak))
     {
@@ -266,9 +266,9 @@ VOID AppendLinebreakCheck(PCOPYTARGET pct)
  *@@added V0.9.3 (2000-05-07) [umoeller]
  */
 
-VOID AppendEscapeWith3Decimals(PCOPYTARGET pct,  // in/out: formatting buffer
-                               char *ach,
-                               USHORT us)
+static VOID AppendEscapeWith3Decimals(PCOPYTARGET pct,  // in/out: formatting buffer
+                                      char *ach,
+                                      USHORT us)
 {
     CHAR szDecimal[10];
     if (us > 999)
@@ -285,9 +285,9 @@ VOID AppendEscapeWith3Decimals(PCOPYTARGET pct,  // in/out: formatting buffer
  *@@added V0.9.3 (2000-05-07) [umoeller]
  */
 
-VOID AppendEscapeWith4Decimals(PCOPYTARGET pct,  // in/out: formatting buffer
-                               char *ach,
-                               USHORT us)
+static VOID AppendEscapeWith4Decimals(PCOPYTARGET pct,  // in/out: formatting buffer
+                                      char *ach,
+                                      USHORT us)
 {
     CHAR szDecimal[10];
     if (us > 9999)
@@ -313,11 +313,11 @@ VOID AppendEscapeWith4Decimals(PCOPYTARGET pct,  // in/out: formatting buffer
  *@@added V0.9.3 (2000-05-08) [umoeller]
  */
 
-VOID StartList(PCOPYTARGET pct,     // in/out: formatting buffer
-               ULONG ulListType)    // list type:
-                                    // 0: unordered (UL)
-                                    // 1: ordered (OL)
-                                    // 2: definition lists (DL)
+static VOID StartList(PCOPYTARGET pct,     // in/out: formatting buffer
+                      ULONG ulListType)    // list type:
+                                           // 0: unordered (UL)
+                                           // 1: ordered (OL)
+                                           // 2: definition lists (DL)
 {
     PLISTDESC pListDesc;
 
@@ -360,7 +360,7 @@ VOID StartList(PCOPYTARGET pct,     // in/out: formatting buffer
  *@@added V0.9.3 (2000-05-07) [umoeller]
  */
 
-VOID StopList(PCOPYTARGET pct)
+static VOID StopList(PCOPYTARGET pct)
 {
     if (pct->ulListLevel)
     {
@@ -413,7 +413,7 @@ VOID StopList(PCOPYTARGET pct)
  *@@added V0.9.3 (2000-05-19) [umoeller]
  */
 
-VOID TagTITLE(PCOPYTARGET pct)
+static VOID TagTITLE(PCOPYTARGET pct)
 {
     // pSource currently points to <TITLE tag
     PSZ pSource = pct->pSource + strlen(pct->pSource);
@@ -446,7 +446,7 @@ VOID TagTITLE(PCOPYTARGET pct)
  *
  */
 
-VOID TagP(PCOPYTARGET pct)
+static VOID TagP(PCOPYTARGET pct)
 {
     // append newline:
     // add \n before any other character
@@ -463,7 +463,7 @@ VOID TagP(PCOPYTARGET pct)
     } */
 }
 
-VOID TagBR(PCOPYTARGET pct)
+static VOID TagBR(PCOPYTARGET pct)
 {
     AppendChar(pct,
                '\r');
@@ -481,7 +481,7 @@ VOID TagBR(PCOPYTARGET pct)
         pct->fSkipNextSpace = TRUE;
 }
 
-VOID TagPRE(PCOPYTARGET pct)
+static VOID TagPRE(PCOPYTARGET pct)
 {
     // start of PRE tag:
     // add \n before any other character
@@ -506,7 +506,7 @@ VOID TagPRE(PCOPYTARGET pct)
     pct->fSkipNextSpace = FALSE;
 }
 
-VOID TagXPRE(PCOPYTARGET pct)
+static VOID TagXPRE(PCOPYTARGET pct)
 {
     pct->fPRE = FALSE;
     AppendEscapeWith3Decimals(pct,
@@ -526,7 +526,7 @@ VOID TagXPRE(PCOPYTARGET pct)
     pct->fSkipNextSpace = TRUE;
 }
 
-VOID TagH1(PCOPYTARGET pct)
+static VOID TagH1(PCOPYTARGET pct)
 {
     pct->fNeedsLinebreak = TRUE;
     AppendEscapeWith3Decimals(pct,
@@ -536,7 +536,7 @@ VOID TagH1(PCOPYTARGET pct)
                  TXVESC_BOLD_BEGIN);
 }
 
-VOID TagXH1(PCOPYTARGET pct)
+static VOID TagXH1(PCOPYTARGET pct)
 {
     AppendString(pct,
                  TXVESC_BOLD_END);
@@ -547,7 +547,7 @@ VOID TagXH1(PCOPYTARGET pct)
     pct->fNeedsLinebreak = TRUE;
 }
 
-VOID TagH2(PCOPYTARGET pct)
+static VOID TagH2(PCOPYTARGET pct)
 {
     pct->fNeedsLinebreak = TRUE;
     AppendEscapeWith3Decimals(pct,
@@ -557,7 +557,7 @@ VOID TagH2(PCOPYTARGET pct)
                  TXVESC_BOLD_BEGIN);
 }
 
-VOID TagXH2(PCOPYTARGET pct)
+static VOID TagXH2(PCOPYTARGET pct)
 {
     AppendString(pct,
                  TXVESC_BOLD_END);
@@ -568,7 +568,7 @@ VOID TagXH2(PCOPYTARGET pct)
     pct->fNeedsLinebreak = TRUE;
 }
 
-VOID TagH3(PCOPYTARGET pct)
+static VOID TagH3(PCOPYTARGET pct)
 {
     pct->fNeedsLinebreak = TRUE;
     AppendEscapeWith3Decimals(pct,
@@ -578,7 +578,7 @@ VOID TagH3(PCOPYTARGET pct)
                  TXVESC_BOLD_BEGIN);
 }
 
-VOID TagXH3(PCOPYTARGET pct)
+static VOID TagXH3(PCOPYTARGET pct)
 {
     AppendString(pct,
                  TXVESC_BOLD_END);
@@ -589,7 +589,7 @@ VOID TagXH3(PCOPYTARGET pct)
     pct->fNeedsLinebreak = TRUE;
 }
 
-VOID TagH4(PCOPYTARGET pct)
+static VOID TagH4(PCOPYTARGET pct)
 {
     pct->fNeedsLinebreak = TRUE;
     AppendEscapeWith3Decimals(pct,
@@ -599,7 +599,7 @@ VOID TagH4(PCOPYTARGET pct)
                  TXVESC_BOLD_BEGIN);
 }
 
-VOID TagXH4(PCOPYTARGET pct)
+static VOID TagXH4(PCOPYTARGET pct)
 {
     AppendString(pct,
                  TXVESC_BOLD_END);
@@ -610,7 +610,7 @@ VOID TagXH4(PCOPYTARGET pct)
     pct->fNeedsLinebreak = TRUE;
 }
 
-VOID TagH5(PCOPYTARGET pct)
+static VOID TagH5(PCOPYTARGET pct)
 {
     pct->fNeedsLinebreak = TRUE;
     AppendEscapeWith3Decimals(pct,
@@ -620,7 +620,7 @@ VOID TagH5(PCOPYTARGET pct)
                  TXVESC_BOLD_BEGIN);
 }
 
-VOID TagXH5(PCOPYTARGET pct)
+static VOID TagXH5(PCOPYTARGET pct)
 {
     AppendString(pct,
                  TXVESC_BOLD_END);
@@ -631,7 +631,7 @@ VOID TagXH5(PCOPYTARGET pct)
     pct->fNeedsLinebreak = TRUE;
 }
 
-VOID TagH6(PCOPYTARGET pct)
+static VOID TagH6(PCOPYTARGET pct)
 {
     pct->fNeedsLinebreak = TRUE;
     AppendEscapeWith3Decimals(pct,
@@ -641,7 +641,7 @@ VOID TagH6(PCOPYTARGET pct)
                  TXVESC_BOLD_BEGIN);
 }
 
-VOID TagXH6(PCOPYTARGET pct)
+static VOID TagXH6(PCOPYTARGET pct)
 {
     AppendString(pct,
                  TXVESC_BOLD_END);
@@ -652,29 +652,29 @@ VOID TagXH6(PCOPYTARGET pct)
     pct->fNeedsLinebreak = TRUE;
 }
 
-VOID TagUL(PCOPYTARGET pct)
+static VOID TagUL(PCOPYTARGET pct)
 {
     StartList(pct,
               0);       // unordered
 }
 
-VOID TagXUL(PCOPYTARGET pct)
+static VOID TagXUL(PCOPYTARGET pct)
 {
     StopList(pct);
 }
 
-VOID TagOL(PCOPYTARGET pct)
+static VOID TagOL(PCOPYTARGET pct)
 {
     StartList(pct,
               1);       // ordered
 }
 
-VOID TagXOL(PCOPYTARGET pct)
+static VOID TagXOL(PCOPYTARGET pct)
 {
     StopList(pct);
 }
 
-VOID TagLI(PCOPYTARGET pct)
+static VOID TagLI(PCOPYTARGET pct)
 {
     PLISTDESC pListDesc;
     CHAR     szMarker[20] = TXVESC_MARKER "\x01";
@@ -708,25 +708,25 @@ VOID TagLI(PCOPYTARGET pct)
     AppendString(pct, TXVESC_TAB);
 }
 
-VOID TagDL(PCOPYTARGET pct)
+static VOID TagDL(PCOPYTARGET pct)
 {
     StartList(pct,
               2);       // definition list
 }
 
-VOID TagXDL(PCOPYTARGET pct)
+static VOID TagXDL(PCOPYTARGET pct)
 {
     StopList(pct);
     pct->fInDT = FALSE;
 }
 
-VOID TagDT(PCOPYTARGET pct)
+static VOID TagDT(PCOPYTARGET pct)
 {
     pct->fNeedsLinebreak = TRUE;
     pct->fInDT = TRUE;
 }
 
-VOID TagDD(PCOPYTARGET pct)
+static VOID TagDD(PCOPYTARGET pct)
 {
     pct->fNeedsLinebreak = TRUE;
     AppendString(pct, TXVESC_TAB);
@@ -735,74 +735,74 @@ VOID TagDD(PCOPYTARGET pct)
     pct->fInDT = FALSE;
 }
 
-VOID TagTR(PCOPYTARGET pct)
+static VOID TagTR(PCOPYTARGET pct)
 {
     pct->fNeedsLinebreak = TRUE;
 }
 
-VOID TagB(PCOPYTARGET pct)
+static VOID TagB(PCOPYTARGET pct)
 {
     AppendString(pct,
                  TXVESC_BOLD_BEGIN);
 }
 
-VOID TagXB(PCOPYTARGET pct)
+static VOID TagXB(PCOPYTARGET pct)
 {
     AppendString(pct,
                  TXVESC_BOLD_END);
 }
 
-VOID TagI(PCOPYTARGET pct)
+static VOID TagI(PCOPYTARGET pct)
 {
     AppendString(pct,
                  TXVESC_ITALICS_BEGIN);
 }
 
-VOID TagXI(PCOPYTARGET pct)
+static VOID TagXI(PCOPYTARGET pct)
 {
     AppendString(pct,
                  TXVESC_ITALICS_END);
 }
 
-VOID TagU(PCOPYTARGET pct)
+static VOID TagU(PCOPYTARGET pct)
 {
     AppendString(pct,
                  TXVESC_UNDERLINE_BEGIN);
 }
 
-VOID TagXU(PCOPYTARGET pct)
+static VOID TagXU(PCOPYTARGET pct)
 {
     AppendString(pct,
                  TXVESC_UNDERLINE_END);
 }
 
-VOID TagSTRIKE(PCOPYTARGET pct)
+static VOID TagSTRIKE(PCOPYTARGET pct)
 {
     AppendString(pct,
                  TXVESC_STRIKE_BEGIN);
 }
 
-VOID TagXSTRIKE(PCOPYTARGET pct)
+static VOID TagXSTRIKE(PCOPYTARGET pct)
 {
     AppendString(pct,
                  TXVESC_STRIKE_END);
 }
 
-VOID TagCODE(PCOPYTARGET pct)
+static VOID TagCODE(PCOPYTARGET pct)
 {
     AppendEscapeWith3Decimals(pct,
                               TXVESC_SET_FONT,
                               1);   // monospaced font
 }
 
-VOID TagXCODE(PCOPYTARGET pct)
+static VOID TagXCODE(PCOPYTARGET pct)
 {
     AppendEscapeWith3Decimals(pct,
                               TXVESC_SET_FONT,
                               0);   // regular font
 }
 
-VOID TagA(PCOPYTARGET pct)
+static VOID TagA(PCOPYTARGET pct)
 {
     CHAR    szAnchor[10];
 
@@ -874,7 +874,7 @@ VOID TagA(PCOPYTARGET pct)
     }
 }
 
-VOID TagXA(PCOPYTARGET pct)
+static VOID TagXA(PCOPYTARGET pct)
 {
     if (pct->fInLink)
     {
@@ -898,7 +898,7 @@ VOID TagXA(PCOPYTARGET pct)
  *@@added V0.9.4 (2000-06-10) [umoeller]
  */
 
-PFNPROCESSTAG FindTagProcessor(PSZ pszTag)
+static PFNPROCESSTAG FindTagProcessor(PSZ pszTag)
 {
     PFNPROCESSTAG pProcessor = NULL;
 
@@ -1269,7 +1269,7 @@ PFNPROCESSTAG FindTagProcessor(PSZ pszTag)
  *@@added V0.9.3 (2000-05-18) [umoeller]
  */
 
-VOID HandleTag(PCOPYTARGET pct)
+static VOID HandleTag(PCOPYTARGET pct)
 {
     PSZ     pStartOfTag = pct->pSource;
     // '<' == begin of tag:
@@ -1424,7 +1424,7 @@ VOID HandleTag(PCOPYTARGET pct)
  *@@added V0.9.4 (2000-06-10) [umoeller]
  */
 
-unsigned char ConvertEscape(PSZ pszTag)
+static unsigned char ConvertEscape(PSZ pszTag)
 {
     CHAR c0, c1;
     CHAR crc = 0;
@@ -1881,7 +1881,7 @@ unsigned char ConvertEscape(PSZ pszTag)
  *@@added V0.9.3 (2000-05-18) [umoeller]
  */
 
-VOID HandleEscape(PCOPYTARGET pct)
+static VOID HandleEscape(PCOPYTARGET pct)
 {
     // ampersand:
     // replace special characters

@@ -229,10 +229,10 @@ typedef enum _PROCESSMODE
 #define PM_GROUP_SPACING_X          16
 #define PM_GROUP_SPACING_TOP        16
 
-APIRET ProcessTable(PTABLEDEF pTableDef,
-                    const CONTROLPOS *pcpTable,
-                    PROCESSMODE ProcessMode,
-                    PDLGPRIVATE pDlgData);
+static APIRET ProcessTable(PTABLEDEF pTableDef,
+                           const CONTROLPOS *pcpTable,
+                           PROCESSMODE ProcessMode,
+                           PDLGPRIVATE pDlgData);
 
 /*
  *@@ SetDlgFont:
@@ -240,8 +240,8 @@ APIRET ProcessTable(PTABLEDEF pTableDef,
  *@@added V0.9.16 (2001-10-11) [umoeller]
  */
 
-VOID SetDlgFont(PCONTROLDEF pControlDef,
-                PDLGPRIVATE pDlgData)
+static VOID SetDlgFont(PCONTROLDEF pControlDef,
+                       PDLGPRIVATE pDlgData)
 {
     LONG lPointSize = 0;
     PCSZ pcszFontThis = pControlDef->pcszFont;
@@ -306,11 +306,11 @@ VOID SetDlgFont(PCONTROLDEF pControlDef,
  *@@changed V0.9.16 (2002-02-02) [umoeller]: added ulWidth
  */
 
-APIRET CalcAutoSizeText(PCONTROLDEF pControlDef,
-                        BOOL fMultiLine,          // in: if TRUE, multiple lines
-                        ULONG ulWidth,            // in: proposed width of control
-                        PSIZEL pszlAuto,          // out: computed size
-                        PDLGPRIVATE pDlgData)
+static APIRET CalcAutoSizeText(PCONTROLDEF pControlDef,
+                               BOOL fMultiLine,          // in: if TRUE, multiple lines
+                               ULONG ulWidth,            // in: proposed width of control
+                               PSIZEL pszlAuto,          // out: computed size
+                               PDLGPRIVATE pDlgData)
 {
     APIRET arc = NO_ERROR;
 
@@ -372,10 +372,10 @@ APIRET CalcAutoSizeText(PCONTROLDEF pControlDef,
  *@@changed V0.9.16 (2001-10-15) [umoeller]: added APIRET
  */
 
-APIRET CalcAutoSize(PCONTROLDEF pControlDef,
-                    ULONG ulWidth,            // in: proposed width of control
-                    PSIZEL pszlAuto,          // out: computed size
-                    PDLGPRIVATE pDlgData)
+static APIRET CalcAutoSize(PCONTROLDEF pControlDef,
+                           ULONG ulWidth,            // in: proposed width of control
+                           PSIZEL pszlAuto,          // out: computed size
+                           PDLGPRIVATE pDlgData)
 {
     APIRET arc = NO_ERROR;
 
@@ -475,9 +475,9 @@ APIRET CalcAutoSize(PCONTROLDEF pControlDef,
  *@@changed V0.9.16 (2002-02-02) [umoeller]: added support for explicit group size
  */
 
-APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
-                       PROCESSMODE ProcessMode,     // in: PROCESS_1_CALC_SIZES or PROCESS_3_CALC_FINAL_TABLE_SIZES
-                       PDLGPRIVATE pDlgData)
+static APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
+                              PROCESSMODE ProcessMode,     // in: PROCESS_1_CALC_SIZES or PROCESS_3_CALC_FINAL_TABLE_SIZES
+                              PDLGPRIVATE pDlgData)
 {
     APIRET arc = NO_ERROR;
 
@@ -601,10 +601,10 @@ APIRET ColumnCalcSizes(PCOLUMNDEF pColumnDef,
  *@@changed V0.9.16 (2001-10-15) [umoeller]: added APIRET
  */
 
-APIRET ColumnCalcPositions(PCOLUMNDEF pColumnDef,
-                           PROWDEF pOwningRow,          // in: current row from ProcessRow
-                           PLONG plX,                   // in/out: PROCESS_4_CALC_POSITIONS only
-                           PDLGPRIVATE pDlgData)
+static APIRET ColumnCalcPositions(PCOLUMNDEF pColumnDef,
+                                  PROWDEF pOwningRow,          // in: current row from ProcessRow
+                                  PLONG plX,                   // in/out: PROCESS_4_CALC_POSITIONS only
+                                  PDLGPRIVATE pDlgData)
 {
     APIRET arc = NO_ERROR;
 
@@ -688,8 +688,8 @@ APIRET ColumnCalcPositions(PCOLUMNDEF pColumnDef,
  *@@changed V0.9.16 (2001-12-08) [umoeller]: fixed entry field ES_MARGIN positioning
  */
 
-APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
-                            PDLGPRIVATE pDlgData)
+static APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
+                                   PDLGPRIVATE pDlgData)
 {
     APIRET      arc = NO_ERROR;
 
@@ -976,11 +976,11 @@ APIRET ColumnCreateControls(PCOLUMNDEF pColumnDef,
  *@@changed V0.9.12 (2001-05-31) [umoeller]: fixed font problems
  */
 
-APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
-                     PROWDEF pOwningRow,          // in: current row from ProcessRow
-                     PROCESSMODE ProcessMode,     // in: processing mode (see ProcessAll)
-                     PLONG plX,                   // in/out: PROCESS_4_CALC_POSITIONS only
-                     PDLGPRIVATE pDlgData)
+static APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
+                            PROWDEF pOwningRow,          // in: current row from ProcessRow
+                            PROCESSMODE ProcessMode,     // in: processing mode (see ProcessAll)
+                            PLONG plX,                   // in/out: PROCESS_4_CALC_POSITIONS only
+                            PDLGPRIVATE pDlgData)
 {
     APIRET arc = NO_ERROR;
 
@@ -1126,11 +1126,11 @@ APIRET ProcessColumn(PCOLUMNDEF pColumnDef,
  *      See ProcessAll for the meaning of ProcessMode.
  */
 
-APIRET ProcessRow(PROWDEF pRowDef,
-                  PTABLEDEF pOwningTable,     // in: current table from ProcessTable
-                  PROCESSMODE ProcessMode,    // in: processing mode (see ProcessAll)
-                  PLONG plY,                  // in/out: current y position (decremented)
-                  PDLGPRIVATE pDlgData)
+static APIRET ProcessRow(PROWDEF pRowDef,
+                         PTABLEDEF pOwningTable,     // in: current table from ProcessTable
+                         PROCESSMODE ProcessMode,    // in: processing mode (see ProcessAll)
+                         PLONG plY,                  // in/out: current y position (decremented)
+                         PDLGPRIVATE pDlgData)
 {
     APIRET  arc = NO_ERROR;
     LONG    lX;
@@ -1203,10 +1203,10 @@ APIRET ProcessRow(PROWDEF pRowDef,
  *
  */
 
-APIRET ProcessTable(PTABLEDEF pTableDef,
-                    const CONTROLPOS *pcpTable,       // in: table position with PROCESS_4_CALC_POSITIONS
-                    PROCESSMODE ProcessMode,          // in: processing mode (see ProcessAll)
-                    PDLGPRIVATE pDlgData)
+static APIRET ProcessTable(PTABLEDEF pTableDef,
+                           const CONTROLPOS *pcpTable,       // in: table position with PROCESS_4_CALC_POSITIONS
+                           PROCESSMODE ProcessMode,          // in: processing mode (see ProcessAll)
+                           PDLGPRIVATE pDlgData)
 {
     APIRET  arc = NO_ERROR;
     LONG    lY;
@@ -1296,8 +1296,8 @@ APIRET ProcessTable(PTABLEDEF pTableDef,
  *      nested table column just as if it were a regular control.
  */
 
-APIRET ProcessAll(PDLGPRIVATE pDlgData,
-                  PROCESSMODE ProcessMode)
+static APIRET ProcessAll(PDLGPRIVATE pDlgData,
+                         PROCESSMODE ProcessMode)
 {
     APIRET arc = NO_ERROR;
     PLISTNODE pNode;
@@ -1352,10 +1352,10 @@ APIRET ProcessAll(PDLGPRIVATE pDlgData,
  *
  */
 
-APIRET CreateColumn(PROWDEF pCurrentRow,
-                    BOOL fIsNestedTable,
-                    PVOID pvDefinition,       // in: either PTABLEDEF or PCONTROLDEF
-                    PCOLUMNDEF *ppColumnDef)    // out: new COLUMNDEF
+static APIRET CreateColumn(PROWDEF pCurrentRow,
+                           BOOL fIsNestedTable,
+                           PVOID pvDefinition,       // in: either PTABLEDEF or PCONTROLDEF
+                           PCOLUMNDEF *ppColumnDef)    // out: new COLUMNDEF
 {
     APIRET arc = NO_ERROR;
 
@@ -1398,7 +1398,7 @@ APIRET CreateColumn(PROWDEF pCurrentRow,
  *@@added V0.9.14 (2001-08-01) [umoeller]
  */
 
-VOID FreeTable(PTABLEDEF pTable)
+static VOID FreeTable(PTABLEDEF pTable)
 {
     // for each table, clean up the rows
     PLISTNODE pRowNode;
@@ -1456,8 +1456,8 @@ typedef struct _STACKITEM
  *@@added V0.9.15 (2001-08-26) [umoeller]
  */
 
-APIRET Dlg0_Init(PDLGPRIVATE *ppDlgData,
-                 PCSZ pcszControlsFont)
+static APIRET Dlg0_Init(PDLGPRIVATE *ppDlgData,
+                        PCSZ pcszControlsFont)
 {
     PDLGPRIVATE pDlgData;
     if (!(pDlgData = NEW(DLGPRIVATE)))
@@ -1479,9 +1479,9 @@ APIRET Dlg0_Init(PDLGPRIVATE *ppDlgData,
  *@@added V0.9.15 (2001-08-26) [umoeller]
  */
 
-APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
-                        PCDLGHITEM paDlgItems,      // in: definition array
-                        ULONG cDlgItems)           // in: array item count (NOT array size)
+static APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
+                               PCDLGHITEM paDlgItems,      // in: definition array
+                               ULONG cDlgItems)           // in: array item count (NOT array size)
 {
     APIRET      arc = NO_ERROR;
 
@@ -1650,7 +1650,7 @@ APIRET Dlg1_ParseTables(PDLGPRIVATE pDlgData,
  *@@added V0.9.15 (2001-08-26) [umoeller]
  */
 
-APIRET Dlg2_CalcSizes(PDLGPRIVATE pDlgData)
+static APIRET Dlg2_CalcSizes(PDLGPRIVATE pDlgData)
 {
     APIRET arc;
 
@@ -1685,8 +1685,8 @@ APIRET Dlg2_CalcSizes(PDLGPRIVATE pDlgData)
  *@@changed V0.9.15 (2001-08-26) [umoeller]: BS_DEFAULT for other than first button was ignored, fixed
  */
 
-APIRET Dlg3_PositionAndCreate(PDLGPRIVATE pDlgData,
-                              HWND *phwndFocusItem)       // out: item to give focus to
+static APIRET Dlg3_PositionAndCreate(PDLGPRIVATE pDlgData,
+                                     HWND *phwndFocusItem)       // out: item to give focus to
 {
     APIRET arc = NO_ERROR;
 
@@ -1734,7 +1734,7 @@ APIRET Dlg3_PositionAndCreate(PDLGPRIVATE pDlgData,
  *@@added V0.9.15 (2001-08-26) [umoeller]
  */
 
-VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
+static VOID Dlg9_Cleanup(PDLGPRIVATE *ppDlgData)
 {
     PDLGPRIVATE pDlgData;
     if (    (ppDlgData)

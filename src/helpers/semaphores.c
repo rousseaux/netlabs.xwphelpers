@@ -170,7 +170,7 @@ static HMTX         G_hmtxGlobal = NULLHANDLE;
  *
  */
 
-APIRET LockGlobal(VOID)
+static APIRET LockGlobal(VOID)
 {
     if (!G_hmtxGlobal)
         // first call:
@@ -187,7 +187,7 @@ APIRET LockGlobal(VOID)
  *
  */
 
-VOID UnlockGlobal(VOID)
+static VOID UnlockGlobal(VOID)
 {
     DosReleaseMutexSem(G_hmtxGlobal);
 }

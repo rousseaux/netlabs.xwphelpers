@@ -214,9 +214,9 @@ typedef struct _CHECKBOXCNROWNER
  *@@added V0.9.0 (99-11-28) [umoeller]
  */
 
-VOID CnrCheckboxClicked(PCHECKBOXCNROWNER pcbco,
-                        PCHECKBOXRECORDCORE precc,
-                        BOOL fToggleAndNotify) // if TRUE, toggle state and notify owner (CN_RECORDCHECKED)
+static VOID CnrCheckboxClicked(PCHECKBOXCNROWNER pcbco,
+                               PCHECKBOXRECORDCORE precc,
+                               BOOL fToggleAndNotify) // if TRUE, toggle state and notify owner (CN_RECORDCHECKED)
 {
     if (precc->ulStyle & WS_VISIBLE)
     {
@@ -837,10 +837,10 @@ BOOL ctlMakeCheckboxContainer(HWND hwndCnrOwner,    // in: owner (and parent) of
  *@@added V0.9.0 (99-11-28) [umoeller]
  */
 
-ULONG EXPENTRY fncbFindCheckRecord(HWND hwndCnr,             // in: container
-                                   PRECORDCORE preccThis,    // in: current record (from cnrhForAllRecords)
-                                   ULONG ulItemID,           // in: item ID to find
-                                   ULONG ulppRecc)           // out: PRECORDCORE* if found
+static ULONG EXPENTRY fncbFindCheckRecord(HWND hwndCnr,             // in: container
+                                          PRECORDCORE preccThis,    // in: current record (from cnrhForAllRecords)
+                                          ULONG ulItemID,           // in: item ID to find
+                                          ULONG ulppRecc)           // out: PRECORDCORE* if found
 {
     ULONG   ulrc = 0;
     PCHECKBOXRECORDCORE precc = (PCHECKBOXRECORDCORE)preccThis;

@@ -124,8 +124,8 @@ typedef struct _COMBODATA
  *@@added V0.9.9 (2001-03-17) [umoeller]
  */
 
-VOID PaintButtonBitmap(HWND hwnd,
-                       PCOMBODATA pcd)
+static VOID PaintButtonBitmap(HWND hwnd,
+                              PCOMBODATA pcd)
 {
     HPS hps;
     RECTL rcl;
@@ -156,7 +156,7 @@ VOID PaintButtonBitmap(HWND hwnd,
  *@@added V0.9.9 (2001-03-17) [umoeller]
  */
 
-MRESULT EXPENTRY fnwpSubclassedComboButton(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
+static MRESULT EXPENTRY fnwpSubclassedComboButton(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT mrc = 0;
     PCOMBODATA pcd;
@@ -192,9 +192,9 @@ MRESULT EXPENTRY fnwpSubclassedComboButton(HWND hwnd, ULONG msg, MPARAM mp1, MPA
  *@@added V0.9.9 (2001-03-17) [umoeller]
  */
 
-VOID ShowListbox(HWND hwnd,      // in: subclassed entry field
-                 PCOMBODATA pcd,
-                 BOOL fShow)    // in: TRUE == show, FALSE == hide
+static VOID ShowListbox(HWND hwnd,      // in: subclassed entry field
+                        PCOMBODATA pcd,
+                        BOOL fShow)    // in: TRUE == show, FALSE == hide
 {
     BOOL fHilite = FALSE;
 
@@ -260,7 +260,7 @@ VOID ShowListbox(HWND hwnd,      // in: subclassed entry field
  *@@added V0.9.9 (2001-03-17) [umoeller]
  */
 
-MRESULT EXPENTRY fnwpComboSubclass(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
+static MRESULT EXPENTRY fnwpComboSubclass(HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT     mrc = 0;
     PCOMBODATA  pcd;

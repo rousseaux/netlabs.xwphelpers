@@ -207,7 +207,7 @@ ULONG gpihQueryDisplayCaps(ULONG ulIndex)
  *
  */
 
-VOID HackColor(PBYTE pb, double dFactor)
+static VOID HackColor(PBYTE pb, double dFactor)
 {
     ULONG ul = (ULONG)((double)(*pb) * dFactor);
     if (ul > 255)

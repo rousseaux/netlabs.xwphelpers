@@ -200,12 +200,12 @@ PSZ         pszMemCnrTitle = NULL; */
     }
 
     /*
-     *@@ memdCreateRecordsVAC:
+     *@@ CreateRecordsVAC:
      *
      *@@added V0.9.3 (2000-04-10) [umoeller]
      */
 
-    VOID memdCreateRecordsVAC(HWND hwndCnr)
+    VOID CreateRecordsVAC(HWND hwndCnr)
     {
         // count heap items
         ulHeapItemsCount1 = 0;
@@ -266,18 +266,18 @@ PSZ         pszMemCnrTitle = NULL; */
 #endif
 
 /*
- *@@ memdCreateRecords:
+ *@@ CreateRecords:
  *
  *@@added V0.9.3 (2000-04-10) [umoeller]
  */
 
-VOID memdCreateRecords(HWND hwndCnr,
-                       PULONG pulTotalItems,
-                       PULONG pulAllocatedItems,
-                       PULONG pulFreedItems,
-                       PULONG pulTotalBytes,
-                       PULONG pulAllocatedBytes,
-                       PULONG pulFreedBytes)
+static VOID CreateRecords(HWND hwndCnr,
+                          PULONG pulTotalItems,
+                          PULONG pulAllocatedItems,
+                          PULONG pulFreedItems,
+                          PULONG pulTotalBytes,
+                          PULONG pulAllocatedBytes,
+                          PULONG pulFreedBytes)
 {
     // count heap items
     // ULONG       ulHeapItemsCount1 = 0;
@@ -410,7 +410,7 @@ VOID memdCreateRecords(HWND hwndCnr,
  *@@added V0.9.1 (99-12-03) [umoeller]
  */
 
-SHORT EXPENTRY mnu_fnCompareIndex(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
+static SHORT EXPENTRY mnu_fnCompareIndex(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
 {
     pStorage = pStorage; // to keep the compiler happy
     if ((pmrc1) && (pmrc2))
@@ -428,7 +428,7 @@ SHORT EXPENTRY mnu_fnCompareIndex(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pSt
  *@@added V0.9.1 (99-12-03) [umoeller]
  */
 
-SHORT EXPENTRY mnu_fnCompareSourceFile(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
+static SHORT EXPENTRY mnu_fnCompareSourceFile(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
 {
     HAB habDesktop = WinQueryAnchorBlock(HWND_DESKTOP);
     pStorage = pStorage; // to keep the compiler happy
@@ -457,7 +457,7 @@ SHORT EXPENTRY mnu_fnCompareSourceFile(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOI
  *@@added V0.9.6 (2000-11-12) [umoeller]
  */
 
-SHORT EXPENTRY mnu_fnCompareSize(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
+static SHORT EXPENTRY mnu_fnCompareSize(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
 {
     pStorage = pStorage; // to keep the compiler happy
     if ((pmrc1) && (pmrc2))
@@ -477,7 +477,7 @@ SHORT EXPENTRY mnu_fnCompareSize(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pSto
  *@@added V0.9.14 (2001-08-01) [umoeller]
  */
 
-SHORT EXPENTRY mnu_fnCompareAddress(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
+static SHORT EXPENTRY mnu_fnCompareAddress(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID pStorage)
 {
     pStorage = pStorage; // to keep the compiler happy
     if ((pmrc1) && (pmrc2))
@@ -511,7 +511,7 @@ SHORT EXPENTRY mnu_fnCompareAddress(PMEMRECORD pmrc1, PMEMRECORD  pmrc2, PVOID p
  *@@changed V0.9.14 (2001-08-01) [umoeller]: added sort by address
  */
 
-MRESULT EXPENTRY memd_fnwpMemDebug(HWND hwndClient, ULONG msg, MPARAM mp1, MPARAM mp2)
+static MRESULT EXPENTRY memd_fnwpMemDebug(HWND hwndClient, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT mrc = 0;
 
@@ -611,13 +611,13 @@ MRESULT EXPENTRY memd_fnwpMemDebug(HWND hwndClient, ULONG msg, MPARAM mp1, MPARA
                                         pszFont);
                     }
 
-                    memdCreateRecords(hwndCnr,
-                                      &ulTotalItems,
-                                      &ulAllocatedItems,
-                                      &ulFreedItems,
-                                      &ulTotalBytes,
-                                      &ulAllocatedBytes,
-                                      &ulFreedBytes);
+                    CreateRecords(hwndCnr,
+                                  &ulTotalItems,
+                                  &ulAllocatedItems,
+                                  &ulFreedItems,
+                                  &ulTotalBytes,
+                                  &ulAllocatedBytes,
+                                  &ulFreedBytes);
 
                     BEGIN_CNRINFO()
                     {

@@ -83,7 +83,7 @@ HMTX            G_hmtxThreadInfos = NULLHANDLE;
  *@@added V0.9.9 (2001-03-07) [umoeller]
  */
 
-BOOL LockThreadInfos(VOID)
+static BOOL LockThreadInfos(VOID)
 {
     APIRET arc = NO_ERROR;
 
@@ -109,7 +109,7 @@ BOOL LockThreadInfos(VOID)
  *@@added V0.9.9 (2001-03-07) [umoeller]
  */
 
-VOID UnlockThreadInfos(VOID)
+static VOID UnlockThreadInfos(VOID)
 {
     DosReleaseMutexSem(G_hmtxThreadInfos);
 }
@@ -124,7 +124,7 @@ VOID UnlockThreadInfos(VOID)
  *@@changed V0.9.7 (2000-12-18) [lafaix]: THRF_TRANSIENT support added
  */
 
-VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
+static VOID _Optlink thr_fntGeneric(PVOID ptiMyself)
 {
     PTHREADINFO pti = (PTHREADINFO)ptiMyself;
 

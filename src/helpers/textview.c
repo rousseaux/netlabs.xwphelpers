@@ -277,11 +277,11 @@ VOID txvInitFormat(PXFORMATDATA pxfd)
  *@@added V0.9.3 (2000-05-06) [umoeller]
  */
 
-VOID SetSubFont(HPS hps,
-                PXFMTFONT pFont,
-                ULONG ulPointSize,
-                PSZ pszFaceName,
-                ULONG flFormat)
+static VOID SetSubFont(HPS hps,
+                       PXFMTFONT pFont,
+                       ULONG ulPointSize,
+                       PSZ pszFaceName,
+                       ULONG flFormat)
 {
     CHAR    ac[256];
     ULONG   ul;
@@ -335,17 +335,17 @@ VOID SetSubFont(HPS hps,
 }
 
 /*
- *@@ txvSetFormatFont:
+ *@@ SetFormatFont:
  *      creates logical fonts from the specified
  *      font information.
  *
  *@@added V0.9.3 (2000-05-06) [umoeller]
  */
 
-VOID txvSetFormatFont(HPS hps,           // in: HPS to select default font into
-                      PXFMTCHARACTER pxfmtc, // in/out: format data
-                      ULONG ulPointSize, // in: font point size (e.g. 12) or 0
-                      PSZ pszFaceName)   // in: font face name (e.g. "Courier") or NULL
+static VOID SetFormatFont(HPS hps,           // in: HPS to select default font into
+                          PXFMTCHARACTER pxfmtc, // in/out: format data
+                          ULONG ulPointSize, // in: font point size (e.g. 12) or 0
+                          PSZ pszFaceName)   // in: font face name (e.g. "Courier") or NULL
 {
     pxfmtc->lPointSize = ulPointSize;
 
@@ -384,10 +384,10 @@ VOID txvSetFormatFont(HPS hps,           // in: HPS to select default font into
  *@@added V0.9.3 (2000-05-07) [umoeller]
  */
 
-VOID AppendCharNoCheck(char **ppszNew,
-                       PULONG pcbNew,
-                       char **ppTarget,
-                       char c)
+static VOID AppendCharNoCheck(char **ppszNew,
+                              PULONG pcbNew,
+                              char **ppTarget,
+                              char c)
 {
     ULONG   cbSizeThis = *ppTarget - *ppszNew;
     if (cbSizeThis >= *pcbNew)
@@ -493,8 +493,8 @@ VOID txvStripLinefeeds(char **ppszText,
  *@added V0.9.3 (2000-05-06) [umoeller]
  */
 
-PSZ strhFindEOL2(PSZ *ppszSearchIn,        // in: where to search
-                 PULONG pulOffset)       // out: offset (ptr can be NULL)
+static PSZ strhFindEOL2(PSZ *ppszSearchIn,        // in: where to search
+                        PULONG pulOffset)       // out: offset (ptr can be NULL)
 {
     PSZ     pThis = *ppszSearchIn,
             prc = NULL;
@@ -553,7 +553,7 @@ PSZ strhFindEOL2(PSZ *ppszSearchIn,        // in: where to search
 /*
  *@@ FORMATLINEBUF:
  *      worker structure to store various data
- *      in txvFormatText in between txvCreateWord
+ *      in txvFormatText in between CreateWord
  *      calls. This has been created for speed
  *      so we don't have to pass all these on
  *      the stack all the time.
@@ -589,7 +589,7 @@ typedef struct _FORMATLINEBUF
 } FORMATLINEBUF, *PFORMATLINEBUF;
 
 /*
- *@@ txvCreateWord:
+ *@@ CreateWord:
  *
  *      --  If the word ends with one or several spaces,
  *          ppStartOfWord is set to the beginning of the
@@ -612,9 +612,9 @@ typedef struct _FORMATLINEBUF
  *@@added V0.9.3 (2000-05-14) [umoeller]
  */
 
-PTXVWORD txvCreateWord(HPS hps,
-                        PSZ *ppStartOfWord,
-                        PFORMATLINEBUF pflbuf)
+static PTXVWORD CreateWord(HPS hps,
+                           PSZ *ppStartOfWord,
+                           PFORMATLINEBUF pflbuf)
 {
     PTXVWORD   pWord = NULL;
 
@@ -744,11 +744,11 @@ PTXVWORD txvCreateWord(HPS hps,
  *@@added V0.9.3 (2000-05-07) [umoeller]
  */
 
-PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current position; initially points to esc char
-                        PXFORMATDATA pxfd,         // in/out: formatting data
-                        PFORMATLINEBUF pflbuf,     // in/out: formatting buffer
-                        BOOL fWordsProcessed)      // FALSE during step 1 (words processing),
-                                                   // TRUE during step 2 (rectangles correlation)
+static PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current position; initially points to esc char
+                               PXFORMATDATA pxfd,         // in/out: formatting data
+                               PFORMATLINEBUF pflbuf,     // in/out: formatting buffer
+                               BOOL fWordsProcessed)      // FALSE during step 1 (words processing),
+                                                          // TRUE during step 2 (rectangles correlation)
 {
     PTXVWORD pEscapeWord = NULL;
 
@@ -1154,9 +1154,9 @@ VOID txvFormatText(HPS hps,             // in: HPS whose font is used for
                         lPointSizeLast = flbuf.lPointSize;
                     }
 
-                    if (pWord = txvCreateWord(hps,
-                                              &pCurrent, // advanced to next word
-                                              &flbuf))
+                    if (pWord = CreateWord(hps,
+                                           &pCurrent, // advanced to next word
+                                           &flbuf))
                     {
                         lstAppendItem(&pxfd->llWords, pWord);
 
@@ -1410,10 +1410,10 @@ VOID txvFormatText(HPS hps,             // in: HPS whose font is used for
  *@@added V0.9.3 (2000-05-17) [umoeller]
  */
 
-VOID DrawListMarker(HPS hps,
-                    PRECTL prclLine,        // current line rectangle
-                    PTXVWORD pWordThis,    // current word
-                    LONG lViewXOfs)         // in: x offset to paint; 0 means rightmost
+static VOID DrawListMarker(HPS hps,
+                           PRECTL prclLine,        // current line rectangle
+                           PTXVWORD pWordThis,    // current word
+                           LONG lViewXOfs)         // in: x offset to paint; 0 means rightmost
 {
     POINTL ptl;
 
@@ -1864,8 +1864,8 @@ typedef struct _TEXTVIEWWINDATA
  *      txvSetDefaultFormat in turn.
  */
 
-VOID UpdateTextViewPresData(HWND hwndTextView,
-                            PTEXTVIEWWINDATA ptxvd)
+static VOID UpdateTextViewPresData(HWND hwndTextView,
+                                   PTEXTVIEWWINDATA ptxvd)
 {
     PSZ pszFont;
     ptxvd->lBackColor = winhQueryPresColor(hwndTextView,
@@ -1886,7 +1886,7 @@ VOID UpdateTextViewPresData(HWND hwndTextView,
                               &ulSize,
                               &pszFaceName))
         {
-            txvSetFormatFont(ptxvd->hps,
+            SetFormatFont(ptxvd->hps,
                              &ptxvd->xfd.fmtcStandard,
                              ulSize,
                              pszFaceName);
@@ -1919,8 +1919,8 @@ VOID UpdateTextViewPresData(HWND hwndTextView,
  *         is rclViewPaint minus borders).
  */
 
-VOID AdjustViewRects(HWND hwndTextView,
-                     PTEXTVIEWWINDATA ptxvd)
+static VOID AdjustViewRects(HWND hwndTextView,
+                            PTEXTVIEWWINDATA ptxvd)
 {
     ULONG ulScrollCX = WinQuerySysValue(HWND_DESKTOP, SV_CXVSCROLL),
           ulScrollCY = WinQuerySysValue(HWND_DESKTOP, SV_CYHSCROLL),
@@ -1991,10 +1991,10 @@ VOID AdjustViewRects(HWND hwndTextView,
  *@@changed V0.9.3 (2000-05-05) [umoeller]: fixed buggy vertical scroll bars
  */
 
-VOID FormatText2Screen(HWND hwndTextView,
-                       PTEXTVIEWWINDATA ptxvd,
-                       BOOL fAlreadyRecursing,  // in: set this to FALSE when calling
-                       BOOL fFullRecalc)
+static VOID FormatText2Screen(HWND hwndTextView,
+                              PTEXTVIEWWINDATA ptxvd,
+                              BOOL fAlreadyRecursing,  // in: set this to FALSE when calling
+                              BOOL fFullRecalc)
 {
     ULONG   ulWinCX,
             ulWinCY;
@@ -2079,8 +2079,8 @@ VOID FormatText2Screen(HWND hwndTextView,
  *      in turn and updates the view's scroll bars.
  */
 
-VOID PaintViewText2Screen(PTEXTVIEWWINDATA ptxvd,
-                          PRECTL prcl2Paint)  // in: invalid rectangle, can be NULL == paint all
+static VOID PaintViewText2Screen(PTEXTVIEWWINDATA ptxvd,
+                                 PRECTL prcl2Paint)  // in: invalid rectangle, can be NULL == paint all
 {
     ULONG   ulLineIndex = 0;
     ULONG   ulYOfs = ptxvd->ulViewYOfs;
@@ -2099,9 +2099,9 @@ VOID PaintViewText2Screen(PTEXTVIEWWINDATA ptxvd,
  *      paint a focus rectangle.
  */
 
-VOID PaintViewFocus(HPS hps,
-                    PTEXTVIEWWINDATA ptxvd,
-                    BOOL fFocus)
+static VOID PaintViewFocus(HPS hps,
+                           PTEXTVIEWWINDATA ptxvd,
+                           BOOL fFocus)
 {
     POINTL  ptl;
     HRGN    hrgn;
@@ -2130,9 +2130,9 @@ VOID PaintViewFocus(HPS hps,
  *@@added V0.9.3 (2000-05-18) [umoeller]
  */
 
-VOID RepaintWord(PTEXTVIEWWINDATA ptxvd,
-                 PTXVWORD pWordThis,
-                 LONG lColor)
+static VOID RepaintWord(PTEXTVIEWWINDATA ptxvd,
+                        PTXVWORD pWordThis,
+                        LONG lColor)
 {
     POINTL ptlStart;
     ULONG flOptions = pWordThis->flOptions;
@@ -2183,8 +2183,8 @@ VOID RepaintWord(PTEXTVIEWWINDATA ptxvd,
  *@@added V0.9.3 (2000-05-18) [umoeller]
  */
 
-VOID RepaintAnchor(PTEXTVIEWWINDATA ptxvd,
-                   LONG lColor)
+static VOID RepaintAnchor(PTEXTVIEWWINDATA ptxvd,
+                          LONG lColor)
 {
     PLISTNODE pNode = ptxvd->pWordNodeFirstInAnchor;
     USHORT usAnchor = 0;
@@ -2254,7 +2254,7 @@ VOID RepaintAnchor(PTEXTVIEWWINDATA ptxvd,
  *@@changed V0.9.3 (2000-05-07) [umoeller]: crashed if create param was NULL; fixed
  */
 
-MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM mp2)
+static MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM mp2)
 {
     MRESULT mrc = 0;
 
@@ -2364,7 +2364,7 @@ MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM m
                 ptxvd->fHScrollVisible = fShow;
 
                 // set "code" format
-                txvSetFormatFont(ptxvd->hps,
+                SetFormatFont(ptxvd->hps,
                                  &ptxvd->xfd.fmtcCode,
                                  6,
                                  "System VIO");
@@ -3205,7 +3205,7 @@ HWND txvReplaceWithTextView(HWND hwndParentAndOwner,
  *      Use prthFreeBuf to free the returned buffer.
  */
 
-PRQINFO3* prthEnumQueues(PULONG pulReturned)    // out: no. of queues found
+static PRQINFO3* prthEnumQueues(PULONG pulReturned)    // out: no. of queues found
 {
     SPLERR  rc;
     ULONG   cTotal;
@@ -3247,7 +3247,7 @@ PRQINFO3* prthEnumQueues(PULONG pulReturned)    // out: no. of queues found
  *
  */
 
-VOID prthFreeBuf(PVOID pprq3)
+static VOID prthFreeBuf(PVOID pprq3)
 {
     if (pprq3)
         free(pprq3);
@@ -3269,10 +3269,10 @@ VOID prthFreeBuf(PVOID pprq3)
  *      Based on print sample by Peter Fitzsimmons, Fri  95-09-29 02:47:16am.
  */
 
-HDC prthCreatePrinterDC(HAB hab,
-                        PRQINFO3 *pprq3,
-                        PLONG palRes)  // out: 2 longs holding horizontal and vertical
-                                       // printer resolution in pels per inch
+static HDC prthCreatePrinterDC(HAB hab,
+                               PRQINFO3 *pprq3,
+                               PLONG palRes)  // out: 2 longs holding horizontal and vertical
+                                              // printer resolution in pels per inch
 {
     HDC     hdc = NULLHANDLE;
     DEVOPENSTRUC dos;
@@ -3315,8 +3315,8 @@ HDC prthCreatePrinterDC(HAB hab,
  *      the returned info. See PMREF for details.
  */
 
-HCINFO* prthQueryForms(HDC hdc,
-                       PULONG pulCount)
+static HCINFO* prthQueryForms(HDC hdc,
+                              PULONG pulCount)
 {
     HCINFO  *pahci = NULL;
 
@@ -3347,15 +3347,15 @@ HCINFO* prthQueryForms(HDC hdc,
  *      Based on print sample by Peter Fitzsimmons, Fri  95-09-29 02:47:16am.
  */
 
-HPS prthCreatePS(HAB hab,       // in: anchor block
-                 HDC hdc,       // in: printer device context
-                 ULONG ulUnits) // in: one of:
-                                // -- PU_PELS
-                                // -- PU_LOMETRIC
-                                // -- PU_HIMETRIC
-                                // -- PU_LOENGLISH
-                                // -- PU_HIENGLISH
-                                // -- PU_TWIPS
+static HPS prthCreatePS(HAB hab,       // in: anchor block
+                        HDC hdc,       // in: printer device context
+                        ULONG ulUnits) // in: one of:
+                                       // -- PU_PELS
+                                       // -- PU_LOMETRIC
+                                       // -- PU_HIMETRIC
+                                       // -- PU_LOENGLISH
+                                       // -- PU_HIENGLISH
+                                       // -- PU_TWIPS
 {
     SIZEL   sizel;
 
@@ -3377,8 +3377,8 @@ HPS prthCreatePS(HAB hab,       // in: anchor block
  *      pszDocTitle appears in the spooler.
  */
 
-VOID prthStartDoc(HDC hdc,
-                  PSZ pszDocTitle)
+static VOID prthStartDoc(HDC hdc,
+                         PSZ pszDocTitle)
 {
     DevEscape(hdc,
               DEVESC_STARTDOC,
@@ -3397,7 +3397,7 @@ VOID prthStartDoc(HDC hdc,
  *      printer device to advance to a new page.
  */
 
-VOID prthNextPage(HDC hdc)
+static VOID prthNextPage(HDC hdc)
 {
     DevEscape(hdc,
               DEVESC_NEWFRAME,
@@ -3416,8 +3416,8 @@ VOID prthNextPage(HDC hdc)
  +          DevCloseDC(hdc);
  */
 
-VOID prthEndDoc(HDC hdc,
-                HPS hps)
+static VOID prthEndDoc(HDC hdc,
+                       HPS hps)
 {
     DevEscape(hdc, DEVESC_ENDDOC, 0L, 0L, 0, NULL);
     GpiAssociate(hps, NULLHANDLE);
@@ -3473,7 +3473,7 @@ BOOL txvPrint(HAB hab,
     // initialize format with font from window
     txvInitFormat(&xfd);
 
-    /* txvSetFormatFont(hps,
+    /* SetFormatFont(hps,
                      &xfd,
                      ulSize,
                      pszFaceName); */

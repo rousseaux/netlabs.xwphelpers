@@ -545,7 +545,7 @@ APIRET exehOpen(const char* pcszExecutable,
  *@@changed V0.9.12 (2001-05-19) [umoeller]: added extended BLDLEVEL support
  */
 
-VOID ParseBldLevel(PEXECUTABLE pExec)
+static VOID ParseBldLevel(PEXECUTABLE pExec)
 {
     PCSZ    pStartOfVendor,
             pStartOfInfo,
@@ -702,9 +702,12 @@ VOID ParseBldLevel(PEXECUTABLE pExec)
  *      is automatically parsed, and the pszVendor, pszVersion,
  *      and pszInfo fields are also set. In the above examples,
  *      this would return the following information:
+ *
  +          pszVendor = "Ulrich M”ller"
  +          pszVersion = "0.9.0"
  +          pszInfo = "XWorkplace Sound Support Module"
+ *
+ *      See ParseBldLevel for extended formats.
  *
  *      If that string is not in BLDLEVEL format, only
  *      pszDescription will be set. The other fields remain
@@ -1012,9 +1015,9 @@ APIRET exehFreeImportedModules(PFSYSMODULE paModules)
  *@@changed V0.9.12 (2001-05-03) [umoeller]: adjusted for new NOSTUB support
  */
 
-APIRET ScanLXEntryTable(PEXECUTABLE pExec,
-                        PFSYSFUNCTION paFunctions,
-                        PULONG pcEntries)        // out: entry table entry count; ptr can be NULL
+static APIRET ScanLXEntryTable(PEXECUTABLE pExec,
+                               PFSYSFUNCTION paFunctions,
+                               PULONG pcEntries)        // out: entry table entry count; ptr can be NULL
 {
     ULONG  ulDummy;
     USHORT usOrdinal = 1,
@@ -1253,9 +1256,9 @@ APIRET ScanLXEntryTable(PEXECUTABLE pExec,
  *@@changed V0.9.12 (2001-05-03) [umoeller]: adjusted for new NOSTUB support
  */
 
-APIRET ScanNEEntryTable(PEXECUTABLE pExec,
-                        PFSYSFUNCTION paFunctions,
-                        PULONG pcEntries)        // out: entry table entry count; ptr can be NULL
+static APIRET ScanNEEntryTable(PEXECUTABLE pExec,
+                               PFSYSFUNCTION paFunctions,
+                               PULONG pcEntries)        // out: entry table entry count; ptr can be NULL
 {
     ULONG  ulDummy;
     USHORT usOrdinal = 1,
@@ -1348,8 +1351,8 @@ APIRET ScanNEEntryTable(PEXECUTABLE pExec,
  *@@changed V0.9.9 (2001-04-07) [umoeller]: added _Optlink, or this won't compile as C++
  */
 
-int _Optlink Compare(const void *key,
-                     const void *element)
+static int _Optlink Compare(const void *key,
+                            const void *element)
 {
     USHORT        usOrdinal = *((PUSHORT) key);
     PFSYSFUNCTION pFunction = (PFSYSFUNCTION)element;
@@ -1377,9 +1380,9 @@ int _Optlink Compare(const void *key,
  *@@changed V0.9.9 (2001-04-05) [lafaix]: rewritten error checking code
  */
 
-APIRET ScanNameTable(PEXECUTABLE pExec,
-                     ULONG cFunctions,
-                     PFSYSFUNCTION paFunctions)
+static APIRET ScanNameTable(PEXECUTABLE pExec,
+                            ULONG cFunctions,
+                            PFSYSFUNCTION paFunctions)
 {
     ULONG   ulDummy;
 
@@ -2134,10 +2137,10 @@ VOID exehFreeLXMaps(PEXECUTABLE pExec)
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-APIRET ExpandIterdata1(char *pabTarget,         // out: page data (pagesize as in lx spec)
-                       int cbTarget,            // in: sizeof *pabTarget (pagesize as in lx spec)
-                       const char *pabSource,   // in: compressed source data in EXEPACK:1 format
-                       int cbSource)            // in: sizeof *pabSource
+static APIRET ExpandIterdata1(char *pabTarget,         // out: page data (pagesize as in lx spec)
+                              int cbTarget,            // in: sizeof *pabTarget (pagesize as in lx spec)
+                              const char *pabSource,   // in: compressed source data in EXEPACK:1 format
+                              int cbSource)            // in: sizeof *pabSource
 {
     PLXITER             pIter = (PLXITER)pabSource;
     // store the pointer for boundary checking
@@ -2199,7 +2202,7 @@ APIRET ExpandIterdata1(char *pabTarget,         // out: page data (pagesize as i
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-void memcpyw(char *pch1, const char *pch2, size_t cch)
+static void memcpyw(char *pch1, const char *pch2, size_t cch)
 {
     /*
      * Use memcpy if possible.
@@ -2233,7 +2236,7 @@ void memcpyw(char *pch1, const char *pch2, size_t cch)
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-void memcpyb(char *pch1, const char *pch2, size_t cch)
+static void memcpyb(char *pch1, const char *pch2, size_t cch)
 {
     /*
      * Use memcpy if possible.
@@ -2260,13 +2263,18 @@ void memcpyb(char *pch1, const char *pch2, size_t cch)
  *
  *      (C) Knut Stange Osmundsen. Used with permission.
  *
+ *      Note that we call special (slow) memcpy versions
+ *      here because the standard memcpy will fail on
+ *      certain bit combinations here for some unknown
+ *      reason.
+ *
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-APIRET ExpandIterdata2(char *pachPage,
-                       int cchPage,
-                       const char *pachSrcPage,
-                       int cchSrcPage)
+static APIRET ExpandIterdata2(char *pachPage,              // out: page data (pagesize as in lx spec)
+                              int cchPage,                 // in: sizeof *pachPage (pagesize as in lx spec)
+                              const char *pachSrcPage,     // in: compressed source data in EXEPACK:1 format
+                              int cchSrcPage)              // in: size of source buf
 {
     char *          pachDestPage = pachPage; /* Store the pointer for boundrary checking. */
 
@@ -2478,11 +2486,11 @@ endloop:;
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-APIRET GetOfsFromPageTableIndex(PEXECUTABLE pExec,   // in: executable from exehOpen
-                                ULONG ulObjPageTblIndexThis,  // in: object page table index to look for
-                                PULONG pulFlags,        // out: page flags
-                                PULONG pulSize,         // out: page size
-                                PULONG pulPageOfs)      // out: page ofs (add pLXHeader->ulDataPagesOfs to this)
+static APIRET GetOfsFromPageTableIndex(PEXECUTABLE pExec,   // in: executable from exehOpen
+                                       ULONG ulObjPageTblIndexThis,  // in: object page table index to look for
+                                       PULONG pulFlags,        // out: page flags
+                                       PULONG pulSize,         // out: page size
+                                       PULONG pulPageOfs)      // out: page ofs (add pLXHeader->ulDataPagesOfs to this)
 {
     OBJECTPAGETABLEENTRY *pObjPageTblEntry;
 
@@ -2508,15 +2516,34 @@ APIRET GetOfsFromPageTableIndex(PEXECUTABLE pExec,   // in: executable from exeh
  *@@ exehReadLXPage:
  *      loads and possibly unpacks one LX page.
  *
+ *      In order to reduce memory allocations, the
+ *      caller is responsible for allocating a temp
+ *      buffer, which must be passed in with
+ *      pabCompressed.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR: pbData was filled with data,
+ *          which is pLXHeader->ulPageSize in size.
+ *
+ *      --  ERROR_INVALID_SEGMENT_NUMBER: segment
+ *          number is out of range.
+ *
+ *      --  ERROR_BAD_FORMAT: compressed page data
+ *          is screwed somehow, or page size is
+ *          too large.
+ *
+ *      plus the error codes of doshReadAt.
+ *
  *@@added V0.9.16 (2002-01-05) [umoeller]
  */
 
-APIRET exehReadLXPage(PEXECUTABLE pExec,
-                      ULONG ulObjPageTblIndex,
+APIRET exehReadLXPage(PEXECUTABLE pExec,        // in: executable from exehOpen
+                      ULONG ulObjPageTblIndex,  // in: page table index to read
                       ULONG ulExeOffset,        // in: for resources, pLXHeader->ulDataPagesOfs
                       PBYTE pabCompressed,      // in: ptr to temp buffer which must be
                                                 // pLXHeader->ulPageSize + 4 bytes in size
-                      PBYTE pbData)             // in: ptr to buffer which receives actual
+                      PBYTE pbData)             // out: ptr to buffer which receives actual
                                                 // uncompressed page data (pLXHeader->ulPageSize)
 {
     APIRET  arc;
@@ -2616,13 +2643,7 @@ APIRET exehReadLXPage(PEXECUTABLE pExec,
  *
  *      --  ERROR_NOT_ENOUGH_MEMORY
  *
- *      --  ERROR_INVALID_SEGMENT_NUMBER
- *
- *      --  ERROR_BAD_FORMAT: cannot handle resource
- *          format (probably error in decompression
- *          code).
- *
- *      plus the error codes from doshReadAt.
+ *      plus the error codes from exehReadLXPage.
  *
  *@@added V0.9.16 (2001-12-08) [umoeller]
  *@@changed V0.9.16 (2002-01-05) [umoeller]: largely rewritten to handle non-first icons properly
@@ -3142,7 +3163,7 @@ APIRET exehClose(PEXECUTABLE *ppExec)
             if (pThis = *papsz[ul])
             {
                 free(pThis);
-                pThis = NULL;
+                *papsz[ul] = NULL;
             }
         }
 

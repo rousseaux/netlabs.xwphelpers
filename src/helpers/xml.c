@@ -342,8 +342,8 @@ VOID xmlSetError(PXMLDOM pDom,
  *@@changed V0.9.14 (2001-08-09) [umoeller]: fixed map bug which caused the whole XML stuff to fail
  */
 
-int TREEENTRY CompareXStrings(ULONG ul1,
-                              ULONG ul2)
+static int TREEENTRY CompareXStrings(ULONG ul1,
+                                     ULONG ul2)
 {
     return (strhcmp(((PXSTRING)ul1)->psz,
                     ((PXSTRING)ul2)->psz));
@@ -913,10 +913,10 @@ APIRET xmlCreateDocumentTypeNode(PDOMDOCUMENTNODE pDocumentNode,            // i
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
 
-APIRET SetupParticleAndSubs(PCMELEMENTPARTICLE pParticle,
-                            PXMLCONTENT pModel,
-                            TREE **ppElementNamesTree) // in: ptr to _CMELEMENTDECLNODE.ElementNamesTree
-                                                       // (passed to all recursions)
+static APIRET SetupParticleAndSubs(PCMELEMENTPARTICLE pParticle,
+                                   PXMLCONTENT pModel,
+                                   TREE **ppElementNamesTree) // in: ptr to _CMELEMENTDECLNODE.ElementNamesTree
+                                                              // (passed to all recursions)
 {
     APIRET arc = NO_ERROR;
 
@@ -1073,10 +1073,10 @@ APIRET xmlCreateElementDecl(const char *pcszName,
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
 
-VOID ValidateElement(PXMLDOM pDom,
-                     PDOMNODE pNewElement,     // in: new element
-                     PCMELEMENTDECLNODE pParentElementDecl)
-                                               // in: element decl of element's parent
+static VOID ValidateElement(PXMLDOM pDom,
+                            PDOMNODE pNewElement,     // in: new element
+                            PCMELEMENTDECLNODE pParentElementDecl)
+                                                      // in: element decl of element's parent
 {
     if (pDom && pNewElement)
     {
@@ -1232,9 +1232,9 @@ VOID ValidateElement(PXMLDOM pDom,
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
 
-VOID ValidateAttributeType(PXMLDOM pDom,
-                           PDOMNODE pAttrib,
-                           PCMATTRIBUTEDECLBASE *ppAttribDeclBase)
+static VOID ValidateAttributeType(PXMLDOM pDom,
+                                  PDOMNODE pAttrib,
+                                  PCMATTRIBUTEDECLBASE *ppAttribDeclBase)
 {
     PDOMNODE pElement = pAttrib->pParentNode;
 
@@ -1296,9 +1296,9 @@ VOID ValidateAttributeType(PXMLDOM pDom,
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
 
-VOID ValidateAllAttributes(PXMLDOM pDom,
-                           PCMATTRIBUTEDECLBASE pAttribDeclBase,
-                           PDOMNODE pNewElement)
+static VOID ValidateAllAttributes(PXMLDOM pDom,
+                                  PCMATTRIBUTEDECLBASE pAttribDeclBase,
+                                  PDOMNODE pNewElement)
 {
     PCMATTRIBUTEDECL pDeclThis
         = (PCMATTRIBUTEDECL)treeFirst(pAttribDeclBase->AttribDeclsTree);
@@ -1365,8 +1365,8 @@ typedef struct _DOMSTACKITEM
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
 
-PDOMSTACKITEM PopElementStack(PXMLDOM pDom,
-                              PLISTNODE *ppListNode)
+static PDOMSTACKITEM PopElementStack(PXMLDOM pDom,
+                                     PLISTNODE *ppListNode)
 {
     PDOMSTACKITEM   pStackItem = NULL;
     PLISTNODE       pParentLN = lstPop(&pDom->llElementStack);
@@ -1395,8 +1395,8 @@ PDOMSTACKITEM PopElementStack(PXMLDOM pDom,
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
 
-VOID PushElementStack(PXMLDOM pDom,
-                      PDOMNODE pDomNode)
+static VOID PushElementStack(PXMLDOM pDom,
+                             PDOMNODE pDomNode)
 {
     PDOMSTACKITEM pNew = (PDOMSTACKITEM)malloc(sizeof(*pNew));
     if (!pNew)
@@ -1435,9 +1435,9 @@ VOID PushElementStack(PXMLDOM pDom,
  *@@added V0.9.14 (2001-08-09) [umoeller]
  */
 
-int EXPATENTRY UnknownEncodingHandler(void *pUserData,   // in: out PXMLDOM really
-                                      const XML_Char *pcszName,
-                                      XML_Encoding *pEncoding)
+static int EXPATENTRY UnknownEncodingHandler(void *pUserData,   // in: out PXMLDOM really
+                                             const XML_Char *pcszName,
+                                             XML_Encoding *pEncoding)
 {
     PXMLDOM     pDom = (PXMLDOM)pUserData;
 
@@ -1500,9 +1500,9 @@ int EXPATENTRY UnknownEncodingHandler(void *pUserData,   // in: out PXMLDOM real
  *      attributes.
  */
 
-void EXPATENTRY StartElementHandler(void *pUserData,      // in: our PXMLDOM really
-                                    const char *pcszElement,
-                                    const char **papcszAttribs)
+static void EXPATENTRY StartElementHandler(void *pUserData,      // in: our PXMLDOM really
+                                           const char *pcszElement,
+                                           const char **papcszAttribs)
 {
     PXMLDOM     pDom = (PXMLDOM)pUserData;
 
@@ -1595,8 +1595,8 @@ void EXPATENTRY StartElementHandler(void *pUserData,      // in: our PXMLDOM rea
  *      We pop the element off of our stack then.
  */
 
-void EXPATENTRY EndElementHandler(void *pUserData,      // in: our PXMLDOM really
-                                  const XML_Char *name)
+static void EXPATENTRY EndElementHandler(void *pUserData,      // in: our PXMLDOM really
+                                         const XML_Char *name)
 {
     PXMLDOM     pDom = (PXMLDOM)pUserData;
     // continue parsing only if we had no errors so far
@@ -1631,9 +1631,9 @@ void EXPATENTRY EndElementHandler(void *pUserData,      // in: our PXMLDOM reall
  *      them. We must concatenate the chunks to a full text node.
  */
 
-void EXPATENTRY CharacterDataHandler(void *pUserData,      // in: our PXMLDOM really
-                                     const XML_Char *s,
-                                     int len)
+static void EXPATENTRY CharacterDataHandler(void *pUserData,      // in: our PXMLDOM really
+                                            const XML_Char *s,
+                                            int len)
 {
     PXMLDOM     pDom = (PXMLDOM)pUserData;
 
@@ -1742,8 +1742,8 @@ void EXPATENTRY CharacterDataHandler(void *pUserData,      // in: our PXMLDOM re
  *@@added V0.9.9 (2001-02-14) [umoeller]
  */
 
-void EXPATENTRY CommentHandler(void *pUserData,      // in: our PXMLDOM really
-                               const XML_Char *data)
+static void EXPATENTRY CommentHandler(void *pUserData,      // in: our PXMLDOM really
+                                      const XML_Char *data)
 {
     PXMLDOM     pDom = (PXMLDOM)pUserData;
 
@@ -1777,11 +1777,11 @@ void EXPATENTRY CommentHandler(void *pUserData,      // in: our PXMLDOM really
  *@@added V0.9.9 (2001-02-14) [umoeller]
  */
 
-void EXPATENTRY StartDoctypeDeclHandler(void *pUserData,
-                                        const XML_Char *pcszDoctypeName,
-                                        const XML_Char *pcszSysid,
-                                        const XML_Char *pcszPubid,
-                                        int fHasInternalSubset)
+static void EXPATENTRY StartDoctypeDeclHandler(void *pUserData,
+                                               const XML_Char *pcszDoctypeName,
+                                               const XML_Char *pcszSysid,
+                                               const XML_Char *pcszPubid,
+                                               int fHasInternalSubset)
 {
     PXMLDOM     pDom = (PXMLDOM)pUserData;
 
@@ -1816,7 +1816,7 @@ void EXPATENTRY StartDoctypeDeclHandler(void *pUserData,
  *@@added V0.9.9 (2001-02-14) [umoeller]
  */
 
-void EXPATENTRY EndDoctypeDeclHandler(void *pUserData)      // in: our PXMLDOM really
+static void EXPATENTRY EndDoctypeDeclHandler(void *pUserData)      // in: our PXMLDOM really
 {
     PXMLDOM     pDom = (PXMLDOM)pUserData;
 
@@ -1835,11 +1835,11 @@ void EXPATENTRY EndDoctypeDeclHandler(void *pUserData)      // in: our PXMLDOM r
  *@@added V0.9.9 (2001-02-14) [umoeller]
  */
 
-void EXPATENTRY NotationDeclHandler(void *pUserData,      // in: our PXMLDOM really
-                                    const XML_Char *pcszNotationName,
-                                    const XML_Char *pcszBase,
-                                    const XML_Char *pcszSystemId,
-                                    const XML_Char *pcszPublicId)
+static void EXPATENTRY NotationDeclHandler(void *pUserData,      // in: our PXMLDOM really
+                                           const XML_Char *pcszNotationName,
+                                           const XML_Char *pcszBase,
+                                           const XML_Char *pcszSystemId,
+                                           const XML_Char *pcszPublicId)
 {
     PXMLDOM     pDom = (PXMLDOM)pUserData;
 
@@ -1903,12 +1903,12 @@ void EXPATENTRY NotationDeclHandler(void *pUserData,      // in: our PXMLDOM rea
  *@@added V0.9.14 (2001-08-09) [umoeller]
  */
 
-int EXPATENTRY ExternalEntityRefHandler(void *pUserData,      // in: our PXMLDOM really
-                                        XML_Parser parser,
-                                        const XML_Char *pcszContext,
-                                        const XML_Char *pcszBase,
-                                        const XML_Char *pcszSystemId,
-                                        const XML_Char *pcszPublicId)
+static int EXPATENTRY ExternalEntityRefHandler(void *pUserData,      // in: our PXMLDOM really
+                                               XML_Parser parser,
+                                               const XML_Char *pcszContext,
+                                               const XML_Char *pcszBase,
+                                               const XML_Char *pcszSystemId,
+                                               const XML_Char *pcszPublicId)
 {
     PXMLDOM     pDom = (PXMLDOM)pUserData;
 
@@ -1990,9 +1990,9 @@ int EXPATENTRY ExternalEntityRefHandler(void *pUserData,      // in: our PXMLDOM
  *@@added V0.9.9 (2001-02-14) [umoeller]
  */
 
-void EXPATENTRY ElementDeclHandler(void *pUserData,      // in: our PXMLDOM really
-                                   const XML_Char *pcszName,
-                                   XMLCONTENT *pModel)
+static void EXPATENTRY ElementDeclHandler(void *pUserData,      // in: our PXMLDOM really
+                                          const XML_Char *pcszName,
+                                          XMLCONTENT *pModel)
 {
     PXMLDOM     pDom = (PXMLDOM)pUserData;
 
@@ -2040,9 +2040,9 @@ void EXPATENTRY ElementDeclHandler(void *pUserData,      // in: our PXMLDOM real
  *@@added V0.9.9 (2001-02-16) [umoeller]
  */
 
-APIRET AddEnum(PCMATTRIBUTEDECL pDecl,
-               const char *p,           // in: start of name
-               const char *pNext)       // in: end of name (not included)
+static APIRET AddEnum(PCMATTRIBUTEDECL pDecl,
+                      const char *p,           // in: start of name
+                      const char *pNext)       // in: end of name (not included)
 {
     // PSZ pszType = strhSubstr(p, pNext);
     PNODEBASE pNew = NULL;
@@ -2089,12 +2089,12 @@ APIRET AddEnum(PCMATTRIBUTEDECL pDecl,
  *@@added V0.9.9 (2001-02-14) [umoeller]
  */
 
-void EXPATENTRY AttlistDeclHandler(void *pUserData,      // in: our PXMLDOM really
-                                   const XML_Char *pcszElementName,
-                                   const XML_Char *pcszAttribName,
-                                   const XML_Char *pcszAttribType,
-                                   const XML_Char *pcszDefault,
-                                   int fIsRequired)
+static void EXPATENTRY AttlistDeclHandler(void *pUserData,      // in: our PXMLDOM really
+                                          const XML_Char *pcszElementName,
+                                          const XML_Char *pcszAttribName,
+                                          const XML_Char *pcszAttribType,
+                                          const XML_Char *pcszDefault,
+                                          int fIsRequired)
 {
     PXMLDOM     pDom = (PXMLDOM)pUserData;
 
@@ -2271,15 +2271,15 @@ void EXPATENTRY AttlistDeclHandler(void *pUserData,      // in: our PXMLDOM real
  *@@added V0.9.9 (2001-02-14) [umoeller]
  */
 
-void EXPATENTRY EntityDeclHandler(void *pUserData,      // in: our PXMLDOM really
-                                  const XML_Char *pcszEntityName,
-                                  int fIsParameterEntity,
-                                  const XML_Char *pcszValue,
-                                  int iValueLength,
-                                  const XML_Char *pcszBase,
-                                  const XML_Char *pcszSystemId,
-                                  const XML_Char *pcszPublicId,
-                                  const XML_Char *pcszNotationName)
+static void EXPATENTRY EntityDeclHandler(void *pUserData,      // in: our PXMLDOM really
+                                         const XML_Char *pcszEntityName,
+                                         int fIsParameterEntity,
+                                         const XML_Char *pcszValue,
+                                         int iValueLength,
+                                         const XML_Char *pcszBase,
+                                         const XML_Char *pcszSystemId,
+                                         const XML_Char *pcszPublicId,
+                                         const XML_Char *pcszNotationName)
 {
     PXMLDOM     pDom = (PXMLDOM)pUserData;
 
@@ -2978,8 +2978,8 @@ APIRET xmlCreateDocument(const char *pcszRootElementName,   // in: root element 
  *@@added V0.9.12 (2001-05-21) [umoeller]
  */
 
-VOID WriteNodes(PXSTRING pxstr,
-                PDOMNODE pDomNode)       // in: node whose children are to be written (initially DOCUMENT)
+static VOID WriteNodes(PXSTRING pxstr,
+                       PDOMNODE pDomNode)       // in: node whose children are to be written (initially DOCUMENT)
 {
     PLISTNODE pListNode;
 

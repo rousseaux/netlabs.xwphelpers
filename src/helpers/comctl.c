@@ -976,9 +976,9 @@ MRESULT EXPENTRY ctl_fnwpBitmapStatic(HWND hwndStatic, ULONG msg, MPARAM mp1, MP
  *@@added V0.9.16 (2001-10-15) [umoeller]
  */
 
-PANIMATIONDATA CreateAnimationData(HAB hab,
-                                   HWND hwndStatic,
-                                   USHORT cAnimations)
+static PANIMATIONDATA CreateAnimationData(HAB hab,
+                                          HWND hwndStatic,
+                                          USHORT cAnimations)
 {
     PANIMATIONDATA pa = NULL;
 

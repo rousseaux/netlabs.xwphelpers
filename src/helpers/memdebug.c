@@ -222,8 +222,8 @@ VOID memdUnlock(VOID)
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-VOID LogError(const char *pcszFormat,     // in: format string (like with printf)
-              ...)                        // in: additional stuff (like with printf)
+static VOID LogError(const char *pcszFormat,     // in: format string (like with printf)
+                     ...)                        // in: additional stuff (like with printf)
 {
     if (G_pMemdLogFunc)
     {
@@ -243,7 +243,7 @@ VOID LogError(const char *pcszFormat,     // in: format string (like with printf
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-PHEAPITEM FindHeapItem(void *p)
+static PHEAPITEM FindHeapItem(void *p)
 {
     return ((PHEAPITEM)treeFind(G_pHeapItemsRoot,
                                 (ULONG)p,
@@ -256,12 +256,12 @@ PHEAPITEM FindHeapItem(void *p)
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-VOID FillHeapItem(PHEAPITEM pHeapItem,
-                  void *prc,
-                  size_t stSize,
-                  const char *pcszSourceFile, // in: source file name
-                  unsigned long ulLine,       // in: source line
-                  const char *pcszFunction)   // in: function name
+static VOID FillHeapItem(PHEAPITEM pHeapItem,
+                         void *prc,
+                         size_t stSize,
+                         const char *pcszSourceFile, // in: source file name
+                         unsigned long ulLine,       // in: source line
+                         const char *pcszFunction)   // in: function name
 {
     pHeapItem->ulSize = stSize;
 
@@ -286,12 +286,12 @@ VOID FillHeapItem(PHEAPITEM pHeapItem,
  *@@added V0.9.16 (2001-12-08) [umoeller]
  */
 
-VOID CheckMagics(const char *pcszParentFunc,
-                 PHEAPITEM pHeapItem,
-                 PBYTE p,
-                 const char *pcszSourceFile, // in: source file name
-                 unsigned long ulLine,       // in: source line
-                 const char *pcszFunction)   // in: function name
+static VOID CheckMagics(const char *pcszParentFunc,
+                        PHEAPITEM pHeapItem,
+                        PBYTE p,
+                        const char *pcszSourceFile, // in: source file name
+                        unsigned long ulLine,       // in: source line
+                        const char *pcszFunction)   // in: function name
 {
     void    *pBeforeMagic = ((PBYTE)p) - sizeof(MEMBLOCKMAGIC_HEAD);
     ULONG   ulError = 0;

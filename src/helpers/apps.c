@@ -785,11 +785,11 @@ ULONG appIsWindowsApp(ULONG ulProgCategory)
  *@@changed V0.9.12 (2001-05-27) [umoeller]: moved from winh.c to apps.c
  */
 
-VOID CallBatchCorrectly(PPROGDETAILS pProgDetails,
-                        PXSTRING pstrParams,        // in/out: modified parameters (reallocated)
-                        const char *pcszEnvVar,     // in: env var spec'g command proc
-                                                    // (e.g. "OS2_SHELL"); can be NULL
-                        const char *pcszDefProc)    // in: def't command proc (e.g. "CMD.EXE")
+static VOID CallBatchCorrectly(PPROGDETAILS pProgDetails,
+                               PXSTRING pstrParams,        // in/out: modified parameters (reallocated)
+                               const char *pcszEnvVar,     // in: env var spec'g command proc
+                                                           // (e.g. "OS2_SHELL"); can be NULL
+                               const char *pcszDefProc)    // in: def't command proc (e.g. "CMD.EXE")
 {
     // XXX.CMD file as executable:
     // fix args to /C XXX.CMD
@@ -898,16 +898,18 @@ PSZ appQueryDefaultWin31Environment(VOID)
  *@@ CallWinStartApp:
  *      wrapper around WinStartApp which copies all the
  *      parameters into a contiguous block of tiled memory.
+ *
  *      This might fix some of the problems with truncated
- *      environments we were having.
+ *      environments we were having because apparently the
+ *      WinStartApp thunking to 16-bit doesn't always work.
  *
  *@@added V0.9.18 (2002-02-13) [umoeller]
  */
 
-APIRET CallWinStartApp(HAPP *phapp,            // out: application handle if NO_ERROR is returned
-                       HWND hwndNotify,        // in: notify window or NULLHANDLE
-                       const PROGDETAILS *pcProgDetails, // in: program spec (req.)
-                       PCSZ pcszParamsPatched)
+static APIRET CallWinStartApp(HAPP *phapp,            // out: application handle if NO_ERROR is returned
+                              HWND hwndNotify,        // in: notify window or NULLHANDLE
+                              const PROGDETAILS *pcProgDetails, // in: program spec (req.)
+                              PCSZ pcszParamsPatched)
 {
     ULONG   cb,
             cbTitle,
@@ -931,8 +933,8 @@ APIRET CallWinStartApp(HAPP *phapp,            // out: application handle if NO_
     */
 
     // allocate a chunk of tiled memory from OS/2 to make sure
-    // this is aligned on a 64K memory... otherwise we keep getting
-    // hangs if this is memory that was allocated by some other thread
+    // this is aligned on a 64K memory (backed up by a 16-bit
+    // LDT selector)
     cb = sizeof(PROGDETAILS);
     if (cbTitle = strhSize(pcProgDetails->pszTitle))
         cb += cbTitle;

@@ -156,8 +156,8 @@ typedef struct _XINIKEYDATA
  *      Private helper.
  */
 
-PXINIAPPDATA FindApp(PXINI pXIni,           // in: profile opened with xprfOpenProfile
-                     const char *pcszApp)
+static PXINIAPPDATA FindApp(PXINI pXIni,           // in: profile opened with xprfOpenProfile
+                            const char *pcszApp)
 {
     PLISTNODE pAppNode = lstQueryFirstNode(&pXIni->llApps);
     while (pAppNode)
@@ -182,8 +182,8 @@ PXINIAPPDATA FindApp(PXINI pXIni,           // in: profile opened with xprfOpenP
  *      Private helper.
  */
 
-PXINIAPPDATA CreateApp(PXINI pXIni,         // in: profile opened with xprfOpenProfile
-                       const char *pcszApp)
+static PXINIAPPDATA CreateApp(PXINI pXIni,         // in: profile opened with xprfOpenProfile
+                              const char *pcszApp)
 {
     PXINIAPPDATA pAppData;
     if (pAppData = (PXINIAPPDATA)malloc(sizeof(XINIAPPDATA)))
@@ -209,8 +209,8 @@ PXINIAPPDATA CreateApp(PXINI pXIni,         // in: profile opened with xprfOpenP
  *      Private helper.
  */
 
-PXINIKEYDATA FindKey(PXINIAPPDATA pAppData,
-                     const char *pcszKey)
+static PXINIKEYDATA FindKey(PXINIAPPDATA pAppData,
+                            const char *pcszKey)
 {
     PLISTNODE pKeyNode = lstQueryFirstNode(&pAppData->llKeys);
     while (pKeyNode)
@@ -235,10 +235,10 @@ PXINIKEYDATA FindKey(PXINIAPPDATA pAppData,
  *      Private helper.
  */
 
-PXINIKEYDATA CreateKey(PXINIAPPDATA pAppData,
-                       const char *pcszKey,     // in: key name
-                       PBYTE pbData,            // in: data for key
-                       ULONG cbData)            // in: sizeof (*pbData)
+static PXINIKEYDATA CreateKey(PXINIAPPDATA pAppData,
+                              const char *pcszKey,     // in: key name
+                              PBYTE pbData,            // in: data for key
+                              ULONG cbData)            // in: sizeof (*pbData)
 {
     PXINIKEYDATA pKeyData;
     if (pKeyData = (PXINIKEYDATA)malloc(sizeof(XINIKEYDATA)))
@@ -273,7 +273,7 @@ PXINIKEYDATA CreateKey(PXINIAPPDATA pAppData,
  *      Private helper.
  */
 
-VOID FreeKey(PXINIKEYDATA pKeyDataThis)
+static VOID FreeKey(PXINIKEYDATA pKeyDataThis)
 {
     if (pKeyDataThis->pszKeyName)
         free(pKeyDataThis->pszKeyName);
@@ -291,7 +291,7 @@ VOID FreeKey(PXINIKEYDATA pKeyDataThis)
  *      Private helper.
  */
 
-VOID FreeApp(PXINIAPPDATA pAppDataThis)
+static VOID FreeApp(PXINIAPPDATA pAppDataThis)
 {
     PLISTNODE pKeyNode = lstQueryFirstNode(&pAppDataThis->llKeys);
     while (pKeyNode)
@@ -318,7 +318,7 @@ VOID FreeApp(PXINIAPPDATA pAppDataThis)
  *      Private helper.
  */
 
-BOOL FreeINI(PXINI pXIni)       // in: profile opened with xprfOpenProfile
+static BOOL FreeINI(PXINI pXIni)       // in: profile opened with xprfOpenProfile
 {
     BOOL brc = FALSE;
 
@@ -355,7 +355,7 @@ BOOL FreeINI(PXINI pXIni)       // in: profile opened with xprfOpenProfile
  *      Private helper.
  */
 
-BOOL ReadINI(PXINI pXIni)       // in: profile opened with xprfOpenProfile
+static BOOL ReadINI(PXINI pXIni)       // in: profile opened with xprfOpenProfile
 {
     BOOL brc = FALSE;
     FILESTATUS3 fs3;
@@ -456,7 +456,7 @@ BOOL ReadINI(PXINI pXIni)       // in: profile opened with xprfOpenProfile
  *      Private helper.
  */
 
-BOOL WriteINI(PXINI pXIni)      // in: profile opened with xprfOpenProfile
+static BOOL WriteINI(PXINI pXIni)      // in: profile opened with xprfOpenProfile
 {
     BOOL    brc = FALSE;
     ULONG   ulTotalFileSize = sizeof(INIFILE_HEADER);

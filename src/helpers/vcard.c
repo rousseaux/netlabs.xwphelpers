@@ -65,7 +65,7 @@
  *
  ********************************************************************/
 
-VOID FreeList(PLINKLIST *ppll);
+static VOID FreeList(PLINKLIST *ppll);
 
 /* ******************************************************************
  *
@@ -78,8 +78,8 @@ VOID FreeList(PLINKLIST *ppll);
  *
  */
 
-VOID Translate(PXSTRING pstr,
-               ULONG cpCurrent)
+static VOID Translate(PXSTRING pstr,
+                      ULONG cpCurrent)
 {
     ULONG ul;
 
@@ -106,12 +106,12 @@ VOID Translate(PXSTRING pstr,
  *@@added V0.9.16 (2002-02-02) [umoeller]
  */
 
-APIRET DecodeStringList(PCSZ pStart,
-                        PCSZ pEnd,
-                        PXSTRING *ppaStrings,
-                        PULONG pcStrings,
-                        PXSTRING *ppstrLast,        // out: last string stored
-                        ULONG cpCurrent)            // in: current codepage
+static APIRET DecodeStringList(PCSZ pStart,
+                               PCSZ pEnd,
+                               PXSTRING *ppaStrings,
+                               PULONG pcStrings,
+                               PXSTRING *ppstrLast,        // out: last string stored
+                               ULONG cpCurrent)            // in: current codepage
 {
     if (!pStart || !pEnd)
         return ERROR_BAD_FORMAT;
@@ -298,10 +298,10 @@ APIRET DecodeStringList(PCSZ pStart,
  *      --  X-*: extension
  */
 
-APIRET Tokenize(ULONG ulLevel,
-                PSZ *ppszInput,
-                PLINKLIST pllParent,
-                ULONG cpCurrent)
+static APIRET Tokenize(ULONG ulLevel,
+                       PSZ *ppszInput,
+                       PLINKLIST pllParent,
+                       ULONG cpCurrent)
 {
     PSZ         pLineThis = *ppszInput;
     ULONG       cbPropertyName;
@@ -473,9 +473,9 @@ APIRET Tokenize(ULONG ulLevel,
  *
  */
 
-PVCFPROPERTY FindValues(PLINKLIST pll,
-                        PCSZ pcszProperty,
-                        PCSZ pcszParameter)
+static PVCFPROPERTY FindValues(PLINKLIST pll,
+                               PCSZ pcszProperty,
+                               PCSZ pcszParameter)
 {
     PLISTNODE   pNode;
 
@@ -502,9 +502,9 @@ PVCFPROPERTY FindValues(PLINKLIST pll,
  *
  */
 
-VOID CopyStrings(PVCFPROPERTY pProp,
-                 PCSZ *papcszValues,
-                 ULONG cValues)
+static VOID CopyStrings(PVCFPROPERTY pProp,
+                        PCSZ *papcszValues,
+                        ULONG cValues)
 {
     ULONG ul;
 
@@ -530,12 +530,12 @@ VOID CopyStrings(PVCFPROPERTY pProp,
  *      My application to the "obfuscated C contest".
  */
 
-ULONG GetFlagStrings(PXSTRING pastrParameters,
-                     ULONG cParameters,
-                     const PCSZ **apcsz,
-                     const ULONG *afl,
-                     ULONG cStrings,
-                     ULONG flDefault)
+static ULONG GetFlagStrings(PXSTRING pastrParameters,
+                            ULONG cParameters,
+                            const PCSZ **apcsz,
+                            const ULONG *afl,
+                            ULONG cStrings,
+                            ULONG flDefault)
 {
     ULONG ul, ul2;
     ULONG fl = 0;
@@ -583,8 +583,8 @@ static const ULONG aflAddress[] =
  *
  */
 
-VOID AppendAddress(PVCARD pvc,
-                   PVCFPROPERTY pProp)
+static VOID AppendAddress(PVCARD pvc,
+                          PVCFPROPERTY pProp)
 {
     if (pvc->paDeliveryAddresses = (PVCADDRESS)realloc(
                                 pvc->paDeliveryAddresses,
@@ -610,8 +610,8 @@ VOID AppendAddress(PVCARD pvc,
  *
  */
 
-VOID AppendLabel(PVCARD pvc,
-                 PVCFPROPERTY pProp)
+static VOID AppendLabel(PVCARD pvc,
+                        PVCFPROPERTY pProp)
 {
     if (pvc->paLabels = (PVCLABEL)realloc(
                                 pvc->paLabels,
@@ -671,8 +671,8 @@ static const ULONG aflPhone[] =
  *
  */
 
-VOID AppendTel(PVCARD pvc,
-               PVCFPROPERTY pProp)
+static VOID AppendTel(PVCARD pvc,
+                      PVCFPROPERTY pProp)
 {
     if (pvc->paPhones = (PVCPHONE)realloc(pvc->paPhones,
                                           (pvc->cPhones + 1) * sizeof(VCPHONE)))
@@ -815,7 +815,7 @@ APIRET vcfRead(PCSZ pcszFilename,
  *
  */
 
-VOID FreeList(PLINKLIST *ppll)
+static VOID FreeList(PLINKLIST *ppll)
 {
     PLISTNODE pNode = lstQueryFirstNode(*ppll);
     while (pNode)

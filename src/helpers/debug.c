@@ -361,8 +361,8 @@ typedef struct _XDEBUGINFO
  *
  ********************************************************************/
 
-int Read16CodeView(FILE *LogFile, PXDEBUGINFO pxdi, int fh, int TrapSeg, int TrapOff, CHAR *FileName);
-int Read32PmDebug(FILE *LogFile, PXDEBUGINFO pxdi, int fh, int TrapSeg, int TrapOff, CHAR *FileName);
+static int Read16CodeView(FILE *LogFile, PXDEBUGINFO pxdi, int fh, int TrapSeg, int TrapOff, CHAR *FileName);
+static int Read32PmDebug(FILE *LogFile, PXDEBUGINFO pxdi, int fh, int TrapSeg, int TrapOff, CHAR *FileName);
 
 /*
  *@@ WriteAddressInfo:
@@ -383,8 +383,8 @@ int Read32PmDebug(FILE *LogFile, PXDEBUGINFO pxdi, int fh, int TrapSeg, int Trap
  *@@added V0.9.12 (2001-05-12) [umoeller]
  */
 
-VOID WriteDebugInfo(FILE *LogFile,              // in: open log file
-                    PXDEBUGINFO pxdi)           // in: debug info
+static VOID WriteDebugInfo(FILE *LogFile,              // in: open log file
+                           PXDEBUGINFO pxdi)           // in: debug info
 {
     fprintf(LogFile,
             "%s%s%s",
@@ -616,12 +616,12 @@ struct one_pointer_rec
  *      Called from dbgPrintDebugInfo for 32-bit modules.
  */
 
-int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
-                  PXDEBUGINFO pxdi,
-                  int ModuleFile,       // in: module file opened with sopen()
-                  int TrapSeg,
-                  int TrapOff,
-                  CHAR *FileName)
+static int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
+                         PXDEBUGINFO pxdi,
+                         int ModuleFile,       // in: module file opened with sopen()
+                         int TrapSeg,
+                         int TrapOff,
+                         CHAR *FileName)
 {
     static unsigned int CurrSymSeg, NrSymbol,
                         /* offset, */ NrPublic,
@@ -1048,12 +1048,12 @@ int Read32PmDebug(FILE *LogFile,        // in: text log file to write to
  *      Called from dbgPrintDebugInfo for 16-bit modules.
  */
 
-int Read16CodeView(FILE *LogFile,       // in: text log file to write to
-                   PXDEBUGINFO pxdi,
-                   int fh,
-                   int TrapSeg,
-                   int TrapOff,
-                   CHAR *FileName)
+static int Read16CodeView(FILE *LogFile,       // in: text log file to write to
+                          PXDEBUGINFO pxdi,
+                          int fh,
+                          int TrapSeg,
+                          int TrapOff,
+                          CHAR *FileName)
 {
     static unsigned short int offset,
                     NrPublic, NrLine,
@@ -1213,9 +1213,9 @@ int Read16CodeView(FILE *LogFile,       // in: text log file to write to
  *@@changed V0.9.1 (2000-01-30) [umoeller]: changed prototype to use external buffer
  */
 
-VOID var_value(void *varptr,        // in: address of the variable on the stack
-               char *pszBuf,        // out: information
-               BYTE type)           // in: type; if >= 32, we'll call DosQueryMem
+static VOID var_value(void *varptr,        // in: address of the variable on the stack
+                      char *pszBuf,        // out: information
+                      BYTE type)           // in: type; if >= 32, we'll call DosQueryMem
 {
     ULONG           Size = 1,
                     Attr = 0;
@@ -1297,9 +1297,9 @@ VOID var_value(void *varptr,        // in: address of the variable on the stack
  *      Return TRUE if found.
  */
 
-BOOL search_userdefs(FILE *LogFile,     // in: text log file to write to
-                     ULONG stackofs,
-                     USHORT var_no)
+static BOOL search_userdefs(FILE *LogFile,     // in: text log file to write to
+                            ULONG stackofs,
+                            USHORT var_no)
 {
     USHORT          pos;
 
@@ -1341,9 +1341,9 @@ BOOL search_userdefs(FILE *LogFile,     // in: text log file to write to
  *
  */
 
-BOOL search_pointers(FILE *LogFile,     // in: text log file to write to
-                     ULONG stackofs,
-                     USHORT var_no)
+static BOOL search_pointers(FILE *LogFile,     // in: text log file to write to
+                            ULONG stackofs,
+                            USHORT var_no)
 {
     USHORT          pos, upos;
     static BYTE     str[35];

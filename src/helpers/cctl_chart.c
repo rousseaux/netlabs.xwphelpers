@@ -280,9 +280,9 @@ typedef struct _CHARTCDATA
  *@@added V0.9.12 (2001-05-03) [umoeller]
  */
 
-VOID DrawCenteredText(HPS hpsMem,
-                      PPOINTL pptlMiddlePoint,
-                      const char *pcsz)
+static VOID DrawCenteredText(HPS hpsMem,
+                             PPOINTL pptlMiddlePoint,
+                             const char *pcsz)
 {
     if (pcsz)
     {
@@ -353,13 +353,13 @@ VOID DrawCenteredText(HPS hpsMem,
  *@@changed V0.9.12 (2001-05-03) [umoeller]: fixed another maaajor PM resource leak with regions
  */
 
-VOID PaintBarChart(HPS hpsMem,
-                   PRECTL prclWholeStatic,    // in: rectl to paint into
-                   PCHARTDATA pChartData,     // in: chart data
-                   PCHARTSTYLE pChartStyle,   // in: chart style
-                   double dTotal,             // in: sum of all values in pChartData
-                   LONG lTextColor,           // in: description text color (RGB)
-                   HRGN* paRegions)           // out: GPI regions for each data item
+static VOID PaintBarChart(HPS hpsMem,
+                          PRECTL prclWholeStatic,    // in: rectl to paint into
+                          PCHARTDATA pChartData,     // in: chart data
+                          PCHARTSTYLE pChartStyle,   // in: chart style
+                          double dTotal,             // in: sum of all values in pChartData
+                          LONG lTextColor,           // in: description text color (RGB)
+                          HRGN* paRegions)           // out: GPI regions for each data item
 {
     ULONG       ulYBottomNow = 0;
     ULONG       ul;
@@ -556,13 +556,13 @@ VOID PaintBarChart(HPS hpsMem,
  *@@changed V0.9.12 (2001-05-03) [umoeller]: fixed rounding errors
  */
 
-VOID PaintPieChart(HPS hpsMem,
-                   PRECTL prclWholeStatic,    // in: rectl to paint into
-                   PCHARTDATA pChartData,     // in: chart data
-                   PCHARTSTYLE pChartStyle,   // in: chart style
-                   double dTotal,             // in: sum of all values in pChartData
-                   LONG lTextColor,           // in: description text color (RGB)
-                   HRGN* paRegions)           // out: GPI regions for each data item
+static VOID PaintPieChart(HPS hpsMem,
+                          PRECTL prclWholeStatic,    // in: rectl to paint into
+                          PCHARTDATA pChartData,     // in: chart data
+                          PCHARTSTYLE pChartStyle,   // in: chart style
+                          double dTotal,             // in: sum of all values in pChartData
+                          LONG lTextColor,           // in: description text color (RGB)
+                          HRGN* paRegions)           // out: GPI regions for each data item
 {
     ULONG       ulYBottomNow = 0;
     ULONG       ul;
@@ -1095,7 +1095,7 @@ HBITMAP ctlCreateChartBitmap(HPS hpsMem,                // in: memory PS to use 
  *@@changed V0.9.12 (2001-05-03) [umoeller]: fixed major PM resource leaks
  */
 
-VOID CleanupBitmap(PCHARTCDATA pChtCData)
+static VOID CleanupBitmap(PCHARTCDATA pChtCData)
 {
     if (pChtCData)
     {
@@ -1150,7 +1150,7 @@ VOID CleanupBitmap(PCHARTCDATA pChtCData)
  *      function.
  */
 
-VOID CleanupData(PCHARTCDATA pChtCData)
+static VOID CleanupData(PCHARTCDATA pChtCData)
 {
     if (pChtCData)
         if (pChtCData->cd.cValues)
@@ -1202,9 +1202,9 @@ VOID CleanupData(PCHARTCDATA pChtCData)
  *@@changed V0.9.12 (2001-05-03) [umoeller]: fixed trap if ptr to descriptions was null
  */
 
-VOID SetChartData(HWND hwndChart,
-                  PCHARTCDATA pChtCData,
-                  PCHARTDATA pcdNew)
+static VOID SetChartData(HWND hwndChart,
+                         PCHARTCDATA pChtCData,
+                         PCHARTDATA pcdNew)
 {
     ULONG        ul = 0;
     PSZ          *ppszDescriptionSource,
@@ -1273,10 +1273,10 @@ VOID SetChartData(HWND hwndChart,
  *@@changed V0.9.12 (2001-05-03) [umoeller]: fixed major PM resource leaks
  */
 
-VOID PaintChart(HWND hwndChart,
-                PCHARTCDATA pChtCData,
-                HPS hps,
-                PRECTL prclPaint)
+static VOID PaintChart(HWND hwndChart,
+                       PCHARTCDATA pChtCData,
+                       HPS hps,
+                       PRECTL prclPaint)
 {
     RECTL   rclStatic;
     WinQueryWindowRect(hwndChart, &rclStatic);
@@ -1450,9 +1450,9 @@ VOID PaintChart(HWND hwndChart,
  *@@added V0.9.12 (2001-05-03) [umoeller]
  */
 
-LONG FindItemFromPoint(PCHARTCDATA pChtCData,
-                       LONG lx,
-                       LONG ly)
+static LONG FindItemFromPoint(PCHARTCDATA pChtCData,
+                              LONG lx,
+                              LONG ly)
 {
     // LONG lRegionFound = -1; // none
 
@@ -1491,11 +1491,11 @@ LONG FindItemFromPoint(PCHARTCDATA pChtCData,
  *@@added V0.9.12 (2001-05-03) [umoeller]
  */
 
-VOID SendWMControl(HWND hwndChart,
-                   MPARAM mp1Mouse,
-                   USHORT usNotify,
-                   ULONG ulEmphasis,            // 0 or 1
-                   LONG lIndex)
+static VOID SendWMControl(HWND hwndChart,
+                          MPARAM mp1Mouse,
+                          USHORT usNotify,
+                          ULONG ulEmphasis,            // 0 or 1
+                          LONG lIndex)
 {
     HWND hwndOwner;
 
@@ -1523,12 +1523,12 @@ VOID SendWMControl(HWND hwndChart,
  *@@added V0.9.12 (2001-05-03) [umoeller]
  */
 
-BOOL SetEmphasis(HWND hwndChart,
-                 PCHARTCDATA pChtCData,
-                 ULONG ulEmphasis,      // in: 0 == selection, 1 == source emphasis
-                 MPARAM mp1,            // in: mp1 with mouse values or -1 if none
-                 LONG lIndex,
-                 BOOL fIsContextMenu)
+static BOOL SetEmphasis(HWND hwndChart,
+                        PCHARTCDATA pChtCData,
+                        ULONG ulEmphasis,      // in: 0 == selection, 1 == source emphasis
+                        MPARAM mp1,            // in: mp1 with mouse values or -1 if none
+                        LONG lIndex,
+                        BOOL fIsContextMenu)
 {
     BOOL brc = FALSE;
 

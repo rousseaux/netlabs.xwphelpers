@@ -847,10 +847,9 @@ XML_Parser XML_ParserCreateNS(const XML_Char * encodingName, XML_Char nsSep)
  *      local part of the name.
  */
 
-XML_Parser
-XML_ParserCreate_MM(const XML_Char * encodingName,
-                    const XML_Memory_Handling_Suite * memsuite,
-                    const XML_Char * nameSep)
+XML_Parser XML_ParserCreate_MM(const XML_Char * encodingName,
+                               const XML_Memory_Handling_Suite * memsuite,
+                               const XML_Char * nameSep)
 {
 
     XML_Parser parser;
@@ -1140,8 +1139,7 @@ XML_Parser XML_ExternalEntityParserCreate(XML_Parser oldParser,
     return parser;
 }
 
-static
-void destroyBindings(BINDING * bindings, XML_Parser parser)
+static void destroyBindings(BINDING * bindings, XML_Parser parser)
 {
     for (;;)
     {
@@ -2476,20 +2474,18 @@ const XML_LChar *XML_ErrorString(int code)
  * return version;
  * } */
 
-static
-XMLERROR contentProcessor(XML_Parser parser,
-                          const char *start,
-                          const char *end,
-                          const char **endPtr)
+static XMLERROR contentProcessor(XML_Parser parser,
+                                 const char *start,
+                                 const char *end,
+                                 const char **endPtr)
 {
     return doContent(parser, 0, encoding, start, end, endPtr);
 }
 
-static
-XMLERROR externalEntityInitProcessor(XML_Parser parser,
-                                     const char *start,
-                                     const char *end,
-                                     const char **endPtr)
+static XMLERROR externalEntityInitProcessor(XML_Parser parser,
+                                            const char *start,
+                                            const char *end,
+                                            const char **endPtr)
 {
     XMLERROR result = initializeEncoding(parser);
 
@@ -2499,11 +2495,10 @@ XMLERROR externalEntityInitProcessor(XML_Parser parser,
     return externalEntityInitProcessor2(parser, start, end, endPtr);
 }
 
-static
-XMLERROR externalEntityInitProcessor2(XML_Parser parser,
-                                      const char *start,
-                                      const char *end,
-                                      const char **endPtr)
+static XMLERROR externalEntityInitProcessor2(XML_Parser parser,
+                                             const char *start,
+                                             const char *end,
+                                             const char **endPtr)
 {
     const char *next;
     int tok = XmlContentTok(encoding, start, end, &next);
@@ -2534,11 +2529,10 @@ XMLERROR externalEntityInitProcessor2(XML_Parser parser,
     return externalEntityInitProcessor3(parser, start, end, endPtr);
 }
 
-static
-XMLERROR externalEntityInitProcessor3(XML_Parser parser,
-                                      const char *start,
-                                      const char *end,
-                                      const char **endPtr)
+static XMLERROR externalEntityInitProcessor3(XML_Parser parser,
+                                             const char *start,
+                                             const char *end,
+                                             const char **endPtr)
 {
     const char *next;
     int tok = XmlContentTok(encoding, start, end, &next);
@@ -2576,11 +2570,10 @@ XMLERROR externalEntityInitProcessor3(XML_Parser parser,
     return doContent(parser, 1, encoding, start, end, endPtr);
 }
 
-static
-XMLERROR externalEntityContentProcessor(XML_Parser parser,
-                                        const char *start,
-                                        const char *end,
-                                        const char **endPtr)
+static XMLERROR externalEntityContentProcessor(XML_Parser parser,
+                                               const char *start,
+                                               const char *end,
+                                               const char **endPtr)
 {
     return doContent(parser, 1, encoding, start, end, endPtr);
 }
@@ -3381,8 +3374,11 @@ static XMLERROR storeAtts(XML_Parser parser, const ENCODING * enc,
     return ERROR_EXPAT_NONE;
 }
 
-static
-int addBinding(XML_Parser parser, PREFIX * prefix, const ATTRIBUTE_ID * attId, const XML_Char * uri, BINDING ** bindingsPtr)
+static int addBinding(XML_Parser parser,
+                      PREFIX * prefix,
+                      const ATTRIBUTE_ID * attId,
+                      const XML_Char * uri,
+                      BINDING ** bindingsPtr)
 {
     BINDING *b;
     int len;
@@ -3438,11 +3434,10 @@ int addBinding(XML_Parser parser, PREFIX * prefix, const ATTRIBUTE_ID * attId, c
 /* The idea here is to avoid using stack for each CDATA section when
  * the whole file is parsed with one call. */
 
-static
-XMLERROR cdataSectionProcessor(XML_Parser parser,
-                               const char *start,
-                               const char *end,
-                               const char **endPtr)
+static XMLERROR cdataSectionProcessor(XML_Parser parser,
+                                      const char *start,
+                                      const char *end,
+                                      const char **endPtr)
 {
     XMLERROR result = doCdataSection(parser, encoding, &start, end, endPtr);
 
@@ -3457,12 +3452,11 @@ XMLERROR cdataSectionProcessor(XML_Parser parser,
 /* startPtr gets set to non-null is the section is closed, and to null if
  * the section is not yet closed. */
 
-static
-XMLERROR doCdataSection(XML_Parser parser,
-                        const ENCODING * enc,
-                        const char **startPtr,
-                        const char *end,
-                        const char **nextPtr)
+static XMLERROR doCdataSection(XML_Parser parser,
+                               const ENCODING * enc,
+                               const char **startPtr,
+                               const char *end,
+                               const char **nextPtr)
 {
     const char *s = *startPtr;
     const char **eventPP;
@@ -3568,11 +3562,10 @@ XMLERROR doCdataSection(XML_Parser parser,
 /* The idea here is to avoid using stack for each IGNORE section when
  * the whole file is parsed with one call. */
 
-static
-XMLERROR ignoreSectionProcessor(XML_Parser parser,
-                                const char *start,
-                                const char *end,
-                                const char **endPtr)
+static XMLERROR ignoreSectionProcessor(XML_Parser parser,
+                                       const char *start,
+                                       const char *end,
+                                       const char **endPtr)
 {
     XMLERROR result = doIgnoreSection(parser, encoding, &start, end, endPtr);
 
@@ -3587,12 +3580,11 @@ XMLERROR ignoreSectionProcessor(XML_Parser parser,
 /* startPtr gets set to non-null is the section is closed, and to null if
  * the section is not yet closed. */
 
-static
-XMLERROR doIgnoreSection(XML_Parser parser,
-                         const ENCODING * enc,
-                         const char **startPtr,
-                         const char *end,
-                         const char **nextPtr)
+static XMLERROR doIgnoreSection(XML_Parser parser,
+                                const ENCODING * enc,
+                                const char **startPtr,
+                                const char *end,
+                                const char **nextPtr)
 {
     const char *next;
     int tok;
@@ -3649,8 +3641,7 @@ XMLERROR doIgnoreSection(XML_Parser parser,
 
 #endif /* XML_DTD */
 
-static XMLERROR
- initializeEncoding(XML_Parser parser)
+static XMLERROR initializeEncoding(XML_Parser parser)
 {
     const char *s;
 
@@ -3684,9 +3675,10 @@ static XMLERROR
     return handleUnknownEncoding(parser, protocolEncodingName);
 }
 
-static XMLERROR
- processXmlDecl(XML_Parser parser, int isGeneralTextEntity,
-                const char *s, const char *next)
+static XMLERROR  processXmlDecl(XML_Parser parser,
+                                int isGeneralTextEntity,
+                                const char *s,
+                                const char *next)
 {
     const char *encodingName = 0;
     const char *storedEncName = 0;
@@ -3785,8 +3777,8 @@ static XMLERROR
     return ERROR_EXPAT_NONE;
 }
 
-static XMLERROR
- handleUnknownEncoding(XML_Parser parser, const XML_Char * encodingName)
+static XMLERROR  handleUnknownEncoding(XML_Parser parser,
+                                       const XML_Char * encodingName)
 {
     if (unknownEncodingHandler)
     {
@@ -3829,11 +3821,10 @@ static XMLERROR
     return ERROR_EXPAT_UNKNOWN_ENCODING;
 }
 
-static XMLERROR
- prologInitProcessor(XML_Parser parser,
-                     const char *s,
-                     const char *end,
-                     const char **nextPtr)
+static XMLERROR prologInitProcessor(XML_Parser parser,
+                                    const char *s,
+                                    const char *end,
+                                    const char **nextPtr)
 {
     XMLERROR result = initializeEncoding(parser);
 
@@ -3843,11 +3834,10 @@ static XMLERROR
     return prologProcessor(parser, s, end, nextPtr);
 }
 
-static XMLERROR
- prologProcessor(XML_Parser parser,
-                 const char *s,
-                 const char *end,
-                 const char **nextPtr)
+static XMLERROR prologProcessor(XML_Parser parser,
+                                const char *s,
+                                const char *end,
+                                const char **nextPtr)
 {
     const char *next;
     int tok = XmlPrologTok(encoding, s, end, &next);
@@ -3855,14 +3845,13 @@ static XMLERROR
     return doProlog(parser, encoding, s, end, tok, next, nextPtr);
 }
 
-static XMLERROR
- doProlog(XML_Parser parser,
-          const ENCODING * enc,
-          const char *s,
-          const char *end,
-          int tok,
-          const char *next,
-          const char **nextPtr)
+static XMLERROR doProlog(XML_Parser parser,
+                         const ENCODING * enc,
+                         const char *s,
+                         const char *end,
+                         int tok,
+                         const char *next,
+                         const char **nextPtr)
 {
 #ifdef XML_DTD
     static const XML_Char externalSubsetName[] =
@@ -4703,11 +4692,10 @@ static XMLERROR
     /* not reached */
 }
 
-static
-XMLERROR epilogProcessor(XML_Parser parser,
-                         const char *s,
-                         const char *end,
-                         const char **nextPtr)
+static XMLERROR epilogProcessor(XML_Parser parser,
+                                const char *s,
+                                const char *end,
+                                const char **nextPtr)
 {
     processor = epilogProcessor;
     eventPtr = s;
@@ -4768,8 +4756,8 @@ XMLERROR epilogProcessor(XML_Parser parser,
 
 #ifdef XML_DTD
 
-static XMLERROR
- processInternalParamEntity(XML_Parser parser, ENTITY * entity)
+static XMLERROR processInternalParamEntity(XML_Parser parser,
+                                           ENTITY * entity)
 {
     const char *s, *end, *next;
     int tok;
@@ -4793,19 +4781,20 @@ static XMLERROR
 
 #endif /* XML_DTD */
 
-static
-XMLERROR errorProcessor(XML_Parser parser,
-                        const char *s,
-                        const char *end,
-                        const char **nextPtr)
+static XMLERROR errorProcessor(XML_Parser parser,
+                               const char *s,
+                               const char *end,
+                               const char **nextPtr)
 {
     return errorCode;
 }
 
-static XMLERROR
- storeAttributeValue(XML_Parser parser, const ENCODING * enc, int isCdata,
-                     const char *ptr, const char *end,
-                     STRING_POOL * pool)
+static XMLERROR storeAttributeValue(XML_Parser parser,
+                                    const ENCODING * enc,
+                                    int isCdata,
+                                    const char *ptr,
+                                    const char *end,
+                                    STRING_POOL * pool)
 {
     XMLERROR result = appendAttributeValue(parser, enc, isCdata, ptr, end, pool);
 
@@ -4969,11 +4958,10 @@ static XMLERROR appendAttributeValue(XML_Parser parser,
     /* not reached */
 }
 
-static
-XMLERROR storeEntityValue(XML_Parser parser,
-                          const ENCODING * enc,
-                          const char *entityTextPtr,
-                          const char *entityTextEnd)
+static XMLERROR storeEntityValue(XML_Parser parser,
+                                 const ENCODING * enc,
+                                 const char *entityTextPtr,
+                                 const char *entityTextEnd)
 {
     STRING_POOL *pool = &(dtd.pool);
 
@@ -5091,8 +5079,7 @@ XMLERROR storeEntityValue(XML_Parser parser,
     /* not reached */
 }
 
-static void
- normalizeLines(XML_Char * s)
+static void  normalizeLines(XML_Char * s)
 {
     XML_Char *p;
 
@@ -5119,8 +5106,10 @@ static void
     *p = XML_T('\0');
 }
 
-static int
- reportProcessingInstruction(XML_Parser parser, const ENCODING * enc, const char *start, const char *end)
+static int reportProcessingInstruction(XML_Parser parser,
+                                       const ENCODING * enc,
+                                       const char *start,
+                                       const char *end)
 {
     const XML_Char *target;
     XML_Char *data;
@@ -5150,8 +5139,10 @@ static int
     return 1;
 }
 
-static int
- reportComment(XML_Parser parser, const ENCODING * enc, const char *start, const char *end)
+static int reportComment(XML_Parser parser,
+                         const ENCODING * enc,
+                         const char *start,
+                         const char *end)
 {
     XML_Char *data;
 
@@ -5174,8 +5165,10 @@ static int
     return 1;
 }
 
-static void
- reportDefault(XML_Parser parser, const ENCODING * enc, const char *s, const char *end)
+static void reportDefault(XML_Parser parser,
+                          const ENCODING * enc,
+                          const char *s,
+                          const char *end)
 {
     if (MUST_CONVERT(enc, s))
     {
@@ -5208,9 +5201,12 @@ static void
 }
 
 
-static int
- defineAttribute(ELEMENT_TYPE * type, ATTRIBUTE_ID * attId, int isCdata,
-                 int isId, const XML_Char * value, XML_Parser parser)
+static int defineAttribute(ELEMENT_TYPE * type,
+                           ATTRIBUTE_ID * attId,
+                           int isCdata,
+                           int isId,
+                           const XML_Char * value,
+                           XML_Parser parser)
 {
     DEFAULT_ATTRIBUTE *att;
 
@@ -5252,7 +5248,8 @@ static int
     return 1;
 }
 
-static int setElementTypePrefix(XML_Parser parser, ELEMENT_TYPE * elementType)
+static int setElementTypePrefix(XML_Parser parser,
+                                ELEMENT_TYPE * elementType)
 {
     const XML_Char *name;
 
@@ -5284,8 +5281,10 @@ static int setElementTypePrefix(XML_Parser parser, ELEMENT_TYPE * elementType)
     return 1;
 }
 
-static ATTRIBUTE_ID *
- getAttributeId(XML_Parser parser, const ENCODING * enc, const char *start, const char *end)
+static ATTRIBUTE_ID * getAttributeId(XML_Parser parser,
+                                     const ENCODING * enc,
+                                     const char *start,
+                                     const char *end)
 {
     ATTRIBUTE_ID *id;
     const XML_Char *name;
@@ -5351,8 +5350,7 @@ static ATTRIBUTE_ID *
 
 #define CONTEXT_SEP XML_T('\f')
 
-static
-const XML_Char *getContext(XML_Parser parser)
+static const XML_Char *getContext(XML_Parser parser)
 {
     HASH_TABLE_ITER iter;
     int needSep = 0;
@@ -5425,8 +5423,7 @@ const XML_Char *getContext(XML_Parser parser)
     return tempPool.start;
 }
 
-static
-int setContext(XML_Parser parser, const XML_Char * context)
+static int setContext(XML_Parser parser, const XML_Char * context)
 {
     const XML_Char *s = context;
 
@@ -5490,8 +5487,7 @@ int setContext(XML_Parser parser, const XML_Char * context)
 }
 
 
-static
-void normalizePublicId(XML_Char * publicId)
+static void normalizePublicId(XML_Char * publicId)
 {
     XML_Char *p = publicId;
     XML_Char *s;
@@ -5782,8 +5778,7 @@ static int copyEntityTable(HASH_TABLE * newTable,
 
 #define INIT_SIZE 64
 
-static
-int keyeq(KEY s1, KEY s2)
+static int keyeq(KEY s1, KEY s2)
 {
     for (; *s1 == *s2; s1++, s2++)
         if (*s1 == 0)
@@ -5791,8 +5786,7 @@ int keyeq(KEY s1, KEY s2)
     return 0;
 }
 
-static
-unsigned long hash(KEY s)
+static unsigned long hash(KEY s)
 {
     unsigned long h = 0;
 
@@ -5801,8 +5795,7 @@ unsigned long hash(KEY s)
     return h;
 }
 
-static
-NAMED *lookup(HASH_TABLE * table, KEY name, size_t createSize)
+static NAMED *lookup(HASH_TABLE * table, KEY name, size_t createSize)
 {
     size_t i;
 
@@ -5874,8 +5867,7 @@ NAMED *lookup(HASH_TABLE * table, KEY name, size_t createSize)
     return table->v[i];
 }
 
-static
-void hashTableDestroy(HASH_TABLE * table)
+static void hashTableDestroy(HASH_TABLE * table)
 {
     size_t i;
 
@@ -5890,8 +5882,7 @@ void hashTableDestroy(HASH_TABLE * table)
         table->mem->free_fcn(table->v);
 }
 
-static
-void hashTableInit(HASH_TABLE * p, XML_Memory_Handling_Suite * ms)
+static void hashTableInit(HASH_TABLE * p, XML_Memory_Handling_Suite * ms)
 {
     p->size = 0;
     p->usedLim = 0;
@@ -5900,15 +5891,13 @@ void hashTableInit(HASH_TABLE * p, XML_Memory_Handling_Suite * ms)
     p->mem = ms;
 }
 
-static
-void hashTableIterInit(HASH_TABLE_ITER * iter, const HASH_TABLE * table)
+static void hashTableIterInit(HASH_TABLE_ITER * iter, const HASH_TABLE * table)
 {
     iter->p = table->v;
     iter->end = iter->p + table->size;
 }
 
-static
-NAMED *hashTableIterNext(HASH_TABLE_ITER * iter)
+static NAMED *hashTableIterNext(HASH_TABLE_ITER * iter)
 {
     while (iter->p != iter->end)
     {
@@ -5921,8 +5910,7 @@ NAMED *hashTableIterNext(HASH_TABLE_ITER * iter)
 }
 
 
-static
-void poolInit(STRING_POOL * pool, XML_Memory_Handling_Suite * ms)
+static void poolInit(STRING_POOL * pool, XML_Memory_Handling_Suite * ms)
 {
     pool->blocks = 0;
     pool->freeBlocks = 0;
@@ -5932,8 +5920,7 @@ void poolInit(STRING_POOL * pool, XML_Memory_Handling_Suite * ms)
     pool->mem = ms;
 }
 
-static
-void poolClear(STRING_POOL * pool)
+static void poolClear(STRING_POOL * pool)
 {
     if (!pool->freeBlocks)
         pool->freeBlocks = pool->blocks;
@@ -5956,8 +5943,7 @@ void poolClear(STRING_POOL * pool)
     pool->end = 0;
 }
 
-static
-void poolDestroy(STRING_POOL * pool)
+static void poolDestroy(STRING_POOL * pool)
 {
     BLOCK *p = pool->blocks;
 
@@ -6171,8 +6157,7 @@ static int poolGrow(STRING_POOL *pool)
     return 1;
 }
 
-static int
- nextScaffoldPart(XML_Parser parser)
+static int nextScaffoldPart(XML_Parser parser)
 {
     CONTENT_SCAFFOLD *me;
     int next;
@@ -6221,12 +6206,11 @@ static int
     return next;
 }                               /* End nextScaffoldPart */
 
-static void
- build_node(XML_Parser parser,
-            int src_node,
-            XMLCONTENT * dest,
-            XMLCONTENT ** contpos,
-            char **strpos)
+static void  build_node(XML_Parser parser,
+                        int src_node,
+                        XMLCONTENT * dest,
+                        XMLCONTENT ** contpos,
+                        char **strpos)
 {
     dest->type = dtd.scaffold[src_node].type;
     dest->quant = dtd.scaffold[src_node].quant;
@@ -6264,8 +6248,7 @@ static void
     }
 }                               /* End build_node */
 
-static XMLCONTENT *
- build_model(XML_Parser parser)
+static XMLCONTENT * build_model(XML_Parser parser)
 {
     XMLCONTENT *ret;
     XMLCONTENT *cpos;
@@ -6283,11 +6266,10 @@ static XMLCONTENT *
     return ret;
 }                               /* End build_model */
 
-static ELEMENT_TYPE *
- getElementType(XML_Parser parser,
-                const ENCODING * enc,
-                const char *ptr,
-                const char *end)
+static ELEMENT_TYPE * getElementType(XML_Parser parser,
+                                     const ENCODING * enc,
+                                     const char *ptr,
+                                     const char *end)
 {
     const XML_Char *name = poolStoreString(&dtd.pool, enc, ptr, end, NULL);
     ELEMENT_TYPE *ret;

@@ -96,7 +96,7 @@
  *@@added V0.9.1 (2000-02-05) [umoeller]
  */
 
-VOID PaintSplitWindow(HWND hwndSplit)
+static VOID PaintSplitWindow(HWND hwndSplit)
 {
     HPS     hps = WinBeginPaint(hwndSplit, (HPS)0, NULL);
     HWND    hwndSplitBar = WinWindowFromID(hwndSplit, ID_SPLITBAR);
@@ -250,8 +250,8 @@ MRESULT EXPENTRY ctl_fnwpSplitWindow(HWND hwndSplit, ULONG msg, MPARAM mp1, MPAR
  *@@added V0.9.1 (2000-02-05) [umoeller]
  */
 
-VOID TrackSplitBar(HWND hwndBar,
-                   PSPLITBARDATA pData)
+static VOID TrackSplitBar(HWND hwndBar,
+                          PSPLITBARDATA pData)
 {
     TRACKINFO   track;
     RECTL       rclBar;
@@ -399,8 +399,8 @@ VOID TrackSplitBar(HWND hwndBar,
  *@@changed V0.9.1 (2000-02-05) [umoeller]: fixed paint errors with sunken 3D style
  */
 
-VOID PaintSplitBar(HWND hwndBar,
-                   PSPLITBARDATA pData)
+static VOID PaintSplitBar(HWND hwndBar,
+                          PSPLITBARDATA pData)
 {
     HPS     hps;
     RECTL   rcl,

@@ -100,10 +100,10 @@
  *@@changed V0.9.5 (2000-09-22) [umoeller]: fixed ypos of text
  */
 
-VOID PaintProgress(PPROGRESSBARDATA pData,
-                   HWND hwndBar,
-                   PRECTL prclWin,      // in: window rectangle (WinQueryWindowRect)
-                   HPS hps)
+static VOID PaintProgress(PPROGRESSBARDATA pData,
+                          HWND hwndBar,
+                          PRECTL prclWin,      // in: window rectangle (WinQueryWindowRect)
+                          HPS hps)
 {
     POINTL  ptlText; // , aptlText[TXTBOX_COUNT];
     BOOL    fBackgroundPainted = FALSE;

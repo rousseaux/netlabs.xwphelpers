@@ -195,8 +195,8 @@ APIRET wphQueryBaseClassesHiwords(HINI hiniUser,
  *@@added V0.9.16 (2001-10-19) [umoeller]
  */
 
-VOID FreeChildrenTree(TREE **ppChildrenTree,
-                      PLONG plCount)
+static VOID FreeChildrenTree(TREE **ppChildrenTree,
+                             PLONG plCount)
 {
     LONG    cItems = *plCount;
     TREE**  papNodes = treeBuildArray(*ppChildrenTree,
@@ -228,7 +228,7 @@ VOID FreeChildrenTree(TREE **ppChildrenTree,
  *@@added V0.9.16 (2001-10-19) [umoeller]
  */
 
-APIRET NukeNameTrees(PHANDLESBUF pHandlesBuf)
+static APIRET NukeNameTrees(PHANDLESBUF pHandlesBuf)
 {
     APIRET arc = NO_ERROR;
 
@@ -853,10 +853,10 @@ APIRET wphQueryHandleFromPath(HINI hiniUser,      // in: HINI_USER or other INI 
  *@@added V0.9.16 (2001-10-02) [umoeller]
  */
 
-APIRET ComposeThis(PHANDLESBUF pHandlesBuf,
-                   USHORT usHandle,         // in: handle to search for
-                   PXSTRING pstrFilename,   // in/out: filename
-                   PNODE *ppNode)           // out: node found (ptr can be NULL)
+static APIRET ComposeThis(PHANDLESBUF pHandlesBuf,
+                          USHORT usHandle,         // in: handle to search for
+                          PXSTRING pstrFilename,   // in/out: filename
+                          PNODE *ppNode)           // out: node found (ptr can be NULL)
 {
     APIRET          arc = NO_ERROR;
     PNODETREENODE   pTreeNode;

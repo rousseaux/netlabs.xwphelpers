@@ -21,7 +21,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2001 Ulrich M”ller.
+ *      Copyright (C) 1997-2002 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -267,11 +267,11 @@ VOID nlsFileDate(PSZ pszBuf,           // out: string returned
     dt.year = pfDate->year + 1980;
 
     nlsDateTime(pszBuf,
-                 NULL,          // no time
-                 &dt,
-                 ulDateFormat,
-                 cDateSep,
-                 0, 0);         // no time
+                NULL,          // no time
+                &dt,
+                ulDateFormat,
+                cDateSep,
+                0, 0);         // no time
 }
 
 /*
@@ -325,6 +325,7 @@ VOID nlsFileTime(PSZ pszBuf,           // out: string returned
  *
  *@@added V0.9.0 (99-11-07) [umoeller]
  *@@changed V0.9.16 (2001-12-05) [pr]: fixed AM/PM hour bug
+ *@@changed V0.9.18 (2002-02-13) [umoeller]: fixed AM/PM hour bug fix
  */
 
 VOID nlsDateTime(PSZ pszDate,          // out: date string returned (can be NULL)
@@ -386,6 +387,12 @@ VOID nlsDateTime(PSZ pszDate,          // out: date string returned (can be NULL
 
             if (pDateTime->hours >= 12)  // V0.9.16 (2001-12-05) [pr] if (pDateTime->hours > 12)
             {
+                // yeah cool Paul, now we get 00:20 PM if it's 20 past noon
+                // V0.9.18 (2002-02-13) [umoeller]
+                ULONG ulHours;
+                if (!(ulHours = pDateTime->hours % 12))
+                    ulHours = 12;
+
                 // >= 12h: PM.
                 PrfQueryProfileString(HINI_USER,
                                       "PM_National",
@@ -394,7 +401,7 @@ VOID nlsDateTime(PSZ pszDate,          // out: date string returned (can be NULL
                                       szAMPM, sizeof(szAMPM)-1);
                 sprintf(pszTime, "%02d%c%02d%c%02d %s",
                         // leave 12 == 12 (not 0)
-                        pDateTime->hours % 12,
+                        ulHours,
                             cTimeSep,
                         pDateTime->minutes,
                             cTimeSep,

@@ -367,9 +367,9 @@ APIRET doshSetCurrentDir(const char *pcszDir)
  *@@added V0.9.16 (2001-10-08) [umoeller]
  */
 
-APIRET CopyToBuffer(PSZ pszTarget,      // out: target buffer
-                    PCSZ pcszSource,    // in: source string
-                    ULONG cbTarget)     // in: size of target buffer
+static APIRET CopyToBuffer(PSZ pszTarget,      // out: target buffer
+                           PCSZ pcszSource,    // in: source string
+                           ULONG cbTarget)     // in: size of target buffer
 {
     ULONG ulLength = strlen(pcszSource);
     if (ulLength < cbTarget)
@@ -484,9 +484,9 @@ APIRET doshSearchPath(const char *pcszPath,     // in: path variable name (e.g. 
  *@@changed V0.9.16 (2001-10-08) [umoeller]: rewrote second half for DosSearchPath replacement, which returns directories too
  */
 
-APIRET FindFile(const char *pcszCommand,      // in: command (e.g. "lvm")
-                PSZ pszExecutable,            // out: full path (e.g. "F:\os2\lvm.exe")
-                ULONG cbExecutable)           // in: sizeof (*pszExecutable)
+static APIRET FindFile(const char *pcszCommand,      // in: command (e.g. "lvm")
+                       PSZ pszExecutable,            // out: full path (e.g. "F:\os2\lvm.exe")
+                       ULONG cbExecutable)           // in: sizeof (*pszExecutable)
 {
     APIRET arc = NO_ERROR;
     FILESTATUS3 fs3;
@@ -783,16 +783,16 @@ const char* doshType2FSName(unsigned char bFSType)  // in: FS type
  *@@added V0.9.0 [umoeller]
  */
 
-APIRET AppendPartition(PARTITIONINFO **pppiFirst,
-                       PARTITIONINFO **pppiThis,    // in/out: partition info; pointer will be advanced
-                       PUSHORT posCount,            // in/out: partition count
-                       BYTE bDisk,                  // in: disk of partition
-                       const char *pszBootName,     // in: boot partition name
-                       CHAR cLetter,                // in/out: drive letter
-                       BYTE bFsType,                // in: file system type
-                       BOOL fPrimary,               // in: primary?
-                       BOOL fBootable,
-                       ULONG ulSectors)             // in: no. of sectors
+static APIRET AppendPartition(PARTITIONINFO **pppiFirst,
+                              PARTITIONINFO **pppiThis,    // in/out: partition info; pointer will be advanced
+                              PUSHORT posCount,            // in/out: partition count
+                              BYTE bDisk,                  // in: disk of partition
+                              const char *pszBootName,     // in: boot partition name
+                              CHAR cLetter,                // in/out: drive letter
+                              BYTE bFsType,                // in: file system type
+                              BOOL fPrimary,               // in: primary?
+                              BOOL fBootable,
+                              ULONG ulSectors)             // in: no. of sectors
 {
     APIRET arc = NO_ERROR;
     PPARTITIONINFO ppiNew = NEW(PARTITIONINFO);
@@ -1012,13 +1012,13 @@ APIRET doshGetBootManager(USHORT   *pusDisk,    // out: if != NULL, boot manager
  *@@added V0.9.0 [umoeller]
  */
 
-APIRET GetPrimaryPartitions(PARTITIONINFO **pppiFirst,
-                            PARTITIONINFO **pppiThis,
-                            PUSHORT posCount,       // in/out: partition count
-                            PCHAR pcLetter,         // in/out: drive letter counter
-                            UINT BmDisk,            // in: physical disk (1, 2, 3, ...) of boot manager or null
-                            PAR_INFO* pBmInfo,      // in: info returned by doshGetBootManager or NULL
-                            UINT iDisk)             // in: system's physical disk count
+static APIRET GetPrimaryPartitions(PARTITIONINFO **pppiFirst,
+                                   PARTITIONINFO **pppiThis,
+                                   PUSHORT posCount,       // in/out: partition count
+                                   PCHAR pcLetter,         // in/out: drive letter counter
+                                   UINT BmDisk,            // in: physical disk (1, 2, 3, ...) of boot manager or null
+                                   PAR_INFO* pBmInfo,      // in: info returned by doshGetBootManager or NULL
+                                   UINT iDisk)             // in: system's physical disk count
 {
     APIRET  arc = NO_ERROR;
 
@@ -1099,13 +1099,13 @@ APIRET GetPrimaryPartitions(PARTITIONINFO **pppiFirst,
  *@@added V0.9.0 [umoeller]
  */
 
-APIRET GetLogicalDrives(PARTITIONINFO **pppiFirst,
-                        PARTITIONINFO **pppiThis,
-                        PUSHORT posCount,
-                        PCHAR pcLetter,
-                        PAR_INFO* PrInfo,                    // in: MBR entry of extended partition
-                        UINT PrDisk,
-                        PAR_INFO* BmInfo)
+static APIRET GetLogicalDrives(PARTITIONINFO **pppiFirst,
+                               PARTITIONINFO **pppiThis,
+                               PUSHORT posCount,
+                               PCHAR pcLetter,
+                               PAR_INFO* PrInfo,                    // in: MBR entry of extended partition
+                               UINT PrDisk,
+                               PAR_INFO* BmInfo)
 {
     APIRET          arc = NO_ERROR;
     EXT_INFO        MBoot;      // Master Boot
@@ -1188,12 +1188,12 @@ APIRET GetLogicalDrives(PARTITIONINFO **pppiFirst,
  *@@added V0.9.0 [umoeller]
  */
 
-APIRET GetExtendedPartition(PARTITIONINFO **pppiFirst,
-                            PARTITIONINFO **pppiThis,
-                            PUSHORT posCount,
-                            PCHAR pcLetter,
-                            PAR_INFO* BmInfo,
-                            UINT iDisk)                // in: disk to query
+static APIRET GetExtendedPartition(PARTITIONINFO **pppiFirst,
+                                   PARTITIONINFO **pppiThis,
+                                   PUSHORT posCount,
+                                   PCHAR pcLetter,
+                                   PAR_INFO* BmInfo,
+                                   UINT iDisk)                // in: disk to query
 {
     APIRET          arc = NO_ERROR;
     MBR_INFO        MBoot;      // Master Boot
@@ -1233,9 +1233,9 @@ APIRET GetExtendedPartition(PARTITIONINFO **pppiFirst,
  *@@added V0.9.16 (2001-10-08) [umoeller]
  */
 
-APIRET ReadFDiskPartitions(PARTITIONINFO **ppPartitionInfos,
-                           USHORT *pcPartitions,
-                           PUSHORT pusContext)              // out: error context
+static APIRET ReadFDiskPartitions(PARTITIONINFO **ppPartitionInfos,
+                                  USHORT *pcPartitions,
+                                  PUSHORT pusContext)              // out: error context
 {
     APIRET          arc = NO_ERROR;
 
@@ -1306,7 +1306,7 @@ APIRET ReadFDiskPartitions(PARTITIONINFO **ppPartitionInfos,
  *@@added V0.9.9 (2001-04-07) [umoeller]
  */
 
-VOID CleanPartitionInfos(PPARTITIONINFO ppiThis)
+static VOID CleanPartitionInfos(PPARTITIONINFO ppiThis)
 {
     while (ppiThis)
     {
@@ -2013,9 +2013,9 @@ VOID doshFreeLVMInfo(PLVMINFO pInfo)
  *      Note that this function is recursive.
  */
 
-BOOL PerformMatch(PCSZ pMask,
-                  PCSZ pName,
-                  int fHasDot)
+static BOOL PerformMatch(PCSZ pMask,
+                         PCSZ pName,
+                         int fHasDot)
 {
     while (TRUE)
     {

@@ -3045,10 +3045,11 @@ PSZ doshCreateBackupFileName(const char* pszExisting)
     ULONG   ulDummy;
 
     strcpy(szFilename, pszExisting);
-    pszLastDot = strrchr(szFilename, '.');
-    if (!pszLastDot)
+
+    if (!(pszLastDot = strrchr(szFilename, '.')))
         // no dot in filename:
         pszLastDot = szFilename + strlen(szFilename);
+
     do
     {
         sprintf(szCount, ".%03lu", ulCount);
@@ -3414,9 +3415,10 @@ APIRET doshQueryCurrentDir(PSZ pszBuf)
     if (!(arc = DosQueryCurrentDisk(&ulCurDisk, &ulMap)))
     {
         ULONG   cbBuf = CCHMAXPATH - 3;
-        *pszBuf = ulCurDisk + 'A' - 1;
-        *(pszBuf + 1) = ':';
-        *(pszBuf + 2) = '\\';
+        pszBuf[0] = ulCurDisk + 'A' - 1;
+        pszBuf[1] = ':';
+        pszBuf[2] = '\\';
+        pszBuf[3] = '\0';
         arc = DosQueryCurrentDir(0, pszBuf + 3, &cbBuf);
     }
 
@@ -3980,7 +3982,7 @@ USHORT _Far16 _Pascal Dos16GetInfoSeg(PSEL pselGlobal,
  *
  */
 
-VOID GetInfoSegs(VOID)
+static VOID GetInfoSegs(VOID)
 {
     SEL     GlobalInfoSegSelector,
             LocalInfoSegSelector;
