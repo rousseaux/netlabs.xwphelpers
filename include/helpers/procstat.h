@@ -275,7 +275,8 @@ extern "C" {
     typedef struct _QGLOBAL32
     {
         ULONG   ulThreadCount;  // thread count
-        ULONG   ulProcCount;    // process count
+        // ULONG   ulProcCount;    // process count wrong V1.0.1 (2003-01-10) [umoeller]
+        ULONG   ulSem32Count;   // count of 32-bit sems?
         ULONG   ulModuleCount;  // module count
     } QGLOBAL32, *PQGLOBAL32;
 
@@ -804,6 +805,9 @@ extern "C" {
      *   DosQuerySysState (32-bit) interface
      *
      ********************************************************************/
+
+    PQTOPLEVEL32 prc32GetInfo2(ULONG fl,
+                               APIRET *parc);
 
     PQTOPLEVEL32 prc32GetInfo(APIRET *parc);
 

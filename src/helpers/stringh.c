@@ -179,6 +179,41 @@ PSZ strhcpy(PSZ string1, PCSZ string2)
     return string1;
 }
 
+/*
+ *@@ strhCopyBuf:
+ *      copies pcszSource to pszTarget, taking
+ *      its length into account.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR
+ *
+ *      --  ERROR_INVALID_PARAMETER: pcszSource is
+ *          null or points to a null byte.
+ *
+ *      --  ERROR_FILENAME_EXCED_RANGE: pcszSource
+ *          is too long to fit into pszTarget.
+ *
+ *@@added V1.0.1 (2003-01-05) [umoeller]
+ */
+
+APIRET strhCopyBuf(PSZ pszTarget,
+                   PCSZ pcszSource,
+                   ULONG cbTarget)
+{
+    ULONG cb;
+    if (!pcszSource || !*pcszSource)
+        return ERROR_INVALID_PARAMETER;
+    cb = strlen(pcszSource) + 1;
+    if (cb > cbTarget)
+        return ERROR_FILENAME_EXCED_RANGE;
+
+    memcpy(pszTarget,
+           pcszSource,
+           cb);
+    return NO_ERROR;
+}
+
 #ifdef __DEBUG_MALLOC_ENABLED__
 
 /*

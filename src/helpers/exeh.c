@@ -256,9 +256,9 @@ APIRET exehOpen(const char* pcszExecutable,
                               XOPEN_READ_EXISTING,
                               &cbFile,
                               &pFile)))
-            // file opened successfully:
        )
     {
+        // file opened successfully:
         pExec->pFile = pFile;
         pExec->cbDosExeHeader = sizeof(DOSEXEHEADER);
 
@@ -504,7 +504,7 @@ APIRET exehOpen(const char* pcszExecutable,
         } // end if (!(arc = doshReadAt(hFile,
     } // end if (fLoadNewHeader)
 
-    if (arc != NO_ERROR)
+    if (arc)
         // error: clean up
         exehClose(&pExec);
     else

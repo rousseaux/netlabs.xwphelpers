@@ -496,12 +496,57 @@ ULONG prc16QueryThreadPriority(PQPROCSTAT16 pps, // in: from prc16GetInfo
  ********************************************************************/
 
 /*
+ *@@ prc32GetInfo2:
+ *      nifty interface to DosQuerySysState, the 32-bit
+ *      version of DosQProcStat.
+ *
+ *      This returns the head of a newly allocated buffer
+ *      which has plenty of pointers for subsequent browing.
+ *
+ *      As opposed to prc32GetInfo, with this call you can
+ *      specify the information that would like to retrieve.
+ *
+ *      Use prc32FreeInfo to free the buffer.
+ *
+ *@@added V1.0.1 (2003-01-10) [umoeller]
+ */
+
+PQTOPLEVEL32 prc32GetInfo2(ULONG fl,        // in: QS32_* flags
+                           APIRET *parc)    // out: error, ptr can be NULL
+{
+    APIRET          arc;
+    PQTOPLEVEL32    pReturn = NULL;
+
+    #define BUFSIZE (1024 * 1024) // 1 meg
+
+    if (!(arc = DosAllocMem((PVOID*)&pReturn,
+                            BUFSIZE,
+                            PAG_READ | PAG_WRITE | PAG_COMMIT | OBJ_TILE)))
+    {
+        if (arc = DosQuerySysState(fl,
+                                   fl,      // this was missing V0.9.10 (2001-04-08) [umoeller]
+                                   0, 0,
+                                   (PCHAR)pReturn,
+                                   BUFSIZE))
+        {
+            DosFreeMem(pReturn);
+            pReturn = NULL;
+        }
+    }
+
+    if (parc)
+        *parc = arc;
+
+    return pReturn;
+}
+
+/*
  *@@ prc32GetInfo:
- *      nifty interface to DosQuerySysState,
- *      the 32-bit version of DosQProcStat.
- *      This returns the head of a newly
- *      allocated buffer which has plenty
- *      of pointers for subsequent browing.
+ *      nifty interface to DosQuerySysState, the 32-bit
+ *      version of DosQProcStat.
+ *
+ *      This returns the head of a newly allocated buffer
+ *      which has plenty of pointers for subsequent browing.
  *
  *      Use prc32FreeInfo to free the buffer.
  *
@@ -512,32 +557,8 @@ ULONG prc16QueryThreadPriority(PQPROCSTAT16 pps, // in: from prc16GetInfo
 
 PQTOPLEVEL32 prc32GetInfo(APIRET *parc)     // out: error, ptr can be NULL
 {
-    #define BUFSIZE (1024 * 1024) // 1 meg
-
-    PCHAR pBuf = NULL; // (PCHAR)malloc(BUFSIZE);
-
-    if (DosAllocMem((PVOID*)&pBuf,
-                    BUFSIZE,
-                    PAG_READ | PAG_WRITE | PAG_COMMIT | OBJ_TILE)
-            == NO_ERROR)
-        if (pBuf)
-        {
-            APIRET arc = DosQuerySysState(QS32_SUPPORTED,
-                                          QS32_SUPPORTED,       // this was missing
-                                                                // V0.9.10 (2001-04-08) [umoeller]
-                                          0, 0,
-                                          (PCHAR)pBuf,
-                                          BUFSIZE);
-            if (parc)
-                *parc = arc;
-
-            if (arc == NO_ERROR)
-                return (PQTOPLEVEL32)pBuf;
-            else
-                DosFreeMem(pBuf);
-        }
-
-    return NULL;
+    return prc32GetInfo2(QS32_SUPPORTED,
+                         parc);
 }
 
 /*

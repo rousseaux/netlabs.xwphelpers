@@ -2806,7 +2806,7 @@ PXBITMAP gpihCreateXBitmap(HAB hab,         // in: anchor block
  *      resource leaks in the application.
  *
  *      This function may relieve this a bit. This
- *      creates a memory DC, an memory PS, and a bitmap,
+ *      creates a memory DC, a memory PS, and a bitmap,
  *      and selects the bitmap into the memory PS.
  *      You can then use any GPI function on the memory
  *      PS to draw into the bitmap. Use the fields from
@@ -2819,8 +2819,8 @@ PXBITMAP gpihCreateXBitmap(HAB hab,         // in: anchor block
  *
  *      Example:
  *
- +          PXBITMAP pbmp = gpihCreateXBitmap(hab, 100, 100);
- +          if (pbmp)
+ +          PXBITMAP pbmp;
+ +          if (pbmp = gpihCreateXBitmap(hab, 100, 100))
  +          {
  +              GpiMove(pbmp->hpsMem, ...);
  +              GpiBox(pbmp->hpsMem, ...);
@@ -2844,8 +2844,8 @@ PXBITMAP gpihCreateXBitmap2(HAB hab,         // in: anchor block
                             ULONG cBitCount)   // in: either 1, 4, or 24; if 0, current screen value
 {
     BOOL fOK = FALSE;
-    PXBITMAP pbmp = (PXBITMAP)malloc(sizeof(XBITMAP));
-    if (pbmp)
+    PXBITMAP pbmp;
+    if (pbmp = (PXBITMAP)malloc(sizeof(XBITMAP)))
     {
         memset(pbmp, 0, sizeof(XBITMAP));
 

@@ -1656,7 +1656,7 @@ APIRET doshGetDriveInfo(ULONG ulLogicalDrive,
          && (fl & DRVFL_CHECKLONGNAMES)
        )
     {
-        CHAR szTemp[30] = "?:\\long.name.file";
+        CHAR szTemp[] = "?:\\long.name.file";
         szTemp[0]  = ulLogicalDrive + 'A' - 1;
         if (!(arc = DosOpen(szTemp,
                             &hf,
@@ -4013,7 +4013,7 @@ APIRET doshResolveImports(PCSZ pcszModuleName,    // in: DLL to load
  *
  +      PDOSHPERFSYS pPerf = NULL;
  +      APIRET arc;
- +      if (!(arc = arc = doshPerfOpen(&pPerf)))
+ +      if (!(arc = doshPerfOpen(&pPerf)))
  +      {
  +          // this should really be in a timer,
  +          // e.g. once per second
@@ -4042,8 +4042,7 @@ APIRET doshPerfOpen(PDOSHPERFSYS *ppPerfSys)  // out: new DOSHPERFSYS structure
     APIRET  arc = NO_ERROR;
 
     // allocate DOSHPERFSYS structure
-    *ppPerfSys = (PDOSHPERFSYS)malloc(sizeof(DOSHPERFSYS));
-    if (!*ppPerfSys)
+    if (!(*ppPerfSys = (PDOSHPERFSYS)malloc(sizeof(DOSHPERFSYS))))
         arc = ERROR_NOT_ENOUGH_MEMORY;
     else
     {

@@ -382,7 +382,7 @@ STATIC APIRET CopyToBuffer(PSZ pszTarget,      // out: target buffer
         return NO_ERROR;
     }
 
-    return(ERROR_BUFFER_OVERFLOW);
+    return ERROR_BUFFER_OVERFLOW;
 }
 
 /*
@@ -606,8 +606,8 @@ APIRET doshFindExecutable(const char *pcszCommand,      // in: command (e.g. "lv
        )
     {
         // try additional things then
-        PSZ psz2 = (PSZ)malloc(strlen(pcszCommand) + 20);
-        if (psz2)
+        PSZ psz2;
+        if (psz2 = (PSZ)malloc(strlen(pcszCommand) + 20))
         {
             ULONG   ul;
             for (ul = 0;

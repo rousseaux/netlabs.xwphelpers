@@ -45,6 +45,10 @@ extern "C" {
 
     PSZ XWPENTRY strhcpy(PSZ string1, const char *string2);
 
+    APIRET XWPENTRY strhCopyBuf(PSZ pszTarget,
+                                PCSZ pcszSource,
+                                ULONG cbTarget);
+
     #if defined(__DEBUG_MALLOC_ENABLED__) && !defined(DONT_REPLACE_STRINGH_MALLOC) // setup.h, helpers\memdebug.c
         PSZ XWPENTRY strhdupDebug(const char *pcszSource,
                                   unsigned long *pulLength,
