@@ -38,12 +38,6 @@
         // disable "statement unreachable" and "missing break statement"
         // this code generates those options HEAVILY
 
-#ifdef COMPILED_FROM_DSP
-#include "winconfig.h"
-#else
-// #include <config.h>
-#endif /* ndef COMPILED_FROM_DSP */
-
 #include "expat\xmltok.h"
 #include "expat\nametab.h"
 
@@ -360,8 +354,8 @@ static const struct normal_encoding utf8_encoding_ns =
 {
     {VTABLE1, utf8_toUtf8, utf8_toUtf16, 1, 1, 0},
     {
-#include "asciitab.h"
-#include "utf8tab.h"
+#include "expat\asciitab.h"
+#include "expat\utf8tab.h"
     },
     STANDARD_VTABLE(sb_) NORMAL_VTABLE(utf8_)
 };
@@ -386,8 +380,8 @@ static const struct normal_encoding internal_utf8_encoding_ns =
 {
     {VTABLE1, utf8_toUtf8, utf8_toUtf16, 1, 1, 0},
     {
-#include "iasciitab.h"
-#include "utf8tab.h"
+#include "expat\iasciitab.h"
+#include "expat\utf8tab.h"
     },
     STANDARD_VTABLE(sb_) NORMAL_VTABLE(utf8_)
 };
@@ -448,8 +442,8 @@ static const struct normal_encoding latin1_encoding_ns =
 {
     {VTABLE1, latin1_toUtf8, latin1_toUtf16, 1, 0, 0},
     {
-#include "asciitab.h"
-#include "latin1tab.h"
+#include "expat\asciitab.h"
+#include "expat\latin1tab.h"
     },
     STANDARD_VTABLE(sb_)
 };
@@ -482,7 +476,7 @@ static const struct normal_encoding ascii_encoding_ns =
 {
     {VTABLE1, ascii_toUtf8, latin1_toUtf16, 1, 1, 0},
     {
-#include "asciitab.h"
+#include "expat\asciitab.h"
 /* BT_NONXML == 0 */
     },
     STANDARD_VTABLE(sb_)
@@ -708,8 +702,8 @@ DEFINE_UTF16_TO_UTF16(big2_)
     #endif
              },
              {
-    #include "asciitab.h"
-    #include "latin1tab.h"
+    #include "expat\asciitab.h"
+    #include "expat\latin1tab.h"
              },
              STANDARD_VTABLE(little2_)
     };
@@ -742,8 +736,8 @@ DEFINE_UTF16_TO_UTF16(big2_)
      {
          {VTABLE, 2, 0, 1},
          {
-#include "iasciitab.h"
-#include "latin1tab.h"
+#include "expat\iasciitab.h"
+#include "expat\latin1tab.h"
          },
          STANDARD_VTABLE(little2_)
 };
@@ -846,8 +840,8 @@ DEFINE_UTF16_TO_UTF16(big2_)
 #endif
          },
          {
-#include "asciitab.h"
-#include "latin1tab.h"
+#include "expat\asciitab.h"
+#include "expat\latin1tab.h"
          },
          STANDARD_VTABLE(big2_)
 };
@@ -880,8 +874,8 @@ DEFINE_UTF16_TO_UTF16(big2_)
      {
          {VTABLE, 2, 0, 1},
          {
-#include "iasciitab.h"
-#include "latin1tab.h"
+#include "expat\iasciitab.h"
+#include "expat\latin1tab.h"
          },
          STANDARD_VTABLE(big2_)
 };

@@ -38,12 +38,6 @@
         // disable "statement unreachable" and "missing break statement"
         // this code generates those options HEAVILY
 
-#ifdef COMPILED_FROM_DSP
-#include "winconfig.h"
-#else
-// #include <config.h>
-#endif /* ndef COMPILED_FROM_DSP */
-
 #include "expat\xmlrole.h"
 #include "expat\ascii.h"
 

@@ -23,20 +23,25 @@
 #       Called from:    main makefile
 #
 #       Required environment variables:
+#
 #               -- PROJECT_BASE_DIR: where to find setup.in; this should
 #                   be the root directory of the project, e.g. "C:\cvs\warpin"
 #                   or "C:\cvs\xworkplace"
+#
 #               -- HELPERS_OUTPUT_DIR: where to create output files (*.obj, helpers.lib)
 #                   this should be a "bin" directory (e.g. "C:\cvs\warpin\bin"
+#
 #               -- CC_HELPERS: compiler command line for compiling C files.
 #                   With VAC++, this should include the /Ge+ (compile to EXE)
 #                   option to allow linking the library to both EXE and DLL
 #                   files.
 #                   If you're using the "dll" target, specify /Ge- instead.
+#
 #               -- MAINMAKERUNNING: if this is NOT defined, this makefile
 #                   will recurse to the makefile in $(PROJECT_BASE_DIR).
 #                   So to have this makefile run successfully, define this
 #                   variable to something.
+#
 #                   This variable was introduced to be able to start a build
 #                   process from src\helpers as well. However, when your own
 #                   project makefile calls src\helpers\makefile, you must set
@@ -128,6 +133,13 @@ callmainmake:
     @cd $(PROJECT_BASE_DIR)
     @nmake
     @echo $(MAKEDIR)\makefile: Returned from main makefile. Done.
+
+# The "dep" target: run fastdep on the sources.
+# "nmake dep" gets called from src\makefile if nmake dep
+# is running on the main makefile.
+dep:
+    $(RUN_FASTDEP) *.c
+    @echo ----- Leaving $(MAKEDIR)
 
 # Define the main dependency between the output HELPERS.LIB and
 # all the object files.

@@ -69,24 +69,17 @@
         // disable "statement unreachable" and "missing break statement"
         // this code generates those options HEAVILY
 
-#ifdef COMPILED_FROM_DSP
-    #include "winconfig.h"
-    #define XMLPARSEAPI __declspec(dllexport)
-    #include "expat.h"
+// #include <config.h>
+
+#ifdef __declspec
+#define XMLPARSEAPI __declspec(dllexport)
+#endif
+
+#include "expat\expat.h"
+
+#ifdef __declspec
     #undef XMLPARSEAPI
-#else
-    // #include <config.h>
-
-    #ifdef __declspec
-    #define XMLPARSEAPI __declspec(dllexport)
-    #endif
-
-    #include "expat\expat.h"
-
-    #ifdef __declspec
-        #undef XMLPARSEAPI
-    #endif
-#endif /* ndef COMPILED_FROM_DSP */
+#endif
 
 #include <stddef.h>
 #include <string.h>
