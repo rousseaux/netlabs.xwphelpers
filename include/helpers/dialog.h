@@ -403,6 +403,11 @@ extern "C" {
             | SLS_BUTTONSRIGHT | SLS_SNAPTOINCREMENT, \
             id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING, pctldata }
 
+    #define CONTROLDEF_VSLIDER(id, cx, cy, pctldata) { WC_SLIDER, NULL, \
+            WS_VISIBLE | WS_TABSTOP | WS_GROUP | SLS_VERTICAL | SLS_PRIMARYSCALE1 \
+            | SLS_BUTTONSRIGHT | SLS_SNAPTOINCREMENT, \
+            id, CTL_COMMON_FONT, 0, {cx, cy}, COMMON_SPACING, pctldata }
+
     /* ******************************************************************
      *
      *   Dialog formatter entry points

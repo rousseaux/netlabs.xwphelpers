@@ -153,6 +153,9 @@ extern "C" {
         // exception handlers can completely be disabled
         #define TRY_LOUD(excptstruct)
     #else
+        #ifdef __NO_LOUD_EXCEPTION_HANDLERS__
+            #define TRY_LOUD(e) TRY_QUIET(e)
+        #else // __NO_LOUD_EXCEPTION_HANDLERS__
         #define TRY_LOUD(excptstruct)                                           \
                 {                                                               \
                     EXCEPTSTRUCT          excptstruct = {0};                    \
@@ -168,6 +171,7 @@ extern "C" {
                     if (excptstruct.ulExcpt == 0)                               \
                     {
 
+        #endif // __NO_LOUD_EXCEPTION_HANDLERS__
     #endif
 
     #ifdef __NO_EXCEPTION_HANDLERS__

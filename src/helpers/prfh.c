@@ -232,7 +232,6 @@ CHAR prfhQueryProfileChar(HINI hini,        // in: INI handle (can be HINI_USER 
                           const char *pcszKey,       // in: key to query
                           CHAR cDefault)    // in: default to return if not found
 {
-    // CHAR    crc = 0;
     CHAR    szTemp[5],
             szDefault[5];
     szDefault[0] = cDefault;

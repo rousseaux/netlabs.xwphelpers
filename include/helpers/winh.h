@@ -106,6 +106,12 @@ extern "C" {
         BOOL XWPENTRY winhSetDlgItemText(HWND hwnd, ULONG id, const char *pcsz);
         #define WinSetDlgItemText(a,b,c) winhSetDlgItemText((a),(b),(c))
 
+        // pmwin.h defines the WinEnableControl macro; turn this into our function call
+        #ifdef WinEnableControl
+            #undef WinEnableControl
+        #endif
+        #define WinEnableControl(hwndDlg, id, fEnable) winhEnableDlgItem((hwndDlg), (id), (fEnable))
+
         #ifdef INCL_WINMESSAGEMGR
             APIRET XWPENTRY winhRequestMutexSem(HMTX hmtx, ULONG ulTimeout);
             #define WinRequestMutexSem(a, b) winhRequestMutexSem((a), (b))
@@ -796,6 +802,11 @@ extern "C" {
                                       USHORT usIDFirst,
                                       USHORT usIDLast,
                                       BOOL fEnable);
+
+    ULONG winhEnableControls2(HWND hwndDlg,
+                              const ULONG *paulIDs,
+                              ULONG cIDs,
+                              BOOL fEnable);
 
     HWND XWPENTRY winhCreateStdWindow(HWND hwndFrameParent,
                                       PSWP pswpFrame,

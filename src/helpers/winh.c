@@ -3627,7 +3627,7 @@ BOOL winhReplaceWindowText(HWND hwnd,           // in: window whose text is to b
 ULONG winhEnableControls(HWND hwndDlg,                  // in: dialog window
                          USHORT usIDFirst,              // in: first affected control ID
                          USHORT usIDLast,               // in: last affected  control ID (inclusive)
-                         BOOL fEnable)
+                         BOOL fEnable)                  // in: enable or disable?
 {
     HENUM   henum1 = NULLHANDLE;
     HWND    hwndThis = NULLHANDLE;
@@ -3657,6 +3657,34 @@ ULONG winhEnableControls(HWND hwndDlg,                  // in: dialog window
     }
     WinEndEnumWindows(henum1);
     return (ulCount);
+}
+
+/*
+ *@@ winhEnableControls2:
+ *      like winhEnableControls, but instead this
+ *      takes an array of ULONGs as input, which
+ *      is assumed to contain the dialog IDs of
+ *      the controls to be enabled/disabled.
+ *
+ *@@added V0.9.19 (2002-05-28) [umoeller]
+ */
+
+ULONG winhEnableControls2(HWND hwndDlg,             // in: dialog window
+                          const ULONG *paulIDs,     // in: array of dialog IDs
+                          ULONG cIDs,               // in: array item count (NOT array size)
+                          BOOL fEnable)             // in: enable or disable?
+{
+    ULONG   ul,
+            ulrc = 0;
+    for (ul = 0;
+         ul < cIDs;
+         ++ul)
+    {
+        if (WinEnableControl(hwndDlg, paulIDs[ul], fEnable))
+            ++ulrc;
+    }
+
+    return ulrc;
 }
 
 /*
