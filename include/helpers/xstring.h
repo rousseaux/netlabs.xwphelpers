@@ -152,6 +152,10 @@ extern "C" {
                                             const char *pcszReplace);
     typedef XSTRFINDREPLACEC *PXSTRFINDREPLACEC;
 
+    // V0.9.9 (2001-01-29) [lafaix]: constants added
+    #define CRLF2LF TRUE
+    #define LF2CRLF FALSE
+
     VOID XWPENTRY xstrConvertLineFormat(PXSTRING pxstr, BOOL fToCFormat);
     typedef VOID XWPENTRY XSTRCONVERTLINEFORMAT(PXSTRING pxstr, BOOL fToCFormat);
     typedef XSTRCONVERTLINEFORMAT *PXSTRCONVERTLINEFORMAT;

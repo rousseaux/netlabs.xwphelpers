@@ -389,6 +389,7 @@ ULONG xstrset(PXSTRING pxstr,               // in/out: string
  *@@changed V0.9.2 (2000-04-01) [umoeller]: renamed from strhxcpy
  *@@changed V0.9.6 (2000-11-01) [umoeller]: rewritten
  *@@changed V0.9.7 (2001-01-15) [umoeller]: added ulSourceLength
+ *@@changed V0.9.9 (2001-01-28) [lafaix]: fixed memory leak and NULL source behavior
  */
 
 ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
@@ -401,41 +402,48 @@ ULONG xstrcpy(PXSTRING pxstr,               // in/out: string
     {
         if (pcszSource)
         {
+            // source specified:
             if (ulSourceLength == 0)
+                // but not length:
                 ulSourceLength = strlen(pcszSource);
-
-            if (ulSourceLength)
-            {
-                // we do have a source string:
-                ULONG cbNeeded = ulSourceLength + 1;
-                if (cbNeeded > pxstr->cbAllocated)
-                {
-                    // we need more memory than we have previously
-                    // allocated:
-                    pxstr->cbAllocated = cbNeeded;
-                    pxstr->psz = (PSZ)malloc(cbNeeded);
-                }
-                // else: we have enough memory
-
-                // strcpy(pxstr->psz, pcszSource);
-                memcpy(pxstr->psz,
-                       pcszSource,
-                       ulSourceLength);
-                *(pxstr->psz + ulSourceLength) = 0;
-            }
-            else
-            {
-                // no source specified or source is empty:
-                if (pxstr->cbAllocated)
-                    // we did have a string: set to empty,
-                    // but leave allocated memory intact
-                    *(pxstr->psz) = 0;
-                // else: pxstr->psz is still NULL
-            }
-
-            // in all cases, set new length
-            pxstr->ulLength = ulSourceLength;
         }
+        else
+            ulSourceLength = 0;
+
+        if (ulSourceLength)
+        {
+            // we do have a source string:
+            ULONG cbNeeded = ulSourceLength + 1;
+            if (cbNeeded > pxstr->cbAllocated)
+            {
+                // we need more memory than we have previously
+                // allocated:
+                if (pxstr->psz)
+                    free(pxstr->psz); // V0.9.9 (2001-01-28) [lafaix]
+                pxstr->cbAllocated = cbNeeded;
+                pxstr->psz = (PSZ)malloc(cbNeeded);
+            }
+            // else: we have enough memory
+
+            // strcpy(pxstr->psz, pcszSource);
+            memcpy(pxstr->psz,
+                   pcszSource,
+                   ulSourceLength + 1); // V0.9.9 (2001-01-31) [umoeller]
+        }
+        else
+        {
+            // no source specified or source is empty:
+            if (pxstr->cbAllocated)
+                // we did have a string: set to empty,
+                // but leave allocated memory intact
+                *(pxstr->psz) = 0;
+            // else
+                // we had no string previously: in that case
+                // psz and ulLength and cbAllocated are all still NULL
+        }
+
+        // in all cases, set new length
+        pxstr->ulLength = ulSourceLength;
     }
 
     return (pxstr->ulLength);
@@ -626,8 +634,8 @@ ULONG xstrcatc(PXSTRING pxstr,     // in/out: string
 
 /*
  *@@ xstrrpl:
- *      replaces cSearchLen characters in pxstr, starting
- *      at the position ulStart, with the string
+ *      replaces cReplLen characters in pxstr, starting
+ *      at the position ulFirstReplPos, with the string
  *      in pxstrReplaceWith.
  *
  *      Returns the new length of the string, excluding
@@ -656,6 +664,7 @@ ULONG xstrcatc(PXSTRING pxstr,     // in/out: string
  *      This would yield "This is a stupid string."
  *
  *@@added V0.9.7 (2001-01-15) [umoeller]
+ *@@changed V0.9.9 (2001-01-29) [lafaix]: fixed unnecessary allocation when pxstr was big enough
  */
 
 ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
@@ -732,50 +741,26 @@ ULONG xstrrpl(PXSTRING pxstr,                   // in/out: string
         {
             // we have enough memory left,
             // we can just overwrite in the middle...
+            // fixed V0.9.9 (2001-01-29) [lafaix]
 
-            PSZ     pszAfterFoundBackup = 0;
             // calc length of string after "found"
             ULONG   cTailLength = pxstr->ulLength - ulFirstReplOfs - cReplLen;
 
-            // if "replace" is longer than "found",
-            // make a backup of the stuff after "found",
-            // or this would get overwritten
-            if (cReplaceLen > cReplLen)
-            {
-                pszAfterFoundBackup = (PSZ)malloc(cTailLength + 1);
-                memcpy(pszAfterFoundBackup,
-                       pFound + cReplLen,
-                       cTailLength + 1);
-            }
+            // first, we move the end to its new location (memmove
+            // handles overlap if needed)
+            memmove(pFound + cReplaceLen,
+                    pFound + cReplLen,
+                    cTailLength + 1); // including null terminator
 
             // now overwrite "found" in the middle
             if (cReplaceLen)
             {
-                memcpy(pxstr->psz + ulFirstReplOfs,
+                memcpy(pFound,
                        pstrReplaceWith->psz,
                        cReplaceLen);        // no null terminator
             }
 
-            // now append tail (stuff after "found") again...
-            if (pszAfterFoundBackup)
-            {
-                // we made a backup above:
-                memcpy(pxstr->psz + ulFirstReplOfs + cReplaceLen,
-                       pszAfterFoundBackup,
-                       cTailLength + 1);
-                free(pszAfterFoundBackup);
-                        // done!
-            }
-            else
-                // no backup:
-                if (cReplaceLen < cReplLen)
-                    // "replace" is shorter than "found:
-                    memcpy(pxstr->psz + ulFirstReplOfs + cReplaceLen,
-                           pFound + cReplLen,
-                           cTailLength + 1);
-                // else (cReplaceLen == cReplLen):
-                // we can leave the tail as it is
-
+            // that's it; adjust the string length now
             pxstr->ulLength = cbNeeded - 1;
         }
 
@@ -870,11 +855,11 @@ PSZ xstrFindWord(const XSTRING *pxstr,        // in: buffer to search ("haystack
  *      null terminator) or 0 if pszSearch was not found
  *      (and pxstr was therefore not changed).
  *
- *      This starts the search at *pulOffset. If
- *      (*pulOffset == 0), this starts from the beginning
+ *      This starts the search at *pulOfs. If
+ *      (*pulOfs == 0), this starts from the beginning
  *      of pxstr.
  *
- *      If the string was found, *pulOffset will be set to the
+ *      If the string was found, *pulOfs will be set to the
  *      first character after the new replacement string. This
  *      allows you to call this func again with the same strings
  *      to have several occurences replaced (see the example below).
@@ -1006,10 +991,10 @@ ULONG xstrFindReplaceC(PXSTRING pxstr,              // in/out: string
  *@@ xstrConvertLineFormat:
  *      converts between line formats.
  *
- *      If (fToCFormat == TRUE), all \r\n pairs are replaced
+ *      If (fToCFormat == CRLF2LF), all \r\n pairs are replaced
  *      with \n chars (UNIX or C format).
  *
- *      Reversely, if (fToCFormat == FALSE), all \n chars
+ *      Reversely, if (fToCFormat == LF2CRLF), all \n chars
  *      are converted to \r\n pairs (DOS and OS/2 formats).
  *      No check is made whether this has already been done.
  *
@@ -1017,7 +1002,7 @@ ULONG xstrFindReplaceC(PXSTRING pxstr,              // in/out: string
  */
 
 VOID xstrConvertLineFormat(PXSTRING pxstr,
-                           BOOL fToCFormat) // in: if TRUE, to C format; if FALSE, to OS/2 format.
+                           BOOL fToCFormat) // in: if CRLF2LF, to C format; if LF2CRLF, to OS/2 format.
 {
     XSTRING     strFind,
                 strRepl;

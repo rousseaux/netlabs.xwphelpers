@@ -434,6 +434,11 @@ VOID excDumpStackFrames(FILE *file,                   // in: logfile from fopen(
                            szAddress,
                            *(pulStackWord+1));
         pulStackWord = (PULONG)*(pulStackWord);
+
+        if (pulStackWord == 0)
+            fprintf(file, "\n    pulStackWord == 0");
+        else if (pulStackWord >= (PULONG)ptib->tib_pstacklimit)
+            fprintf(file, "\n    pulStackWord >= (PULONG)ptib->tib_pstacklimit");
     } // end while
 }
 
@@ -735,7 +740,9 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
              */
 
             if (ptib != 0)
+            {
                 excDumpStackFrames(file, ptib, pContextRec);
+            }
         }
     }
     fprintf(file, "\n");
