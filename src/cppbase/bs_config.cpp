@@ -1821,8 +1821,10 @@ BSClearProfile::BSClearProfile(const ustring &ustrClearProfile)
         // extract profile
         _ustrProfile.assignUtf8(pcszClearProfile, pFirstBackslash);
 
-        if (   _ustrProfile.compareUtf8("USER")
-            && _ustrProfile.compareUtf8("SYSTEM")
+        // V1.0.7 (2005-05-15) [pr]: Changed to case-insensitive compare as there are
+        // a few broken packages out there
+        if (   _ustrProfile.compareUtf8I("USER")
+            && _ustrProfile.compareUtf8I("SYSTEM")
            )
         {
             while (pFirstBackslash)
