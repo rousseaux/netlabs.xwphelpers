@@ -330,7 +330,7 @@ APIRET tmfOpenMessageFile(const char *pcszMessageFile, // in: fully q'fied .TMF 
 {
     APIRET arc;
 
-    ULONG   cbFile;
+    ULONG   cbFile = 0; // V1.0.7 (2005-05-21) [pr]: Workaround for kernel bug
     PXFILE  pFile;
     if (!(arc = doshOpen(pcszMessageFile,
                          XOPEN_READ_EXISTING,
@@ -476,7 +476,7 @@ APIRET tmfGetMessage(PTMFMSGFILE pMsgFile,      // in: msg file opened by tmfOpe
                      ULONG cTableEntries)       // in: count of items in pTable or null
 {
     APIRET  arc;
-    ULONG   cbFile;
+    ULONG   cbFile = 0; // V1.0.7 (2005-05-21) [pr]: Workaround for kernel bug
     PXFILE  pFile;
 
     if (    (!pMsgFile)
