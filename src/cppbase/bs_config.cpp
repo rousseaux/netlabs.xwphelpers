@@ -2343,9 +2343,16 @@ int BSExecute::Execute(BSUniCodec &codecProcess, // in: codec for process codepa
         strParams.appendUtf8(&codecProcess, _ustrParams);
     }
 
+    // V1.0.7 (2005-05-30) [pr]: This doesn't work. Some packages rely on the current
+    // directory not being changed, so you cannot win whatever you do. In any case, the
+    // code below assumes it is always a path'd executable, which is not always the case.
+    // Perhaps we should just set BEGINLIBPATH here instead which will allow newly
+    // installed EXEs to find their DLLs.
+    //
     // V1.0.5 (2005-01-26) [pr]: Change directory to that of executable. @@fixes 626.
     // We remove any leading quotes and just leave the directory name, excluding a
     // trailing slash, unless it is a root directory.
+#if 0
     string    strDir;
     strDir.assignUtf8(&codecProcess, _ustrExecutable);
     strDir = strDir.substr(strDir.find_first_not_of("\"'"));
@@ -2358,6 +2365,7 @@ int BSExecute::Execute(BSUniCodec &codecProcess, // in: codec for process codepa
 
         doshSetCurrentDir(strDir.c_str());
     }
+#endif
 
     ULONG       sid = 0;
     PID         pid = 0;
