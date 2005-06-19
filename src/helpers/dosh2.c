@@ -484,6 +484,87 @@ APIRET doshSearchPath(const char *pcszPath,     // in: path variable name; if NU
 }
 
 /*
+ *@@ doshSearchDirs:
+ *      This looks along all directories which are
+ *      specified in the passed directory list
+ *      if pcszFile is found.
+ *
+ *      As opposed to the stupid DosSearchPath, this
+ *      ignores subdirectories in the path particles.
+ *      For example, DosSearchPath would usually not
+ *      find an INSTALL file because \OS2 contains
+ *      an INSTALL directory, or NETSCAPE because
+ *      \OS2\INSTALL contains a NETSCAPE directory.
+ *
+ *      Returns:
+ *
+ *      --  NO_ERROR: pszExecutable has received the
+ *          full path of pcszFile.
+ *
+ *      --  ERROR_FILE_NOT_FOUND: pcszFile was not found
+ *          in the specified path (or is a directory).
+ *
+ *      --  ERROR_BUFFER_OVERFLOW: pcszFile was found, but
+ *          the pszExecutable buffer is too small to hold
+ *          the full path.
+ *
+ *@@added V1.0.4 (2005-06-16) [chennecke]: blatantly stolen from doshSearchPath
+ */
+
+APIRET doshSearchDirs(const char *pcszDirList,  // in: list of directories in PATH style
+                      const char *pcszFile,     // in: file to look for (e.g. "LVM.EXE")
+                      PSZ pszExecutable,        // out: full path (e.g. "F:\os2\lvm.exe")
+                      ULONG cbExecutable)       // in: sizeof (*pszExecutable)
+{
+    APIRET arc = NO_ERROR;
+
+    // run thru the path components
+    PSZ pszPathCopy;
+    if (pszPathCopy = strdup(pcszDirList))
+    {
+        PSZ pszToken = strtok(pszPathCopy, ";");
+        while (pszToken)
+        {
+            CHAR szFileMask[2*CCHMAXPATH];
+            FILESTATUS3 fs3;
+
+            sprintf(szFileMask,
+                    "%s\\%s",
+                    pszToken,           // path particle
+                    pcszFile);          // e.g. "netscape"
+
+            if (    (!(arc = DosQueryPathInfo(szFileMask,
+                                              FIL_STANDARD,
+                                              &fs3,
+                                              sizeof(fs3))))
+                 // make sure it's not a directory
+                 // and that it's not hidden
+                 && (!(fs3.attrFile & (FILE_DIRECTORY | FILE_HIDDEN)))
+               )
+            {
+                // copy
+                arc = CopyToBuffer(pszExecutable,
+                                   szFileMask,
+                                   cbExecutable);
+                // and stop
+                break;
+            }
+            else
+                arc = ERROR_FILE_NOT_FOUND;
+                // and search on
+
+            pszToken = strtok(NULL, ";");
+        };
+
+        free(pszPathCopy);
+    }
+    else
+        arc = ERROR_NOT_ENOUGH_MEMORY;
+
+    return arc;
+}
+
+/*
  * FindFile:
  *      helper for doshFindExecutable.
  *

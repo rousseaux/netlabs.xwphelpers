@@ -745,6 +745,12 @@ extern "C" {
                           PSZ pszExecutable,
                           ULONG cbExecutable);
 
+    // added V1.0.4 (2005-06-16) [chennecke]
+    APIRET doshSearchDirs(PCSZ pcszDirList,
+                          PCSZ pcszFile,
+                          PSZ pszExecutable,
+                          ULONG cbExecutable);
+
     APIRET doshFindExecutable(PCSZ pcszCommand,
                               PSZ pszExecutable,
                               ULONG cbExecutable,
