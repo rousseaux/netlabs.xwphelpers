@@ -3079,14 +3079,21 @@ PSZ winhQueryWindowFont(HWND hwnd)
  *@@ winhQueryDefaultFont:
  *
  *@@added V1.0.1 (2002-11-30) [umoeller]
+ *@@changed V1.0.4 (2005-09-02) [bvl]: Return 'Combined' fonts on DBCS systems to show DBCS characters properly @@fixes 655
  */
 
 PCSZ winhQueryDefaultFont(VOID)
 {
     if (doshIsWarp4())
-        return "9.WarpSans";
-
-    return "8.Helv";
+        if(nlsDBCS())
+            return "9.WarpSans Combined";
+        else
+            return "9.WarpSans";
+    else
+        if(nlsDBCS())
+            return "8.Helv Combined";
+        else
+            return "8.Helv";
 }
 
 /*
@@ -3152,6 +3159,7 @@ BOOL winhSetWindowFont(HWND hwnd,
  *      Returns the no. of controls set.
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V1.0.4 (2005-09-02) [bvl]: Return 'Combined' fonts on DBCS systems to show DBCS characters properly @@fixes 655
  */
 
 ULONG winhSetControlsFont(HWND hwndDlg,      // in: dlg to set
@@ -3162,21 +3170,12 @@ ULONG winhSetControlsFont(HWND hwndDlg,      // in: dlg to set
     ULONG   ulrc = 0;
     HENUM   henum;
     HWND    hwndItem;
-    CHAR    szFont[256];
     ULONG   cbFont;
 
-    if (pcszFont == NULL)
-    {
-        if (doshIsWarp4())
-            strhncpy0(szFont, "9.WarpSans", sizeof(szFont));
-        else
-            strhncpy0(szFont, "8.Helv", sizeof(szFont));
-    }
-    else
-        strhncpy0(szFont, pcszFont, sizeof(szFont));
+    if (!pcszFont)
+        pcszFont = winhQueryDefaultFont();
 
-    cbFont = strlen(szFont) + 1;
-
+    cbFont = strlen(pcszFont) + 1;
     // set font for all the dialog controls
     henum = WinBeginEnumWindows(hwndDlg);
     while ((hwndItem = WinGetNextWindow(henum)))
@@ -3188,7 +3187,7 @@ ULONG winhSetControlsFont(HWND hwndDlg,      // in: dlg to set
             if (WinSetPresParam(hwndItem,
                                 PP_FONTNAMESIZE,
                                 cbFont,
-                                szFont))
+                                (PSZ)pcszFont))
                 // successful:
                 ulrc++;
     }
