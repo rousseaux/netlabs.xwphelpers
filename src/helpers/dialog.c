@@ -37,7 +37,7 @@
  */
 
 /*
- *      Copyright (C) 2001-2002 Ulrich M”ller.
+ *      Copyright (C) 2001-2005 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -1299,11 +1299,11 @@ STATIC APIRET ColumnCreateControl(PCOLUMNDEF pColumn,
 {
     APIRET      arc = NO_ERROR;
 
-    PCSZ        pcszClass = NULL;
-    PCSZ        pcszText = NULL;
-    ULONG       flStyle = 0;
-    LHANDLE     lHandleSet = NULLHANDLE;
-    ULONG       flOld = 0;
+    volatile PCSZ        pcszClass = NULL; // XWP V1.0.4 (2005-10-09) [pr]
+    volatile PCSZ        pcszText = NULL;
+    volatile ULONG       flStyle = 0;
+    volatile LHANDLE     lHandleSet = NULLHANDLE;
+    volatile ULONG       flOld = 0;
 
     if (pColumn->pNestedTable)
     {
@@ -3101,7 +3101,7 @@ APIRET dlghCreateDlg(HWND *phwndDlg,            // out: new dialog
 {
     APIRET      arc = NO_ERROR;
 
-    HPOINTER    hptrOld = winhSetWaitPointer();     // V1.0.0 (2002-08-21) [umoeller]
+    volatile HPOINTER hptrOld = winhSetWaitPointer(); // XWP V1.0.4 (2005-10-09) [pr]
 
     TRY_LOUD(excpt1)
     {

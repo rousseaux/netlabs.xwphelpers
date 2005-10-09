@@ -127,7 +127,7 @@
  +
  +          int your_func(int)
  +          {
- +              BOOL    fSemOwned = FALSE;
+ +              volatile BOOL    fSemOwned = FALSE;
  +
  +              TRY_QUIET(excpt1)           // or TRY_LOUD
  +              {
@@ -187,13 +187,13 @@
  */
 
 /*
- *      This file Copyright (C) 1992-99 Ulrich M”ller,
- *                                      Monte Copeland,
- *                                      Roman Stangl,
- *                                      Kim Rasmussen,
- *                                      Marc Fiammante,
- *                                      John Currier,
- *                                      Anthony Cruise.
+ *      This file Copyright (C) 1992-2005 Ulrich M”ller,
+ *                                        Monte Copeland,
+ *                                        Roman Stangl,
+ *                                        Kim Rasmussen,
+ *                                        Marc Fiammante,
+ *                                        John Currier,
+ *                                        Anthony Cruise.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -916,11 +916,8 @@ ULONG _System excHandlerLoud(PEXCEPTIONREPORTRECORD pReportRec,
      *      So for all these conditions, we exit immediately.
      */
 
-    if (pReportRec->fHandlerFlags & EH_EXIT_UNWIND)
-       return XCPT_CONTINUE_SEARCH;
-    if (pReportRec->fHandlerFlags & EH_UNWINDING)
-       return XCPT_CONTINUE_SEARCH;
-    if (pReportRec->fHandlerFlags & EH_NESTED_CALL)
+    // XWP V1.0.4 (2005-10-09) [pr]: Optimize
+    if (pReportRec->fHandlerFlags & (EH_EXIT_UNWIND | EH_UNWINDING | EH_NESTED_CALL))
        return XCPT_CONTINUE_SEARCH;
 
     switch (pReportRec->ExceptionNum)
@@ -1012,11 +1009,8 @@ ULONG _System excHandlerQuiet(PEXCEPTIONREPORTRECORD pReportRec,
                               PCONTEXTRECORD pContextRec,
                               PVOID pv)
 {
-    if (pReportRec->fHandlerFlags & EH_EXIT_UNWIND)
-       return XCPT_CONTINUE_SEARCH;
-    if (pReportRec->fHandlerFlags & EH_UNWINDING)
-       return XCPT_CONTINUE_SEARCH;
-    if (pReportRec->fHandlerFlags & EH_NESTED_CALL)
+    // XWP V1.0.4 (2005-10-09) [pr]: Optimize
+    if (pReportRec->fHandlerFlags & (EH_EXIT_UNWIND | EH_UNWINDING | EH_NESTED_CALL))
        return XCPT_CONTINUE_SEARCH;
 
     switch (pReportRec->ExceptionNum)

@@ -11,7 +11,7 @@
  */
 
 /*
- *      Copyright (C) 2000 Ulrich M”ller.
+ *      Copyright (C) 2000-2005 Ulrich M”ller.
  *      This program is part of the XWorkplace package.
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
@@ -284,7 +284,7 @@ STATIC VOID CreateRecords(HWND hwndCnr,
     PMEMRECORD  pMemRecordFirst;
 
     ULONG       cHeapItems = 0;
-    BOOL        fLocked = FALSE;
+    volatile BOOL       fLocked = FALSE; // XWP V1.0.4 (2005-10-09) [pr]
 
     TRY_LOUD(excpt1)
     {
@@ -842,5 +842,5 @@ void memdDummy2(void)
     int i = 0;
     i++;
 }
-#endif
+#endif // __XWPMEMDEBUG__
 

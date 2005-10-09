@@ -18,7 +18,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2003 Ulrich M”ller.
+ *      Copyright (C) 1997-2005 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -552,8 +552,8 @@ APIRET mmhCreateBitmapFromBits(PSIZEL pszlTarget,   // in: desired size of new b
 {
     APIRET  arc = NO_ERROR;
 
-    HDC     hdcMem = NULLHANDLE;
-    HPS     hpsMem = NULLHANDLE;
+    volatile HDC     hdcMem = NULLHANDLE; // XWP V1.0.4 (2005-10-09) [pr]
+    volatile HPS     hpsMem = NULLHANDLE;
 
     if (!G_fFuncsResolved)
         return MMHERR_MMPM_NOT_INITIALIZED;
@@ -723,8 +723,8 @@ APIRET mmhLoadImage(PCSZ pcszFilename,  // in: filename to load
 {
     APIRET  arc = NO_ERROR;
 
-    PBYTE   pbBitmapBits = NULL;
-    HMMIO   hmmio = NULLHANDLE;
+    volatile PBYTE   pbBitmapBits = NULL; // XWP V1.0.4 (2005-10-09) [pr]
+    volatile HMMIO   hmmio = NULLHANDLE;
 
     if (    (!pcszFilename)
          || (!phbmOut)
@@ -777,5 +777,4 @@ APIRET mmhLoadImage(PCSZ pcszFilename,  // in: filename to load
 
     return arc;
 }
-
 

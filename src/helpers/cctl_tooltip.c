@@ -14,7 +14,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2002 Ulrich M”ller.
+ *      Copyright (C) 1997-2005 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -1961,9 +1961,12 @@ MRESULT EXPENTRY ctl_fnwpTooltip(HWND hwndTooltip, ULONG msg, MPARAM mp1, MPARAM
                 mrc = WinDefWindowProc(hwndTooltip, msg, mp1, mp2);
         }
     }
-    CATCH(excpt1) {} END_CATCH();
+    CATCH(excpt1)
+    {
+        mrc = 0;        // XWP V1.0.4 (2005-10-09) [pr]
+    }
+    END_CATCH();
 
     return mrc;
 }
-
 

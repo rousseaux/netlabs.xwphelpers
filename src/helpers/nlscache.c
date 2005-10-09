@@ -18,7 +18,7 @@
  */
 
 /*
- *      Copyright (C) 2001-2002 Ulrich M”ller.
+ *      Copyright (C) 2001-2005 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -257,7 +257,7 @@ VOID nlsInitStrings(HAB hab,                    // in: anchor block
                     PCSTRINGENTITY paEntities,  // in: entities array or NULL
                     ULONG cEntities)            // in: array item count of paEntities or 0
 {
-    BOOL    fLocked = FALSE;
+    volatile BOOL    fLocked = FALSE; // XWP V1.0.4 (2005-10-09) [pr]
 
     TRY_LOUD(excpt1)
     {
@@ -341,7 +341,7 @@ VOID nlsInitStrings(HAB hab,                    // in: anchor block
 
 PCSZ nlsGetString(ULONG ulStringID)
 {
-    BOOL    fLocked = FALSE;
+    volatile BOOL    fLocked = FALSE; // XWP V1.0.4 (2005-10-09) [pr]
     PSZ     pszReturn = "Error";
 
     TRY_LOUD(excpt1)
@@ -393,12 +393,15 @@ PCSZ nlsGetString(ULONG ulStringID)
             // we must always return a string, never NULL
             pszReturn = "Cannot get strings lock.";
     }
-    CATCH(excpt1) {} END_CATCH();
+    CATCH(excpt1)
+    {
+        pszReturn = "Error";
+    }
+    END_CATCH();
 
     if (fLocked)
         UnlockStrings();
 
     return pszReturn;
 }
-
 

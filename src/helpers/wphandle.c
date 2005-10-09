@@ -23,7 +23,7 @@
  */
 
 /*
- *      This file Copyright (C) 1997-2001 Ulrich M”ller,
+ *      This file Copyright (C) 1997-2005 Ulrich M”ller,
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -794,8 +794,8 @@ APIRET wphQueryHandleFromPath(HINI hiniUser,      // in: HINI_USER or other INI 
 {
     APIRET      arc = NO_ERROR;
 
-    PSZ         pszActiveHandles = NULL;
-    HHANDLES    hHandles = NULLHANDLE;
+    volatile PSZ         pszActiveHandles = NULL; // XWP V1.0.4 (2005-10-09) [pr]
+    volatile HHANDLES    hHandles = NULLHANDLE;
 
     TRY_LOUD(excpt1)
     {

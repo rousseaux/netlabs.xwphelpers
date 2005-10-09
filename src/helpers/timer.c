@@ -67,7 +67,7 @@
  */
 
 /*
- *      Copyright (C) 2000-2001 Ulrich M”ller.
+ *      Copyright (C) 2000-2005 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -467,7 +467,7 @@ VOID tmrDestroySet(PXTIMERSET pSet)     // in: timer set (from tmrCreateSet)
 
 VOID tmrTimerTick(PXTIMERSET pSet)      // in: timer set (from tmrCreateSet)
 {
-    BOOL fLocked = FALSE;
+    volatile BOOL fLocked = FALSE; // XWP V1.0.4 (2005-10-09) [pr]
 
     TRY_LOUD(excpt1)
     {

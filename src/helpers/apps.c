@@ -14,7 +14,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2002 Ulrich M”ller.
+ *      Copyright (C) 1997-2005 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -1479,14 +1479,13 @@ STATIC APIRET CallDosStartSession(HAPP *phapp,
                                   PSZ pszFailingName)
 {
     APIRET      arc = NO_ERROR;
-
-    BOOL        fCrit = FALSE,
-                fResetDir = FALSE;
+    volatile BOOL        fCrit = FALSE;         // XWP V1.0.4 (2005-10-09) [pr]
+    volatile BOOL        fResetDir = FALSE;
     CHAR        szCurrentDir[CCHMAXPATH];
-
     ULONG       sid,
                 pid;
     STARTDATA   SData;
+
     SData.Length  = sizeof(STARTDATA);
     SData.Related = SSF_RELATED_INDEPENDENT; // SSF_RELATED_CHILD;
     // per default, try to start this in the foreground
