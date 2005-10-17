@@ -1043,6 +1043,7 @@ STATIC MRESULT TtmGetToolInfo(HWND hwndTooltip, MPARAM mp2)
  *      you must show it afterwards.
  *
  *@@added V0.9.13 (2001-06-21) [umoeller]
+ *@@changed V1.0.4 (2005-10-15) [bvl]: Add 1 pixel to width of DBCS tooltip @@fixes 676
  */
 
 STATIC VOID FormatTooltip(HWND hwndTooltip,
@@ -1064,7 +1065,11 @@ STATIC VOID FormatTooltip(HWND hwndTooltip,
     WinReleasePS(hps);
 
     // calc width and height of tooltip
+    // DBCS needs a extra pixel to show characters.
     cx = rcl.xRight + 2*TOOLTIP_CX_BORDER;
+    if (nlsDBCS())
+        cx++;
+
     cy = (rcl.yTop - rcl.yBottom) + 2*TOOLTIP_CY_BORDER;
 
     // calc x and y pos of tooltip:
