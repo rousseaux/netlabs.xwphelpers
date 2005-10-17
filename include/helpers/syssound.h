@@ -37,6 +37,12 @@ extern "C" {
      *
      ********************************************************************/
 
+    /* Undocumented WinAlarm Values to reflect changes to sound settings right away */
+    #define WA_TEST                997
+    #define WA_ENABLESOUNDS        998
+    #define WA_APPLYVOLUMETOALL    999
+    #define WA_FILECHANGED        1000
+
     /* keys for accessing sounds in MMPM.INI */
     #define MMINIKEY_SYSSOUNDS      "MMPM2_AlarmSounds"
     #define MMINIKEY_SOUNDSETTINGS  "MMPM2_AlarmSoundsData"

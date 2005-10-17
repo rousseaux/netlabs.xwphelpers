@@ -379,7 +379,7 @@ BOOL sndWriteSoundData(HINI hiniMMPM,       // in: MMPM.INI handle (from sndOpen
             // we then need to notify MMPM/2...
             // this is done by calling WinAlarm with 1000+index!
             // sick stuff..
-            WinAlarm(HWND_DESKTOP, usIndex+1000); // V0.9.6 (2000-10-16) [umoeller]
+            WinAlarm(HWND_DESKTOP, WA_FILECHANGED + usIndex); // V0.9.6 (2000-10-16) [umoeller]
 
     return brc;
 }
@@ -700,7 +700,7 @@ APIRET sndLoadSoundScheme(HINI hiniMMPM,      // in: HINI of ?:\MMOS2\MMPM.INI (
                                 // this was one of the default OS/2 sounds:
                                 // notify MMPM/2 of the change... see sndWriteSoundData
                                 // V0.9.6 (2000-10-16) [umoeller]
-                                WinAlarm(HWND_DESKTOP, usIndex+1000);
+                                WinAlarm(HWND_DESKTOP, WA_FILECHANGED + usIndex);
                         }
                     }
 
