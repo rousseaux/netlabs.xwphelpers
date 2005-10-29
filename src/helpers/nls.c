@@ -48,17 +48,23 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <unidef.h>
+#include <uconv.h>
 
 // XWP's setup.h replaces strchr and the like, and
 // we want the originals in here
 #define DONT_REPLACE_FOR_DBCS
 #include "setup.h"                      // code generation and debugging options
 
+#include "helpers\dosh.h"
 #include "helpers\nls.h"
 #include "helpers\prfh.h"
 #include "helpers\standards.h"
 
 #pragma hdrstop
+
+#pragma library("LIBULS")
+#pragma library("LIBCONV")
 
 /*
  *@@category: Helpers\National Language Support
@@ -371,6 +377,7 @@ PSZ nlsrchr(PCSZ p, char c)
  *@@ nlsGetAMPM:
  *
  *@@added V1.0.1 (2003-01-17) [umoeller]
+ *@@changed V1.0.4 (2005-10-15) [pr]: Added support for Locale object settings on MCP systems @@fixes 614
  */
 
 VOID nlsGetAMPM(PCOUNTRYAMPM pampm)
@@ -388,6 +395,75 @@ VOID nlsGetAMPM(PCOUNTRYAMPM pampm)
                           "AM",           // default
                           pampm->sz1159,
                           sizeof(pampm->sz1159));
+    if (doshIsWarp4()==2)
+    {
+        UconvObject         uconv_object;
+
+        if (UniCreateUconvObject((UniChar *)L"",
+                                 &uconv_object) == ULS_SUCCESS)
+        {
+            LocaleObject locale_object;
+
+            if (UniCreateLocaleObject(UNI_UCS_STRING_POINTER,
+                                      (UniChar *)L"",
+                                      &locale_object) == ULS_SUCCESS)
+            {
+                int i;
+                struct LOCALE_ITEMLIST
+                {
+                    LocaleItem      lclItem;
+                    PVOID           vTarget;
+                    int             iType;
+                } itemList[] = {
+                    { LOCI_s2359, &pampm->sz2359, 3 },
+                    { LOCI_s1159, &pampm->sz1159, 3 }
+                               };
+
+                for (i = 0;
+                     i < sizeof(itemList) / sizeof(itemList[0]);
+                     i++)
+                {
+                    UniChar *pItem;
+
+                    if (UniQueryLocaleItem(locale_object,
+                                           itemList[i].lclItem,
+                                           &pItem) == ULS_SUCCESS)
+                    {
+                        int iLen = UniStrlen(pItem) + 1;
+                        PSZ pszResult = malloc(iLen);
+
+                        if (UniStrFromUcs(uconv_object,
+                                          pszResult,
+                                          pItem,
+                                          iLen) == ULS_SUCCESS)
+                        {
+                            switch(itemList[i].iType)
+                            {
+                                case 1:
+                                    *((ULONG *) itemList[i].vTarget) = atol(pszResult);
+                                    break;
+
+                                case 2:
+                                    *((CHAR *) itemList[i].vTarget) = pszResult[0];
+                                    break;
+
+                                case 3:
+                                    strcpy (itemList[i].vTarget, pszResult);
+                                    break;
+                            }
+                        }
+
+                        free(pszResult);
+                        UniFreeMem(pItem);
+                    }
+                }
+
+                UniFreeLocaleObject(locale_object);
+            }
+
+            UniFreeUconvObject(uconv_object);
+        }
+    }
 }
 
 /*
@@ -409,6 +485,8 @@ VOID nlsGetAMPM(PCOUNTRYAMPM pampm)
  *
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.7 (2000-12-02) [umoeller]: added cDecimal
+ *@@changed V1.0.4 (2005-10-15) [bvl]: Added support for Locale object settings on MCP systems @@fixes 614
+ *@@changed V1.0.4 (2005-10-29) [pr]: Rewritten to prevent memory leaks and errors
  */
 
 VOID nlsQueryCountrySettings(PCOUNTRYSETTINGS2 pcs2)
@@ -440,6 +518,79 @@ VOID nlsQueryCountrySettings(PCOUNTRYSETTINGS2 pcs2)
                                                (PSZ)PMINIAPP_NATIONAL,
                                                "sThousand",
                                                ',');
+        if (doshIsWarp4()==2)
+        {
+            UconvObject         uconv_object;
+
+            if (UniCreateUconvObject((UniChar *)L"",
+                                     &uconv_object) == ULS_SUCCESS)
+            {
+                LocaleObject locale_object;
+
+                if (UniCreateLocaleObject(UNI_UCS_STRING_POINTER,
+                                          (UniChar *)L"",
+                                          &locale_object) == ULS_SUCCESS)
+                {
+                    int i;
+                    struct LOCALE_ITEMLIST
+                    {
+                        LocaleItem      lclItem;
+                        PVOID           vTarget;
+                        int             iType;
+                    } itemList[] = {
+                        { LOCI_iDate, &pcs->ulDateFormat, 1 },
+                        { LOCI_iTime, &pcs->ulTimeFormat, 1 },
+                        { LOCI_sDate, &pcs->cDateSep, 2 },
+                        { LOCI_sTime, &pcs->cTimeSep, 2 },
+                        { LOCI_sDecimal, &pcs->cDecimal, 2 },
+                        { LOCI_sThousand, &pcs->cThousands, 2 }
+                                   };
+
+                    for (i = 0;
+                         i < sizeof(itemList) / sizeof(itemList[0]);
+                         i++)
+                    {
+                        UniChar *pItem;
+
+                        if (UniQueryLocaleItem(locale_object,
+                                               itemList[i].lclItem,
+                                               &pItem) == ULS_SUCCESS)
+                        {
+                            int iLen = UniStrlen(pItem) + 1;
+                            PSZ pszResult = malloc(iLen);
+
+                            if (UniStrFromUcs(uconv_object,
+                                              pszResult,
+                                              pItem,
+                                              iLen) == ULS_SUCCESS)
+                            {
+                                switch(itemList[i].iType)
+                                {
+                                    case 1:
+                                        *((ULONG *) itemList[i].vTarget) = atol(pszResult);
+                                        break;
+
+                                    case 2:
+                                        *((CHAR *) itemList[i].vTarget) = pszResult[0];
+                                        break;
+
+                                    case 3:
+                                        strcpy (itemList[i].vTarget, pszResult);
+                                        break;
+                                }
+                            }
+
+                            free(pszResult);
+                            UniFreeMem(pItem);
+                        }
+                    }
+
+                    UniFreeLocaleObject(locale_object);
+                }
+
+                UniFreeUconvObject(uconv_object);
+            }
+        }
 
         nlsGetAMPM(&pcs2->ampm);
     }
