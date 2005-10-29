@@ -588,8 +588,8 @@ APIRET mmhCreateBitmapFromBits(PSIZEL pszlTarget,   // in: desired size of new b
 
         if (!gpihCreateMemPS(WinQueryAnchorBlock(HWND_DESKTOP),
                              &szlPS,
-                             &hdcMem,
-                             &hpsMem))
+                             (HDC *) &hdcMem,
+                             (HPS *) &hpsMem))
             arc = MMHERR_GPIGREATEPS_FAILED;
         else
         {
@@ -742,7 +742,7 @@ APIRET mmhLoadImage(PCSZ pcszFilename,  // in: filename to load
     {
         if (!(arc = mmhOpenImage(pcszFilename,
                                  fccIOProc,
-                                 &hmmio)))
+                                 (HMMIO *) &hmmio)))
         {
             MMIMAGEHEADER   mmihSource;
             ULONG           cbBytesPerRow;
@@ -754,7 +754,7 @@ APIRET mmhLoadImage(PCSZ pcszFilename,  // in: filename to load
                 if (!(arc = mmhLoadImageBits(hmmio,
                                              &mmihSource,
                                              cbBytesPerRow,
-                                             &pbBitmapBits)))
+                                             (PBYTE *) &pbBitmapBits)))
                 {
                     arc = mmhCreateBitmapFromBits(pszlBmp,
                                                   &mmihSource.mmXDIBHeader.BMPInfoHeader2,
