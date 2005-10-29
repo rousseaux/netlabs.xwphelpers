@@ -801,14 +801,14 @@ APIRET wphQueryHandleFromPath(HINI hiniUser,      // in: HINI_USER or other INI 
     {
         // not found there: check the handles then
 
-        if (arc = wphQueryActiveHandles(hiniSystem, &pszActiveHandles))
+        if (arc = wphQueryActiveHandles(hiniSystem, (PSZ *) &pszActiveHandles))
             _Pmpf((__FUNCTION__ ": wphQueryActiveHandles returned %d", arc));
         else
         {
             if (arc = wphLoadHandles(hiniUser,
                                      hiniSystem,
                                      pszActiveHandles,
-                                     &hHandles))
+                                     (HHANDLES *) &hHandles))
                 _Pmpf((__FUNCTION__ ": wphLoadHandles returned %d", arc));
             else
             {
@@ -835,7 +835,7 @@ APIRET wphQueryHandleFromPath(HINI hiniUser,      // in: HINI_USER or other INI 
     if (pszActiveHandles)
         free(pszActiveHandles);
     if (hHandles)
-        wphFreeHandles(&hHandles);
+        wphFreeHandles((HHANDLES *) &hHandles);
 
     return arc;
 }
