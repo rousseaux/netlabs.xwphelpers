@@ -616,11 +616,12 @@ int BSCfgSysManip::AddToUndoList(list<BSConfigBase*> &List,
  *      -- BSConfigExcpt.
  *
  *@@changed V0.9.7 (2001-01-15) [umoeller]: now using csysLoadConfigSys
+ *@@changed WarpIN V1.0.9 (2006-02-16) [pr]: added _pszContentOld
  */
 
 BSConfigSys::BSConfigSys() : BSRoot(tBSConfigSys)
 {
-    _pszContent = NULL;
+    _pszContent = _pszContentOld = NULL;
 
     /* sprintf(_szFilename, "%c:\\config.sys", doshQueryBootDrive());
     // now read CONFIG.SYS file to initialize the dlg items
@@ -631,6 +632,8 @@ BSConfigSys::BSConfigSys() : BSRoot(tBSConfigSys)
 
     if (arc != NO_ERROR)
         throw BSConfigExcpt(CFGEXCPT_OPEN, arc);
+    else
+        _pszContentOld = strhdup(_pszContent, NULL);
 
     _fDirty = FALSE;
 }
@@ -641,12 +644,17 @@ BSConfigSys::BSConfigSys() : BSRoot(tBSConfigSys)
  *
  *      This does _not_ write the file. Use BSConfigSys::Flush()
  *      before deleting an instance of this.
+ *
+ *@@changed WarpIN V1.0.9 (2006-02-16) [pr]: added _pszContentOld
  */
 
 BSConfigSys::~BSConfigSys()
 {
     if (_pszContent)
         free(_pszContent);
+
+    if (_pszContentOld)
+        free(_pszContentOld);
 }
 
 /*
@@ -765,6 +773,7 @@ int BSConfigSys::Manipulate(BSUniCodec &codecProcess, // in: codec for process c
  *@@changed V0.9.3 (2000-05-03) [umoeller]: added more error checking
  *@@changed V0.9.3 (2000-05-12) [umoeller]: added pszBackup
  *@@changed V0.9.6 (2000-10-27) [umoeller]: added check if contents are dirty
+ *@@changed WarpIN V1.0.9 (2006-02-16) [pr]: added _pszContentOld
  */
 
 int BSConfigSys::Flush(string *pstrBackup,          // in/out: create backup?
@@ -773,7 +782,10 @@ int BSConfigSys::Flush(string *pstrBackup,          // in/out: create backup?
 {
     int irc = 0;
 
-    if (_fDirty)
+    // WarpIN V1.0.9 (2006-02-16) [pr]: Check for content modification @@fixes 269
+    if (   _fDirty
+        && strhcmp (_pszContent, _pszContentOld)
+       )
     {
         PSZ pszBackup = NULL;
         CHAR szBackup[CCHMAXPATH];

@@ -221,6 +221,7 @@
      *
      *@@changed V0.9.0 (99-11-06) [umoeller]: renamed from ConfigSys
      *@@changed V0.9.6 (2000-10-27) [umoeller]: added _fDirty
+     *@@changed WarpIN V1.0.9 (2006-02-16) [pr]: added _pszContentOld
      */
 
     class BSConfigSys : public BSRoot
@@ -230,6 +231,7 @@
 
         protected:
             char        *_pszContent;
+            char        *_pszContentOld;
             BOOL        _fDirty;                 // TRUE if _pszContent has changed
 
         public:
