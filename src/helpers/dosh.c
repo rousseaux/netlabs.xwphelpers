@@ -4657,10 +4657,12 @@ APIRET doshExecVIO(PCSZ pcszExecWithArgs,
  *@@changed V0.9.14 (2001-08-03) [umoeller]: fixed memory leak in wait mode; added pusReturn to prototype
  *@@changed V1.0.2  (2003-02-04) [jsmall  ]: inserted new 3rd parameter for session type
  *@@changed V1.0.2  (2003-02-04) [jsmall  ]: changed code so when fWait = FALSE then session is started as independent, not as a child
+ *@@changed V1.0.5 (2006-04-01) [pr]: Added pcszTitle parameter
  */
 
 APIRET doshQuickStartSession(PCSZ pcszPath,         // in: program to start
                              PCSZ pcszParams,       // in: parameters for program
+                             PCSZ pcszTitle,        // in: window title
                              USHORT usSessionType,  // in: session type
                              BOOL fForeground,      // in: if TRUE, session will be in foreground
                              USHORT usPgmCtl,       // in: STARTDATA.PgmControl
@@ -4696,7 +4698,12 @@ APIRET doshQuickStartSession(PCSZ pcszPath,         // in: program to start
                 // V0.9.3 (2000-05-03) [umoeller]
         SData.TraceOpt = SSF_TRACEOPT_NONE;
 
-        SData.PgmTitle = (PSZ)pcszPath;       // title for window
+        // V1.0.5 (2006-04-01) [pr]
+        if (pcszTitle && *pcszTitle)
+            SData.PgmTitle = (PSZ)pcszTitle;      // title for window
+        else
+            SData.PgmTitle = (PSZ)pcszPath;
+
         SData.PgmName = (PSZ)pcszPath;
         SData.PgmInputs = (PSZ)pcszParams;
 

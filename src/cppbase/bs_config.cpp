@@ -2342,11 +2342,14 @@ ustring BSExecute::DescribeData()
  *@@added V0.9.1 (2000-02-07) [umoeller]
  *@@changed V0.9.18 (2002-03-08) [umoeller]: added codec
  *@@changed V1.0.5 (2005-01-25) [pr]: Change directory to that of executable
+ *@@changed WarpIN V1.0.10 (2006-04-01) [pr]: Set title in doshStartSession call
  */
 
 int BSExecute::Execute(BSUniCodec &codecProcess, // in: codec for process codepage,
                        BSFileLogger *pLogFile)  // in: file logger (log file), can be NULL
 {
+    string    strTitle;
+    strTitle.assignUtf8(&codecProcess, _ustrExecutable);
     string    strParams = "/c ";
     strParams.appendUtf8(&codecProcess, _ustrExecutable);
     if (_ustrParams())
@@ -2383,6 +2386,7 @@ int BSExecute::Execute(BSUniCodec &codecProcess, // in: codec for process codepa
     PID         pid = 0;
     if (_arc = doshQuickStartSession("cmd.exe",
                                      (PSZ)strParams.c_str(),
+                                     (PSZ)strTitle.c_str(),
                                      SSF_TYPE_DEFAULT,            // session type
                                      FALSE,   // foreground
                                      0,       // auto-close, visible
