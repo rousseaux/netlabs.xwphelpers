@@ -90,6 +90,7 @@
      *@@changed V0.9.9 (2001-03-30) [umoeller]: added BSLoggerRoot abstract base class
      *@@changed V0.9.9 (2001-03-30) [umoeller]: renamed from BSLoggerBase
      *@@changed V0.9.20 (2002-07-22) [umoeller]: added copy constructor to avoid flat copy
+     *@@changed WarpIN V1.0.10 (2006-04-05) [pr]: added Clear method
      */
 
     class BSMemLoggerBase
@@ -111,6 +112,8 @@
             void Append(const char *pabData, unsigned long cbData);
             // void Append(const char *pcsz);
             void Append(const ustring &ustr);
+
+            void Clear(void);
 
             BOOL Store(HINI hini, const char *pszApp, const char *pszKey) const;
             BOOL Load(HINI hini, const char *pszApp, const char *pszKey);

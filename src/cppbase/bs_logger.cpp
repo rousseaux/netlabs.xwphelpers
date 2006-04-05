@@ -249,6 +249,23 @@ void BSMemLoggerBase::Append(const ustring &ustr)
 }
 
 /*
+ *@@ Clear:
+ *      this clears the whole Logger string.
+ *
+ *@@added WarpIN V1.0.10 (2006-04-05) [pr]
+ */
+
+void BSMemLoggerBase::Clear(void)
+{
+    if (_pabLogString)
+    {
+        free(_pabLogString);
+        _pabLogString = 0;
+        _cbLogString = 0;
+    }
+}
+
+/*
  *@@ Store:
  *      this stores the whole BSMemLoggerBase in the given profile key.
  *      Returns TRUE if successfully written.
