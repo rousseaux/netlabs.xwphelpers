@@ -14,7 +14,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2000 Ulrich M”ller.
+ *      Copyright (C) 1997-2006 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -273,6 +273,7 @@ MRESULT EXPENTRY ctl_fnwpSplitWindow(HWND hwndSplit, ULONG msg, MPARAM mp1, MPAR
  *      implementation for WM_BUTTON1DOWN/WM_BUTTON2DOWN in ctl_fnwpSplitBar.
  *
  *@@added V0.9.1 (2000-02-05) [umoeller]
+ *@@changed XWP V1.0.5 (2006-04-13) [pr]: Fix horrid rounding errors
  */
 
 STATIC VOID TrackSplitBar(HWND hwndBar,
@@ -358,8 +359,9 @@ STATIC VOID TrackSplitBar(HWND hwndBar,
                 RECTL rclClient;
                 WinQueryWindowRect(pData->sbcd.hwndParentAndOwner,
                                    &rclClient);
-                pData->sbcd.lPos = ulNewYPos
-                                   * 100 / (rclClient.yTop - rclClient.yBottom);
+                // XWP V1.0.5 (2006-04-13) [pr]: Fix horrid rounding errors
+                pData->sbcd.lPos = (ulNewYPos * 200 + (rclClient.yTop - rclClient.yBottom))
+                                   / ((rclClient.yTop - rclClient.yBottom) * 2);
             }
             else
                 // absolute split bar positioning:
@@ -392,8 +394,9 @@ STATIC VOID TrackSplitBar(HWND hwndBar,
                 RECTL rclClient;
                 WinQueryWindowRect(pData->sbcd.hwndParentAndOwner,
                                    &rclClient);
-                pData->sbcd.lPos = ulNewXPos
-                                   * 100 / (rclClient.xRight - rclClient.xLeft);
+                // XWP V1.0.5 (2006-04-13) [pr]: Fix horrid rounding errors
+                pData->sbcd.lPos = (ulNewXPos * 200 + (rclClient.xRight - rclClient.xLeft))
+                                   / ((rclClient.xRight - rclClient.xLeft) * 2);
             }
             else
                 // absolute split bar positioning:
@@ -823,6 +826,7 @@ HWND ctlCreateSplitWindow(HAB hab,
  *
  *@@added V0.9.0 [umoeller]
  *@@changed V1.0.0 (2002-08-24) [umoeller]: added support for SBCF_3DEXPLORERSTYLE
+ *@@changed XWP V1.0.5 (2006-04-13) [pr]: Fix rounding errors and repaint problems @@fixes 228
  */
 
 BOOL ctlUpdateSplitWindow(HWND hwndSplit)
@@ -860,8 +864,9 @@ BOOL ctlUpdateSplitWindow(HWND hwndSplit)
             // horizontal split bar:
             if (psbcd->ulCreateFlags & SBCF_PERCENTAGE)
                 // take height of client and apply percentage
-                rclBar.yBottom = (rclSplit.yTop - rclSplit.yBottom)
-                                * psbcd->lPos
+                // XWP V1.0.5 (2006-04-13) [pr]: Fix horrid rounding errors
+                rclBar.yBottom = ((rclSplit.yTop - rclSplit.yBottom)
+                                * psbcd->lPos + 50)
                                 / 100;
             else
                 if (psbcd->lPos > 0)
@@ -884,8 +889,9 @@ BOOL ctlUpdateSplitWindow(HWND hwndSplit)
             // vertical split bar:
             if (psbcd->ulCreateFlags & SBCF_PERCENTAGE)
                 // take width of client and apply percentage
-                rclBar.xLeft = (rclSplit.xRight - rclSplit.xLeft)
-                                * psbcd->lPos
+                // XWP V1.0.5 (2006-04-13) [pr]: Fix horrid rounding errors
+                rclBar.xLeft = ((rclSplit.xRight - rclSplit.xLeft)
+                                * psbcd->lPos + 50)
                                 / 100;
             else
                 if (psbcd->lPos > 0)
@@ -984,6 +990,10 @@ BOOL ctlUpdateSplitWindow(HWND hwndSplit)
         WinInvalidateRect(hwndSplit,
                           NULL,         // all
                           FALSE);       // don't repaint children
+        // XWP V1.0.5 (2006-04-13) [pr]: repaint right/bottom frame @@fixes 228
+        WinInvalidateRect(psbd->hwndLinked2,
+                          NULL,
+                          TRUE);
     }
 
     return brc;
