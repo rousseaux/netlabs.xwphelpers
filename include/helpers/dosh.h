@@ -470,6 +470,12 @@ extern "C" {
                               HMODULE *phmod,
                               PCRESOLVEFUNCTION paResolves,
                               ULONG cResolves);
+    // V1.0.5 (2006-05-28) [pr]
+    typedef APIRET DOSHRESOLVEIMPORTS(PCSZ pcszModuleName,
+                              HMODULE *phmod,
+                              PCRESOLVEFUNCTION paResolves,
+                              ULONG cResolves);
+    typedef DOSHRESOLVEIMPORTS *PDOSHRESOLVEIMPORTS;
 
     /* ******************************************************************
      *
