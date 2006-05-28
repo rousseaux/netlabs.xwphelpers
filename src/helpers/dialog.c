@@ -37,7 +37,7 @@
  */
 
 /*
- *      Copyright (C) 2001-2005 Ulrich M”ller.
+ *      Copyright (C) 2001-2006 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -3644,6 +3644,7 @@ MRESULT EXPENTRY fnwpMessageBox(HWND hwndBox, ULONG msg, MPARAM mp1, MPARAM mp2)
  *@@changed V0.9.20 (2002-07-12) [umoeller]: made icon spacing wider
  *@@changed V0.9.20 (2002-08-10) [umoeller]: fixed missing close button
  *@@changed V1.0.0 (2002-08-16) [umoeller]: now using table alignment
+ *@@changed WarpIN V1.0.11 (2006-05-22) [pr]: add to Tasklist
  */
 
 APIRET dlghCreateMessageBox(HWND *phwndDlg,
@@ -3824,8 +3825,12 @@ APIRET dlghCreateMessageBox(HWND *phwndDlg,
                                       pArrayBox->cDlgItemsNow,
                                       NULL,
                                       pcszFont)))
+            {
+                // WarpIN V1.0.11 (2006-05-22) [pr]
+                winhAddToTasklist(*phwndDlg, NULLHANDLE);
                 // added help callback V0.9.19 (2002-04-24) [umoeller]
                 WinSetWindowPtr(*phwndDlg, QWL_USER, (PVOID)pfnHelp);
+            }
         }
 
         dlghFreeArray(&pArrayBox);
