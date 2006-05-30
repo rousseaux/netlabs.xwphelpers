@@ -29,7 +29,7 @@
  */
 
 /*
- *      This file Copyright (C) 1997-2000 Ulrich M”ller.
+ *      This file Copyright (C) 1997-2006 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -232,60 +232,6 @@ BOOL doshQueryShiftState(VOID)
     }
 
     return brc;
-}
-
-/*
- *@@ doshIsWarp4:
- *      checks the OS/2 system version number.
- *
- *      Returns:
- *
- *      -- 0 (FALSE): OS/2 2.x or Warp 3 is running.
- *
- *      -- 1: Warp 4.0 is running.
- *
- *      -- 2: Warp 4.5 is running (WSeB or Warp 4 FP 13+ or eCS
- *            or ACP/MCP), or even something newer.
- *
- *@@changed V0.9.2 (2000-03-05) [umoeller]: reported TRUE on Warp 3 also; fixed
- *@@changed V0.9.6 (2000-10-16) [umoeller]: patched for speed
- *@@changed V0.9.9 (2001-04-04) [umoeller]: now returning 2 for Warp 4.5 and above
- */
-
-ULONG doshIsWarp4(VOID)
-{
-    static BOOL     s_fQueried = FALSE;
-    static ULONG    s_ulrc = 0;
-
-    if (!s_fQueried)
-    {
-        // first call:
-        ULONG       aulBuf[3];
-
-        DosQuerySysInfo(QSV_VERSION_MAJOR,      // 11
-                        QSV_VERSION_MINOR,      // 12
-                        &aulBuf, sizeof(aulBuf));
-        // Warp 3 is reported as 20.30
-        // Warp 4 is reported as 20.40
-        // Aurora is reported as 20.45 (regardless of convenience packs)
-
-        if     (    (aulBuf[0] > 20)        // major > 20; not the case with Warp 3, 4, 5
-                 || (   (aulBuf[0] == 20)   // major == 20 and minor >= 45
-                     && (aulBuf[1] >= 45)
-                    )
-               )
-            // Warp 4.5 or newer:
-            s_ulrc = 2;
-        else if (   (aulBuf[0] == 20)   // major == 20 and minor == 40
-                 && (aulBuf[1] == 40)
-                )
-            // Warp 4:
-            s_ulrc = 1;
-
-        s_fQueried = TRUE;
-    }
-
-    return s_ulrc;
 }
 
 /*
