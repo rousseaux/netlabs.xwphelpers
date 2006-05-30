@@ -21,7 +21,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2002 Ulrich M”ller.
+ *      Copyright (C) 1997-2006 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -378,24 +378,12 @@ PSZ nlsrchr(PCSZ p, char c)
  *
  *@@added V1.0.1 (2003-01-17) [umoeller]
  *@@changed V1.0.4 (2005-10-15) [pr]: Added support for Locale object settings on MCP systems @@fixes 614
+ *@@changed V1.0.5 (2006-05-29) [pr]: Read Country rather than Locale settings on Warp 4 FP13+ @@fixes 614
  */
 
 VOID nlsGetAMPM(PCOUNTRYAMPM pampm)
 {
-    PrfQueryProfileString(HINI_USER,
-                          "PM_National",
-                          "s2359",        // key
-                          "PM",           // default
-                          pampm->sz2359,
-                          sizeof(pampm->sz2359));
-
-    PrfQueryProfileString(HINI_USER,
-                          "PM_National",
-                          "s1159",        // key
-                          "AM",           // default
-                          pampm->sz1159,
-                          sizeof(pampm->sz1159));
-    if (doshIsWarp4()==2)
+    if (doshIsWarp4()==3)	// V1.0.5 (2006-05-29) [pr]
     {
         UconvObject         uconv_object;
 
@@ -464,6 +452,22 @@ VOID nlsGetAMPM(PCOUNTRYAMPM pampm)
             UniFreeUconvObject(uconv_object);
         }
     }
+    else
+    {
+        PrfQueryProfileString(HINI_USER,
+                              "PM_National",
+                              "s2359",        // key
+                              "PM",           // default
+                              pampm->sz2359,
+                              sizeof(pampm->sz2359));
+
+        PrfQueryProfileString(HINI_USER,
+                              "PM_National",
+                              "s1159",        // key
+                              "AM",           // default
+                              pampm->sz1159,
+                              sizeof(pampm->sz1159));
+    }
 }
 
 /*
@@ -487,6 +491,7 @@ VOID nlsGetAMPM(PCOUNTRYAMPM pampm)
  *@@changed V0.9.7 (2000-12-02) [umoeller]: added cDecimal
  *@@changed V1.0.4 (2005-10-15) [bvl]: Added support for Locale object settings on MCP systems @@fixes 614
  *@@changed V1.0.4 (2005-10-29) [pr]: Rewritten to prevent memory leaks and errors
+ *@@changed V1.0.5 (2006-05-29) [pr]: Read Country rather than Locale settings on Warp 4 FP13+ @@fixes 614
  */
 
 VOID nlsQueryCountrySettings(PCOUNTRYSETTINGS2 pcs2)
@@ -494,31 +499,8 @@ VOID nlsQueryCountrySettings(PCOUNTRYSETTINGS2 pcs2)
     if (pcs2)
     {
         PCOUNTRYSETTINGS pcs = &pcs2->cs;
-        pcs->ulDateFormat = PrfQueryProfileInt(HINI_USER,
-                                               (PSZ)PMINIAPP_NATIONAL,
-                                               "iDate",
-                                               0);
-        pcs->ulTimeFormat = PrfQueryProfileInt(HINI_USER,
-                                               (PSZ)PMINIAPP_NATIONAL,
-                                               "iTime",
-                                               0);
-        pcs->cDateSep = prfhQueryProfileChar(HINI_USER,
-                                             (PSZ)PMINIAPP_NATIONAL,
-                                             "sDate",
-                                             '/');
-        pcs->cTimeSep = prfhQueryProfileChar(HINI_USER,
-                                             (PSZ)PMINIAPP_NATIONAL,
-                                             "sTime",
-                                             ':');
-        pcs->cDecimal = prfhQueryProfileChar(HINI_USER,
-                                             (PSZ)PMINIAPP_NATIONAL,
-                                             "sDecimal",
-                                             '.');
-        pcs->cThousands = prfhQueryProfileChar(HINI_USER,
-                                               (PSZ)PMINIAPP_NATIONAL,
-                                               "sThousand",
-                                               ',');
-        if (doshIsWarp4()==2)
+
+        if (doshIsWarp4()==3)	// V1.0.5 (2006-05-29) [pr]
         {
             UconvObject         uconv_object;
 
@@ -590,6 +572,33 @@ VOID nlsQueryCountrySettings(PCOUNTRYSETTINGS2 pcs2)
 
                 UniFreeUconvObject(uconv_object);
             }
+        }
+        else
+        {
+            pcs->ulDateFormat = PrfQueryProfileInt(HINI_USER,
+                                                   (PSZ)PMINIAPP_NATIONAL,
+                                                   "iDate",
+                                                   0);
+            pcs->ulTimeFormat = PrfQueryProfileInt(HINI_USER,
+                                                   (PSZ)PMINIAPP_NATIONAL,
+                                                   "iTime",
+                                                   0);
+            pcs->cDateSep = prfhQueryProfileChar(HINI_USER,
+                                                 (PSZ)PMINIAPP_NATIONAL,
+                                                 "sDate",
+                                                 '/');
+            pcs->cTimeSep = prfhQueryProfileChar(HINI_USER,
+                                                 (PSZ)PMINIAPP_NATIONAL,
+                                                 "sTime",
+                                                 ':');
+            pcs->cDecimal = prfhQueryProfileChar(HINI_USER,
+                                                 (PSZ)PMINIAPP_NATIONAL,
+                                                 "sDecimal",
+                                                 '.');
+            pcs->cThousands = prfhQueryProfileChar(HINI_USER,
+                                                   (PSZ)PMINIAPP_NATIONAL,
+                                                   "sThousand",
+                                                   ',');
         }
 
         nlsGetAMPM(&pcs2->ampm);
