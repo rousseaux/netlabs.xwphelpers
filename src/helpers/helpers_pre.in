@@ -21,6 +21,7 @@ $(OUTPUTDIR)\xmlrole.obj\
 $(OUTPUTDIR)\xmltok.obj\
 
 CPOBJS = $(PLAINCOBJS) $(XMLOBJS) \
+$(OUTPUTDIR)\acpih.obj\
 $(OUTPUTDIR)\apmh.obj\
 $(OUTPUTDIR)\datetime.obj\
 $(OUTPUTDIR)\debug.obj\
