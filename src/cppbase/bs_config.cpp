@@ -1884,6 +1884,7 @@ BSClearProfile::BSClearProfile(const ustring &ustrClearProfile)
  *
  *@@added V0.9.5 (2000-08-26) [umoeller]
  *@@changed V0.9.18 (2002-03-08) [umoeller]: added codec
+ *@@changed WarpIN V1.0.11 (2006-08-29) [pr]: fix entire app. delete @@fixes 833
  */
 
 int BSClearProfile::Clear(BSUniCodec &codecProcess, // in: codec for process codepage,
@@ -1913,6 +1914,11 @@ int BSClearProfile::Clear(BSUniCodec &codecProcess, // in: codec for process cod
         CONVERT(&codecProcess, Key);
 
         ULONG cb = 0;
+
+        // WarpIN V1.0.11 (2006-08-29) [pr]: fix entire app. delete @@fixes 833
+        if (strlen(pcszKey) == 0)
+            pcszKey = NULL;
+
         // does key exist?
         if (PrfQueryProfileSize(hini,
                                 pcszApplication,
