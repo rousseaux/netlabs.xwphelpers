@@ -93,7 +93,9 @@ APIRET acpihOpen(ACPI_API_HANDLE *phACPI)
             {
                 DosFreeModule(hmodACPI);
                 hmodACPI = NULLHANDLE;
-                pAcpiStartApi = pAcpiEndApi = pAcpiGoToSleep = NULL;
+                pAcpiStartApi = NULL;
+                pAcpiEndApi = NULL;
+                pAcpiGoToSleep = NULL;
                 return(arc);
             }
         }
