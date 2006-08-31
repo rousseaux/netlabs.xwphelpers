@@ -22,7 +22,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2002 Ulrich M”ller.
+ *      Copyright (C) 1997-2006 Ulrich M”ller.
  *      Parts Copyright (C) 1991-1999 iMatix Corporation.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
@@ -1319,105 +1319,70 @@ BOOL strhKillChar(PSZ psz,
  *@@added V0.9.0 [umoeller]
  *@@changed V0.9.3 (2000-05-19) [umoeller]: some speed optimizations
  *@@changed V0.9.12 (2001-05-22) [umoeller]: fixed space bug, thanks Yuri Dario
+ *@@changed WarpIN V1.0.11 (2006-08-29) [pr]: handle attrib names in quoted strings @@fixes 718
  */
 
 PSZ strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib)
 {
-   PSZ    prc = 0;
-   PSZ    pszSearchIn2, p;
-   ULONG  cbAttrib = strlen(pszAttrib),
-          ulLength = strlen(pszSearchIn);
+    PSZ    prc = 0;
+    PSZ    pszSearchIn2, p, pszStart, pszName, pszValue;
+    ULONG  cbAttrib = strlen(pszAttrib),
+           ulLength = strlen(pszSearchIn);
+    BOOL   fInQuote = FALSE;
 
-   // use alloca(), so memory is freed on function exit
-   pszSearchIn2 = (PSZ)alloca(ulLength + 1);
-   memcpy(pszSearchIn2, pszSearchIn, ulLength + 1);
+    // use alloca(), so memory is freed on function exit
+    pszSearchIn2 = (PSZ)alloca(ulLength + 1);
+    memcpy(pszSearchIn2, pszSearchIn, ulLength + 1);
 
-   // 1) find token, (space char, \n, \r, \t)
-   p = strtok(pszSearchIn2, " \n\r\t");
-   while (p)
-   {
-        CHAR c2;
-        PSZ pOrig;
-
-        // check tag name
-        if (!strnicmp(p, pszAttrib, cbAttrib))
-        {
-            // position in original string
-            pOrig = (PSZ)pszSearchIn + (p - pszSearchIn2);
-
-            // yes:
-            prc = pOrig + cbAttrib;
-            c2 = *prc;
-            while (   (   (c2 == ' ')
-                       || (c2 == '=')
-                       || (c2 == '\n')
-                       || (c2 == '\r')
-                      )
-                    && (c2 != 0)
-                  )
-                c2 = *++prc;
-
-            break;
-        }
-
-        p = strtok(NULL, " \n\r\t");
-   }
-
-   return prc;
-}
-
-/* PSZ strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib)
-{
-    PSZ     prc = 0;
-    PSZ     pszSearchIn2 = (PSZ)pszSearchIn,
-            p,
-            p2;
-    ULONG   cbAttrib = strlen(pszAttrib);
-
-    // 1) find space char
-    while ((p = strchr(pszSearchIn2, ' ')))
+    for (p = pszSearchIn2; *p == ' ' || *p == '\n' || *p == '\r' || *p == '\t'; p++);
+    for (pszStart = p; *p; p++)
     {
-        CHAR c;
-        p++;
-        if (strlen(p) >= cbAttrib)      // V0.9.9 (2001-03-27) [umoeller]
+        if (fInQuote)
         {
-            c = *(p+cbAttrib);     // V0.9.3 (2000-05-19) [umoeller]
-            // now check whether the p+strlen(pszAttrib)
-            // is a valid end-of-tag character
-            if (    (memicmp(p, (PVOID)pszAttrib, cbAttrib) == 0)
-                 && (   (c == ' ')
-                     || (c == '>')
-                     || (c == '=')
-                     || (c == '\r')
-                     || (c == '\n')
-                     || (c == 0)
-                    )
-               )
-            {
-                // yes:
-                CHAR c2;
-                p2 = p + cbAttrib;
-                c2 = *p2;
-                while (     (   (c2 == ' ')
-                             || (c2 == '=')
-                             || (c2 == '\n')
-                             || (c2 == '\r')
-                            )
-                        &&  (c2 != 0)
-                      )
-                    c2 = *++p2;
-
-                prc = p2;
-                break; // first while
-            }
+            if (*p == '"')
+                fInQuote = FALSE;
         }
         else
-            break;
+        {
+            if (*p == '"')
+                fInQuote = TRUE;
+            else
+            {
+                if (*p == ' ' || *p == '\n' || *p == '\r' || *p == '\t')
+                {
+                    *p = '\0';
+                    pszName = strtok(pszStart, "=>");
+                    pszStart = p + 1;
+                    if (pszName && !stricmp(pszName, pszAttrib))
+                    {
+                        pszValue = strtok(NULL, "");
+                        if (pszValue)
+                            prc = (PSZ)pszSearchIn + (pszValue - pszSearchIn2);
+                        else
+                            prc = (PSZ)pszSearchIn + (pszName - pszSearchIn2) + cbAttrib;
 
-        pszSearchIn2++;
+                        return(prc);
+                    }
+                }
+            }
+        }
     }
+
+    if (pszStart != p)
+    {
+        pszName = strtok(pszStart, "=>");
+        if (pszName && !stricmp(pszName, pszAttrib))
+        {
+            pszValue = strtok(NULL, "");
+            if (pszValue)
+                prc = (PSZ)pszSearchIn + (pszValue - pszSearchIn2);
+            else
+                prc = (PSZ)pszSearchIn + (pszName - pszSearchIn2) + cbAttrib;
+        }
+    }
+
     return prc;
-} */
+}
 
 /*
  * strhGetNumAttribValue:
