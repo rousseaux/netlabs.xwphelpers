@@ -1320,6 +1320,7 @@ BOOL strhKillChar(PSZ psz,
  *@@changed V0.9.3 (2000-05-19) [umoeller]: some speed optimizations
  *@@changed V0.9.12 (2001-05-22) [umoeller]: fixed space bug, thanks Yuri Dario
  *@@changed WarpIN V1.0.11 (2006-08-29) [pr]: handle attrib names in quoted strings @@fixes 718
+ *@@changed WarpIN V1.0.12 (2006-09-07) [pr]: fix attrib handling again @@fixes 718 @@fixes 836
  */
 
 PSZ strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib)
@@ -1334,12 +1335,15 @@ PSZ strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib)
     pszSearchIn2 = (PSZ)alloca(ulLength + 1);
     memcpy(pszSearchIn2, pszSearchIn, ulLength + 1);
 
-    for (p = pszSearchIn2; *p == ' ' || *p == '\n' || *p == '\r' || *p == '\t'; p++);
+    // V1.0.12 (2006-09-07) [pr]: filter leading " and ' left over from the previous pass
+    for (p = pszSearchIn2;   *p == '\'' || *p == '"'  || *p == ' '
+                          || *p == '\n' || *p == '\r' || *p == '\t'; p++);
     for (pszStart = p; *p; p++)
     {
         if (fInQuote)
         {
-            if (*p == '"')
+            // V1.0.12 (2006-09-07) [pr]: allow end of line to terminate a (broken) quote
+            if (*p == '"' || *p == '\n' || *p == '\r')
                 fInQuote = FALSE;
         }
         else
