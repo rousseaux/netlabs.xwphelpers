@@ -1446,6 +1446,7 @@ PSZ strhGetNumAttribValue(const char *pszSearchIn,       // in: where to search
  *      quotes) and sets ulOfs to 12.
  *
  *@@added V0.9.0 [umoeller]
+ *@@changed V1.0.13 (2006-09-10) [pr]: improved parsing
  */
 
 PSZ strhGetTextAttr(const char *pszSearchIn,
@@ -1462,18 +1463,12 @@ PSZ strhGetTextAttr(const char *pszSearchIn,
     {
         // determine end character to search for: a space
         CHAR cEnd = ' ';
-        if (*pParam == '\"')
-        {
-            // or, if the data is enclosed in quotes, a quote
-            cEnd = '\"';
-            pParam++;
-        }
-
         // V1.0.3 (2004-11-10) [pr]: @@fixes 461
-        if (*pParam == '\'')
+        // V1.0.13 (2006-09-10) [pr]: optimized
+        if ((*pParam == '\"') || (*pParam == '\''))
         {
-            // or, if the data is enclosed in single quotes, a single quote
-            cEnd = '\'';
+            // or, if the data is enclosed in quotes, a quote or single quote
+            cEnd = *pParam;
             pParam++;
         }
 
@@ -1485,7 +1480,11 @@ PSZ strhGetTextAttr(const char *pszSearchIn,
         pParam2 = pParam;
         while (*pParam)
         {
-            if (*pParam == cEnd)
+            // V1.0.13 (2006-09-10) [pr]: line end terminates non-quoted attribute
+            if (   (   (cEnd == ' ')
+                    && ((*pParam == ' ') || (*pParam == '\r') || (*pParam == '\n')))
+                || (*pParam == cEnd)
+               )
                 // end character found
                 break;
             else if (*pParam == '<')
