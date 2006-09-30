@@ -18,7 +18,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2002 Ulrich M”ller.
+ *      Copyright (C) 1997-2006 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -5055,6 +5055,7 @@ ULONG winhQueryPendingSpoolJobs(VOID)
  *      Based on code from WarpEnhancer, (C) Achim Hasenmller.
  *
  *@@added V0.9.1 (99-12-18) [umoeller]
+ *@@changed V1.0.6 (2006-09-30) [pr]: Set Keyboard LEDs to match @@fixes 831
  */
 
 VOID winhSetNumLock(BOOL fState)
@@ -5090,6 +5091,7 @@ VOID winhSetNumLock(BOOL fState)
                  NULL))
     {
         SHIFTSTATE ShiftState;
+        USHORT usLEDState;
         ULONG DataLen = sizeof(SHIFTSTATE);
 
         memset(&ShiftState, '\0', DataLen);
@@ -5104,6 +5106,13 @@ VOID winhSetNumLock(BOOL fState)
 
         DosDevIOCtl(hKbd, IOCTL_KEYBOARD, KBD_SETSHIFTSTATE,
                     &ShiftState, DataLen, &DataLen,
+                    NULL, 0L, NULL);
+
+        // XWP V1.0.6 (2006-09-30) [pr]: Set Keyboard LEDs to match @@fixes 831
+        usLEDState = (ShiftState.fsState & (SCROLLLOCK_ON | NUMLOCK_ON | CAPSLOCK_ON)) >> 4;
+        DataLen = sizeof(usLEDState);
+        DosDevIOCtl(hKbd, IOCTL_KEYBOARD, KBD_ALTERKBDLED,
+                    &usLEDState, DataLen, &DataLen,
                     NULL, 0L, NULL);
 
         // now close OS/2 keyboard driver
