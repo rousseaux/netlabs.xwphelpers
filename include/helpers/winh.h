@@ -14,7 +14,7 @@
  *            numbering.
  */
 
-/*      Copyright (C) 1997-2000 Ulrich M”ller.
+/*      Copyright (C) 1997-2006 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -761,6 +761,46 @@ extern "C" {
     BOOL XWPENTRY winhSaveWindowPos(HWND hwnd, HINI hIni, const char *pcszApp, const char *pcszKey);
 
     BOOL XWPENTRY winhRestoreWindowPos(HWND hwnd, HINI hIni, const char *pcszApp, const char *pcszKey, ULONG fl);
+
+    // V1.0.6 (2006-10-28) [pr]
+
+    /*
+     *@@ STOREPOS:
+     *
+     */
+
+    #pragma pack(2)
+    typedef struct _STOREPOS
+    {
+        USHORT      usMagic;          // Always 0x7B6A (???)
+        ULONG       ulFlags;
+        USHORT      usXPos;
+        USHORT      usYPos;
+        USHORT      usWidth;
+        USHORT      usHeight;
+        ULONG       ulRes1;           // Always 1 (???)
+        USHORT      usRestoreXPos;
+        USHORT      usRestoreYPos;
+        USHORT      usRestoreWidth;
+        USHORT      usRestoreHeight;
+        ULONG       ulRes2;           // Always 1 (???)
+        USHORT      usMinXPos;
+        USHORT      usMinYPos;
+        ULONG       ulRes3;           // Always 0x0400 (???)
+        ULONG       ulRes4;           // Always 0x0300 (???)
+        ULONG       ulRes5;           // Always 0xFFFFFFFF (???)
+        ULONG       ulRes6;           // Always 0xFFFFFFFF (???)
+        ULONG       ulPPLen;          // Presentation Parameters length
+    } STOREPOS, *PSTOREPOS;
+    #pragma pack()
+
+    #pragma import(WinGetFrameTreePPSize, , "PMWIN", 972)
+    #pragma import(WinGetFrameTreePPs, , "PMWIN", 973)
+
+    ULONG APIENTRY WinGetFrameTreePPSize(HWND hwnd);
+    ULONG APIENTRY WinGetFrameTreePPs(HWND hwnd, ULONG cchMax, PCH pch);
+
+    BOOL XWPENTRY winhStoreWindowPos(HWND hwnd, HINI hIni, const char *pcszApp, const char *pcszKey);
 
     #define XAC_MOVEX       0x0001
     #define XAC_MOVEY       0x0002

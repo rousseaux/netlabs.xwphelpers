@@ -2647,6 +2647,73 @@ BOOL winhRestoreWindowPos(HWND hwnd,   // in: window to restore
 }
 
 /*
+ *@@ winhStoreWindowPos:
+ *      saves the position of a certain window in the same format
+ *      as the barely documented WinStoreWindowPos API.
+ *      This uses the completely undocumented calls
+ *      WinGetFrameTreePPSize and WinGetFrameTreePPs imported
+ *      from PMWIN.DLL ordinals 972 and 973.
+ *
+ *      The window should still be visible on the screen
+ *      when calling this function. Do not call it in WM_DESTROY,
+ *      because then the SWP data is no longer valid.
+ *
+ *      This returns TRUE if saving was successful.
+ *
+ *@@added XWP V1.0.6 (2006-10-31) [pr]: @@fixes 458
+ */
+
+BOOL winhStoreWindowPos(HWND hwnd,   // in: window to save
+                        HINI hIni,   // in: INI file (or HINI_USER/SYSTEM)
+                        const char *pcszApp,  // in: INI application name
+                        const char *pcszKey)  // in: INI key name
+{
+    BOOL brc = FALSE;
+    SWP swp;
+
+    if (WinQueryWindowPos(hwnd, &swp))
+    {
+        ULONG ulSizePP = WinGetFrameTreePPSize(hwnd);
+        ULONG ulSize = sizeof(STOREPOS) + ulSizePP;
+        PSTOREPOS pStorePos;
+
+        if ((pStorePos = malloc(ulSize)))
+        {
+            // This first bit is all guesswork as I don't know what it all means,
+            // but it always seems to be the same everywhere I've looked.
+            pStorePos->usMagic = 0x7B6A;
+            pStorePos->ulRes1 = 1;
+            pStorePos->ulRes2 = 1;
+            pStorePos->ulRes3 = 0x0400;
+            pStorePos->ulRes4 = 0x0300;
+            pStorePos->ulRes5 = 0xFFFFFFFF;
+            pStorePos->ulRes6 = 0xFFFFFFFF;
+
+            pStorePos->ulFlags = swp.fl;
+            pStorePos->usXPos = pStorePos->usRestoreXPos = swp.x;
+            pStorePos->usYPos = pStorePos->usRestoreYPos = swp.y;
+            pStorePos->usWidth = pStorePos->usRestoreWidth = swp.cx;
+            pStorePos->usHeight = pStorePos->usRestoreHeight = swp.cy;
+            if (swp.fl & (SWP_MAXIMIZE | SWP_MINIMIZE))
+            {
+                pStorePos->usRestoreXPos = WinQueryWindowUShort(hwnd, QWS_XRESTORE);
+                pStorePos->usRestoreYPos = WinQueryWindowUShort(hwnd, QWS_YRESTORE);
+                pStorePos->usRestoreWidth = WinQueryWindowUShort(hwnd, QWS_CXRESTORE);
+                pStorePos->usRestoreHeight = WinQueryWindowUShort(hwnd, QWS_CYRESTORE);
+            }
+
+            pStorePos->usMinXPos = WinQueryWindowUShort(hwnd, QWS_XMINIMIZE);
+            pStorePos->usMinYPos = WinQueryWindowUShort(hwnd, QWS_YMINIMIZE);
+            pStorePos->ulPPLen = WinGetFrameTreePPs(hwnd, ulSizePP, pStorePos + 1);
+            ulSize = pStorePos->ulPPLen + sizeof(STOREPOS);
+            brc = PrfWriteProfileData(hIni, (PSZ)pcszApp, (PSZ)pcszKey, pStorePos, ulSize);
+            free(pStorePos);
+        }
+    }
+    return brc;
+}
+
+/*
  *@@ winhAdjustControls:
  *      helper function for dynamically adjusting a window's
  *      controls when the window is resized.
