@@ -2704,7 +2704,7 @@ BOOL winhStoreWindowPos(HWND hwnd,   // in: window to save
 
             pStorePos->usMinXPos = WinQueryWindowUShort(hwnd, QWS_XMINIMIZE);
             pStorePos->usMinYPos = WinQueryWindowUShort(hwnd, QWS_YMINIMIZE);
-            pStorePos->ulPPLen = WinGetFrameTreePPs(hwnd, ulSizePP, pStorePos + 1);
+            pStorePos->ulPPLen = WinGetFrameTreePPs(hwnd, ulSizePP, (PSZ)(pStorePos + 1));
             ulSize = pStorePos->ulPPLen + sizeof(STOREPOS);
             brc = PrfWriteProfileData(hIni, (PSZ)pcszApp, (PSZ)pcszKey, pStorePos, ulSize);
             free(pStorePos);
