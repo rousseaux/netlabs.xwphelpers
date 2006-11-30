@@ -11,7 +11,7 @@
  */
 
 /*
- *      This file Copyright (C) 1999-2002 Ulrich M”ller.
+ *      This file Copyright (C) 1999-2006 Ulrich M”ller.
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
  *      the Free Software Foundation, in version 2 as it comes in the COPYING
@@ -130,6 +130,7 @@
      *      disk.
      *
      *@@added V0.9.9 (2001-03-30) [umoeller]
+     *@@changed WarpIN V1.0.14 (2006-11-30) [pr]: added WriteRaw
      */
 
     class BSFileLogger
@@ -150,6 +151,13 @@
 
             void Write(const char *pcszFormat,
                        ...);
+
+            // WarpIN V1.0.14 (2006-11-30) [pr]
+            void WriteRawV(const char *pcszFormat,
+                           va_list arg_ptr);
+
+            void WriteRaw(const char *pcszFormat,
+                            ...);
     };
 
     /* ******************************************************************
