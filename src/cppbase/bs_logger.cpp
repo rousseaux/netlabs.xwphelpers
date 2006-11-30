@@ -14,7 +14,7 @@
  */
 
 /*
- *      This file Copyright (C) 1999-2002 Ulrich M”ller.
+ *      This file Copyright (C) 1999-2006 Ulrich M”ller.
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
  *      the Free Software Foundation, in version 2 as it comes in the COPYING
@@ -353,6 +353,7 @@ VOID UnlockFileLoggers(VOID)
  *@@added V0.9.9 (2001-03-30) [umoeller]
  *@@changed V0.9.12 (2001-05-31) [umoeller]: added mutex
  *@@changed V0.9.19 (2002-07-01) [umoeller]: added bldlevel to log
+ *@@changed WarpIN V1.0.14 (2006-11-30) [pr]: removed WarpIN specific header message
  */
 
 BSFileLogger::BSFileLogger(ULONG ulDummy,
@@ -382,16 +383,6 @@ BSFileLogger::BSFileLogger(ULONG ulDummy,
     }
     else
         throw BSLoggerExcpt("pcszFilename is NULL.");
-
-    DATETIME dt;
-    DosGetDateTime(&dt);
-
-    fprintf(_File,
-            "\n\nWarpIN " BLDLEVEL_VERSION " install log opened\n"
-            "Date: %04d-%02d-%02d, Time: %02d:%02d:%02d\n"
-            "--------------------------------\n",
-            dt.year, dt.month, dt.day,
-            dt.hours, dt.minutes, dt.seconds);
 }
 
 /*
@@ -400,6 +391,7 @@ BSFileLogger::BSFileLogger(ULONG ulDummy,
  *
  *@@added V0.9.9 (2001-03-30) [umoeller]
  *@@changed V0.9.12 (2001-05-31) [umoeller]: added mutex
+ *@@changed WarpIN V1.0.14 (2006-11-30) [pr]: removed "install log closed" message
  */
 
 BSFileLogger::~BSFileLogger()
@@ -410,7 +402,6 @@ BSFileLogger::~BSFileLogger()
 
     if (_File)
     {
-        fprintf(_File, "\nInstall log closed.\n");
         fclose(_File);
         _File = NULL;
     }
@@ -440,9 +431,9 @@ void BSFileLogger::IncIndent(int i)
 }
 
 /*
- *@@ Write:
+ *@@ WriteV:
  *
- *      NOTE: This does not append \n for each string.
+ *      NOTE: This appends \n for each string.
  *
  *@@added V0.9.9 (2001-03-30) [umoeller]
  *@@changed V0.9.12 (2001-05-31) [umoeller]: added mutex
@@ -454,8 +445,6 @@ void BSFileLogger::WriteV(const char *pcszFormat,  // in: format string
                           va_list arg_ptr)
 {
     BSLock lock(G_mtxFileLoggers); // V0.9.20 (2002-07-06) [umoeller]
-
-    _Pmpf(("BSFileLogger::Append: got \"%s\"", pcszFormat));
 
     DATETIME dt;
     DosGetDateTime(&dt);
@@ -472,12 +461,12 @@ void BSFileLogger::WriteV(const char *pcszFormat,  // in: format string
             fprintf(_File, " ");
     }
 
-    int iWritten = vfprintf(_File, pcszFormat, arg_ptr);
+    vfprintf(_File, pcszFormat, arg_ptr);
     fprintf(_File, "\n");
 }
 
 /*
- *@@ Append:
+ *@@ Write:
  *
  *@@added V0.9.18 (2002-03-08) [umoeller]
  */
@@ -488,6 +477,35 @@ void BSFileLogger::Write(const char *pcszFormat,  // in: format string
     va_list arg_ptr;
     va_start(arg_ptr, pcszFormat);
     WriteV(pcszFormat, arg_ptr);
+    va_end(arg_ptr);
+}
+
+/*
+ *@@ WriteRawV:
+ *
+ *@@added WarpIN V1.0.14 (2006-11-30) [pr]
+ */
+
+void BSFileLogger::WriteRawV(const char *pcszFormat,  // in: format string
+                             va_list arg_ptr)
+{
+    BSLock lock(G_mtxFileLoggers);
+
+    vfprintf(_File, pcszFormat, arg_ptr);
+}
+
+/*
+ *@@ WriteRaw:
+ *
+ *@@added WarpIN V1.0.14 (2006-11-30) [pr]
+ */
+
+void BSFileLogger::WriteRaw(const char *pcszFormat,  // in: format string
+                            ...)                     // in: variable arguments
+{
+    va_list arg_ptr;
+    va_start(arg_ptr, pcszFormat);
+    WriteRawV(pcszFormat, arg_ptr);
     va_end(arg_ptr);
 }
 
