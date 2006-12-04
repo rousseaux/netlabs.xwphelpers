@@ -13,7 +13,7 @@
  */
 
 /*
- *      This file Copyright (C) 1999-2002 Ulrich M”ller.
+ *      This file Copyright (C) 1999-2006 Ulrich M”ller.
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
  *      the Free Software Foundation, in version 2 as it comes in the COPYING
@@ -465,7 +465,7 @@
             ustring     _ustrTitle;
             ustring     _ustrSetupString;     // this one might be NULL
             ustring     _ustrLocation;
-            BOOL        _fReplace;
+            ULONG       _ulFlags;  // V1.0.14 (2006-12-03) [pr]: renamed from _fReplace @@fixes 893
 
             // the following is set by BSConfigExcpt::CreateObject
             // if an object has been created successfully

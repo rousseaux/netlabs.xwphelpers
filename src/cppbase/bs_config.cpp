@@ -68,7 +68,7 @@
  */
 
 /*
- *      This file Copyright (C) 1999-2001 Ulrich M”ller.
+ *      This file Copyright (C) 1999-2006 Ulrich M”ller.
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
  *      the Free Software Foundation, in version 2 as it comes in the COPYING
@@ -1425,6 +1425,7 @@ int BSUnreplaceClass::AddToUndoList(list<BSConfigBase*> &List,
  *      Syntax:
  *
  +          CREATEOBJECT="[REPLACE] classname|title|location[|config]]"
+ +          CREATEOBJECT="[FAIL] classname|title|location[|config]]"
  *
  *      Throws:
  *      -- BSConfigExcpt.
@@ -1432,6 +1433,7 @@ int BSUnreplaceClass::AddToUndoList(list<BSConfigBase*> &List,
  *@@changed V0.9.3 (2000-04-08) [umoeller]: "REPLACE" wasn't evaluated; fixed. Thanks, Cornelis Bockemhl.
  *@@changed V0.9.15 (2001-08-26) [umoeller]: added WPOEXCPT_INVALIDLOCATION checks
  *@@changed V0.9.19 (2002-04-14) [umoeller]: REPLACE was never detected, fixed
+ *@@changed V1.0.14 (2006-12-03) [pr]: added FAIL mode @@fixes 893
  */
 
 BSCreateWPSObject::BSCreateWPSObject(const ustring &ustrCreateObject)
@@ -1444,17 +1446,23 @@ BSCreateWPSObject::BSCreateWPSObject(const ustring &ustrCreateObject)
     if (!(pBegin = pcszCreateObject))
         throw BSConfigExcpt(WPOEXCPT_NOCLASS, ustrCreateObject);
 
-    // if (!strcmp(pBegin, "REPLACE "))     BUZZZZ WRONG V0.9.19 (2002-04-14) [umoeller]
     if (!memcmp(pBegin, "REPLACE ", 8))
     {
-        // added V0.9.3 (2000-04-08) [umoeller]
-        _fReplace = TRUE;
-        pBegin += 7;
+        _ulFlags = CO_REPLACEIFEXISTS;  // V1.0.14 (2006-12-03) [pr]
+        pBegin += 8;
         while (*pBegin == ' ')
             pBegin++;
     }
     else
-        _fReplace = FALSE;
+        if (!memcmp(pBegin, "FAIL ", 5))  // V1.0.14 (2006-12-03) [pr]
+        {
+            _ulFlags = CO_FAILIFEXISTS;
+            pBegin += 5;
+            while (*pBegin == ' ')
+                pBegin++;
+        }
+        else
+            _ulFlags = CO_UPDATEIFEXISTS;  // V1.0.14 (2006-12-03) [pr]
 
     PSZ pEnd;
     if (pEnd = strchr(pBegin, '|'))
@@ -1543,6 +1551,7 @@ ustring BSCreateWPSObject::DescribeData()
  *      if this fails.
  *
  *@@changed V0.9.18 (2002-03-08) [umoeller]: added codec
+ *@@changed V1.0.14 (2006-12-03) [pr]: added FAIL mode @@fixes 893
  */
 
 void BSCreateWPSObject::CreateObject(BSUniCodec &codecProcess, // in: codec for process codepage,
@@ -1574,32 +1583,44 @@ void BSCreateWPSObject::CreateObject(BSUniCodec &codecProcess, // in: codec for 
                                   pcszTitle,
                                   pcszSetupString,
                                   pcszLocation,
-                                  (_fReplace)
-                                     ? CO_REPLACEIFEXISTS
-                                     : CO_UPDATEIFEXISTS)))
+                                  _ulFlags)))
     {
-        if (pLogFile)
-            pLogFile->Write("Error creating WPS object \"%s\", class \"%s\", location \"%s\", setup \"%s\"",
-                             pcszTitle,
-                             pcszClassName,
-                             pcszLocation,
-                             pcszSetupString);
+        if (_ulFlags == CO_FAILIFEXISTS)  // V1.0.14 (2006-12-03) [pr]
+        {
+            if (pLogFile)
+                pLogFile->Write("WPS object already exists \"%s\", class \"%s\", location \"%s\", setup \"%s\"",
+                                pcszTitle,
+                                pcszClassName,
+                                pcszLocation,
+                                pcszSetupString);
+        }
+        else
+        {
+            if (pLogFile)
+                pLogFile->Write("Error creating WPS object \"%s\", class \"%s\", location \"%s\", setup \"%s\"",
+                                pcszTitle,
+                                pcszClassName,
+                                pcszLocation,
+                                pcszSetupString);
 
-        throw BSConfigExcpt(WPOEXCPT_CREATE, _ustrTitle);
+            throw BSConfigExcpt(WPOEXCPT_CREATE, _ustrTitle);
+        }
     }
-
-    // V1.0.5 (2005-02-17) [pr]
-    // We now save the object synchronously to prevent objects getting lost if we
-    // restart the WPS imminently due to a class registration for example. @@fixes 634.
-    WinSaveObject (_hobj, FALSE);
-    if (pLogFile)
+    else
     {
-        pLogFile->Write("Created WPS object \"%s\", class \"%s\", location \"%s\", setup \"%s\"",
-                         pcszTitle,
-                         pcszClassName,
-                         pcszLocation,
-                         pcszSetupString);
-        pLogFile->Write("HOBJECT is 0x%lX", _hobj);
+        // V1.0.5 (2005-02-17) [pr]
+        // We now save the object synchronously to prevent objects getting lost if we
+        // restart the WPS imminently due to a class registration for example. @@fixes 634.
+        WinSaveObject (_hobj, FALSE);
+        if (pLogFile)
+        {
+            pLogFile->Write("Created WPS object \"%s\", class \"%s\", location \"%s\", setup \"%s\"",
+                            pcszTitle,
+                            pcszClassName,
+                            pcszLocation,
+                            pcszSetupString);
+            pLogFile->Write("HOBJECT is 0x%lX", _hobj);
+        }
     }
 
     // store the object ID in the logger
