@@ -2661,6 +2661,7 @@ BOOL winhRestoreWindowPos(HWND hwnd,   // in: window to restore
  *      This returns TRUE if saving was successful.
  *
  *@@added XWP V1.0.6 (2006-10-31) [pr]: @@fixes 458
+ *@@changed XWP V1.0.7 (2006-12-16) [pr]: detect screen height/width @@fixes 903
  */
 
 BOOL winhStoreWindowPos(HWND hwnd,   // in: window to save
@@ -2679,15 +2680,13 @@ BOOL winhStoreWindowPos(HWND hwnd,   // in: window to save
 
         if ((pStorePos = malloc(ulSize)))
         {
-            // This first bit is all guesswork as I don't know what it all means,
+            // This first bit is guesswork as I don't know what it all means,
             // but it always seems to be the same everywhere I've looked.
             pStorePos->usMagic = 0x7B6A;
             pStorePos->ulRes1 = 1;
             pStorePos->ulRes2 = 1;
-            pStorePos->ulRes3 = 0x0400;
-            pStorePos->ulRes4 = 0x0300;
-            pStorePos->ulRes5 = 0xFFFFFFFF;
-            pStorePos->ulRes6 = 0xFFFFFFFF;
+            pStorePos->ulRes3 = 0xFFFFFFFF;
+            pStorePos->ulRes4 = 0xFFFFFFFF;
 
             pStorePos->ulFlags = swp.fl;
             pStorePos->usXPos = pStorePos->usRestoreXPos = swp.x;
@@ -2704,6 +2703,8 @@ BOOL winhStoreWindowPos(HWND hwnd,   // in: window to save
 
             pStorePos->usMinXPos = WinQueryWindowUShort(hwnd, QWS_XMINIMIZE);
             pStorePos->usMinYPos = WinQueryWindowUShort(hwnd, QWS_YMINIMIZE);
+            pStorePos->ulScreenWidth = WinQuerySysValue(HWND_DESKTOP, SV_CXSCREEN);;
+            pStorePos->ulScreenHeight = WinQuerySysValue(HWND_DESKTOP, SV_CYSCREEN);;
             pStorePos->ulPPLen = WinGetFrameTreePPs(hwnd, ulSizePP, (PSZ)(pStorePos + 1));
             ulSize = pStorePos->ulPPLen + sizeof(STOREPOS);
             brc = PrfWriteProfileData(hIni, (PSZ)pcszApp, (PSZ)pcszKey, pStorePos, ulSize);

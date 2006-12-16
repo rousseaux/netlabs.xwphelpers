@@ -763,6 +763,7 @@ extern "C" {
     BOOL XWPENTRY winhRestoreWindowPos(HWND hwnd, HINI hIni, const char *pcszApp, const char *pcszKey, ULONG fl);
 
     // V1.0.6 (2006-10-28) [pr]
+    // V1.0.7 (2006-12-16) [pr]: Named screen width/height parameters
 
     /*
      *@@ STOREPOS:
@@ -786,10 +787,10 @@ extern "C" {
         ULONG       ulRes2;           // Always 1 (???)
         USHORT      usMinXPos;
         USHORT      usMinYPos;
-        ULONG       ulRes3;           // Always 0x0400 (???)
-        ULONG       ulRes4;           // Always 0x0300 (???)
-        ULONG       ulRes5;           // Always 0xFFFFFFFF (???)
-        ULONG       ulRes6;           // Always 0xFFFFFFFF (???)
+        ULONG       ulScreenWidth;
+        ULONG       ulScreenHeight;
+        ULONG       ulRes3;           // Always 0xFFFFFFFF (???)
+        ULONG       ulRes4;           // Always 0xFFFFFFFF (???)
         ULONG       ulPPLen;          // Presentation Parameters length
     } STOREPOS, *PSTOREPOS;
     #pragma pack()
