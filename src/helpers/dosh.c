@@ -29,7 +29,7 @@
  */
 
 /*
- *      This file Copyright (C) 1997-2006 Ulrich M”ller.
+ *      This file Copyright (C) 1997-2007 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -3710,6 +3710,7 @@ APIRET doshQueryCurrentDir(PSZ pszBuf)
  *      subdirectories and files.
  *
  *@@added V0.9.4 (2000-07-01) [umoeller]
+ *@@changed WarpIN V1.0.15 (2007-03-27) [pr]: allow NULL pulDirs and pulFiles
  */
 
 APIRET doshDeleteDir(PCSZ pcszDir,
@@ -3771,7 +3772,8 @@ APIRET doshDeleteDir(PCSZ pcszDir,
                         // report "access denied"
                         // (this is what OS/2 reports with DosDeleteDir as well)
                         arcReturn = ERROR_ACCESS_DENIED;  // 5
-                        (*pulDirs)++;
+                        if (pulDirs)  // WarpIN V1.0.15 (2007-03-27) [pr]
+                            (*pulDirs)++;
                     }
                 }
             }
@@ -3779,7 +3781,8 @@ APIRET doshDeleteDir(PCSZ pcszDir,
             {
                 // it's a file:
                 arcReturn = ERROR_ACCESS_DENIED;
-                (*pulFiles)++;
+                if (pulFiles)  // WarpIN V1.0.15 (2007-03-27) [pr]
+                    (*pulFiles)++;
             }
 
             if (arc == NO_ERROR)
