@@ -21,7 +21,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2006 Ulrich M”ller.
+ *      Copyright (C) 1997-2007 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -63,8 +63,50 @@
 
 #pragma hdrstop
 
-#pragma library("LIBULS")
-#pragma library("LIBCONV")
+// WarpIN V1.0.15 (2007-03-26) [pr]: @@fixes 936
+// UCONV functions
+int (* CALLCONV G_UniCreateUconvObject)(UniChar *code_set, UconvObject *uobj) = NULL;
+int (* CALLCONV G_UniStrFromUcs)(UconvObject co, char *target, UniChar *source,
+    int len) = NULL;
+int (* CALLCONV G_UniFreeUconvObject)(UconvObject uobj) = NULL;
+// LIBUNI functions
+int (* CALLCONV G_UniCreateLocaleObject)(int locale_spec_type,
+    const void *locale_spec, LocaleObject *locale_object_ptr) = NULL;
+int (* CALLCONV G_UniQueryLocaleItem)(const LocaleObject locale_object,
+    LocaleItem item, UniChar **info_item_addr_ptr) = NULL;
+size_t (* CALLCONV G_UniStrlen)(const UniChar *ucs1) = NULL;
+int (* CALLCONV G_UniFreeMem)(void *memory_ptr) = NULL;
+int (* CALLCONV G_UniFreeLocaleObject)(LocaleObject locale_object) = NULL;
+
+/*
+ * G_aResolveFromUCONV:
+ *      functions resolved from UCONV.DLL.
+ *      Used with doshResolveImports.
+ */
+
+static const RESOLVEFUNCTION G_aResolveFromUCONV[] =
+{
+    "UniCreateUconvObject", (PFN*)&G_UniCreateUconvObject,
+    "UniStrFromUcs", (PFN*)&G_UniStrFromUcs,
+    "UniFreeUconvObject", (PFN*)&G_UniFreeUconvObject
+};
+
+/*
+ * G_aResolveFromLIBUNI:
+ *      functions resolved from LIBUNI.DLL.
+ *      Used with doshResolveImports.
+ */
+
+static const RESOLVEFUNCTION G_aResolveFromLIBUNI[] =
+{
+    "UniCreateLocaleObject", (PFN*)&G_UniCreateLocaleObject,
+    "UniQueryLocaleItem", (PFN*)&G_UniQueryLocaleItem,
+    "UniStrlen", (PFN*)&G_UniStrlen,
+    "UniFreeMem", (PFN*)&G_UniFreeMem,
+    "UniFreeLocaleObject", (PFN*)&G_UniFreeLocaleObject
+};
+
+static BOOL fUniResolved = FALSE, fUniOK = FALSE;
 
 /*
  *@@category: Helpers\National Language Support
@@ -379,22 +421,47 @@ PSZ nlsrchr(PCSZ p, char c)
  *@@added V1.0.1 (2003-01-17) [umoeller]
  *@@changed V1.0.4 (2005-10-15) [pr]: Added support for Locale object settings on MCP systems @@fixes 614
  *@@changed V1.0.5 (2006-05-29) [pr]: Read Country rather than Locale settings on Warp 4 FP13+ @@fixes 614
+ *@@changed WarpIN V1.0.15 (2007-03-26) [pr]: Rewritten to load UCONV/LIBUNI functions dynamically @@fixes 936
  */
 
 VOID nlsGetAMPM(PCOUNTRYAMPM pampm)
 {
-    if (doshIsWarp4()==3)	// V1.0.5 (2006-05-29) [pr]
+    if (   (doshIsWarp4()==3)
+        && (!fUniResolved)
+       )
+    {
+        HMODULE hmodUCONV = NULLHANDLE,
+                hmodLIBUNI = NULLHANDLE;
+
+        fUniResolved = TRUE;
+        if (   (doshResolveImports("UCONV.DLL",
+                                   &hmodUCONV,
+                                   G_aResolveFromUCONV,
+                                   sizeof(G_aResolveFromUCONV) / sizeof(G_aResolveFromUCONV[0]))
+                == NO_ERROR)
+            && (doshResolveImports("LIBUNI.DLL",
+                                   &hmodLIBUNI,
+                                   G_aResolveFromLIBUNI,
+                                   sizeof(G_aResolveFromLIBUNI) / sizeof(G_aResolveFromLIBUNI[0]))
+                == NO_ERROR)
+           )
+            fUniOK = TRUE;
+    }
+
+    if (   (doshIsWarp4()==3)	// V1.0.5 (2006-05-29) [pr]
+        && fUniOK
+       )
     {
         UconvObject         uconv_object;
 
-        if (UniCreateUconvObject((UniChar *)L"",
-                                 &uconv_object) == ULS_SUCCESS)
+        if (G_UniCreateUconvObject((UniChar *)L"",
+                                   &uconv_object) == ULS_SUCCESS)
         {
             LocaleObject locale_object;
 
-            if (UniCreateLocaleObject(UNI_UCS_STRING_POINTER,
-                                      (UniChar *)L"",
-                                      &locale_object) == ULS_SUCCESS)
+            if (G_UniCreateLocaleObject(UNI_UCS_STRING_POINTER,
+                                        (UniChar *)L"",
+                                        &locale_object) == ULS_SUCCESS)
             {
                 int i;
                 struct LOCALE_ITEMLIST
@@ -413,17 +480,17 @@ VOID nlsGetAMPM(PCOUNTRYAMPM pampm)
                 {
                     UniChar *pItem;
 
-                    if (UniQueryLocaleItem(locale_object,
-                                           itemList[i].lclItem,
-                                           &pItem) == ULS_SUCCESS)
+                    if (G_UniQueryLocaleItem(locale_object,
+                                             itemList[i].lclItem,
+                                             &pItem) == ULS_SUCCESS)
                     {
-                        int iLen = UniStrlen(pItem) + 1;
+                        int iLen = G_UniStrlen(pItem) + 1;
                         PSZ pszResult = malloc(iLen);
 
-                        if (UniStrFromUcs(uconv_object,
-                                          pszResult,
-                                          pItem,
-                                          iLen) == ULS_SUCCESS)
+                        if (G_UniStrFromUcs(uconv_object,
+                                            pszResult,
+                                            pItem,
+                                            iLen) == ULS_SUCCESS)
                         {
                             switch(itemList[i].iType)
                             {
@@ -442,14 +509,14 @@ VOID nlsGetAMPM(PCOUNTRYAMPM pampm)
                         }
 
                         free(pszResult);
-                        UniFreeMem(pItem);
+                        G_UniFreeMem(pItem);
                     }
                 }
 
-                UniFreeLocaleObject(locale_object);
+                G_UniFreeLocaleObject(locale_object);
             }
 
-            UniFreeUconvObject(uconv_object);
+            G_UniFreeUconvObject(uconv_object);
         }
     }
     else
@@ -492,6 +559,7 @@ VOID nlsGetAMPM(PCOUNTRYAMPM pampm)
  *@@changed V1.0.4 (2005-10-15) [bvl]: Added support for Locale object settings on MCP systems @@fixes 614
  *@@changed V1.0.4 (2005-10-29) [pr]: Rewritten to prevent memory leaks and errors
  *@@changed V1.0.5 (2006-05-29) [pr]: Read Country rather than Locale settings on Warp 4 FP13+ @@fixes 614
+ *@@changed WarpIN V1.0.15 (2007-03-26) [pr]: Rewritten to load UCONV/LIBUNI functions dynamically @@fixes 936
  */
 
 VOID nlsQueryCountrySettings(PCOUNTRYSETTINGS2 pcs2)
@@ -500,18 +568,42 @@ VOID nlsQueryCountrySettings(PCOUNTRYSETTINGS2 pcs2)
     {
         PCOUNTRYSETTINGS pcs = &pcs2->cs;
 
-        if (doshIsWarp4()==3)	// V1.0.5 (2006-05-29) [pr]
+        if (   (doshIsWarp4()==3)
+            && (!fUniResolved)
+           )
+        {
+            HMODULE hmodUCONV = NULLHANDLE,
+                    hmodLIBUNI = NULLHANDLE;
+
+            fUniResolved = TRUE;
+            if (   (doshResolveImports("UCONV.DLL",
+                                       &hmodUCONV,
+                                       G_aResolveFromUCONV,
+                                       sizeof(G_aResolveFromUCONV) / sizeof(G_aResolveFromUCONV[0]))
+                    == NO_ERROR)
+                && (doshResolveImports("LIBUNI.DLL",
+                                       &hmodLIBUNI,
+                                       G_aResolveFromLIBUNI,
+                                       sizeof(G_aResolveFromLIBUNI) / sizeof(G_aResolveFromLIBUNI[0]))
+                    == NO_ERROR)
+               )
+                fUniOK = TRUE;
+        }
+
+        if (   (doshIsWarp4()==3)	// V1.0.5 (2006-05-29) [pr]
+            && fUniOK
+           )
         {
             UconvObject         uconv_object;
 
-            if (UniCreateUconvObject((UniChar *)L"",
-                                     &uconv_object) == ULS_SUCCESS)
+            if (G_UniCreateUconvObject((UniChar *)L"",
+                                       &uconv_object) == ULS_SUCCESS)
             {
                 LocaleObject locale_object;
 
-                if (UniCreateLocaleObject(UNI_UCS_STRING_POINTER,
-                                          (UniChar *)L"",
-                                          &locale_object) == ULS_SUCCESS)
+                if (G_UniCreateLocaleObject(UNI_UCS_STRING_POINTER,
+                                            (UniChar *)L"",
+                                            &locale_object) == ULS_SUCCESS)
                 {
                     int i;
                     struct LOCALE_ITEMLIST
@@ -534,17 +626,17 @@ VOID nlsQueryCountrySettings(PCOUNTRYSETTINGS2 pcs2)
                     {
                         UniChar *pItem;
 
-                        if (UniQueryLocaleItem(locale_object,
-                                               itemList[i].lclItem,
-                                               &pItem) == ULS_SUCCESS)
+                        if (G_UniQueryLocaleItem(locale_object,
+                                                 itemList[i].lclItem,
+                                                 &pItem) == ULS_SUCCESS)
                         {
-                            int iLen = UniStrlen(pItem) + 1;
+                            int iLen = G_UniStrlen(pItem) + 1;
                             PSZ pszResult = malloc(iLen);
 
-                            if (UniStrFromUcs(uconv_object,
-                                              pszResult,
-                                              pItem,
-                                              iLen) == ULS_SUCCESS)
+                            if (G_UniStrFromUcs(uconv_object,
+                                                pszResult,
+                                                pItem,
+                                                iLen) == ULS_SUCCESS)
                             {
                                 switch(itemList[i].iType)
                                 {
@@ -563,14 +655,14 @@ VOID nlsQueryCountrySettings(PCOUNTRYSETTINGS2 pcs2)
                             }
 
                             free(pszResult);
-                            UniFreeMem(pItem);
+                            G_UniFreeMem(pItem);
                         }
                     }
 
-                    UniFreeLocaleObject(locale_object);
+                    G_UniFreeLocaleObject(locale_object);
                 }
 
-                UniFreeUconvObject(uconv_object);
+                G_UniFreeUconvObject(uconv_object);
             }
         }
         else
