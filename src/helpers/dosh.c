@@ -3711,6 +3711,7 @@ APIRET doshQueryCurrentDir(PSZ pszBuf)
  *
  *@@added V0.9.4 (2000-07-01) [umoeller]
  *@@changed WarpIN V1.0.15 (2007-03-27) [pr]: allow NULL pulDirs and pulFiles
+ *@@changed WarpIN V1.0.16 (2007-07-28) [pr]: bump directory count on recursive delete failures @@fixes 1001
  */
 
 APIRET doshDeleteDir(PCSZ pcszDir,
@@ -3772,9 +3773,11 @@ APIRET doshDeleteDir(PCSZ pcszDir,
                         // report "access denied"
                         // (this is what OS/2 reports with DosDeleteDir as well)
                         arcReturn = ERROR_ACCESS_DENIED;  // 5
+                    }
+
+                    if (arcReturn != NO_ERROR)  // WarpIN V1.0.16 (2007-07-28) [pr]
                         if (pulDirs)  // WarpIN V1.0.15 (2007-03-27) [pr]
                             (*pulDirs)++;
-                    }
                 }
             }
             else
