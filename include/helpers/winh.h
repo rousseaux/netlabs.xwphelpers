@@ -14,7 +14,7 @@
  *            numbering.
  */
 
-/*      Copyright (C) 1997-2006 Ulrich M”ller.
+/*      Copyright (C) 1997-2007 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -891,6 +891,9 @@ extern "C" {
                                       LONG lSysColor);
 
     BOOL XWPENTRY winhSetPresColor(HWND hwnd, ULONG ulIndex, LONG lColor);
+    // XWP V1.0.8 (2007-05-08) [pr]
+    typedef BOOL XWPENTRY WINHSETPRESCOLOR(HWND hwnd, ULONG ulIndex, LONG lColor);
+    typedef WINHSETPRESCOLOR *PWINHSETPRESCOLOR;
 
     /* ******************************************************************
      *
