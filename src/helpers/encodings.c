@@ -20,7 +20,7 @@
  */
 
 /*
- *      Copyright (C) 2001-2002 Ulrich M”ller.
+ *      Copyright (C) 2001-2008 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -123,6 +123,7 @@ struct
         ENCODINGENTRY(cp1256),    1256,  0, SINGLE, "Windows Arabic",
         ENCODINGENTRY(cp1257),    1257,  0, SINGLE, "Windows Latin-4",
         ENCODINGENTRY(cp1258),    1258,  0, UNKNOWN, "unknown",
+        ENCODINGENTRY(cp1386),    1386,  0, DOUBLE, "Chinese (IBM)",  // WarpIN V1.0.16 (2008-02-19) [pr]
         ENCODINGENTRY(iso8859_1),  819,  1, SINGLE, "ISO/IEC 8859-1:1998 (Latin-1)",
         ENCODINGENTRY(iso8859_2),  912,  2, SINGLE, "ISO 8859-2:1999 (Latin-2)",
         ENCODINGENTRY(iso8859_3),  913,  3, SINGLE, "ISO/IEC 8859-3:1999 (Latin-3)",

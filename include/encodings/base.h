@@ -68,6 +68,7 @@ extern "C" {
         enc_cp1256,
         enc_cp1257,
         enc_cp1258,
+        enc_cp1386,  // WarpIN V1.0.16 (2008-02-19) [pr]
         enc_iso8859_1,
         enc_iso8859_2,
         enc_iso8859_3,

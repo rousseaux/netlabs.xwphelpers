@@ -38,6 +38,7 @@
 #include "encodings\cp1256.h"
 #include "encodings\cp1257.h"
 #include "encodings\cp1258.h"
+#include "encodings\cp1386.h"  // WarpIN V1.0.16 (2008-02-19) [pr]
 #include "encodings\iso8859-1.h"
 #include "encodings\iso8859-10.h"
 #include "encodings\iso8859-13.h"
