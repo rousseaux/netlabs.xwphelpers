@@ -14,7 +14,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2005 Ulrich M”ller.
+ *      Copyright (C) 1997-2008 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -2001,16 +2001,31 @@ APIRET appQuickStartApp(const char *pcszFile,
  *
  *@@added V0.9.20 (2002-08-10) [umoeller]
  *@@changed V1.0.0 (2002-08-21) [umoeller]: changed prototype to return browser
- */
+ *@@changed WarpIN V1.0.17 (2008-03-08) [pr]: rewritten to add IAIUTIL settings
+*/
+
+typedef struct _URLPROTOAPP {
+    PCSZ    pcszProtocol;
+    PCSZ    pcszKeyExe;
+    PCSZ    pcszKeyParam;
+    PCSZ    pcszKeyDir;
+} URLPROTOAPP;
 
 APIRET appOpenURL(PCSZ pcszURL,           // in: URL to open
                   PSZ pszAppStarted,      // out: application that was started (req.)
                   ULONG cbAppStarted)     // in: size of that buffer
 {
     APIRET      arc = ERROR_NO_DATA;
-
-    CHAR        szStartupDir[CCHMAXPATH];
     XSTRING     strParameters;
+    PCSZ        pcszApp = "WPURLDEFAULTSETTINGS", pcszKeyExe, pcszKeyParam, pcszKeyDir;
+    ULONG       i;
+    URLPROTOAPP urlProtoApps[] = {
+        { "", "DefaultBrowserExe", "DefaultParameters", "DefaultWorkingDir" },
+        { "mailto:", "DefaultMailExe", "DefaultMailParameters", "DefaultMailWorkingDir" },
+        { "news:", "DefaultNewsExe", "DefaultNewsParameters", "DefaultNewsWorkingDir" },
+        { "ftp:", "DefaultFTPExe", "DefaultFTPParameters", "DefaultFTPWorkingDir" },
+        { "irc:", "DefaultIRCExe", "DefaultIRCParameters", "DefaultIRCWorkingDir" }
+    };
 
     if (    (!pcszURL)
          || (!pszAppStarted)
@@ -2019,45 +2034,51 @@ APIRET appOpenURL(PCSZ pcszURL,           // in: URL to open
         return ERROR_INVALID_PARAMETER;
 
     xstrInit(&strParameters, 0);
-
-    if (PrfQueryProfileString(HINI_USER,
-                              "WPURLDEFAULTSETTINGS",
-                              "DefaultBrowserExe",
-                              "NETSCAPE.EXE",
-                              pszAppStarted,
-                              cbAppStarted))
+    for (i = sizeof(urlProtoApps) / sizeof(urlProtoApps[0]); i; i--)
     {
-        PSZ     pszDefParams;
-        HAPP    happ;
-
-        if (pszDefParams = prfhQueryProfileData(HINI_USER,
-                                                "WPURLDEFAULTSETTINGS",
-                                                "DefaultParameters",
-                                                NULL))
+        if (!strnicmp(pcszURL,
+                      urlProtoApps[i - 1].pcszProtocol,
+                      strlen(urlProtoApps[i - 1].pcszProtocol)))
         {
-            xstrcpy(&strParameters, pszDefParams, 0);
-            xstrcatc(&strParameters, ' ');
-            free(pszDefParams);
+            if (PrfQueryProfileString(HINI_USER,
+                                      (PSZ) pcszApp,
+                                      (PSZ) urlProtoApps[i - 1].pcszKeyExe,
+                                      NULL,
+                                      pszAppStarted,
+                                      cbAppStarted))
+            {
+                PSZ     pszDefParams;
+                CHAR    szStartupDir[CCHMAXPATH];
+                HAPP    happ;
+
+                if (pszDefParams = prfhQueryProfileData(HINI_USER,
+                                                        pcszApp,
+                                                        urlProtoApps[i - 1].pcszKeyParam,
+                                                        NULL))
+                {
+                    xstrcpy(&strParameters, pszDefParams, 0);
+                    xstrcatc(&strParameters, ' ');
+                    free(pszDefParams);
+                }
+
+                xstrcat(&strParameters, pcszURL, 0);
+                PrfQueryProfileString(HINI_USER,
+                                      (PSZ) pcszApp,
+                                      (PSZ) urlProtoApps[i - 1].pcszKeyDir,
+                                      "",
+                                      szStartupDir,
+                                      sizeof(szStartupDir));
+                arc = appQuickStartApp(pszAppStarted,
+                                       PROG_DEFAULT,
+                                       strParameters.psz,
+                                       szStartupDir,
+                                       &happ,
+                                       NULL);     // don't wait
+                break;
+            }
         }
-
-        xstrcat(&strParameters, pcszURL, 0);
-
-        PrfQueryProfileString(HINI_USER,
-                              "WPURLDEFAULTSETTINGS",
-                              "DefaultWorkingDir",
-                              "",
-                              szStartupDir,
-                              sizeof(szStartupDir));
-
-        arc = appQuickStartApp(pszAppStarted,
-                               PROG_DEFAULT,
-                               strParameters.psz,
-                               szStartupDir,
-                               &happ,
-                               NULL);     // don't wait
     }
 
     xstrClear(&strParameters);
-
     return arc;
 }
