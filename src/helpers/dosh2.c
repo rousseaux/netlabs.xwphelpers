@@ -27,7 +27,7 @@
  */
 
 /*
- *      This file Copyright (C) 1997-2006 Ulrich M”ller,
+ *      This file Copyright (C) 1997-2008 Ulrich M”ller,
  *                                        Dmitry A. Steklenev.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
@@ -162,6 +162,76 @@ ULONG doshIsWarp4(VOID)
 
     return (s_ulrc);
 }
+
+/*
+ *@@ doshIsFixpak:
+ *      checks if the OS/2 system is at a given fixpak level or higher
+ *
+ *      Returns:
+ *
+ *      -- FALSE: the system is at a lower level
+ *
+ *      -- TRUE: the system is at the exact or a higher level
+ *
+ *@@added V1.0.8 (2008-04-07) [chennecke]: @@fixes 1067
+ */
+
+BOOL doshIsFixpak(BOOL fIsMcp,          // in: MCP fixpak?
+                  ULONG ulFixpakLevel)    // in: fixpak level number
+{
+    static BOOL     s_fQueried = FALSE;
+    static BOOL     s_fRc = FALSE;
+
+    if (!s_fQueried)
+    {
+        // first call:
+        // check SYSLEVEL.OS2
+        CHAR szName[CCHMAXPATH] = "?:\\OS2\\INSTALL\\SYSLEVEL.OS2";
+        ULONG cbFile;
+        PXFILE pFile;
+
+        szName[0] = doshQueryBootDrive();
+        if (!doshOpen(szName,
+                      XOPEN_READ_EXISTING | XOPEN_BINARY,
+                      &cbFile,
+                      &pFile))
+        {
+            CHAR szCsdLevel[8];
+            CHAR szCsdLevelNumber[4];
+            ULONG ulSize;
+
+            if (!lvlQueryLevelFileData(pFile->hf,
+                                       QLD_CURRENTCSD,
+                                       szCsdLevel,
+                                       sizeof(szCsdLevel),
+                                       &ulSize))
+            {
+                strncpy(szCsdLevelNumber, szCsdLevel + 4, 3);
+                szCsdLevelNumber[sizeof(szCsdLevelNumber) - 1] = '\0';
+                if (fIsMcp)
+                {
+                    if (   (szCsdLevel[3] == 'C')
+                        && (atol(szCsdLevelNumber) >= ulFixpakLevel))
+                        s_fRc = TRUE;
+                }
+                else
+                {
+                    if (   (szCsdLevel[3] == 'C')
+                        || (    (szCsdLevel[3] == 'M')
+                             && (atol(szCsdLevelNumber) >= ulFixpakLevel)))
+                        s_fRc = TRUE;
+                }
+            }
+
+            doshClose(&pFile);
+        }
+
+        s_fQueried = TRUE;
+    }
+
+    return (s_fRc);
+}
+
 
 /*
  *@@ doshIsValidFileName:

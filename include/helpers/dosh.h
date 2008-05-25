@@ -91,6 +91,9 @@ extern "C" {
 
     ULONG doshIsWarp4(VOID);
 
+    BOOL doshIsFixpak(BOOL fIsMcp,
+                      ULONG ulFixpakLevel);
+
     PSZ doshQuerySysErrorMsg(APIRET arc);
 
     ULONG doshQuerySysUptime(VOID);
