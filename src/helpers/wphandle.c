@@ -23,7 +23,7 @@
  */
 
 /*
- *      This file Copyright (C) 1997-2005 Ulrich M”ller,
+ *      This file Copyright (C) 1997-2008 Ulrich M”ller,
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -278,7 +278,8 @@ STATIC APIRET NukeNameTrees(PHANDLESBUF pHandlesBuf)
  *          (non-fatal)
  *
  *@@added V0.9.16 (2001-10-02) [umoeller]
- *@@changted V0.9.17 (2002-02-05) [umoeller]: added fQuitOnErrors
+ *@@changed V0.9.17 (2002-02-05) [umoeller]: added fQuitOnErrors
+ *@@changed XWP V1.0.8 (2008-05-25) [pr]: made DBCS safe @@fixes 1070
  */
 
 APIRET wphRebuildNodeHashTable(HHANDLES hHandles,
@@ -316,7 +317,7 @@ APIRET wphRebuildNodeHashTable(HHANDLES hHandles,
                 PDRIVE pDriv = (PDRIVE)pCur;
 
                 // upper the node name for string comparisons
-                strupr(pDriv->szName);
+                nlsUpper(pDriv->szName);  // V1.0.8 (2008-05-25)
 
                 // create a drive tree node
                 // (stored so we can append to this)
@@ -346,7 +347,7 @@ APIRET wphRebuildNodeHashTable(HHANDLES hHandles,
                 PNODETREENODE pNew;
 
                 // upper the node name for string comparisons
-                strupr(pNode->szName);
+                nlsUpper(pNode->szName);  // V1.0.8 (2008-05-25)
 
                 // create a node tree node
                 if (!(pNew = NEW(NODETREENODE)))
@@ -642,6 +643,7 @@ APIRET wphFreeHandles(HHANDLES *phHandles)
  *          given filename.
  *
  *@@changed V0.9.16 (2001-10-19) [umoeller]: rewritten
+ *@@changed V1.0.8 (2008-05-25) [pr]: made DBCS safe @@fixes 1070
  */
 
 APIRET wphSearchBufferForHandle(HHANDLES hHandles,
@@ -680,7 +682,7 @@ APIRET wphSearchBufferForHandle(HHANDLES hHandles,
             PSZ     pszFilename = strdup(pcszFile),
                     pEnd = NULL;
 
-            strupr(pszFilename);
+            nlsUpper(pszFilename);  // V1.0.8 (2008-05-25)
 
             // 1) OK, find the drive.
 

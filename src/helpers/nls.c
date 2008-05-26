@@ -21,7 +21,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2007 Ulrich M”ller.
+ *      Copyright (C) 1997-2008 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -728,10 +728,10 @@ PSZ nlsThousandsULong(PSZ pszTarget,       // out: decimal as string
 
     for (uss = 0;
          uss < usLen;
-         ++uss)
+         uss++)
     {
         if (uss)
-            if (0 == ((usLen - uss) % 3))
+            if (((usLen - uss) % 3) == 0)
             {
                 pszTarget[ust] = cThousands;
                 ust++;
@@ -1167,23 +1167,36 @@ STATIC VOID InitUpperMap(VOID)
  *
  *@@added V0.9.16 (2001-10-25) [umoeller]
  *@@changed V0.9.20 (2002-07-25) [umoeller]: speedup, changed prototype
+ *@@changed XWP V1.0.8 (2008-05-25) [pr]: rewritten for correct DBCS operation @@fixes 1070
  */
 
 ULONG nlsUpper(PSZ psz)            // in/out: string
 {
+    BOOL	bDBCSType = TYPE_SBCS;
     ULONG   ul = 0;
-    PSZ     p;
+    PSZ     p = psz;
 
     if (!G_fUpperMapInited)
         InitUpperMap();
 
-    if (p = psz)
+    for (; p && *p; p++, ul++)
     {
-        while (*p++ = G_szUpperMap[*p])
-            ++ul;
+        switch(bDBCSType)
+        {
+            case TYPE_SBCS:
+            case TYPE_DBCS_2ND:
+                bDBCSType = G_afLeadByte[*p];
+            break;
+
+            case TYPE_DBCS_1ST :
+                bDBCSType = TYPE_DBCS_2ND;
+            break;
+        }
+
+        if (bDBCSType == TYPE_SBCS)
+            *p = G_szUpperMap[*p];
     }
 
     return ul;
 }
-
 
