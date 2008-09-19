@@ -38,10 +38,12 @@ ALLTARGET = $(MODULESDIR)\$(MODULESTEM).exe
 MODULEDEF = $(MODULESTEM).def
 !endif
 
-# update DEF file if buildlevel has changed
-$(MODULEDEF): $(BLDLEVEL_H)
-    @echo   ### Updating $(@F) from "$(BLDLEVEL_H)"
-    $(RUN_BLDLEVEL) $@ $(BLDLEVEL_H) $(BLDLEVELNAME)
+# update DEF file
+!if [@echo   +++ Updating $(@F) from "$(BLDLEVEL_H)"]
+!endif
+!if [@$(RUN_BLDLEVEL) $(MODULEDEF) $(BLDLEVEL_H) $(BLDLEVELNAME)]
+!endif
+
 !endif
 
 !undef DEPEND_RES
@@ -70,7 +72,7 @@ $(MODULESDIR)\$(MODULESTEM).exe: $(LINKOBJS) $(MODULEDEF) $(DEPEND_RES)
     @echo   ### [$@]: Linking $(@F)
     $(LINKCMD) @<<
 /OUT:$@ $(MODULEDEF) $(LINKOBJS) $(PMPRINTF_LIB)
-<<KEEP
+<<NOKEEP
 !ifdef DEPEND_RES
     @echo   ### [$@]: Appending $(@B).res
     $(RC) $(OUTPUTDIR)\$(@B).res $@
