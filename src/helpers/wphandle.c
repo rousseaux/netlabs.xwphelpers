@@ -58,6 +58,7 @@
 
 #include "helpers\except.h"
 #include "helpers\linklist.h"
+#include "helpers\nls.h"
 #include "helpers\prfh.h"
 #include "helpers\standards.h"
 #include "helpers\stringh.h"
