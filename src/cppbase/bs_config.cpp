@@ -68,7 +68,7 @@
  */
 
 /*
- *      This file Copyright (C) 1999-2006 Ulrich M”ller.
+ *      This file Copyright (C) 1999-2008 Ulrich M”ller.
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
  *      the Free Software Foundation, in version 2 as it comes in the COPYING
@@ -1693,6 +1693,7 @@ ustring BSDeleteWPSObject::DescribeData()
  *      Throws a BSConfigExcpt upon failure.
  *
  *@@changed V0.9.18 (2002-03-08) [umoeller]: added codec
+ *@@changed V1.0.18 (2008-09-27) [pr]: no error if object no longer exists @@fixes 1062
  */
 
 int BSDeleteWPSObject::Delete(BSUniCodec &codecProcess,
@@ -1707,21 +1708,19 @@ int BSDeleteWPSObject::Delete(BSUniCodec &codecProcess,
     if (!(hobj = WinQueryObject(pcszObjectID)))
     {
         if (pLogFile)
-            pLogFile->Write("Error deleting WPS object \"%s\"",
+            pLogFile->Write("Error locating WPS object \"%s\"",
                              pcszObjectID);
-
-        throw BSConfigExcpt(WPOEXCPT_DELETEOBJECT, 0);
     }
+    else
+        if (!WinDestroyObject(hobj))
+        {
+            if (pLogFile)
+                pLogFile->Write("Error deleting WPS object \"%s\", HOBJECT was 0x%lX",
+                                 pcszObjectID,
+                                 hobj);
 
-    if (!WinDestroyObject(hobj))
-    {
-        if (pLogFile)
-            pLogFile->Write("Error deleting WPS object \"%s\", HOBJECT was 0x%lX",
-                             pcszObjectID,
-                             hobj);
-
-        throw BSConfigExcpt(WPOEXCPT_DELETEOBJECT, 0);
-    }
+            throw BSConfigExcpt(WPOEXCPT_DELETEOBJECT, 0);
+        }
 
     return (irc);
 }
