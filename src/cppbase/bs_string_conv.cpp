@@ -8,7 +8,7 @@
  */
 
 /*
- *      This file Copyright (C) 2002 Ulrich M”ller.
+ *      This file Copyright (C) 2002-2008 Ulrich M”ller.
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
  *      the Free Software Foundation, in version 2 as it comes in the COPYING
@@ -46,6 +46,8 @@
 #include "encodings\base.h"
 
 #pragma hdrstop
+
+#define CP_UTF8		1208
 
 DEFINE_CLASS(BSUniCodec, BSRoot);
 
@@ -85,14 +87,24 @@ static ENCID FindEncodingID(USHORT usCodepage,
  *@@ BSUniCodec:
  *      constructor. Creates the internal conversion
  *      object by calling encCreateCodec.
+ *
+ *@@changed WarpIN V1.0.18 (2008-09-24) [pr]: added codepage 1208 support @@fixes 1127
  */
 
 BSUniCodec::BSUniCodec(unsigned short usCodepage)      // in: codepage
     : BSRoot(tBSUniCodec),
       _usCodepage(usCodepage)
 {
-    ENCID id = FindEncodingID(usCodepage, &_fDouble);
+    ENCID id;
 
+    // WarpIN V1.0.18
+    if (usCodepage == CP_UTF8)
+    {
+	_pCodec = NULL;
+	return;
+    }
+
+    id = FindEncodingID(usCodepage, &_fDouble);
     if (_fDouble)
     {
         APIRET arc;
@@ -117,11 +129,17 @@ BSUniCodec::BSUniCodec(unsigned short usCodepage)      // in: codepage
  *@@ ~BSUniCodec:
  *      destructor. Frees the internal conversion object
  *      by calling encFreeCodec.
+ *
+ *@@changed WarpIN V1.0.18 (2008-09-24) [pr]: added codepage 1208 support @@fixes 1127
  */
 
 BSUniCodec::~BSUniCodec()
 {
-    encFreeCodec((PCONVERSION*)&_pCodec);
+    if (_pCodec)
+    {
+	encFreeCodec((PCONVERSION*)&_pCodec);
+	_pCodec = NULL;
+    }
 }
 
 /*
@@ -150,6 +168,8 @@ static BOOL IsLeadByte(CHAR c,          // in: character to test
  *      converts the given string from codepage-specific
  *      to UTF-8. Used by BSString::assignUtf8 and
  *      others.
+ *
+ *@@changed WarpIN V1.0.18 (2008-09-24) [pr]: added codepage 1208 support @@fixes 1127
  */
 
 void BSUniCodec::Codepage2Uni(BSUString &ustr,           // out: target
@@ -157,6 +177,13 @@ void BSUniCodec::Codepage2Uni(BSUString &ustr,           // out: target
                               unsigned long ulLength)    // in: length of cp string
 {
     PCONVERSION pTable = (PCONVERSION)_pCodec;
+
+    // WarpIN V1.0.18
+    if (QueryCodepage() == CP_UTF8)
+    {
+	ustr.assignUtf8(pcszCP);
+	return;
+    }
 
     XSTRING xstrNew;
     xstrInit(&xstrNew, ulLength + 1);
@@ -225,12 +252,21 @@ void BSUniCodec::Codepage2Uni(BSUString &ustr,           // out: target
  *
  *      Characters that are not supported with the
  *      given codepage are replaced by '?'.
+ *
+ *@@changed WarpIN V1.0.18 (2008-09-24) [pr]: added codepage 1208 support @@fixes 1127
  */
 
 void BSUniCodec::Uni2Codepage(BSString &str,
                               const char *pcszUni,
                               unsigned long ulLength)
 {
+    // WarpIN V1.0.18
+    if (QueryCodepage() == CP_UTF8)
+    {
+	str.assign(pcszUni);
+	return;
+    }
+
     PCONVERSION pTable = (PCONVERSION)_pCodec;
 
     XSTRING xstrNew;
