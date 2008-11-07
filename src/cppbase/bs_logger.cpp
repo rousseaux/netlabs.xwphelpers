@@ -14,7 +14,7 @@
  */
 
 /*
- *      This file Copyright (C) 1999-2006 Ulrich M”ller.
+ *      This file Copyright (C) 1999-2008 Ulrich M”ller.
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
  *      the Free Software Foundation, in version 2 as it comes in the COPYING
@@ -47,6 +47,7 @@
 
 // include's from helpers
 #include "helpers\prfh.h"
+#include "helpers\xprf.h"
 #include "helpers\xstring.h"
 
 // base includes
@@ -272,6 +273,8 @@ void BSMemLoggerBase::Clear(void)
  *
  *      Note: if the logger is currently empty, this will delete
  *      the given INI key.
+ *
+ *@@changed WarpIN V1.0.18 (2008-10-06) [pr]: added Store(PXINI...)
  */
 
 BOOL BSMemLoggerBase::Store(HINI hini,            // in: INI handle
@@ -282,15 +285,25 @@ BOOL BSMemLoggerBase::Store(HINI hini,            // in: INI handle
     return (PrfWriteProfileData(hini, pszApp, pszKey, _pabLogString, _cbLogString));
 }
 
+BOOL BSMemLoggerBase::Store(PXINI pXIni,            // in: INI handle
+                            const char *pszApp,   // in: INI application
+                            const char *pszKey)   // in: INI key
+                   const
+{
+    return (xprfWriteProfileData(pXIni, pszApp, pszKey, _pabLogString, _cbLogString));
+}
+
 /*
  *@@ Load:
  *      reverse to BSMemLoggerBase::Store, this loads the data from INI.
  *      This will overwrite the current contents of the logger.
  *
  *      Returns TRUE if data was found.
+ *
+ *@@changed WarpIN V1.0.18 (2008-10-06) [pr]: added Load(PXINI...)
  */
 
-BOOL BSMemLoggerBase::Load(HINI hini,             // in: INI handle
+BOOL BSMemLoggerBase::Load(HINI hini,          // in: INI handle
                         const char *pszApp,    // in: INI application
                         const char *pszKey)    // in: INI key
 {
@@ -300,6 +313,19 @@ BOOL BSMemLoggerBase::Load(HINI hini,             // in: INI handle
                                          (PSZ)pszApp,
                                          (PSZ)pszKey,
                                          &_cbLogString);
+    return (_pabLogString != 0);
+}
+
+BOOL BSMemLoggerBase::Load(PXINI pXIni,        // in: INI handle
+                        const char *pszApp,    // in: INI application
+                        const char *pszKey)    // in: INI key
+{
+    if (_pabLogString)
+        free(_pabLogString);
+    _pabLogString = xprfhQueryProfileData(pXIni,
+                                          (PSZ)pszApp,
+                                          (PSZ)pszKey,
+                                          &_cbLogString);
     return (_pabLogString != 0);
 }
 

@@ -13,7 +13,7 @@
  *@@include #include "helpers\xprf.h"
  */
 
-/*      Copyright (C) 2000 Ulrich M”ller.
+/*      Copyright (C) 2000-2008 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -167,7 +167,7 @@ extern "C" {
         typedef void* PXINI;
     #endif
 
-    APIRET xprfOpenProfile(const char *pcszFilename,
+    APIRET xprfOpenProfile(PCSZ pcszFilename,
                            PXINI *ppxini);
 
     APIRET xprfCloseProfile(PXINI hIni);
@@ -183,15 +183,30 @@ extern "C" {
                                 PVOID pBuffer,
                                 PULONG pulBufferMax);
 
+    LONG xprfQueryProfileInt(PXINI pXIni,
+                             PCSZ pcszApp,
+                             PCSZ pcszKey,
+                             LONG lDefault);
+
     APIRET xprfWriteProfileData(PXINI hIni,
-                                const char *pcszApp,
-                                const char *pcszKey,
+                                PCSZ pcszApp,
+                                PCSZ pcszKey,
                                 PVOID pData,
                                 ULONG ulDataLen);
+
+    APIRET xprfWriteProfileString(PXINI pXIni,
+                                  PCSZ pcszApp,
+                                  PCSZ pcszKey,
+                                  PCSZ pcszString);
 
     APIRET xprfQueryKeysForApp(PXINI hIni,
                                PCSZ pcszApp,
                                PSZ *ppszKeys);
+
+    PSZ xprfhQueryProfileData(PXINI pXIni,
+                              PCSZ pcszApp,
+                              PCSZ pcszKey,
+                              PULONG pcbBuf);
 
     /* ******************************************************************
      *

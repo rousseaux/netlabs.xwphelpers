@@ -11,7 +11,7 @@
  */
 
 /*
- *      This file Copyright (C) 1999-2006 Ulrich M”ller.
+ *      This file Copyright (C) 1999-2008 Ulrich M”ller.
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
  *      the Free Software Foundation, in version 2 as it comes in the COPYING
@@ -91,6 +91,7 @@
      *@@changed V0.9.9 (2001-03-30) [umoeller]: renamed from BSLoggerBase
      *@@changed V0.9.20 (2002-07-22) [umoeller]: added copy constructor to avoid flat copy
      *@@changed WarpIN V1.0.10 (2006-04-05) [pr]: added Clear method
+     *@@changed WarpIN V1.0.18 (2008-10-06) [pr]: added Store(PXINI...) and Load(PXINI...)
      */
 
     class BSMemLoggerBase
@@ -116,7 +117,9 @@
             void Clear(void);
 
             BOOL Store(HINI hini, const char *pszApp, const char *pszKey) const;
+            BOOL Store(PXINI pXIni, const char *pszApp, const char *pszKey) const;
             BOOL Load(HINI hini, const char *pszApp, const char *pszKey);
+            BOOL Load(PXINI pXIni, const char *pszApp, const char *pszKey);
     };
 
     /*

@@ -109,6 +109,7 @@
 #include "helpers\winh.h"
 #include "helpers\prfh.h"
 #include "helpers\stringh.h"
+#include "helpers\xprf.h"
 #include "helpers\xstring.h"
 
 #include "helpers\configsys.h"

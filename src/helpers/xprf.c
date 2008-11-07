@@ -73,7 +73,7 @@
  */
 
 /*
- *      Copyright (C) 2000 Ulrich M”ller.
+ *      Copyright (C) 2000-2008 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -719,8 +719,8 @@ STATIC APIRET WriteINI(PXINI pXIni)      // in: profile opened with xprfOpenProf
  *      codes defined in prfh.h is returned.
  */
 
-APIRET xprfOpenProfile(const char *pcszFilename,    // in: profile name
-                       PXINI *ppxini)               // out: profile handle
+APIRET xprfOpenProfile(PCSZ pcszFilename,    // in: profile name
+                       PXINI *ppxini)        // out: profile handle
 {
     APIRET  arc = NO_ERROR;
     PXINI   pXIni = NULL;
@@ -813,14 +813,14 @@ APIRET xprfOpenProfile(const char *pcszFilename,    // in: profile name
  */
 
 APIRET xprfQueryProfileSize(PXINI pXIni,          // in: profile opened with xprfOpenProfile
-                            PCSZ pszAppName,      // in: application name or NULL
-                            PCSZ pszKeyName,      // in: key name or NULL
+                            PCSZ pcszAppName,     // in: application name or NULL
+                            PCSZ pcszKeyName,     // in: key name or NULL
                             PULONG pulDataLen)    // out: size of requested data
 {
     APIRET  arc = NO_ERROR;
     ULONG   ulDataLen = 0;
 
-    if (!pszAppName)
+    if (!pcszAppName)
     {
         PLISTNODE pAppNode = lstQueryFirstNode(&pXIni->llApps);
         while (pAppNode)
@@ -839,12 +839,12 @@ APIRET xprfQueryProfileSize(PXINI pXIni,          // in: profile opened with xpr
         PXINIAPPDATA pAppData;
 
         if (!(arc = FindApp(pXIni,
-                            pszAppName,
+                            pcszAppName,
                             &pAppData)))
         {
             // app exists:
 
-            if (!pszKeyName)
+            if (!pcszKeyName)
             {
                 // app != NULL, but key == NULL:
                 // return size of keys list
@@ -864,7 +864,7 @@ APIRET xprfQueryProfileSize(PXINI pXIni,          // in: profile opened with xpr
                 // both app and key specified:
                 PXINIKEYDATA pKeyData;
                 if (!(arc = FindKey(pAppData,
-                                    pszKeyName,
+                                    pcszKeyName,
                                     &pKeyData)))
                     ulDataLen = pKeyData->cbData;
             }
@@ -903,15 +903,15 @@ APIRET xprfQueryProfileSize(PXINI pXIni,          // in: profile opened with xpr
  */
 
 APIRET xprfQueryProfileData(PXINI pXIni,          // in: profile opened with xprfOpenProfile
-                            PCSZ pszAppName,      // in: application name
-                            PCSZ pszKeyName,      // in: key name or NULL
+                            PCSZ pcszAppName,     // in: application name
+                            PCSZ pcszKeyName,     // in: key name or NULL
                             PVOID pBuffer,        // in: buffer to receive data
                             PULONG pulBufferMax)  // in: buffer size, out: size of written data
 {
     APIRET  arc = NO_ERROR;
     ULONG   ulDataLen = 0;
 
-    if (!pszAppName)
+    if (!pcszAppName)
     {
         PLISTNODE pAppNode = lstQueryFirstNode(&pXIni->llApps);
         PBYTE   pbTarget = (PSZ)pBuffer;
@@ -943,12 +943,12 @@ APIRET xprfQueryProfileData(PXINI pXIni,          // in: profile opened with xpr
         PXINIAPPDATA pAppData;
 
         if (!(arc = FindApp(pXIni,
-                            pszAppName,
+                            pcszAppName,
                             &pAppData)))
         {
             // app exists:
 
-            if (!pszKeyName)
+            if (!pcszKeyName)
             {
                 // app != NULL, but key == NULL:
                 // return size of keys list
@@ -981,7 +981,7 @@ APIRET xprfQueryProfileData(PXINI pXIni,          // in: profile opened with xpr
                 // both app and key specified:
                 PXINIKEYDATA pKeyData;
                 if (!(arc = FindKey(pAppData,
-                                    pszKeyName,
+                                    pcszKeyName,
                                     &pKeyData)))
                 {
                     ulDataLen = min(pKeyData->cbData,
@@ -998,6 +998,36 @@ APIRET xprfQueryProfileData(PXINI pXIni,          // in: profile opened with xpr
         *pulBufferMax = ulDataLen;
 
     return arc;
+}
+
+/*
+ *@@ xprfQueryProfileInt:
+ *      reads data from the given XINI, similarly to
+ *      what PrfQueryProfileInt does.
+ *
+ *      You cannot specify HINI_SYSTEM or HINI_USER for
+ *      hINi.
+ *
+ *@@added WarpIN V1.0.18 (2008-10-04) [pr]
+ */
+
+LONG xprfQueryProfileInt(PXINI pXIni,
+                         PCSZ pcszApp,
+                         PCSZ pcszKey,
+                         LONG lDefault)
+{
+    char szBuffer[20];
+    LONG lVal = lDefault;
+    ULONG ulSize = sizeof(szBuffer) - 1;
+
+    if (pcszApp && pcszApp[0] && pcszKey && pcszKey[0] &&
+        !xprfQueryProfileData(pXIni, pcszApp, pcszKey, szBuffer, &ulSize))
+    {
+        szBuffer[ulSize] = '\0';
+        lVal = atol(szBuffer);
+    }
+
+    return lVal;
 }
 
 /*
@@ -1034,8 +1064,8 @@ APIRET xprfQueryProfileData(PXINI pXIni,          // in: profile opened with xpr
  */
 
 APIRET xprfWriteProfileData(PXINI pXIni,          // in: profile opened with xprfOpenProfile
-                            const char *pcszApp,  // in: application name
-                            const char *pcszKey,  // in: key name or NULL
+                            PCSZ pcszApp,         // in: application name
+                            PCSZ pcszKey,         // in: key name or NULL
                             PVOID pData,          // in: data to write or NULL
                             ULONG ulDataLen)      // in: sizeof(*pData) or null
 {
@@ -1129,6 +1159,30 @@ APIRET xprfWriteProfileData(PXINI pXIni,          // in: profile opened with xpr
 }
 
 /*
+ *@@ xprfWriteProfileString:
+ *      writes string into an extended profile (XINI).
+ *      This operates similar to PrfWriteProfileString.
+ *
+ *      You cannot specify HINI_SYSTEM or HINI_USER for
+ *      hINi.
+ *
+ *@@added WarpIN V1.0.18 (2008-10-04) [pr]
+ */
+
+APIRET xprfWriteProfileString(PXINI pXIni,          // in: profile opened with xprfOpenProfile
+                              PCSZ pcszApp,         // in: application name
+                              PCSZ pcszKey,         // in: key name or NULL
+                              PCSZ pcszString)      // in: string to write or NULL
+{
+    ULONG ulDataLen = 0;
+
+    if (pcszString)
+        ulDataLen = strlen(pcszString) + 1;
+
+    return xprfWriteProfileData(pXIni, pcszApp, pcszKey, (PVOID) pcszString, ulDataLen);
+}
+
+/*
  *@@ xprfCloseProfile:
  *      closes a profile opened with xprfOpenProfile.
  *      If the profile is "dirty", that is, if any data
@@ -1176,6 +1230,7 @@ APIRET xprfCloseProfile(PXINI pXIni)       // in: profile opened with xprfOpenPr
  *      XINI files.
  *
  *@@added V1.0.0 (2002-09-17) [umoeller]
+ *@@changed WarpIN V1.0.18 (2008-10-04) [pr]: fixed inverted logic bugs
  */
 
 APIRET xprfQueryKeysForApp(PXINI hIni,      // in: INI handle
@@ -1187,7 +1242,7 @@ APIRET xprfQueryKeysForApp(PXINI hIni,      // in: INI handle
     ULONG   ulSizeOfKeysList = 0;
 
     // get size of keys list for pszApp
-    if (!xprfQueryProfileSize(hIni, pcszApp, NULL, &ulSizeOfKeysList))
+    if (xprfQueryProfileSize(hIni, pcszApp, NULL, &ulSizeOfKeysList))
         arc = PRFERR_KEYSLIST;
     else
     {
@@ -1199,7 +1254,7 @@ APIRET xprfQueryKeysForApp(PXINI hIni,      // in: INI handle
         else
         {
             *pKeys = 0;
-            if (!xprfQueryProfileData(hIni, pcszApp, NULL, pKeys, &ulSizeOfKeysList))
+            if (xprfQueryProfileData(hIni, pcszApp, NULL, pKeys, &ulSizeOfKeysList))
                 arc = PRFERR_KEYSLIST;
         }
     }
@@ -1211,5 +1266,40 @@ APIRET xprfQueryKeysForApp(PXINI hIni,      // in: INI handle
             free(pKeys);
 
     return arc;
+}
+
+/*
+ *@@ xprfhQueryProfileData:
+ *      the equivalent of prfhQueryProfileData for
+ *      XINI files.
+ *
+ *@@added WarpIN V1.0.18 (2008-10-04) [pr]
+ */
+
+PSZ xprfhQueryProfileData(PXINI pXIni,           // in: INI handle
+                          PCSZ pcszApp,          // in: application to query
+                          PCSZ pcszKey,          // in: key to query
+                          PULONG pcbBuf)         // out: size of the returned buffer; ptr can be NULL
+{
+    PSZ     pData = NULL;
+    ULONG   ulSizeOfData;
+
+    // get size of data for pcszApp/pcszKey
+    if (    (!xprfQueryProfileSize(pXIni, (PSZ)pcszApp, (PSZ)pcszKey, &ulSizeOfData))
+         && (ulSizeOfData)
+         && (pData = (PSZ)malloc(ulSizeOfData))
+       )
+    {
+        if (xprfQueryProfileData(pXIni, (PSZ)pcszApp, (PSZ)pcszKey, pData, &ulSizeOfData))
+        {
+            free(pData);
+            pData = NULL;
+        }
+    }
+
+    if (pcbBuf)
+        *pcbBuf = ulSizeOfData;
+
+    return pData;
 }
 
