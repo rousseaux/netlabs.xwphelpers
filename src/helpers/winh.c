@@ -18,7 +18,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2006 Ulrich M”ller.
+ *      Copyright (C) 1997-2008 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -1934,6 +1934,12 @@ ULONG winhLboxFindItemFromHandle(HWND hwndListBox,
  *          window within the workarea, whose maximum value is
  *          the workarea minus one.
  *
+ *          [pr]: I disagree with the above "workarea minus one" stuff.
+ *                It is perfectly possible to have the workarea and the
+ *                window area the same size and to display all the content.
+ *                This also means you do NOT get a disabled scroll bar
+ *                any more when they are the same size.
+ *
  *          For horizontal scroll bars, this is the X coordinate,
  *          counting from the left of the window (0 means leftmost).
  *
@@ -1969,6 +1975,8 @@ ULONG winhLboxFindItemFromHandle(HWND hwndListBox,
  *@@changed V0.9.3 (2000-05-08) [umoeller]: now handling scroll units automatically
  *@@changed V1.0.1 (2003-01-25) [umoeller]: fixed max value which caused right/bottommost scroll button to never be disabled
  *@@changed V1.0.1 (2003-01-25) [umoeller]: fixed bad thumb position for large offsets
+ *@@changed WarpIN V1.0.18 (2008-11-16) [pr]: fix rounding errors @@fixes 1086
+ *@@changed WarpIN V1.0.18 (2008-11-16) [pr]: disable scroll bars when workarea = win area @@fixes 1086
  */
 
 BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or horizontal)
@@ -1986,15 +1994,16 @@ BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or h
 {
     BOOL brc = FALSE;
 
-    if (ulWorkareaPels >= ulWinPels)
+    if (ulWorkareaPels > ulWinPels) // WarpIN V1.0.18
     {
         // for large workareas, adjust scroll bar units
-        USHORT  usDivisor = 1;
+        USHORT  usDivisor = 1, usRounder;
         USHORT  lMaxAllowedUnitOfs;
 
         if (ulWorkareaPels > 10000)
             usDivisor = 100;
 
+        usRounder = usDivisor - 1;  // WarpIN V1.0.18
         // scrollbar needed:
 
         // workarea is larger than window:
@@ -2003,13 +2012,13 @@ BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or h
             WinShowWindow(hwndScrollBar, TRUE);
 
         // calculate limit
-        lMaxAllowedUnitOfs =   (ulWorkareaPels - ulWinPels)
+        lMaxAllowedUnitOfs =   (ulWorkareaPels - ulWinPels + usRounder)
                              / usDivisor;
 
         // set thumb position and limit
         WinSendMsg(hwndScrollBar,
                    SBM_SETSCROLLBAR,
-                   (MPARAM)(ulCurPelsOfs / usDivisor),   // position: 0 means top
+                   (MPARAM)((ulCurPelsOfs + usRounder) / usDivisor),   // position: 0 means top
                    MPFROM2SHORT(0,  // minimum
                                 lMaxAllowedUnitOfs));    // maximum
 
@@ -2017,8 +2026,8 @@ BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or h
         // ulWorkareaPels
         WinSendMsg(hwndScrollBar,
                    SBM_SETTHUMBSIZE,
-                   MPFROM2SHORT(    ulWinPels / usDivisor,       // visible
-                                    ulWorkareaPels / usDivisor), // total
+                   MPFROM2SHORT(    (ulWinPels + usRounder) / usDivisor,       // visible
+                                    (ulWorkareaPels + usRounder) / usDivisor), // total
                    0);
         brc = TRUE;
     }
@@ -2076,6 +2085,7 @@ BOOL winhUpdateScrollBar(HWND hwndScrollBar,    // in: scroll bar (vertical or h
  *@@changed V0.9.3 (2000-05-08) [umoeller]: now handling scroll units automatically
  *@@changed V0.9.7 (2001-01-17) [umoeller]: changed PLONG to PULONG
  *@@changed V1.0.1 (2003-01-25) [umoeller]: changed prototype, no longer calling WinScrollWindow, fixed offset bugs
+ *@@changed WarpIN V1.0.18 (2008-11-16) [pr]: fix rounding error @@fixes 1086
  */
 
 LONG winhHandleScrollMsg(HWND hwndScrollBar,        // in: vertical or horizontal scroll bar window
@@ -2146,7 +2156,7 @@ LONG winhHandleScrollMsg(HWND hwndScrollBar,        // in: vertical or horizonta
         // changed:
         WinSendMsg(hwndScrollBar,
                    SBM_SETPOS,
-                   (MPARAM)(*plCurPelsOfs / lScrollUnitPels),
+                   (MPARAM)((*plCurPelsOfs + (lScrollUnitPels / 2)) / lScrollUnitPels),  // WarpIN V1.0.18
                    0);
 
         if (msg == WM_VSCROLL)

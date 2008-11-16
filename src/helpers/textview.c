@@ -182,7 +182,7 @@
  */
 
 /*
- *      Copyright (C) 2000 Ulrich M”ller.
+ *      Copyright (C) 2000-2008 Ulrich M”ller.
  *      This program is part of the XWorkplace package.
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
@@ -1099,6 +1099,7 @@ STATIC PTXVWORD ProcessEscapes(char **ppCurrent,          // in/out: current pos
  *      All coordinates are in world space (PU_PELS).
  *
  *@@changed V0.9.3 (2000-05-06) [umoeller]: largely rewritten; now handling paragraph and character formats
+ *@@changed V1.0.18 (2008-11-16) [pr]: bodge formatting to remove unwanted scroll bars @@fixes 1086
  *@@todo TXVWORDF_GLUEWITHNEXT
  */
 
@@ -1309,7 +1310,8 @@ VOID txvFormatText(HPS hps,             // in: HPS whose font is used for
                             if (flbuf.fmtp.fWordWrap)
                             {
                                 // yes: check if the word still fits
-                                if (    (flbuf.lXCurrent + pWordThis->ulCXWithSpaces // ###
+                                // WarpIN V1.0.18 @@todo add fudge factor of 2 - makes things work
+                                if (    (flbuf.lXCurrent + pWordThis->ulCXWithSpaces + 2
                                              > prclView->xRight)
                                              // > ulWinCX)
                                         // but always add the first word in the rectangle,
@@ -1953,6 +1955,8 @@ STATIC VOID UpdateTextViewPresData(HWND hwndTextView,
  *
  *      -- rclViewText: the text subrectangle (which
  *         is rclViewPaint minus borders).
+ *
+ *@@changed WarpIN V1.0.18 (2008-11-16) [pr]: fix cut/paste/typo. errors @@fixes 1086
  */
 
 STATIC VOID AdjustViewRects(HWND hwndTextView,
@@ -1983,7 +1987,7 @@ STATIC VOID AdjustViewRects(HWND hwndTextView,
     ptxvd->rclViewText.xLeft = ptxvd->rclViewPaint.xLeft + ptxvd->cdata.ulXBorder;
     ptxvd->rclViewText.yBottom = ptxvd->rclViewPaint.yBottom + ptxvd->cdata.ulYBorder;
     ptxvd->rclViewText.xRight = ptxvd->rclViewPaint.xRight - ptxvd->cdata.ulXBorder;
-    ptxvd->rclViewText.yTop = ptxvd->rclViewPaint.yTop - ptxvd->cdata.ulXBorder;
+    ptxvd->rclViewText.yTop = ptxvd->rclViewPaint.yTop - ptxvd->cdata.ulYBorder;  // WarpIN V1.0.18
 
     // now reposition scroll bars; their sizes may change
     // if either the vertical or horizontal scroll bar has
@@ -1993,7 +1997,7 @@ STATIC VOID AdjustViewRects(HWND hwndTextView,
         // vertical scroll bar enabled:
         ulOfs = 0;
         if (ptxvd->fHScrollVisible)
-            ulOfs = ulScrollCX;
+            ulOfs = ulScrollCY;  // WarpIN V1.0.18
         WinSetWindowPos(ptxvd->scrw.hwndVScroll,
                         HWND_TOP,
                         ptxvd->rclViewReal.xRight - ulScrollCX,
@@ -2025,6 +2029,7 @@ STATIC VOID AdjustViewRects(HWND hwndTextView,
  *      in turn and updates the view's scroll bars.
  *
  *@@changed V0.9.3 (2000-05-05) [umoeller]: fixed buggy vertical scroll bars
+ *@@changed WarpIN V1.0.18 (2008-11-16) [pr]: fix buggy horiz. scroll bars @@fixes 1086
  */
 
 STATIC VOID FormatText2Screen(HWND hwndTextView,
@@ -2101,6 +2106,10 @@ STATIC VOID FormatText2Screen(HWND hwndTextView,
                     ptxvd->fHScrollVisible = fEnabled;
                     AdjustViewRects(hwndTextView,
                                     ptxvd);
+                    FormatText2Screen(hwndTextView,  // WarpIN V1.0.18
+                                      ptxvd,
+                                      TRUE,   // fAlreadyRecursing
+                                      FALSE);   // quick format
                 }
         }
     }
@@ -2561,6 +2570,7 @@ STATIC VOID ProcessPresParamChanged(HWND hwndTextView, MPARAM mp1)
  *@@ ProcessScroll:
  *
  *@@added V1.0.1 (2003-01-25) [umoeller]
+ *@@changed WarpIN V1.0.18 (2008-11-16) [pr]: check for horiz. scroll message @@fixes 1086
  */
 
 STATIC VOID ProcessScroll(HWND hwndTextView,
@@ -2584,7 +2594,9 @@ STATIC VOID ProcessScroll(HWND hwndTextView,
                                               msg,
                                               mp2);
         }
-        else if (ptxvd->fHScrollVisible)
+        else if (    (msg == WM_HSCROLL)  // WarpIN V1.0.18
+                  && (ptxvd->fHScrollVisible)
+                )
         {
             LONG cx = ptxvd->rclViewText.xRight - ptxvd->rclViewText.xLeft;
             ptlScroll.x = winhHandleScrollMsg(ptxvd->scrw.hwndHScroll,
@@ -2785,6 +2797,7 @@ STATIC MRESULT ProcessButton1Up(HWND hwndTextView, MPARAM mp1)
  *      implementation for WM_CHAR in fnwpTextView.
  *
  *@@added V1.0.0 (2002-08-12) [umoeller]
+ *@@changed WarpIN V1.0.18 (2008-11-16) [pr]: added correct ID for horiz. scroll @@fixes 1086
  */
 
 STATIC MRESULT ProcessChar(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
@@ -2822,11 +2835,13 @@ STATIC MRESULT ProcessChar(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
                 case VK_RIGHT:
                     ulMsg = WM_HSCROLL;
                     usCmd = SB_LINERIGHT;
+                    usID = ID_HSCROLL;  // WarpIN V1.0.18
                 break;
 
                 case VK_LEFT:
                     ulMsg = WM_HSCROLL;
                     usCmd = SB_LINELEFT;
+                    usID = ID_HSCROLL;  // WarpIN V1.0.18
                 break;
 
                 case VK_PAGEUP:
@@ -2856,7 +2871,10 @@ STATIC MRESULT ProcessChar(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
                         // vertical:
                         ulMsg = WM_VSCROLL;
                     else
+                    {
                         ulMsg = WM_HSCROLL;
+                        usID = ID_HSCROLL;  // WarpIN V1.0.18
+                    }
 
                     sPos = 0;
                     usCmd = SB_SLIDERPOSITION;
@@ -2873,6 +2891,7 @@ STATIC MRESULT ProcessChar(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
                     {
                         ulMsg = WM_HSCROLL;
                         sPos = ptxvd->xfd.szlWorkspace.cx;
+                        usID = ID_HSCROLL;  // WarpIN V1.0.18
                     }
 
                     usCmd = SB_SLIDERPOSITION;
