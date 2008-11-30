@@ -7,7 +7,7 @@
  *            numbering.
  */
 
-/*      Copyright (C) 2000 Ulrich M”ller.
+/*      Copyright (C) 2000-2008 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -350,9 +350,10 @@ extern "C" {
 
         typedef struct _XFORMATDATA
         {
+            XSTRING     strOrigText;    // original text from WinSetWindowText
+
             // input to txvFormatText
-            XSTRING     strViewText;    // original view text
-                                        // from WinSetWindowText
+            XSTRING     strViewText;    // view text after conversion
 
             XFMTPARAGRAPH
                         fmtpStandard;   // standard paragraph format
@@ -405,8 +406,8 @@ extern "C" {
      *
      */
 
-    #define TXM_QUERYCHARFORMAT             (WM_USER + 1022)
-    #define TXM_SETCHARFORMAT               (WM_USER + 1023)
+//  #define TXM_QUERYCHARFORMAT             (WM_USER + 1022)
+//  #define TXM_SETCHARFORMAT               (WM_USER + 1023)
     #define TXM_QUERYPARFORMAT              (WM_USER + 1022)
     #define TXM_SETPARFORMAT                (WM_USER + 1023)
     #define TXM_SETWORDWRAP                 (WM_USER + 1024)
@@ -414,6 +415,9 @@ extern "C" {
     #define TXM_SETCDATA                    (WM_USER + 1026)
     #define TXM_JUMPTOANCHORNAME            (WM_USER + 1027)
     #define TXM_QUERYTEXTEXTENT             (WM_USER + 1028)
+    #define TXM_QUERYSTYLE                  (WM_USER + 1029)
+    #define TXM_SETSTYLE                    (WM_USER + 1030)
+    #define TXM_COPY                        (WM_USER + 1031)
 
     #define WC_XTEXTVIEW     "XTextViewClass"
 

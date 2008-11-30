@@ -269,6 +269,7 @@ VOID txvInitFormat(PXFORMATDATA pxfd)
             TRUE);      // auto-free items
     lstInit(&pxfd->llWords,
             TRUE);      // auto-free items
+    xstrInit(&pxfd->strOrigText, 0);  // WarpIN V1.0.18
     xstrInit(&pxfd->strViewText, 0);
 }
 
@@ -419,6 +420,7 @@ STATIC VOID AppendCharNoCheck(char **ppszNew,
  *
  *@@added V0.9.3 (2000-05-07) [umoeller]
  *@@changed V0.9.20 (2002-08-10) [umoeller]: now stripping \xFF too
+ *@@changed V1.0.18 (2008-11-24) [pr]: fixes \xFF stripping @@fixes 1116
  */
 
 VOID txvStripLinefeeds(char **ppszText,
@@ -451,12 +453,12 @@ VOID txvStripLinefeeds(char **ppszText,
                 pSource++;
             break;
 
-            case '\xFF':        // V0.9.20 (2002-08-10) [umoeller]
+            case TXVESC_CHAR:        // V0.9.20 (2002-08-10) [umoeller]
                 AppendCharNoCheck(&pszNew,
                                   &cbNew,
                                   &pTarget,
                                   ' ');
-                pSource++;
+                pSource += 3;  // V1.0.18
             break;
 
             default:
@@ -2123,6 +2125,7 @@ STATIC VOID FormatText2Screen(HWND hwndTextView,
  *      also WM_CREATE to set the window text.
  *
  *@@added V0.9.20 (2002-08-10) [umoeller]
+ *@@changed WarpIN V1.0.18 (2008-11-29) [pr]
  */
 
 VOID SetWindowText(HWND hwndTextView,
@@ -2134,25 +2137,30 @@ VOID SetWindowText(HWND hwndTextView,
         PXSTRING pstr = &ptxvd->xfd.strViewText;
         PSZ p;
 
+        // WarpIN V1.0.18
+        xstrcpy(&ptxvd->xfd.strOrigText,
+                pcszText,
+                0);
+
         switch (ptxvd->flStyle & XS_FORMAT_MASK)
         {
             case XS_PLAINTEXT:          // 0x0100
-                xstrcpy(pstr,
-                        pcszText,
-                        0);
-                xstrConvertLineFormat(pstr,
-                                      CRLF2LF);
-                p = pstr->psz;
-                while (p = strchr(p, '\xFF'))
-                    *p = ' ';
+                // WarpIN V1.0.18
+                if (p = strdup(pcszText))
+                {
+                    PSZ p2;
+                    for (p2 = p; p2 = strchr(p2, TXVESC_CHAR); *p2 = ' ');
+                    txvStripLinefeeds(&p, 4);
+                    xstrset(pstr, p);
+                }
             break;
 
             case XS_HTML:               // 0x0200
+                // WarpIN V1.0.18
                 if (p = strdup(pcszText))
                 {
-                    PSZ p2 = p;
-                    while (p2 = strchr(p2, '\xFF'))
-                        *p2 = ' ';
+                    PSZ p2;
+                    for (p2 = p; p2 = strchr(p2, TXVESC_CHAR); *p2 = ' ');
                     txvConvertFromHTML(&p, NULL, NULL, NULL);
                     xstrset(pstr, p);
                     xstrConvertLineFormat(pstr,
@@ -2798,6 +2806,7 @@ STATIC MRESULT ProcessButton1Up(HWND hwndTextView, MPARAM mp1)
  *
  *@@added V1.0.0 (2002-08-12) [umoeller]
  *@@changed WarpIN V1.0.18 (2008-11-16) [pr]: added correct ID for horiz. scroll @@fixes 1086
+ *@@changed WarpIN V1.0.18 (2008-11-16) [pr]: added Ctrl-Ins copy capability @@fixes 1116
  */
 
 STATIC MRESULT ProcessChar(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
@@ -2897,6 +2906,15 @@ STATIC MRESULT ProcessChar(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
                     usCmd = SB_SLIDERPOSITION;
                 break;
 
+                // WarpIN V1.0.18
+                case VK_INSERT:
+                    if (usFlags & KC_CTRL)
+                    {
+                        ulMsg = TXM_COPY;
+                        usID = 0;
+                    }
+                break;
+
                 default:
                     // other:
                     fDefProc = TRUE;
@@ -2992,6 +3010,7 @@ STATIC MRESULT ProcessDestroy(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
     if (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
     {
         xstrClear(&ptxvd->xfd.strViewText);
+        xstrClear(&ptxvd->xfd.strOrigText);  // WarpIN V1.0.18
         lstClear(&ptxvd->xfd.llRectangles);
         lstClear(&ptxvd->xfd.llWords);
         GpiDestroyPS(ptxvd->hps);
@@ -3058,6 +3077,8 @@ STATIC MRESULT ProcessDestroy(HWND hwndTextView, MPARAM mp1, MPARAM mp2)
  *@@changed V0.9.20 (2002-08-10) [umoeller]: added support for formatting HTML and plain text automatically
  *@@changed V1.0.0 (2002-08-12) [umoeller]: optimized locality by moving big chunks into subfuncs
  *@@changed V1.0.1 (2003-01-25) [umoeller]: adjusted scroll msgs for new handler code
+ *@@changed WarpIN V1.0.18 (2008-11-16) [pr]: added Ctrl-Ins copy capability @@fixes 1116
+ *@@changed WarpIN V1.0.18 (2008-11-29) [pr]: added style set/query functions @@fixes 1116
  */
 
 STATIC MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, MPARAM mp2)
@@ -3437,6 +3458,74 @@ STATIC MRESULT EXPENTRY fnwpTextView(HWND hwndTextView, ULONG msg, MPARAM mp1, M
                        &ptxvd->xfd.szlWorkspace,
                        sizeof(SIZEL));
                 mrc = (MRESULT)TRUE;
+            }
+        break;
+
+        /*
+         *@@ TXM_QUERYSTYLE:
+         *      returns the current style flags.
+         *
+         *      This must be sent, not posted, to the control.
+         *
+         *      Parameters:
+         *
+         *      --  PULONG mp1: pointer to a ULONG buffer.
+         *
+         *      Returns TRUE on success.
+         *
+         *@@added WarpIN V1.0.18 (2008-11-29) [pr]
+         */
+
+        case TXM_QUERYSTYLE:
+            if (    (mp1)
+                 && (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+               )
+            {
+                *((ULONG *) mp1) = ptxvd->flStyle;
+                mrc = (MRESULT)TRUE;
+            }
+        break;
+
+        /*
+         *@@ TXM_SETSTYLE:
+         *      sets the current style flags.
+         *
+         *      This must be sent, not posted, to the control.
+         *
+         *      Parameters:
+         *
+         *      --  PULONG mp1: pointer to a ULONG buffer.
+         *
+         *      Returns TRUE on success.
+         *
+         *@@added WarpIN V1.0.18 (2008-11-29) [pr]
+         */
+
+        case TXM_SETSTYLE:
+            if (    (mp1)
+                 && (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+               )
+            {
+                ptxvd->flStyle = *((ULONG *) mp1);
+                mrc = (MRESULT)TRUE;
+            }
+        break;
+
+        /*
+         *@@ TXM_COPY:
+         *      copies the unprocessed window text to the clipboard.
+         *
+         *      Returns TRUE on success.
+         *
+         *@@added WarpIN V1.0.18 (2008-11-16) [pr]
+         */
+
+        case TXM_COPY:
+            if (ptxvd = (PTEXTVIEWWINDATA)WinQueryWindowPtr(hwndTextView, QWL_PRIVATE))
+            {
+                mrc = (MRESULT) winhSetClipboardText(ptxvd->hab,
+                                                     ptxvd->xfd.strOrigText.psz,
+                                                     strlen(ptxvd->xfd.strOrigText.psz));
             }
         break;
 
