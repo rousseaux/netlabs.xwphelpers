@@ -108,7 +108,7 @@ Last updated Feb 03, 2002 Ulrich M”ller
         of both WarpIN and XWorkplace. This scans C source files
         and writes dependencies for the makefiles automatically.
 
-    --  h2i.exe was written by me (the sources are in the xwphelpers
+    --  h2i.exe was written by me (the sources are in the xworkplace
         repository, in the "tools" directory) to translate a bunch
         of HTML files to IPF.
 
