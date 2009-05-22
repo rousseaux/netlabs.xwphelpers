@@ -16,7 +16,7 @@
  */
 
 /*
- *      Copyright (C) 2006 Paul Ratcliffe.
+ *      Copyright (C) 2006-2009 Paul Ratcliffe.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -48,7 +48,8 @@
  *
  ********************************************************************/
 
-HMODULE       hmodACPI = NULLHANDLE;
+HMODULE       G_hmodACPI = NULLHANDLE;
+ULONG         G_ulCount = 0;
 
 ACPISTARTAPI  *pAcpiStartApi = NULL;
 ACPIENDAPI    *pAcpiEndApi = NULL;
@@ -68,31 +69,31 @@ APIRET acpihOpen(ACPI_API_HANDLE *phACPI)
 {
     APIRET arc = NO_ERROR;
 
-    if (!hmodACPI)
+    if (!G_hmodACPI)
         if (!(arc = DosLoadModule(NULL,
                                   0,
                                   "ACPI32",
-                                  &hmodACPI)))
+                                  &G_hmodACPI)))
         {
-            arc = DosQueryProcAddr(hmodACPI,
+            arc = DosQueryProcAddr(G_hmodACPI,
                                    ORD_ACPISTARTAPI,
                                    NULL,
                                    (PFN *) &pAcpiStartApi);
             if (!arc)
-                arc = DosQueryProcAddr(hmodACPI,
+                arc = DosQueryProcAddr(G_hmodACPI,
                                    ORD_ACPIENDAPI,
                                    NULL,
                                    (PFN *) &pAcpiEndApi);
 
             if (!arc)
-                arc = DosQueryProcAddr(hmodACPI,
+                arc = DosQueryProcAddr(G_hmodACPI,
                                    ORD_ACPIGOTOSLEEP,
                                    NULL,
                                    (PFN *) &pAcpiGoToSleep);
             if (arc)
             {
-                DosFreeModule(hmodACPI);
-                hmodACPI = NULLHANDLE;
+                DosFreeModule(G_hmodACPI);
+                G_hmodACPI = NULLHANDLE;
                 pAcpiStartApi = NULL;
                 pAcpiEndApi = NULL;
                 pAcpiGoToSleep = NULL;
@@ -103,7 +104,10 @@ APIRET acpihOpen(ACPI_API_HANDLE *phACPI)
     if (arc)
         return(arc);
     else
+    {
+        G_ulCount++;
         return(pAcpiStartApi(phACPI));
+    }
 }
 
 /*
@@ -114,7 +118,19 @@ APIRET acpihOpen(ACPI_API_HANDLE *phACPI)
 VOID acpihClose(ACPI_API_HANDLE *phACPI)
 {
     if (pAcpiEndApi)
+    {
         pAcpiEndApi(phACPI);
+        G_ulCount--;
+    }
+
+    if (!G_ulCount)
+    {
+        DosFreeModule(G_hmodACPI);
+        G_hmodACPI = NULLHANDLE;
+        pAcpiStartApi = NULL;
+        pAcpiEndApi = NULL;
+        pAcpiGoToSleep = NULL;
+    }
 }
 
 /*
