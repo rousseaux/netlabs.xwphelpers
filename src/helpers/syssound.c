@@ -776,4 +776,42 @@ APIRET sndDestroySoundScheme(PCSZ pszScheme)
     return arc;
 }
 
+/*
+ *@@ fixMmpmIni:
+ *      creates the often missing "End drag"
+ *      sound item in MMPM.INI if it doesn't exist.
+ *
+ *@@added XWP V1.0.9 (2009-10-08) [pr]: @@fixes 691
+ */
+
+VOID fixMmpmIni(void)
+{
+    HINI hiniMmpm;
+    CHAR szMMPM[CCHMAXPATH];
+
+    sndQueryMmpmIniPath(szMMPM);
+    if (hiniMmpm = PrfOpenProfile(WinQueryAnchorBlock(HWND_DESKTOP), szMMPM))
+    {
+        ULONG   cbData = 0;
+        CHAR    szKey[10];
+
+        sprintf (szKey, "%u", MMSOUND_DROP);
+        if (   !PrfQueryProfileSize(hiniMmpm,
+                                    MMINIKEY_SYSSOUNDS,
+                                    szKey,
+                                    &cbData)
+            || (cbData ==0))
+        {
+            PSZ pszPos;
+
+            if (pszPos = strrchr (szMMPM, '\\'))
+            {
+                strcpy (pszPos, "\\SOUNDS\\DESKTOP\\DSK_DROP.WAV");
+                sndWriteSoundData(hiniMmpm, MMSOUND_DROP, "End drag", szMMPM, 40);
+            }
+        }
+
+        PrfCloseProfile(hiniMmpm);
+    }
+}
 

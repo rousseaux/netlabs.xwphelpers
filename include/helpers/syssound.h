@@ -11,7 +11,7 @@
  *@@include #include "helpers\syssound.h"
  */
 
-/*      Copyright (C) 1999-2000 Ulrich M”ller.
+/*      Copyright (C) 1999-2009 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -108,6 +108,8 @@ extern "C" {
                               PCSZ pszScheme);
 
     APIRET sndDestroySoundScheme(PCSZ pszScheme);
+
+    VOID fixMmpmIni(void);
 
 #endif
 
