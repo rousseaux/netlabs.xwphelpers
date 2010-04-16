@@ -187,7 +187,7 @@
  */
 
 /*
- *      This file Copyright (C) 1992-2005 Ulrich M”ller,
+ *      This file Copyright (C) 1992-2010 Ulrich M”ller,
  *                                        Monte Copeland,
  *                                        Roman Stangl,
  *                                        Kim Rasmussen,
@@ -340,7 +340,7 @@ VOID excPrintStackFrame(FILE *file,         // in: output log file
     }
     else
     {
-        CHAR szFullName[2*CCHMAXPATH];
+        CHAR szFullName[2*CCHMAXPATH] = "unknown";
 
         fprintf(file,
                 " %-8s %02lX:%08lX\n                                 ",
@@ -451,6 +451,7 @@ VOID excDumpStackFrames(FILE *file,                   // in: logfile from fopen(
  *@@changed V0.9.16 (2001-11-02) [pr]: make object display signed
  *@@changed V0.9.19 (2002-03-28) [umoeller]: added thread ordinal
  *@@changed V1.0.0 (2002-08-28) [umoeller]: added OS revision to dump
+ *@@changed XWP V1.0.9 (2010-04-16) [pr]: add variable initialisation
  */
 
 VOID excExplainException(FILE *file,                   // in: logfile from fopen()
@@ -463,11 +464,11 @@ VOID excExplainException(FILE *file,                   // in: logfile from fopen
 
     PTIB        ptib = NULL;
     PPIB        ppib = NULL;
-    HMODULE     hMod1, hMod2;
+    HMODULE     hMod1 = NULLHANDLE, hMod2 = NULLHANDLE;
     CHAR        szMod1[CCHMAXPATH] = "unknown",
                 szMod2[CCHMAXPATH] = "unknown";
-    ULONG       ulObjNum,
-                ulOffset;
+    ULONG       ulObjNum = -1,
+                ulOffset = -1;
     ULONG       ul;
 
     ULONG       ulOldPriority = 0x0100; // regular, delta 0

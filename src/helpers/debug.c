@@ -27,11 +27,11 @@
  */
 
 /*
- *      This file Copyright (C) 1992-99 Ulrich M”ller,
- *                                      Kim Rasmussen,
- *                                      Marc Fiammante,
- *                                      John Currier,
- *                                      Anthony Cruise.
+ *      This file Copyright (C) 1992-2010 Ulrich M”ller,
+ *                                        Kim Rasmussen,
+ *                                        Marc Fiammante,
+ *                                        John Currier,
+ *                                        Anthony Cruise.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -1806,6 +1806,7 @@ BOOL dbgPrintStackFrame(FILE *LogFile,
  *      New with V0.84.
  *
  *@@changed V0.9.2 (2000-03-08) [umoeller]: now searching OS2\PDPSI\PMDF for SYM files also
+ *@@changed XWP V1.0.9 (2010-04-16) [pr]: fixed module name display bugs
  */
 
 VOID dbgPrintStack(FILE *LogFile,           // in: text log file to write to
@@ -1823,7 +1824,7 @@ VOID dbgPrintStack(FILE *LogFile,           // in: text log file to write to
                     Ip = 0,
                     // Bp,
                     Sp = 0;
-    static char     Name[CCHMAXPATH];
+    char            Name[CCHMAXPATH];
     HMODULE         hMod = 0;
     ULONG           ObjNum = 0;
     ULONG           Offset = 0;
@@ -1992,14 +1993,9 @@ VOID dbgPrintStack(FILE *LogFile,           // in: text log file to write to
                      // && (ObjNum != -1)
                    )
                 {
-                    // static char     szJunk[_MAX_FNAME];
-                    static char     szName[_MAX_FNAME];
-
                     DosQueryModuleName(hMod, sizeof(Name), Name);
-                    // _splitpath(Name, szJunk, szJunk, szName, szJunk);
-
                     // print module and object
-                    fprintf(LogFile, "%-8s %04lX  ", szName, ObjNum + 1);
+                    fprintf(LogFile, "%-8s %04lX  ", Name, ObjNum + 1);
 
                     if (strlen(Name) > 3)
                     {

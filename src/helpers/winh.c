@@ -18,7 +18,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2008 Ulrich M”ller.
+ *      Copyright (C) 1997-2010 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -3603,7 +3603,7 @@ HWND winhCreateHelp(HWND hwndFrame,      // in: app's frame window handle; can b
 {
     HELPINIT hi;
     PSZ      pszExt;
-    CHAR     szName[CCHMAXPATH];
+    CHAR     szName[CCHMAXPATH] = "";
     HWND     hwndHelp;
 
     if (pcszFileName == NULL)
