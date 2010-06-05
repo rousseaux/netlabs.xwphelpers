@@ -29,7 +29,7 @@
  */
 
 /*
- *      This file Copyright (C) 1997-2007 Ulrich M”ller.
+ *      This file Copyright (C) 1997-20107Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -2134,6 +2134,8 @@ PSZ doshGetExtension(PCSZ pcszFilename)
  *      be fully qualified (i.e. the drive letter
  *      must be the first character), or this will
  *      return garbage.
+ *
+ *@@changed WarpIN V1.0.20 (2010-06-05) [pr]: now compares FSD name correctly
  */
 
 BOOL doshIsFileOnFAT(const char* pcszFileName)
@@ -2162,7 +2164,7 @@ BOOL doshIsFileOnFAT(const char* pcszFileName)
         // immediately after the previous item.
         if (!strncmp((PSZ)&(pfsqBuffer->szName) + pfsqBuffer->cbName + 1,
                      "FAT",
-                     3))
+                     pfsqBuffer->cbFSDName))
             brc = TRUE;
     }
 
