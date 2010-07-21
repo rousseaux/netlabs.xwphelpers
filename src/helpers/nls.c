@@ -21,7 +21,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2008 Ulrich M”ller.
+ *      Copyright (C) 1997-2010 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -766,6 +766,7 @@ PSZ APIENTRY strhThousandsULong(PSZ pszTarget,       // out: decimal as string
  *      value. Note that after-comma values are truncated.
  *
  *@@changed V0.9.20 (2002-07-03) [umoeller]: optimized
+ *@@changed XWP V1.0.9 (2010-07-20) [pr]: added 0.5 to round
  */
 
 PSZ nlsThousandsDouble(PSZ pszTarget,
@@ -774,7 +775,7 @@ PSZ nlsThousandsDouble(PSZ pszTarget,
 {
     USHORT ust, uss, usLen;
     CHAR   szTemp[40];
-    usLen = sprintf(szTemp, "%.0f", floor(dbl)); // V0.9.20 (2002-07-03) [umoeller]
+    usLen = sprintf(szTemp, "%.0f", floor(dbl + 0.5)); // V0.9.20 (2002-07-03) [umoeller]
 
     ust = 0;
     for (uss = 0; uss < usLen; uss++)
