@@ -331,8 +331,8 @@ int TREEENTRY treeCompareKeys(unsigned long  ul1, unsigned long ul2)
 
 int TREEENTRY treeCompareStrings(unsigned long  ul1, unsigned long ul2)
 {
-    #define p1 (const char*)(ul1)
-    #define p2 (const char*)(ul2)
+    const char *p1 = (const char*) ul1;
+    const char *p2 = (const char*) ul2;
 
     if (p1 && p2)
     {
