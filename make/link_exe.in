@@ -39,7 +39,7 @@ MODULEDEF = $(MODULESTEM).def
 !endif
 
 # update DEF file
-!if [@echo   +++ Updating $(@F) from "$(BLDLEVEL_H)"]
+!if [@echo   +++ Updating $(MODULEDEF) from "$(BLDLEVEL_H)"]
 !endif
 !if [@$(RUN_BLDLEVEL) $(MODULEDEF) $(BLDLEVEL_H) $(BLDLEVELNAME)]
 !endif
