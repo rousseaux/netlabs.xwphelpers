@@ -27,7 +27,7 @@
  */
 
 /*
- *      This file Copyright (C) 1997-2008 Ulrich M”ller,
+ *      This file Copyright (C) 1997-2010 Ulrich M”ller,
  *                                        Dmitry A. Steklenev.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
@@ -2098,7 +2098,7 @@ APIRET doshReadLVMPartitions(PLVMINFO pInfo,         // in: LVM info
     pLVMInfo->Open_LVM_Engine(TRUE,
                               &Error);
 
-    _Pmpf(("  Open_LVM_Engine Error: %d"));
+    _Pmpf(("  Open_LVM_Engine Error: %d", Error));
 
     if (!Error)
     {
