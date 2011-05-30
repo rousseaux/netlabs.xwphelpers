@@ -21,7 +21,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2010 Ulrich M”ller.
+ *      Copyright (C) 1997-2011 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -758,6 +758,41 @@ PSZ APIENTRY strhThousandsULong(PSZ pszTarget,       // out: decimal as string
                                 CHAR cThousands)     // in: separator char (e.g. '.')
 {
     return nlsThousandsULong(pszTarget, ul, cThousands);
+}
+
+/*
+ *@@ nlsThousandsLong:
+ *      signed version of above.
+ *
+ *@@added WarpIn V1.0.20 (2011-05-30) [pr]
+ */
+
+PSZ nlsThousandsLong(PSZ pszTarget,       // out: decimal as string
+                     LONG l,              // in: decimal to convert
+                     CHAR cThousands)     // in: separator char (e.g. '.')
+{
+    CHAR    szTemp[30];
+    USHORT  ust = 0,
+            uss,
+            usLen = sprintf(szTemp, "%ld", l);
+
+    for (uss = 0;
+         uss < usLen;
+         uss++)
+    {
+        if (uss)
+            if (((usLen - uss) % 3) == 0)
+            {
+                pszTarget[ust] = cThousands;
+                ust++;
+            }
+
+        pszTarget[ust++] = szTemp[uss];
+    }
+
+    pszTarget[ust] = '\0';
+
+    return pszTarget;
 }
 
 /*

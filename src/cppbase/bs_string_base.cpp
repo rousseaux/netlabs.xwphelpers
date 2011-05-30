@@ -7,7 +7,7 @@
  */
 
 /*
- *      This file Copyright (C) 1999-2001 Ulrich M”ller.
+ *      This file Copyright (C) 1999-2011 Ulrich M”ller.
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
  *      the Free Software Foundation, in version 2 as it comes in the COPYING
@@ -373,6 +373,7 @@ void BSStringBase::_take_from(XSTRING &str)
  *      a thousands separator.
  *
  *@@added V0.9.18 (2002-03-08) [umoeller]
+ *@@changed WarpIN V1.0.20 (2011-05-30) [pr]: fix signed/unsigned error
  */
 
 void BSStringBase::_itoa10(int value,
@@ -382,7 +383,7 @@ void BSStringBase::_itoa10(int value,
 
     CHAR sz[100];
     if (cThousands)
-        nlsThousandsULong(sz, value, cThousands);
+        nlsThousandsLong(sz, value, cThousands);
     else
         _itoa(value, sz, 10);
 
