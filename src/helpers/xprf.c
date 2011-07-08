@@ -73,7 +73,7 @@
  */
 
 /*
- *      Copyright (C) 2000-2008 Ulrich M”ller.
+ *      Copyright (C) 2000-2011 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -740,6 +740,7 @@ APIRET xprfOpenProfile(PCSZ pcszFilename,    // in: profile name
         ULONG   ulAction = 0;
         // FHLOCK  hLock = 0;
 
+        // WarpIN V1.0.20 (2011-07-08) [pr]: add NOINHERIT
         if (!(arc = DosOpen((PSZ)pcszFilename,
                             &hFile,
                             &ulAction,
@@ -749,6 +750,7 @@ APIRET xprfOpenProfile(PCSZ pcszFilename,    // in: profile name
                                | OPEN_ACTION_OPEN_IF_EXISTS,
                             OPEN_FLAGS_FAIL_ON_ERROR
                                | OPEN_FLAGS_SEQUENTIAL
+                               | OPEN_FLAGS_NOINHERIT
                                | OPEN_SHARE_DENYREADWRITE
                                | OPEN_ACCESS_READWRITE,
                             NULL)))
