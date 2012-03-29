@@ -29,7 +29,7 @@
  */
 
 /*
- *      This file Copyright (C) 1997-20107Ulrich M”ller.
+ *      This file Copyright (C) 1997-2012 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -3714,6 +3714,7 @@ APIRET doshQueryCurrentDir(PSZ pszBuf)
  *@@added V0.9.4 (2000-07-01) [umoeller]
  *@@changed WarpIN V1.0.15 (2007-03-27) [pr]: allow NULL pulDirs and pulFiles
  *@@changed WarpIN V1.0.16 (2007-07-28) [pr]: bump directory count on recursive delete failures @@fixes 1001
+ *@@changed WarpIN V1.0.20 (2012-03-29) [pr]: path not found no longer an error
  */
 
 APIRET doshDeleteDir(PCSZ pcszDir,
@@ -3804,9 +3805,13 @@ APIRET doshDeleteDir(PCSZ pcszDir,
     }
 
     if (arcReturn == NO_ERROR)
+    {
         // success so far:
         // delete our directory now
         arcReturn = DosDeleteDir((PSZ)pcszDir);
+        if (arcReturn == ERROR_PATH_NOT_FOUND)  // WarpIN V1.0.20 (2012-03-29) [pr]
+            arcReturn = NO_ERROR;
+    }
 
     return arcReturn;
 }
