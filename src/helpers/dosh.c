@@ -1798,6 +1798,7 @@ APIRET doshQueryDiskFree(ULONG ulLogicalDrive, // in: 1 for A:, 2 for B:, 3 for 
  *@@changed V0.9.1 (99-12-12) [umoeller]: added cbBuf to prototype
  *@@changed V0.9.14 (2001-08-01) [umoeller]: fixed, this never respected cbBuf
  *@@changed V0.9.16 (2001-10-02) [umoeller]: added check for valid logical disk no
+ *@@changed V1.0.10 (2012-06-14) [pr]: fix buffer overwrite @@fixes 1206
  */
 
 APIRET doshQueryDiskFSType(ULONG ulLogicalDrive, // in:  1 for A:, 2 for B:, 3 for C:, ...
@@ -1826,7 +1827,7 @@ APIRET doshQueryDiskFSType(ULONG ulLogicalDrive, // in:  1 for A:, 2 for B:, 3 f
 
         if (arc == NO_ERROR)
         {
-            if (pszBuf)
+            if (pszBuf && cbBuf)
             {
                 // The data for the last three fields in the FSQBUFFER2
                 // structure are stored at the offset of fsqBuffer.szName.
@@ -1835,7 +1836,7 @@ APIRET doshQueryDiskFSType(ULONG ulLogicalDrive, // in:  1 for A:, 2 for B:, 3 f
                 strncpy(pszBuf,
                         (CHAR*)(&pfsqBuffer->szName) + pfsqBuffer->cbName + 1,
                         cbBuf);         // V0.9.14 (2001-08-01) [umoeller]
-                *(pszBuf + cbBuf) = '\0';
+                *(pszBuf + cbBuf - 1) = '\0';
             }
         }
     }
