@@ -16,7 +16,7 @@
  */
 
 /*
- *      Copyright (C) 2006-2009 Paul Ratcliffe.
+ *      Copyright (C) 2006-2013 Paul Ratcliffe.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -39,6 +39,7 @@
 
 #include "setup.h"                      // code generation and debugging options
 
+#include "helpers\apmh.h"               // @@added V1.0.9 (2012-02-20) [slevine]
 #include "helpers\acpih.h"
 #include "helpers\standards.h"
 
@@ -50,10 +51,24 @@
 
 HMODULE       G_hmodACPI = NULLHANDLE;
 ULONG         G_ulCount = 0;
+// @@added V1.0.9 (2012-02-20) [slevine]: additional ACPI support, code from David Azarewicz
+ACPI_HANDLE   G_ahAC = 0;
+#define MAX_BATTERY_COUNT 4
+ACPI_HANDLE   G_ahBat[MAX_BATTERY_COUNT];
+ULONG         G_uiBatteryCount = 0;
+ULONG         G_uiAlreadyWalked = 0;
 
 ACPISTARTAPI  *pAcpiStartApi = NULL;
 ACPIENDAPI    *pAcpiEndApi = NULL;
 ACPIGOTOSLEEP *pAcpiGoToSleep = NULL;
+
+ACPITKGETOBJECTINFOALLOC *pAcpiTkGetObjectInfoAlloc = NULL;
+ACPITKGETHANDLE *pAcpiTkGetHandle = NULL;
+ACPITKOSFREE *pAcpiTkOsFree = NULL;
+ACPITKWALKNAMESPACE *pAcpiTkWalkNamespace = NULL;
+ACPITKEVALUATEOBJECT *pAcpiTkEvaluateObject = NULL;
+// @@added V1.0.9 (2012-12-10) [slevine]: additional ACPI support
+ACPITKPREPARETOSLEEP *pAcpiTkPrepareToSleep = NULL;
 
 /*
  *@@category: Helpers\Control program helpers\ACPI
@@ -70,6 +85,7 @@ APIRET acpihOpen(ACPI_API_HANDLE *phACPI)
     APIRET arc = NO_ERROR;
 
     if (!G_hmodACPI)
+    {
         if (!(arc = DosLoadModule(NULL,
                                   0,
                                   "ACPI32",
@@ -81,15 +97,15 @@ APIRET acpihOpen(ACPI_API_HANDLE *phACPI)
                                    (PFN *) &pAcpiStartApi);
             if (!arc)
                 arc = DosQueryProcAddr(G_hmodACPI,
-                                   ORD_ACPIENDAPI,
-                                   NULL,
-                                   (PFN *) &pAcpiEndApi);
+                                       ORD_ACPIENDAPI,
+                                       NULL,
+                                       (PFN *) &pAcpiEndApi);
 
             if (!arc)
                 arc = DosQueryProcAddr(G_hmodACPI,
-                                   ORD_ACPIGOTOSLEEP,
-                                   NULL,
-                                   (PFN *) &pAcpiGoToSleep);
+                                       ORD_ACPIGOTOSLEEP,
+                                       NULL,
+                                       (PFN *) &pAcpiGoToSleep);
             if (arc)
             {
                 DosFreeModule(G_hmodACPI);
@@ -99,13 +115,38 @@ APIRET acpihOpen(ACPI_API_HANDLE *phACPI)
                 pAcpiGoToSleep = NULL;
                 return(arc);
             }
+
+            // @@added V1.0.9 (2012-02-20) [slevine]: additional ACPI support, code from David Azarewicz
+            DosQueryProcAddr(G_hmodACPI, ORD_ACPITKGETOBJECTINFOALLOC,
+                             NULL, (PFN *) &pAcpiTkGetObjectInfoAlloc);
+            DosQueryProcAddr(G_hmodACPI, ORD_ACPITKGETHANDLE,
+                             NULL, (PFN *) &pAcpiTkGetHandle);
+            DosQueryProcAddr(G_hmodACPI, ORD_ACPITKOSFREE,
+                             NULL, (PFN *) &pAcpiTkOsFree);
+            DosQueryProcAddr(G_hmodACPI, ORD_ACPITKWALKNAMESPACE,
+                             NULL, (PFN *) &pAcpiTkWalkNamespace);
+            DosQueryProcAddr(G_hmodACPI, ORD_ACPITKEVALUATEOBJECT,
+                             NULL, (PFN *) &pAcpiTkEvaluateObject);
+            // @@added V1.0.9 (2012-12-10) [slevine]: additional ACPI support
+            DosQueryProcAddr(G_hmodACPI, ORD_ACPITKPREPARETOSLEEP,
+                             NULL, (PFN *) &pAcpiTkPrepareToSleep);
         }
+    }
 
     if (arc)
         return(arc);
     else
     {
         G_ulCount++;
+
+        // @@added V1.0.9 (2012-12-10) [slevine]: use AcpiTkPrepareToSleep rather than workaround
+        /* This function does not exist in older versions of acpi
+         * As a result the shutdown attempt will usually hang because
+         * the required code has not been committed into memory.
+         */
+        if (pAcpiTkPrepareToSleep)
+            pAcpiTkPrepareToSleep(ACPI_STATE_S5);
+
         return(pAcpiStartApi(phACPI));
     }
 }
@@ -130,6 +171,8 @@ VOID acpihClose(ACPI_API_HANDLE *phACPI)
         pAcpiStartApi = NULL;
         pAcpiEndApi = NULL;
         pAcpiGoToSleep = NULL;
+        // @@added V1.0.9 (2012-12-10) [slevine]: additional ACPI support
+        pAcpiTkPrepareToSleep = NULL;
     }
 }
 
@@ -144,5 +187,234 @@ APIRET acpihGoToSleep(ACPI_API_HANDLE *phACPI, UCHAR ucState)
         return(pAcpiGoToSleep(phACPI, ucState));
     else
         return(ERROR_PROTECTION_VIOLATION);
+}
+
+
+/**
+ *@@ AcpiCallbackWidget:
+ *      ACPI callback helper for battery and power status queries.
+ *      Code provided by David Azarewicz
+ *@@added V1.0.9 (2012-02-20) [slevine]: code from David Azarewicz
+ */
+
+#define AE_DEPTH AE_OK
+
+ACPI_STATUS AcpiCallbackWidget( ACPI_HANDLE ObjHandle, UINT32 NestingLevel, void *Context, void **ReturnValue )
+{
+    ACPI_DEVICE_INFO *pDevInfo = NULL;
+    ACPI_STATUS Status = pAcpiTkGetObjectInfoAlloc(ObjHandle, &pDevInfo);
+
+    if (Status == AE_OK)
+    {
+        if (pDevInfo->Type != ACPI_TYPE_DEVICE)
+            return AE_DEPTH;
+
+        if (!(pDevInfo->Valid & ACPI_VALID_HID))
+            return AE_DEPTH;
+
+        if (!pDevInfo->HardwareId.String)
+            return AE_DEPTH;
+
+        if (strncmp(pDevInfo->HardwareId.String, "ACPI0003", 8) == 0)
+        { /* AC Power */
+            Status = pAcpiTkGetHandle(ObjHandle, "_PSR", &G_ahAC);
+            if (Status)
+                G_ahAC = 0;
+
+            return AE_DEPTH;
+        }
+
+        if (strncmp(pDevInfo->HardwareId.String, "PNP0C0A", 7) == 0)
+        { /* Smart battery */
+            if (G_uiBatteryCount < MAX_BATTERY_COUNT)
+                G_ahBat[G_uiBatteryCount++] = ObjHandle;
+
+            return AE_DEPTH;
+        }
+    }
+
+    if (pDevInfo)
+        pAcpiTkOsFree(pDevInfo);
+
+    return AE_OK;
+}
+
+/**
+ *@@ acpihGetPowerStatus:
+ *      Returns power and battery status in caller provided buffers.
+ *      Returns zero if success, non-zero if fail.
+ *      Code provided by David Azarewicz
+ *@@added V1.0.9 (2012-02-20) [slevine]: code from David Azarewicz
+ */
+
+APIRET acpihGetPowerStatus(PAPM pApm, PBOOL pfChanged)
+{
+    ACPI_STATUS Status;
+    ACPI_BUFFER Result;
+    ACPI_OBJECT *Obj, Object[20];
+    UINT32 uiI;
+    ULONG ulTmp, BRemaining, LastFull;
+    BOOL fChanged;
+
+    /* Make sure all the functions we need have valid pointers.
+     * @@added V1.0.9 (2012-02-25) [dazarewicz]: additional ACPI support
+     */
+    if (   (pAcpiTkWalkNamespace == NULL)
+        || (pAcpiTkGetObjectInfoAlloc == NULL)
+        || (pAcpiTkGetHandle == NULL)
+        || (pAcpiTkOsFree == NULL)
+        || (pAcpiTkEvaluateObject == NULL)
+        || (pApm == NULL)
+       )
+        return 1;
+
+    if (!G_uiAlreadyWalked)
+    {
+        Status = pAcpiTkWalkNamespace(ACPI_TYPE_DEVICE, ACPI_ROOT_OBJECT,
+                                      ACPI_UINT32_MAX, AcpiCallbackWidget,
+                                      pApm, NULL);
+        G_uiAlreadyWalked = 1;
+    }
+
+    fChanged = FALSE;
+
+    // VAC 3.08 long long compatibility support
+#ifdef INCL_LONGLONG // VAC 3.6.5 - compiler supports long long
+#define OBJECT_VALUE(index)  (Object[index].Integer.Value)
+#define OBJ_VALUE(index)  (Obj[index].Integer.Value)
+#else // VAC 3.08 - compiler does not support long long
+#define OBJECT_VALUE(index)  (Object[index].Integer.Value.ulLo)
+#define OBJ_VALUE(index)  (Obj[index].Integer.Value.ulLo)
+#endif
+
+    if (G_ahAC)
+    {
+        // Have _PSR
+        Result.Length = sizeof(Object);
+        Result.Pointer = Object;
+        Status = pAcpiTkEvaluateObject(G_ahAC, NULL, NULL, &Result);
+        if (Status != AE_OK)
+            ulTmp = 2;                  // assume on backup power
+        else if (Object[0].Type != ACPI_TYPE_INTEGER)
+            ulTmp = 2;                  // assume on backup power
+            else
+                ulTmp = (UINT32)OBJECT_VALUE(0);
+
+        if (pApm->fUsingAC != (BYTE) ulTmp)
+        {
+            pApm->fUsingAC = (BYTE) ulTmp;
+            fChanged = TRUE;
+        }
+    }
+
+    for (uiI=0; uiI < G_uiBatteryCount; uiI++)
+    {
+        if (G_ahBat[uiI] == 0)
+            continue;
+
+        Result.Length = sizeof(Object);
+        Result.Pointer = Object;
+        // Get battery info
+        Status = pAcpiTkEvaluateObject(G_ahBat[uiI], "_BIF", NULL, &Result);
+        if (Status != AE_OK)
+        {
+            G_ahBat[uiI] = 0;
+            continue;
+        }
+
+        Obj = Result.Pointer;
+        Obj = (ACPI_OBJECT *)Obj[0].Package.Elements;   // Battery info package
+        LastFull = (UINT32)OBJ_VALUE(2);
+        if (LastFull == 0xffffffff)
+        {
+            G_ahBat[uiI] = 0;
+            continue;
+        }
+
+        Result.Length = sizeof(Object);
+        Result.Pointer = Object;
+        // Get battery status
+        Status = pAcpiTkEvaluateObject(G_ahBat[uiI], "_BST", NULL, &Result);
+        if (Status != AE_OK)
+        {
+            G_ahBat[uiI] = 0;
+            continue;
+        }
+
+        Obj = Result.Pointer;
+        Obj = (ACPI_OBJECT *)Obj[0].Package.Elements;   // Battery status package
+
+        // If voltage known
+        if ((UINT32)OBJ_VALUE(2) != 0xffffffff)
+            BRemaining = (UINT32)OBJ_VALUE(2);
+
+        // If battery units are mWh or mAh
+        // If not, it is a percentage
+        if ((UINT32)OBJ_VALUE(0) != 0xffffffff)
+        {
+            if (BRemaining > (LastFull >> 1)) // > 50% is high. < 50% is low
+                ulTmp = 1; // High
+            else
+                ulTmp = 2; // Low
+
+            if (OBJ_VALUE(0) & 4)
+                ulTmp = 2; // Critical
+
+            // If battery charging - it can't be critical
+            if (OBJ_VALUE(0) & 2)
+                ulTmp = 3; // Charging
+
+            if (pApm->bBatteryStatus != ulTmp)
+            {
+                pApm->bBatteryStatus = (BYTE)ulTmp;
+                fChanged = TRUE;
+            }
+        }
+
+        ulTmp = (BRemaining*100) / LastFull;
+        if (ulTmp > 100)
+            ulTmp = 100;
+
+        if (pApm->bBatteryLife != ulTmp)
+        {
+            pApm->bBatteryLife = (BYTE) ulTmp;
+            fChanged = TRUE;
+        }
+    }
+
+    if (pfChanged)
+        *pfChanged = fChanged;
+
+    pApm->fAlreadyRead = FALSE;
+    return 0;
+
+#undef OBJECT_VALUE
+#undef OBJ_VALUE
+}
+
+/*
+ *@@ acpihHasBattery:
+ *      quick'n'dirty helper which returns TRUE only
+ *      if ACPI is supported on the system and the
+ *      system actually has a battery (i.e. is a laptop).
+ *      Code provided by David Azarewicz.
+ * @@added V1.0.9 (2012-02-20) [slevine]: code from David Azarewicz
+ */
+BOOL acpihHasBattery(VOID)
+{
+    BOOL brc = FALSE;
+    ACPI_API_HANDLE hACPI;
+    APM Apm;
+
+    if (!acpihOpen(&hACPI))
+    {
+        Apm.bBatteryStatus = 0xff;
+        if (!acpihGetPowerStatus(&Apm, NULL))
+            brc = (Apm.bBatteryStatus != 0xFF);
+
+        acpihClose(&hACPI);
+    }
+
+    return brc;
 }
 
