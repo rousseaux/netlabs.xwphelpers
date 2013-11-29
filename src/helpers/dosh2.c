@@ -27,7 +27,7 @@
  */
 
 /*
- *      This file Copyright (C) 1997-2010 Ulrich M”ller,
+ *      This file Copyright (C) 1997-2013 Ulrich M”ller,
  *                                        Dmitry A. Steklenev.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
@@ -939,6 +939,7 @@ const char* doshType2FSName(unsigned char bFSType)  // in: FS type
         // case 0x31: reserved
         // case 0x33: reserved
         // case 0x34: reserved
+        case 0x35: return "JFS";
         // case 0x36: reserved
         case 0x38: return "Theos";
         case 0x3C: return "PowerQuest PartitionMagic recovery partition";
