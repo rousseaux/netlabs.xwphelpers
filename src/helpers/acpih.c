@@ -16,7 +16,7 @@
  */
 
 /*
- *      Copyright (C) 2006-2013 Paul Ratcliffe.
+ *      Copyright (C) 2006-2014 Paul Ratcliffe.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -78,6 +78,8 @@ ACPITKPREPARETOSLEEP *pAcpiTkPrepareToSleep = NULL;
 /*
  *@@ acpihOpen:
  *      resolves the ACPI entrypoints and loads the ACPI DLL.
+ *
+ *@@changed V1.0.10 (2014-08-30) [dazarewicz]: Call ACPI start API func.
  */
 
 APIRET acpihOpen(ACPI_API_HANDLE *phACPI)
@@ -139,16 +141,26 @@ APIRET acpihOpen(ACPI_API_HANDLE *phACPI)
     {
         G_ulCount++;
 
-        // @@added V1.0.9 (2012-12-10) [slevine]: use AcpiTkPrepareToSleep rather than workaround
-        /* This function does not exist in older versions of acpi
-         * As a result the shutdown attempt will usually hang because
-         * the required code has not been committed into memory.
-         */
-        if (pAcpiTkPrepareToSleep)
-            pAcpiTkPrepareToSleep(ACPI_STATE_S5);
-
         return(pAcpiStartApi(phACPI));
     }
+}
+
+/*
+ *@@ acpihPrepareToSleep:
+ *      Prepares the system to sleep or power off
+ *
+ *@@added V1.0.10 (2014-08-30) [dazarewicz]
+ */
+
+VOID acpihPrepareToSleep(UCHAR ucState)
+{
+    // @@added V1.0.9 (2012-12-10) [slevine]: use AcpiTkPrepareToSleep rather than workaround
+    /* This function does not exist in older versions of acpi
+     * As a result the shutdown attempt will usually hang because
+     * the required code has not been committed into memory.
+     */
+    if (pAcpiTkPrepareToSleep)
+        pAcpiTkPrepareToSleep(ucState);
 }
 
 /*
@@ -195,33 +207,33 @@ APIRET acpihGoToSleep(ACPI_API_HANDLE *phACPI, UCHAR ucState)
  *      ACPI callback helper for battery and power status queries.
  *      Code provided by David Azarewicz
  *@@added V1.0.9 (2012-02-20) [slevine]: code from David Azarewicz
+ *@@changed V1.0.10 (2014-08-30) [dazarewicz]: release resources correctly
  */
 
-#define AE_DEPTH AE_OK
-
-ACPI_STATUS AcpiCallbackWidget( ACPI_HANDLE ObjHandle, UINT32 NestingLevel, void *Context, void **ReturnValue )
+ACPI_STATUS APIENTRY AcpiCallbackWidget( ACPI_HANDLE ObjHandle, UINT32 NestingLevel, void *Context, void **ReturnValue )
 {
     ACPI_DEVICE_INFO *pDevInfo = NULL;
-    ACPI_STATUS Status = pAcpiTkGetObjectInfoAlloc(ObjHandle, &pDevInfo);
 
-    if (Status == AE_OK)
+    if (pAcpiTkGetObjectInfoAlloc( ObjHandle, &pDevInfo ) != AE_OK)
+        return AE_OK;
+
+    do
     {
         if (pDevInfo->Type != ACPI_TYPE_DEVICE)
-            return AE_DEPTH;
+            break;
 
         if (!(pDevInfo->Valid & ACPI_VALID_HID))
-            return AE_DEPTH;
+            break;
 
         if (!pDevInfo->HardwareId.String)
-            return AE_DEPTH;
+            break;
 
         if (strncmp(pDevInfo->HardwareId.String, "ACPI0003", 8) == 0)
         { /* AC Power */
-            Status = pAcpiTkGetHandle(ObjHandle, "_PSR", &G_ahAC);
-            if (Status)
+            if (pAcpiTkGetHandle(ObjHandle, "_PSR", &G_ahAC))
                 G_ahAC = 0;
 
-            return AE_DEPTH;
+            break;
         }
 
         if (strncmp(pDevInfo->HardwareId.String, "PNP0C0A", 7) == 0)
@@ -229,9 +241,9 @@ ACPI_STATUS AcpiCallbackWidget( ACPI_HANDLE ObjHandle, UINT32 NestingLevel, void
             if (G_uiBatteryCount < MAX_BATTERY_COUNT)
                 G_ahBat[G_uiBatteryCount++] = ObjHandle;
 
-            return AE_DEPTH;
+            break;
         }
-    }
+    } while (0);
 
     if (pDevInfo)
         pAcpiTkOsFree(pDevInfo);
@@ -245,6 +257,7 @@ ACPI_STATUS AcpiCallbackWidget( ACPI_HANDLE ObjHandle, UINT32 NestingLevel, void
  *      Returns zero if success, non-zero if fail.
  *      Code provided by David Azarewicz
  *@@added V1.0.9 (2012-02-20) [slevine]: code from David Azarewicz
+ *@@changed V1.0.10 (2014-08-30) [dazarewicz]: tidies
  */
 
 APIRET acpihGetPowerStatus(PAPM pApm, PBOOL pfChanged)
@@ -325,11 +338,6 @@ APIRET acpihGetPowerStatus(PAPM pApm, PBOOL pfChanged)
         Obj = Result.Pointer;
         Obj = (ACPI_OBJECT *)Obj[0].Package.Elements;   // Battery info package
         LastFull = (UINT32)OBJ_VALUE(2);
-        if (LastFull == 0xffffffff)
-        {
-            G_ahBat[uiI] = 0;
-            continue;
-        }
 
         Result.Length = sizeof(Object);
         Result.Pointer = Object;
@@ -343,14 +351,13 @@ APIRET acpihGetPowerStatus(PAPM pApm, PBOOL pfChanged)
 
         Obj = Result.Pointer;
         Obj = (ACPI_OBJECT *)Obj[0].Package.Elements;   // Battery status package
-
-        // If voltage known
-        if ((UINT32)OBJ_VALUE(2) != 0xffffffff)
-            BRemaining = (UINT32)OBJ_VALUE(2);
+        BRemaining = (UINT32)OBJ_VALUE(2);
 
         // If battery units are mWh or mAh
         // If not, it is a percentage
-        if ((UINT32)OBJ_VALUE(0) != 0xffffffff)
+        if (    (LastFull != 0xffffffff)
+             && (BRemaining != 0xffffffff)
+           )
         {
             if (BRemaining > (LastFull >> 1)) // > 50% is high. < 50% is low
                 ulTmp = 1; // High
@@ -369,16 +376,16 @@ APIRET acpihGetPowerStatus(PAPM pApm, PBOOL pfChanged)
                 pApm->bBatteryStatus = (BYTE)ulTmp;
                 fChanged = TRUE;
             }
-        }
 
-        ulTmp = (BRemaining*100) / LastFull;
-        if (ulTmp > 100)
-            ulTmp = 100;
+            ulTmp = (BRemaining*100) / LastFull;
+            if (ulTmp > 100)
+                ulTmp = 100;
 
-        if (pApm->bBatteryLife != ulTmp)
-        {
-            pApm->bBatteryLife = (BYTE) ulTmp;
-            fChanged = TRUE;
+            if (pApm->bBatteryLife != ulTmp)
+            {
+                pApm->bBatteryLife = (BYTE) ulTmp;
+                fChanged = TRUE;
+            }
         }
     }
 

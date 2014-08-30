@@ -10,7 +10,7 @@
  *@@include #include "helpers\acpih.h"
  */
 
-/*      Copyright (C) 2006-2013 Paul Ratcliffe.
+/*      Copyright (C) 2006-2014 Paul Ratcliffe.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -53,7 +53,8 @@ extern "C" {
     typedef ACPI_STATUS APIENTRY ACPITKPREPARETOSLEEP(UINT8);
     typedef ACPITKPREPARETOSLEEP *PACPITKPREPARETOSLEEP;
 
-    typedef APIRET APIENTRY ACPITKGETOBJECTINFOALLOC(ACPI_HANDLE *, PVOID);
+    //@changed V1.0.10 (2014-08-30) [dazarewicz]: change prototype
+    typedef APIRET APIENTRY ACPITKGETOBJECTINFOALLOC(ACPI_HANDLE, ACPI_DEVICE_INFO **);
     typedef APIRET APIENTRY ACPITKGETHANDLE(ACPI_HANDLE, ACPI_STRING, ACPI_HANDLE *);
     typedef APIRET APIENTRY ACPITKOSFREE(PVOID);
     typedef APIRET APIENTRY ACPITKWALKNAMESPACE(ACPI_OBJECT_TYPE, ACPI_HANDLE, UINT32,ACPI_WALK_CALLBACK, PVOID, void **);
@@ -65,6 +66,8 @@ extern "C" {
 
     VOID APIENTRY acpihClose(ACPI_API_HANDLE *phACPI);
 
+    //@added V1.0.10 (2014-08-30) [dazarewicz]
+    VOID acpihPrepareToSleep(UCHAR ucState);
     APIRET APIENTRY acpihGoToSleep(ACPI_API_HANDLE *phACPI, UCHAR ucState);
 
     APIRET APIENTRY acpihGetPowerStatus(PAPM, PBOOL);
@@ -83,7 +86,6 @@ extern "C" {
     #define ORD_ACPITKEVALUATEOBJECT 50
     // @@added V1.0.9 (2012-12-10) [slevine]: sync with current ACPI toolkit
     #define ORD_ACPITKPREPARETOSLEEP 89
-
 #endif
 
 #if __cplusplus
