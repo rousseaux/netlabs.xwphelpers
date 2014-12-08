@@ -12,8 +12,8 @@
  */
 
 /*
- *      This file Copyright (C) 1992-99 Ulrich M”ller,
- *                                      Kai Uwe Rommel.
+ *      This file Copyright (C) 1992-2014 Ulrich M”ller,
+ *                                        Kai Uwe Rommel.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -832,6 +832,10 @@ extern "C" {
 
     PQFILEDATA32 prc32FindFileData(PQTOPLEVEL32 pInfo,
                                    USHORT usFileID);
+
+    void prc32KillProcessTree(ULONG pid);
+
+    void prc32KillProcessTree2(PQPROCESS32 pProcThis, ULONG pid);
 
 #endif
 

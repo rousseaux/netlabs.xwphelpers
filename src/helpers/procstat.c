@@ -32,7 +32,7 @@
 
 /*
  *      Copyright (C) 1992-1994 Kai Uwe Rommel.
- *      Copyright (C) 1998-2000 Ulrich M”ller.
+ *      Copyright (C) 1998-2014 Ulrich M”ller.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published
@@ -51,6 +51,7 @@
 
 #define INCL_DOSMODULEMGR
 #define INCL_DOSERRORS
+#define INCL_DOSPROCESS
 #include <os2.h>
 
 #include <stdlib.h>      // already #include'd
@@ -788,4 +789,47 @@ PQFILEDATA32 prc32FindFileData(PQTOPLEVEL32 pInfo,  // in: as returned by prc32G
     return NULL;
 }
 
+/*
+ *@@ prc32KillProcessTree:
+ *
+ *@@added XWP V1.0.10 (2014-12-07) [pr]
+ */
+
+void prc32KillProcessTree(ULONG pid)
+{
+    APIRET arc;
+    PQTOPLEVEL32 pInfo = prc32GetInfo2(QS32_PROCESS, &arc);
+
+    if (arc == NO_ERROR)
+    {
+        prc32KillProcessTree2(pInfo->pProcessData, pid);
+        DosKillProcess(DKP_PROCESS, pid);
+        prc32FreeInfo(pInfo);
+    }
+}
+
+/*
+ *@@ prc32KillProcessTree2:
+ *
+ *@@added XWP V1.0.10 (2014-12-07) [pr]
+ */
+
+void prc32KillProcessTree2(PQPROCESS32 pProcThis, ULONG pid)
+{
+    while (pProcThis && pProcThis->ulRecType == 1)
+    {
+        PQTHREAD32 t = pProcThis->pThreads;
+
+        if (pProcThis->usPPID == pid)
+        {
+            prc32KillProcessTree2(pProcThis, pProcThis->usPID);
+            DosKillProcess(DKP_PROCESS, pProcThis->usPID);
+        }
+
+        // for next process, skip the threads info;
+        // the next process block comes after the threads
+        t += pProcThis->usThreadCount;
+        pProcThis = (PQPROCESS32)t;
+    }
+}
 
