@@ -22,7 +22,7 @@
  */
 
 /*
- *      This file Copyright (C) 1999-2002 Ulrich M”ller.
+ *      This file Copyright (C) 1999-2015 Ulrich M”ller.
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
  *      the Free Software Foundation, in version 2 as it comes in the COPYING
@@ -731,6 +731,7 @@
 
             size_type rfind(char c, size_type ulPos = npos) const;
 
+            size_type find_first_of(char c, size_type ulPos = 0) const;
             size_type find_first_of(const char *achChars, size_type ulPos = 0) const;
 
             size_type find_first_not_of(char c, size_type ulPos = 0) const;

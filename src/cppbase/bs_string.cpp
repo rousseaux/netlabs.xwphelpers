@@ -7,7 +7,7 @@
  */
 
 /*
- *      This file Copyright (C) 1999-2001 Ulrich M”ller.
+ *      This file Copyright (C) 1999-2015 Ulrich M”ller.
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
  *      the Free Software Foundation, in version 2 as it comes in the COPYING
@@ -578,6 +578,45 @@ size_type BSString::rfind(char c,           // in: character to find
         */
     }
 
+    return (npos);
+}
+
+/*
+ *@@ find_first_of:
+ *      finds the first character in the member
+ *      string which is the same as "c".
+ *
+ *      The search is started at ulPos, which
+ *      defaults to 0.
+ *
+ *      Returns BSString::npos if not found.
+ *
+ *@@added V1.0.21 (2015-01-29) [pr]
+ */
+
+size_type BSString::find_first_of(char c,             // in: character to find
+                                  size_type ulPos)    // in: start of search (defaults to 0)
+                    const
+{
+    STRINGLOCK;
+    size_type Size = size();
+
+    if (    (ulPos < Size)
+         && (c)
+       )
+    {
+        char *p;
+        size_type ul;
+        for (p = _pBuf->_str.psz + ulPos, ul = ulPos;
+             ul < Size;
+             ++p, ++ul)
+        {
+            if (*p != c)
+                return (ul);
+        }
+    }
+
+    // not found:
     return (npos);
 }
 
