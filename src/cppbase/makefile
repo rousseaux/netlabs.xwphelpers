@@ -2,7 +2,7 @@
 # See make\readme.txt about an introduction to the make system introduced
 # in the CVS trunk on 2003-01-28.
 #
-#       Copyright (C) 1998-2003 Ulrich M”ller.
+#       Copyright (C) 1998-2015 Ulrich M”ller.
 #       This file is part of the XWorkplace source package.
 #       XWorkplace is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published
@@ -56,7 +56,8 @@ $(OUTPUTDIR)\bs_logger.obj\
 $(OUTPUTDIR)\bs_string_base.obj\
 $(OUTPUTDIR)\bs_string.obj\
 $(OUTPUTDIR)\bs_string_uni.obj\
-$(OUTPUTDIR)\bs_string_conv.obj
+$(OUTPUTDIR)\bs_string_conv.obj\
+$(OUTPUTDIR)\bs_tokenizer.obj
 
 # ***************************************************************************
 # *
