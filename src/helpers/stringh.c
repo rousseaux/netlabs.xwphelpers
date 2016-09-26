@@ -22,7 +22,7 @@
  */
 
 /*
- *      Copyright (C) 1997-2006 Ulrich M”ller.
+ *      Copyright (C) 1997-2016 Ulrich M”ller.
  *      Parts Copyright (C) 1991-1999 iMatix Corporation.
  *      This file is part of the "XWorkplace helpers" source package.
  *      This is free software; you can redistribute it and/or modify
@@ -1321,6 +1321,7 @@ BOOL strhKillChar(PSZ psz,
  *@@changed V0.9.12 (2001-05-22) [umoeller]: fixed space bug, thanks Yuri Dario
  *@@changed WarpIN V1.0.11 (2006-08-29) [pr]: handle attrib names in quoted strings @@fixes 718
  *@@changed WarpIN V1.0.12 (2006-09-07) [pr]: fix attrib handling again @@fixes 718 @@fixes 836
+ *@@changed WarpIN V1.0.23 (2016-09-23) [pr]: fix single quote handling and allow escaping @@fixes 1244
  */
 
 PSZ strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib)
@@ -1330,6 +1331,7 @@ PSZ strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib)
     ULONG  cbAttrib = strlen(pszAttrib),
            ulLength = strlen(pszSearchIn);
     BOOL   fInQuote = FALSE;
+    CHAR   cQuote = '\0', cPrev = '\0';
 
     // use alloca(), so memory is freed on function exit
     pszSearchIn2 = (PSZ)alloca(ulLength + 1);
@@ -1338,18 +1340,21 @@ PSZ strhFindAttribValue(const char *pszSearchIn, const char *pszAttrib)
     // V1.0.12 (2006-09-07) [pr]: filter leading " and ' left over from the previous pass
     for (p = pszSearchIn2;   *p == '\'' || *p == '"'  || *p == ' '
                           || *p == '\n' || *p == '\r' || *p == '\t'; p++);
-    for (pszStart = p; *p; p++)
+    for (pszStart = p; *p; cPrev = *(p++))
     {
         if (fInQuote)
         {
             // V1.0.12 (2006-09-07) [pr]: allow end of line to terminate a (broken) quote
-            if (*p == '"' || *p == '\n' || *p == '\r')
+            if ((*p == cQuote && cPrev != '\\') || *p == '\n' || *p == '\r')
                 fInQuote = FALSE;
         }
         else
         {
-            if (*p == '"')
+            if (*p == '"' || *p == '\'')
+            {
                 fInQuote = TRUE;
+                cQuote = *p;
+            }
             else
             {
                 if (*p == ' ' || *p == '\n' || *p == '\r' || *p == '\t')
@@ -1447,6 +1452,7 @@ PSZ strhGetNumAttribValue(const char *pszSearchIn,       // in: where to search
  *
  *@@added V0.9.0 [umoeller]
  *@@changed V1.0.13 (2006-09-10) [pr]: improved parsing
+ *@@changed WarpIN V1.0.23 (2016-09-23) [pr]: allow escaping @@fixes 1244
  */
 
 PSZ strhGetTextAttr(const char *pszSearchIn,
@@ -1462,10 +1468,10 @@ PSZ strhGetTextAttr(const char *pszSearchIn,
     if ((pParam = strhFindAttribValue(pszSearchIn, pszTag)))
     {
         // determine end character to search for: a space
-        CHAR cEnd = ' ';
+        CHAR cEnd = ' ', cPrev = '\0';
         // V1.0.3 (2004-11-10) [pr]: @@fixes 461
         // V1.0.13 (2006-09-10) [pr]: optimized
-        if ((*pParam == '\"') || (*pParam == '\''))
+        if ((*pParam == '"') || (*pParam == '\''))
         {
             // or, if the data is enclosed in quotes, a quote or single quote
             cEnd = *pParam;
@@ -1483,7 +1489,7 @@ PSZ strhGetTextAttr(const char *pszSearchIn,
             // V1.0.13 (2006-09-10) [pr]: line end terminates non-quoted attribute
             if (   (   (cEnd == ' ')
                     && ((*pParam == ' ') || (*pParam == '\r') || (*pParam == '\n')))
-                || (*pParam == cEnd)
+                || ((*pParam == cEnd) && (cPrev != '\\'))
                )
                 // end character found
                 break;
@@ -1498,16 +1504,25 @@ PSZ strhGetTextAttr(const char *pszSearchIn,
                     // end of tag found:
                     break;
             }
+
             ulCount++;
-            pParam++;
+            cPrev = *(pParam++);
         }
 
-        // copy attribute to new buffer
-        if (ulCount)
+        // copy attribute to new buffer, de-escaping if necessary
+        if (ulCount && (prc = (PSZ) malloc(ulCount+1)))
         {
-            prc = (PSZ)malloc(ulCount+1);
-            memcpy(prc, pParam2, ulCount);
-            *(prc+ulCount) = 0;
+            ULONG i = 0, j = 0;
+
+            for(cPrev = '\0'; i < ulCount; ++i, ++j)
+            {
+                if (cEnd != ' ' && pParam2[i] == cEnd && cPrev == '\\')
+                    --j;
+
+                cPrev = prc[j] = pParam2[i];
+            }
+
+            prc[j] = '\0';
         }
     }
     return prc;
